@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.93.1";
+const APP_BUILD = "v2.96";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -29,7 +29,7 @@ for (const id of [
   "runStatus","currentStep","tSpent","tNeeded","tToday","tBought",
   "startRow","modeSelect","startBtn","resumeSavedBtn","controlRow","pauseBtn","resumeBtn",
   "retryFailedBtn","finishNowBtn","abortBtn","unstickNote","addAsin","addQty","addPriority","addBtn",
-  "lineCount","lines","log","generateBtn","approveAllBtn","buylistMeta","buylistItems","toast","installHint",
+  "lineCount","lines","log","generateBtn","approveAllBtn","buylistMeta","buylistApproved","buylistItems","toast","installHint",
   "progress","progressText","genCard","genStep","genLog","previewBtn","discardSavedBtn",
   "blAddAsin","blAddQty","blAddBtn",
   "pushRow","pushBtn","refreshBtn","reloadBtn","buildStamp",
@@ -417,12 +417,50 @@ function isBeingEdited(container) {
 // to survive outside the DOM or they snap shut under the user.
 const expandedAsins = new Set();
 
+// P-42 (2026-09-09): "It's still jittery and slow, although it is
+// better." isBeingEdited() above only protects a field being actively
+// typed in - it does nothing for "just looking/scrolling", and a full
+// innerHTML teardown-and-rebuild (new <img> elements included) every
+// 1.5-5s poll tick, even when NOTHING changed, is real, visible jank on
+// top of that. Comparing a JSON fingerprint of what was last actually
+// rendered is a correct, minimal guard: any real change - including the
+// optimistic mutation buylistAction() makes directly to lastPayload.buylist
+// before calling renderBuylist() - still serializes differently and still
+// renders.
+let lastRenderedLinesFp;
+let lastRenderedBuylistFp;
+
 // Formatters. `null` means "no value" and must render as the desktop's
 // "-", never as 0 - see numOrNull() in remote-protocol.js.
 function fmtQty(n) { return typeof n === "number" && Number.isFinite(n) ? String(n) : "-"; }
 function fmtPct(n) { return typeof n === "number" && Number.isFinite(n) ? `${n.toFixed(1)}%` : "-"; }
 
+// P-41 (2026-09-09): "I want confirmed, contingency, and old meat divided
+// up into sections like the desktop." Mirrors buylist/buylist.js's own
+// SECTION_META (title + order) rather than inventing a second copy of the
+// section names - internal key "offbeat" / label "Old Meat" is
+// intentional, see that file's own comment on the 2026 rename.
+const BUYLIST_SECTIONS = [
+  { key: "confirmed", title: "Confirmed Buys" },
+  { key: "contingency", title: "Contingency" },
+  { key: "offbeat", title: "Old Meat" },
+];
+
+// Mirrors lib/buylist.js's lineCost() (qty * unitCost) using the fields
+// already on this projected item - i.qty IS the desktop's BUY QTY field
+// (see remote-protocol.js's own comment on the buylist.items projection) -
+// so this deliberately does not also fall back through blendedQty the way
+// the source-of-truth lineCost() does: that field is never sent to the
+// phone, and this total should always agree with what "Buy qty" on each
+// card already shows.
+function lineCostPhone(i) {
+  return i.qty != null && i.unitCost != null ? i.qty * i.unitCost : 0;
+}
+
 function renderLines(lines, total, truncated) {
+  const fp = JSON.stringify([lines, total, truncated]);
+  if (fp === lastRenderedLinesFp) return;
+  lastRenderedLinesFp = fp;
   els.lineCount.textContent = truncated ? `${lines.length} of ${total}` : String(total);
   els.lines.innerHTML = "";
   for (const l of lines) {
@@ -697,132 +735,197 @@ const ANSWER_LABELS = {
 };
 
 function renderBuylist(bl) {
-  if (!bl) { els.buylistMeta.textContent = "No buylist generated yet."; els.buylistItems.innerHTML = ""; return; }
+  if (!bl) {
+    els.buylistMeta.textContent = "No buylist generated yet.";
+    els.buylistApproved.textContent = "";
+    els.buylistItems.innerHTML = "";
+    lastRenderedBuylistFp = undefined;
+    return;
+  }
+  const fp = JSON.stringify(bl);
+  if (fp === lastRenderedBuylistFp) return;
+  lastRenderedBuylistFp = fp;
+
   els.buylistMeta.textContent =
     `${bl.itemCount} line(s)${bl.truncated ? ` (showing first ${(bl.items || []).length})` : ""}` +
-    `${bl.generatedAt ? ` · generated ${new Date(bl.generatedAt).toLocaleString()}` : ""}`;
+    `${bl.generatedAt ? ` · generated ${new Date(bl.generatedAt).toLocaleString()}` : ""}` +
+    `${bl.excludedCount ? ` · ${bl.excludedCount} other ASIN${bl.excludedCount === 1 ? "" : "s"} left out` : ""}`;
+
+  // P-43: "I need to know how much $ approved we have when I approve a buy
+  // but we've lost that whole part of the desktop UI." Same math as the
+  // desktop's computeApprovedTotals() (buylist.js) - sum of lineCost()
+  // over every currently-approved item, all sections combined.
+  const approvedTotal = (bl.items || [])
+    .filter((i) => i.decision === "approved")
+    .reduce((sum, i) => sum + lineCostPhone(i), 0);
+  els.buylistApproved.textContent = (bl.items || []).length ? `Approved: ${money(approvedTotal)}` : "";
+
   els.buylistItems.innerHTML = "";
 
-  for (const i of bl.items || []) {
-    const row = document.createElement("div");
-    row.className = `line bl-${i.decision || "undecided"}`;
+  // P-41: "I want confirmed, contingency, and old meat divided up into
+  // sections like the desktop." Grouped in the desktop's own fixed order
+  // (SECTION_META), each with a line count and $ total.
+  for (const sec of BUYLIST_SECTIONS) {
+    const items = (bl.items || []).filter((i) => i.section === sec.key);
+    if (!items.length) continue;
+    const total = items.reduce((sum, i) => sum + lineCostPhone(i), 0);
+    const head = document.createElement("h2");
+    head.className = "section-head bl-section-head";
+    head.innerHTML =
+      `${escapeHtml(sec.title)} <span class="count">${items.length} line${items.length === 1 ? "" : "s"} · ${money(total)}</span>`;
+    els.buylistItems.appendChild(head);
 
-    // P-26. The five fields Zach named as what decides an approve/reject
-    // (answered 2026-09-09), plus the title and thumbnail he asked for.
-    // Everything else lives behind the Details toggle - a phone card
-    // cannot carry the desktop's twenty columns and should not try.
-    const head = document.createElement("div");
-    head.className = "bl-head";
-    if (i.thumbnailUrl) {
-      const img = document.createElement("img");
-      img.className = "bl-thumb";
-      img.loading = "lazy";
-      img.alt = "";
-      img.src = i.thumbnailUrl;
-      // A dead image URL must not leave a broken-image glyph in the row.
-      img.addEventListener("error", () => img.remove());
-      head.appendChild(img);
+    // P-45: Claude's plain-English read on the Old Meat pool - shown on
+    // the desktop (buylist.js's renderOldMeatAssessment()), never sent to
+    // the phone before. Only ever set alongside the Old Meat section.
+    if (sec.key === "offbeat" && bl.poolAssessment) {
+      const box = document.createElement("div");
+      box.className = "old-meat-box";
+      box.innerHTML = `<strong>🥩 Old Meat pool:</strong> ${escapeHtml(bl.poolAssessment)}`;
+      els.buylistItems.appendChild(box);
     }
-    const headText = document.createElement("div");
-    headText.className = "bl-headtext";
-    headText.innerHTML =
-      `<div class="l-top"><span class="l-asin">${escapeHtml(i.asin)}</span>` +
-      `<span class="l-status">${escapeHtml(i.section)}${decisionSuffix(i)}</span></div>` +
-      `<div class="l-title">${escapeHtml(i.title)}</div>`;
-    head.appendChild(headText);
-    row.appendChild(head);
 
-    const stats = document.createElement("div");
-    stats.className = "bl-stats";
-    stats.innerHTML =
-      statCell("Buy qty", fmtQty(i.qty)) +
-      statCell("SB rec", fmtQty(i.sbQty)) +
-      statCell("RP rec", fmtQty(i.rpQtyRaw)) +
-      statCell("SB mgn", fmtPct(i.sbMarginPct)) +
-      statCell("RP mgn", fmtPct(i.rpMarginPct));
-    row.appendChild(stats);
-
-    const more = document.createElement("div");
-    more.className = "bl-more";
-    more.innerHTML =
-      statCell("Score", i.score != null ? i.score.toFixed(2) : "-") +
-      statCell("Unit cost", i.unitCost != null ? money(i.unitCost) : "-") +
-      statCell("SB ROI", fmtPct(i.sbRoiPct)) +
-      statCell("RP ROI", fmtPct(i.rpRoiPct)) +
-      statCell("SB vel", fmtQty(i.sbVelocity)) +
-      statCell("RP vel", fmtQty(i.rpVelocity)) +
-      statCell("RP inbound", fmtQty(i.rpInboundQty)) +
-      statCell("RP total", fmtQty(i.rpTotalQuantity)) +
-      statCell("Supplier", i.supplierNames ? escapeHtml(i.supplierNames) : "-");
-
-    // P-36: remembered outside the DOM, because the DOM is disposable.
-    more.hidden = !expandedAsins.has(i.asin);
-    const toggle = document.createElement("button");
-    toggle.className = "mini-btn bl-toggle";
-    toggle.textContent = more.hidden ? "Details" : "Hide";
-    toggle.addEventListener("click", () => {
-      more.hidden = !more.hidden;
-      if (more.hidden) expandedAsins.delete(i.asin);
-      else expandedAsins.add(i.asin);
-      toggle.textContent = more.hidden ? "Details" : "Hide";
-    });
-
-    const actions = document.createElement("div");
-    actions.className = "l-actions";
-    // ⚠ `decision` is a STRING, not a boolean - see P-27. `!!i.approved`
-    // was always false, so this toggle could never say "Unapprove".
-    const isApproved = i.decision === "approved";
-    const approveBtn = document.createElement("button");
-    approveBtn.className = "mini-btn";
-    approveBtn.textContent = isApproved ? "Unapprove" : "Approve";
-    approveBtn.addEventListener("click", () =>
-      buylistAction(i.asin, isApproved ? "unapprove" : "approve")
-    );
-    actions.appendChild(approveBtn);
-    // ⚠⚠ P-31 (v2.93). The button that used to sit here sent
-    // `action: "reject"`. SHOPPER_BUYLIST_ACTION's switch has NO "reject"
-    // case - the real set, read off the switch, is:
-    //
-    //     approve · unapprove · conditional · promote · contingency ·
-    //     block · push
-    //
-    // and anything else falls to `default:` which responds
-    // { ok: false, reason: "Unknown action reject" }. So the phone's
-    // Reject button never worked on any row, in any version, and P-28 is
-    // exactly why nobody found out: the phone threw that refusal away and
-    // toasted "Sent". Both halves of that failure are fixed in this build.
-    //
-    // The desktop has no Reject either - its legend is approve, conditional
-    // approve, promote (up), demote to contingency (down), push (right),
-    // block (no symbol). The phone now offers that same set and no
-    // invented ones.
-    actions.appendChild(optBtn("Promote", i.asin, "promote"));
-    actions.appendChild(optBtn("Demote", i.asin, "contingency"));
-    actions.appendChild(optBtn("Push", i.asin, "push"));
-    actions.appendChild(optBtn("Block", i.asin, "block"));
-    actions.appendChild(toggle);
-
-    const qty = document.createElement("input");
-    qty.type = "number";
-    qty.min = "1";
-    qty.className = "qty-input";
-    // ⚠ P-27: this used to be `String(i.qty || 1)` reading a field that did
-    // not exist, so it showed 1 on EVERY row. Tapping Set qty on an
-    // untouched 216-unit line silently proposed dropping it to 1.
-    qty.value = String(i.qty != null ? i.qty : (i.recommendedQty != null ? i.recommendedQty : 1));
-    const setQty = document.createElement("button");
-    setQty.className = "mini-btn";
-    setQty.textContent = "Set qty";
-    // "conditional" is the buylist's own quantity-adjust action - the real
-    // one, read out of background.js. There is no separate set-quantity
-    // message, and inventing one would mean writing buy logic here.
-    setQty.addEventListener("click", () => buylistAction(i.asin, "conditional", { qty: Number(qty.value) || 1 }));
-    actions.append(qty, setQty);
-
-    row.appendChild(actions);
-    row.appendChild(more);
-    els.buylistItems.appendChild(row);
+    for (const i of items) els.buylistItems.appendChild(buylistCard(i));
   }
+
+  // A grouped view must never silently DROP a line. shapeBuylistItem()
+  // always sets one of the three keys above, so this should stay empty -
+  // it exists so a future section value doesn't just vanish from the UI.
+  const grouped = new Set(BUYLIST_SECTIONS.map((s) => s.key));
+  const ungrouped = (bl.items || []).filter((i) => !grouped.has(i.section));
+  if (ungrouped.length) {
+    const head = document.createElement("h2");
+    head.className = "section-head bl-section-head";
+    head.textContent = `Other (${ungrouped.length})`;
+    els.buylistItems.appendChild(head);
+    for (const i of ungrouped) els.buylistItems.appendChild(buylistCard(i));
+  }
+}
+
+// The card builder - unchanged from the pre-P-41 renderBuylist() body
+// except for the P-40 Prep Center badge. Returns the row; the caller
+// appends it (grouped by section as of P-41).
+function buylistCard(i) {
+  const row = document.createElement("div");
+  row.className = `line bl-${i.decision || "undecided"}`;
+
+  // P-26. The five fields Zach named as what decides an approve/reject
+  // (answered 2026-09-09), plus the title and thumbnail he asked for.
+  // Everything else lives behind the Details toggle - a phone card
+  // cannot carry the desktop's twenty columns and should not try.
+  const head = document.createElement("div");
+  head.className = "bl-head";
+  if (i.thumbnailUrl) {
+    const img = document.createElement("img");
+    img.className = "bl-thumb";
+    img.loading = "lazy";
+    img.alt = "";
+    img.src = i.thumbnailUrl;
+    // A dead image URL must not leave a broken-image glyph in the row.
+    img.addEventListener("error", () => img.remove());
+    head.appendChild(img);
+  }
+  const headText = document.createElement("div");
+  headText.className = "bl-headtext";
+  headText.innerHTML =
+    `<div class="l-top"><span class="l-asin">${escapeHtml(i.asin)}</span>` +
+    // P-40: "there's no indication if something is prep center or not."
+    `${i.prepCenter ? `<span class="pc-badge">Prep Center</span>` : ""}` +
+    `<span class="l-status">${escapeHtml(i.section)}${decisionSuffix(i)}</span></div>` +
+    `<div class="l-title">${escapeHtml(i.title)}</div>`;
+  head.appendChild(headText);
+  row.appendChild(head);
+
+  const stats = document.createElement("div");
+  stats.className = "bl-stats";
+  stats.innerHTML =
+    statCell("Buy qty", fmtQty(i.qty)) +
+    statCell("SB rec", fmtQty(i.sbQty)) +
+    statCell("RP rec", fmtQty(i.rpQtyRaw)) +
+    statCell("SB mgn", fmtPct(i.sbMarginPct)) +
+    statCell("RP mgn", fmtPct(i.rpMarginPct));
+  row.appendChild(stats);
+
+  const more = document.createElement("div");
+  more.className = "bl-more";
+  more.innerHTML =
+    statCell("Score", i.score != null ? i.score.toFixed(2) : "-") +
+    statCell("Unit cost", i.unitCost != null ? money(i.unitCost) : "-") +
+    statCell("SB ROI", fmtPct(i.sbRoiPct)) +
+    statCell("RP ROI", fmtPct(i.rpRoiPct)) +
+    statCell("SB vel", fmtQty(i.sbVelocity)) +
+    statCell("RP vel", fmtQty(i.rpVelocity)) +
+    statCell("RP inbound", fmtQty(i.rpInboundQty)) +
+    statCell("RP total", fmtQty(i.rpTotalQuantity)) +
+    statCell("Supplier", i.supplierNames ? escapeHtml(i.supplierNames) : "-");
+
+  // P-36: remembered outside the DOM, because the DOM is disposable.
+  more.hidden = !expandedAsins.has(i.asin);
+  const toggle = document.createElement("button");
+  toggle.className = "mini-btn bl-toggle";
+  toggle.textContent = more.hidden ? "Details" : "Hide";
+  toggle.addEventListener("click", () => {
+    more.hidden = !more.hidden;
+    if (more.hidden) expandedAsins.delete(i.asin);
+    else expandedAsins.add(i.asin);
+    toggle.textContent = more.hidden ? "Details" : "Hide";
+  });
+
+  const actions = document.createElement("div");
+  actions.className = "l-actions";
+  // ⚠ `decision` is a STRING, not a boolean - see P-27. `!!i.approved`
+  // was always false, so this toggle could never say "Unapprove".
+  const isApproved = i.decision === "approved";
+  const approveBtn = document.createElement("button");
+  approveBtn.className = "mini-btn";
+  approveBtn.textContent = isApproved ? "Unapprove" : "Approve";
+  approveBtn.addEventListener("click", () =>
+    buylistAction(i.asin, isApproved ? "unapprove" : "approve")
+  );
+  actions.appendChild(approveBtn);
+  // ⚠⚠ P-31 (v2.93). The button that used to sit here sent
+  // `action: "reject"`. SHOPPER_BUYLIST_ACTION's switch has NO "reject"
+  // case - the real set, read off the switch, is:
+  //
+  //     approve · unapprove · conditional · promote · contingency ·
+  //     block · push
+  //
+  // and anything else falls to `default:` which responds
+  // { ok: false, reason: "Unknown action reject" }. So the phone's
+  // Reject button never worked on any row, in any version, and P-28 is
+  // exactly why nobody found out: the phone threw that refusal away and
+  // toasted "Sent". Both halves of that failure are fixed in this build.
+  //
+  // The desktop has no Reject either - its legend is approve, conditional
+  // approve, promote (up), demote to contingency (down), push (right),
+  // block (no symbol). The phone now offers that same set and no
+  // invented ones.
+  actions.appendChild(optBtn("Promote", i.asin, "promote"));
+  actions.appendChild(optBtn("Demote", i.asin, "contingency"));
+  actions.appendChild(optBtn("Push", i.asin, "push"));
+  actions.appendChild(optBtn("Block", i.asin, "block"));
+  actions.appendChild(toggle);
+
+  const qty = document.createElement("input");
+  qty.type = "number";
+  qty.min = "1";
+  qty.className = "qty-input";
+  // ⚠ P-27: this used to be `String(i.qty || 1)` reading a field that did
+  // not exist, so it showed 1 on EVERY row. Tapping Set qty on an
+  // untouched 216-unit line silently proposed dropping it to 1.
+  qty.value = String(i.qty != null ? i.qty : (i.recommendedQty != null ? i.recommendedQty : 1));
+  const setQty = document.createElement("button");
+  setQty.className = "mini-btn";
+  setQty.textContent = "Set qty";
+  // "conditional" is the buylist's own quantity-adjust action - the real
+  // one, read out of background.js. There is no separate set-quantity
+  // message, and inventing one would mean writing buy logic here.
+  setQty.addEventListener("click", () => buylistAction(i.asin, "conditional", { qty: Number(qty.value) || 1 }));
+  actions.append(qty, setQty);
+
+  row.appendChild(actions);
+  row.appendChild(more);
+  return row;
 }
 
 function statCell(label, value) {

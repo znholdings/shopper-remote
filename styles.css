@@ -79,7 +79,10 @@ button { font: inherit; cursor: pointer; }
 .l-meta { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .l-error { font-size: 12px; color: var(--bad); margin-top: 3px; }
 .l-actions { display: flex; gap: 6px; margin-top: 7px; flex-wrap: wrap; align-items: center; }
-.qty-input { width: 64px; padding: 6px; border-radius: 8px; border: 1px solid var(--line); background: #0e1015; color: var(--text); font-size: 15px; }
+/* P-44 (2026-09-09): "every time I go to type in the quantity box it
+   zooms in just a hair" - iOS Safari auto-zooms any focused input whose
+   computed font-size is under 16px. Was 15px. */
+.qty-input { width: 64px; padding: 6px; border-radius: 8px; border: 1px solid var(--line); background: #0e1015; color: var(--text); font-size: 16px; }
 .line-bought { border-color: rgba(53,196,106,.45); }
 .line-failed, .line-error { border-color: rgba(255,93,93,.45); }
 
@@ -194,3 +197,13 @@ button { font: inherit; cursor: pointer; }
    rule and `el.hidden` without it.
    --------------------------------------------------------------------- */
 [hidden] { display: none !important; }
+
+/* P-40/P-41/P-43/P-45 (2026-09-09): mobile buylist desktop-parity pass. */
+.bl-section-head { margin-top: 16px; }
+.bl-section-head:first-of-type { margin-top: 0; }
+.pc-badge { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px;
+  font-size: 10px; font-weight: 700; background: rgba(240,180,41,.18); color: var(--warn);
+  vertical-align: middle; }
+.approved-total { font-size: 15px; font-weight: 700; margin: 2px 0 10px; }
+.old-meat-box { margin: 8px 0 12px; padding: 10px 12px; border: 1px solid var(--line);
+  border-radius: 10px; background: var(--panel); font-size: 12px; line-height: 1.5; color: var(--muted); }
