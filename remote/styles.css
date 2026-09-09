@@ -1,0 +1,209 @@
+/* Shopper Remote (P-15, v2.92) - phone-first. Dark by default: this gets
+   opened at night, one-handed, to answer one question. */
+:root {
+  --bg: #111318; --panel: #1a1d24; --line: #262a33; --text: #e8eaf0;
+  --muted: #9aa1b1; --accent: #4c8dff; --good: #35c46a; --warn: #f0b429; --bad: #ff5d5d;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text);
+  font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+#app { max-width: 640px; margin: 0 auto; padding: 12px 12px 40px; }
+h1 { font-size: 20px; margin: 12px 0 6px; }
+h2 { font-size: 15px; margin: 14px 0 6px; }
+.muted { color: var(--muted); font-size: 13px; }
+.small { font-size: 12px; }
+.error-text { color: var(--bad); }
+.warn-text { color: var(--warn); font-size: 13px; }
+
+.topbar { display: flex; align-items: center; gap: 10px; padding: 6px 0 10px; border-bottom: 1px solid var(--line); }
+.brand { font-weight: 800; letter-spacing: .02em; }
+.device-name { color: var(--muted); font-size: 13px; flex: 1; }
+
+/* Liveness is the loudest thing on screen, by design. */
+.live-banner { margin: 10px 0; padding: 10px 12px; border-radius: 10px; font-weight: 700; font-size: 14px; }
+.tone-running { background: rgba(53,196,106,.14); color: var(--good); }
+.tone-waiting { background: rgba(240,180,41,.16); color: var(--warn); }
+.tone-paused  { background: rgba(154,161,177,.16); color: var(--muted); }
+.tone-idle    { background: rgba(154,161,177,.12); color: var(--muted); }
+.tone-stalled, .tone-offline { background: rgba(255,93,93,.16); color: var(--bad); }
+
+.view { padding-top: 6px; }
+.tabs { display: flex; gap: 6px; margin: 10px 0; }
+.tab { flex: 1; padding: 9px; border-radius: 9px; border: 1px solid var(--line); background: var(--panel); color: var(--muted); font-weight: 700; }
+.tab.active { color: var(--text); border-color: var(--accent); }
+
+.prompt-card { background: var(--panel); border: 1px solid var(--warn); border-radius: 12px; padding: 12px; margin: 10px 0; }
+.prompt-fields { margin: 8px 0; }
+.p-field { display: block; margin-bottom: 8px; }
+.p-field span { display: block; font-size: 12px; color: var(--muted); margin-bottom: 3px; }
+.p-field input { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--line); background: #0e1015; color: var(--text); font-size: 16px; }
+.prompt-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.statline { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
+.pill { padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; background: var(--line); }
+.step-text { color: var(--muted); font-size: 13px; flex: 1; }
+
+.totals { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin: 10px 0; }
+.total { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
+.t-label { display: block; font-size: 11px; color: var(--muted); }
+.t-value { display: block; font-size: 17px; font-weight: 800; font-variant-numeric: tabular-nums; }
+
+.controls { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
+.mode-row { display: block; width: 100%; font-size: 12px; color: var(--muted); }
+.mode-row select { width: 100%; margin-top: 4px; padding: 10px; border-radius: 8px; background: #0e1015; color: var(--text); border: 1px solid var(--line); font-size: 15px; }
+button { font: inherit; cursor: pointer; }
+.primary-btn, .secondary-btn, .danger-btn, .ghost-btn, .mini-btn {
+  border-radius: 9px; padding: 11px 14px; border: 1px solid var(--line); font-weight: 700; }
+.primary-btn { background: var(--accent); color: #fff; border-color: var(--accent); }
+.secondary-btn { background: var(--panel); color: var(--text); }
+.danger-btn { background: rgba(255,93,93,.15); color: var(--bad); border-color: rgba(255,93,93,.4); }
+.ghost-btn { background: transparent; color: var(--muted); padding: 6px 10px; }
+.big { flex: 1; min-height: 52px; font-size: 17px; }
+.mini-btn { padding: 6px 10px; font-size: 12px; background: var(--panel); color: var(--text); }
+
+.section { margin: 12px 0; border-top: 1px solid var(--line); padding-top: 8px; }
+.section summary { font-weight: 700; font-size: 14px; }
+.section-head { display: flex; gap: 6px; align-items: baseline; }
+.count { color: var(--muted); font-size: 12px; font-weight: 500; }
+.add-row { display: grid; grid-template-columns: 1fr 70px; gap: 6px; margin-top: 8px; }
+.add-row select, .add-row button { grid-column: 1 / -1; }
+.add-row input, .add-row select { padding: 10px; border-radius: 8px; border: 1px solid var(--line); background: #0e1015; color: var(--text); font-size: 16px; }
+
+.lines { display: flex; flex-direction: column; gap: 8px; }
+.line { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; }
+.l-top { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; }
+.l-asin { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 700; }
+.l-status { color: var(--muted); }
+.l-title { font-size: 13px; margin: 2px 0; }
+.l-meta { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.l-error { font-size: 12px; color: var(--bad); margin-top: 3px; }
+.l-actions { display: flex; gap: 6px; margin-top: 7px; flex-wrap: wrap; align-items: center; }
+/* P-44 (2026-09-09): "every time I go to type in the quantity box it
+   zooms in just a hair" - iOS Safari auto-zooms any focused input whose
+   computed font-size is under 16px. Was 15px. */
+.qty-input { width: 64px; padding: 6px; border-radius: 8px; border: 1px solid var(--line); background: #0e1015; color: var(--text); font-size: 16px; }
+.line-bought { border-color: rgba(53,196,106,.45); }
+.line-failed, .line-error { border-color: rgba(255,93,93,.45); }
+
+.log { white-space: pre-wrap; font-size: 11px; color: var(--muted); max-height: 40vh; overflow: auto; }
+.device-list { display: flex; flex-direction: column; gap: 8px; }
+.device-btn { display: flex; justify-content: space-between; align-items: center; padding: 14px; border-radius: 10px; background: var(--panel); border: 1px solid var(--line); color: var(--text); }
+.d-name { font-weight: 700; }
+.d-state { font-size: 12px; }
+.d-state.good { color: var(--good); }
+.d-state.bad { color: var(--bad); }
+
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom));
+  background: var(--panel); border: 1px solid var(--line); padding: 9px 14px; border-radius: 999px; font-size: 13px; }
+.toast.error { border-color: var(--bad); color: var(--bad); }
+.install-hint { margin-top: 14px; padding: 10px 12px; border: 1px dashed var(--line); border-radius: 10px; color: var(--muted); font-size: 12px; }
+
+.bought-form { display: grid; grid-template-columns: 1fr 70px 90px; gap: 6px; margin-top: 8px; }
+.bought-form input { padding: 9px; border-radius: 8px; border: 1px solid var(--line); background: #0e1015; color: var(--text); font-size: 16px; }
+.bought-form button { grid-column: span 1; }
+.bought-form .primary-btn { grid-column: 1 / 3; }
+
+/* ------------------------------------------------------------ v2.93 */
+/* P-25: progress + the laptop's own narration. */
+.progress {
+  display: flex; align-items: center; gap: 10px;
+  margin: 10px 0; padding: 10px 12px;
+  background: #1b2030; border: 1px solid #2b3348; border-radius: 10px;
+  font-size: 15px;
+}
+.spinner {
+  width: 16px; height: 16px; flex: 0 0 16px;
+  border-radius: 50%;
+  border: 2px solid #3a4260; border-top-color: #7aa2ff;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 3s; } }
+
+.gen-card {
+  margin: 10px 0; padding: 12px;
+  background: #161a26; border: 1px solid #2b3348; border-radius: 10px;
+}
+.gen-card.failed { border-color: #7a3140; }
+.gen-step { font-size: 15px; margin-bottom: 8px; }
+.gen-log {
+  max-height: 180px; overflow-y: auto; margin: 0;
+  font-size: 12px; line-height: 1.5; color: #9aa4bd;
+  white-space: pre-wrap; word-break: break-word;
+}
+
+/* P-26: the buylist card. Five stats that decide an approval, the rest
+   behind Details. */
+.bl-head { display: flex; gap: 10px; align-items: flex-start; }
+.bl-thumb {
+  width: 52px; height: 52px; flex: 0 0 52px;
+  object-fit: contain; background: #fff; border-radius: 6px;
+}
+.bl-headtext { min-width: 0; flex: 1; }
+
+.bl-stats, .bl-more {
+  display: grid; grid-template-columns: repeat(5, 1fr);
+  gap: 6px; margin: 10px 0 4px;
+}
+.bl-more { grid-template-columns: repeat(3, 1fr); margin-top: 10px; }
+.bl-stat {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 6px 4px; background: #161a26; border-radius: 6px; text-align: center;
+}
+.bs-label { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; color: #7c86a0; }
+.bs-value { font-size: 15px; font-weight: 600; }
+
+.line.bl-approved { border-left: 3px solid #3f9a5a; }
+.line.bl-rejected, .line.bl-blocked { border-left: 3px solid #7a3140; opacity: .75; }
+
+.l-src { color: #7aa2ff; }
+
+
+/* ------------------------------------------------------ v2.93.1 */
+/* P-34: the notifications prompt cannot be requested without a tap. */
+.push-row {
+  display: flex; flex-direction: column; gap: 8px;
+  margin: 10px 0; padding: 12px;
+  background: #1b2030; border: 1px solid #3a4260; border-radius: 10px;
+}
+.push-text { font-size: 14px; color: #c7cfe2; }
+
+/* P-35: refresh / reload / build stamp. */
+.app-footer {
+  display: flex; align-items: center; gap: 10px;
+  margin: 18px 0 8px; padding-top: 12px;
+  border-top: 1px solid #232838;
+}
+.build-stamp { margin-left: auto; font-size: 11px; color: #6c7590; font-variant-numeric: tabular-nums; }
+
+/* ---------------------------------------------------------------------
+   ⚠ THE `hidden` ATTRIBUTE MUST ALWAYS WIN. Added v2.94.
+   ---------------------------------------------------------------------
+   The browser's own [hidden] rule lives in the UA stylesheet, and ANY
+   author rule that sets `display` beats it. v2.93 added
+   `.progress { display: flex }` and `.bl-more { display: grid }`, both of
+   which are opened and closed with `el.hidden` - so both were pinned
+   permanently OPEN the moment this stylesheet shipped. Zach's phone showed
+   a spinner reading "Working..." over an idle queue, with nothing running.
+   It looked like a hung command and was a CSS specificity bug.
+
+   This is the v2.90 lesson wearing new clothes. That one was `class="hidden"`
+   fighting `el.hidden`; this one is a `display:` rule fighting the same
+   property. The codebase rule stands - markup closes an element with the
+   `hidden` ATTRIBUTE - and this is what makes that rule actually hold.
+
+   Keep this LAST in the file, and never give an element both a `display`
+   rule and `el.hidden` without it.
+   --------------------------------------------------------------------- */
+[hidden] { display: none !important; }
+
+/* P-40/P-41/P-43/P-45 (2026-09-09): mobile buylist desktop-parity pass. */
+.bl-section-head { margin-top: 16px; }
+.bl-section-head:first-of-type { margin-top: 0; }
+.pc-badge { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px;
+  font-size: 10px; font-weight: 700; background: rgba(240,180,41,.18); color: var(--warn);
+  vertical-align: middle; }
+.approved-total { font-size: 15px; font-weight: 700; margin: 2px 0 10px; }
+.old-meat-box { margin: 8px 0 12px; padding: 10px 12px; border: 1px solid var(--line);
+  border-radius: 10px; background: var(--panel); font-size: 12px; line-height: 1.5; color: var(--muted); }

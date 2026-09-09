@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#111318" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Shopper Remote</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icon-180.png" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- P-15 (v2.93). This page is a MIRROR of the Buy Queue side pane plus
+       a start button. It renders what the laptop publishes and relays what
+       Zach taps. It contains no buy logic, and it never answers a prompt
+       on his behalf. -->
+  <div id="app">
+    <header class="topbar">
+      <div class="brand">Shopper</div>
+      <div id="deviceName" class="device-name"></div>
+      <button id="signOutBtn" class="ghost-btn" hidden>Sign out</button>
+    </header>
+
+    <!-- The liveness banner is the first thing on screen on purpose:
+         Zach's own requirement was that "running" and "stalled, go to the
+         machine" must never look alike. -->
+    <div id="liveBanner" class="live-banner" hidden></div>
+
+    <!-- P-25. Proof the tap landed (progress), and what the laptop is
+         actually doing (currentStep + the generation log tail). -->
+    <!-- P-34: permission is only ever requested from a real tap. Hidden
+         once granted, and in a browser tab (where it cannot work). -->
+    <div id="pushRow" class="push-row" hidden>
+      <span class="push-text">Notifications are off - a paused run won't reach you.</span>
+      <button id="pushBtn" class="primary-btn">Turn on notifications</button>
+    </div>
+
+    <div id="progress" class="progress" hidden>
+      <span class="spinner" aria-hidden="true"></span>
+      <span id="progressText">Working...</span>
+    </div>
+    <div id="genCard" class="gen-card" hidden>
+      <div id="genStep" class="gen-step"></div>
+      <pre id="genLog" class="gen-log"></pre>
+    </div>
+
+    <section id="signinView" class="view" hidden>
+      <h1>Sign in</h1>
+      <p class="muted">Same Google account as the laptop.</p>
+      <button id="signInBtn" class="primary-btn big">Sign in with Google</button>
+      <p id="signinError" class="error-text" hidden></p>
+    </section>
+
+    <section id="pickerView" class="view" hidden>
+      <h1>Pick your laptop</h1>
+      <div id="deviceList" class="device-list"></div>
+    </section>
+
+    <section id="mainView" class="view" hidden>
+      <nav class="tabs">
+        <button id="tabRun" class="tab active">Run</button>
+        <button id="tabBuylist" class="tab">Buylist</button>
+      </nav>
+
+      <div id="runPane">
+        <!-- the pause prompt outranks everything else on the screen -->
+        <div id="promptCard" class="prompt-card" hidden>
+          <h2 id="promptTitle"></h2>
+          <p id="promptDetail" class="muted"></p>
+          <p id="promptExpiry" class="warn-text" hidden></p>
+          <div id="promptFields" class="prompt-fields"></div>
+          <div id="promptActions" class="prompt-actions"></div>
+        </div>
+
+        <div class="statline">
+          <span id="runStatus" class="pill">idle</span>
+          <span id="currentStep" class="step-text"></span>
+        </div>
+
+        <div class="totals">
+          <div class="total"><span class="t-label">Spent this run</span><span id="tSpent" class="t-value">$0.00</span></div>
+          <div class="total"><span class="t-label">Needed today</span><span id="tNeeded" class="t-value">$0.00</span></div>
+          <div class="total"><span class="t-label">Spent today</span><span id="tToday" class="t-value">$0.00</span></div>
+          <div class="total"><span class="t-label">Lines bought</span><span id="tBought" class="t-value">0</span></div>
+        </div>
+
+        <div id="startRow" class="controls" hidden>
+          <label class="mode-row">
+            <span>Order approval</span>
+            <select id="modeSelect">
+              <option value="auto">Auto - place every order</option>
+              <option value="per-product">Per-product - approve once per ASIN</option>
+              <option value="per-order">Per-order - ask every time</option>
+            </select>
+          </label>
+          <button id="startBtn" class="primary-btn big">Start Buy Queue</button>
+          <button id="resumeSavedBtn" class="secondary-btn" hidden>Resume saved queue</button>
+          <button id="discardSavedBtn" class="ghost-btn" hidden>Discard saved queue</button>
+          <button id="previewBtn" class="ghost-btn">Refresh preview</button>
+        </div>
+
+        <div id="controlRow" class="controls" hidden>
+          <button id="pauseBtn" class="secondary-btn">Pause</button>
+          <button id="resumeBtn" class="secondary-btn" hidden>Resume</button>
+          <button id="retryFailedBtn" class="secondary-btn" hidden>Retry failed buy</button>
+          <button id="finishNowBtn" class="secondary-btn" hidden>Finish now</button>
+          <button id="abortBtn" class="danger-btn">Abort</button>
+        </div>
+
+        <!-- Honesty, not an omission. See the note in the setup page. -->
+        <p id="unstickNote" class="muted small" hidden>
+          Stuck with no response? Force Unstick only works at the laptop - it restarts the
+          extension from the page itself, which a remote command can't do.
+        </p>
+
+        <details class="section">
+          <summary>Add an ASIN</summary>
+          <div class="add-row">
+            <input id="addAsin" placeholder="ASIN" maxlength="10" autocapitalize="characters" />
+            <input id="addQty" type="number" min="1" placeholder="Qty" />
+            <select id="addPriority">
+              <option value="high">High - next</option>
+              <option value="medium" selected>Medium - end</option>
+              <option value="low">Low - contingency</option>
+            </select>
+            <button id="addBtn" class="secondary-btn">Add</button>
+          </div>
+        </details>
+
+        <h2 class="section-head">Lines <span id="lineCount" class="count"></span></h2>
+        <div id="lines" class="lines"></div>
+
+        <details class="section">
+          <summary>Activity log</summary>
+          <pre id="log" class="log"></pre>
+        </details>
+      </div>
+
+      <div id="buylistPane" hidden>
+        <div class="controls">
+          <button id="generateBtn" class="primary-btn">Generate buylist</button>
+          <button id="approveAllBtn" class="secondary-btn">Approve all</button>
+        </div>
+
+        <!-- P-29: add straight to the buylist, not only to the queue. -->
+        <div class="add-row">
+          <input id="blAddAsin" placeholder="ASIN (e.g. B07XBQ1TSK)" autocapitalize="characters" />
+          <input id="blAddQty" type="number" min="1" placeholder="Qty" />
+          <button id="blAddBtn" class="secondary-btn">Add to buylist</button>
+        </div>
+        <p id="buylistMeta" class="muted"></p>
+        <!-- P-43 (2026-09-09): "I need to know how much $ approved we have" -->
+        <p id="buylistApproved" class="approved-total"></p>
+        <div id="buylistItems" class="lines"></div>
+      </div>
+    </section>
+
+    <div id="toast" class="toast" hidden></div>
+
+    <!-- iOS: web push does nothing at all in Safari until the app is on
+         the home screen, and a missed prompt means a run sits paused. -->
+    <!-- P-35: a Home Screen app has no browser chrome, so these are the
+         only way to re-poll or to pick up a new deploy. -->
+    <div class="app-footer">
+      <button id="refreshBtn" class="ghost-btn">Refresh</button>
+      <button id="reloadBtn" class="ghost-btn">Reload app</button>
+      <span id="buildStamp" class="build-stamp"></span>
+    </div>
+
+    <div id="installHint" class="install-hint" hidden>
+      Add this to your Home Screen (Share &rarr; Add to Home Screen) to get
+      notifications when a run stops and needs you.
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
