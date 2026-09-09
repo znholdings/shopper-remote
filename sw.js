@@ -1,4 +1,4 @@
-// Shopper Remote service worker (P-15, v2.92).
+// Shopper Remote service worker (P-15, v2.93).
 //
 // Two jobs, and deliberately no third:
 //   1. Show a push when the laptop reports that a run has stopped and
