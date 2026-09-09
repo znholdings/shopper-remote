@@ -156,6 +156,24 @@ button { font: inherit; cursor: pointer; }
 
 .l-src { color: #7aa2ff; }
 
+
+/* ------------------------------------------------------ v2.93.1 */
+/* P-34: the notifications prompt cannot be requested without a tap. */
+.push-row {
+  display: flex; flex-direction: column; gap: 8px;
+  margin: 10px 0; padding: 12px;
+  background: #1b2030; border: 1px solid #3a4260; border-radius: 10px;
+}
+.push-text { font-size: 14px; color: #c7cfe2; }
+
+/* P-35: refresh / reload / build stamp. */
+.app-footer {
+  display: flex; align-items: center; gap: 10px;
+  margin: 18px 0 8px; padding-top: 12px;
+  border-top: 1px solid #232838;
+}
+.build-stamp { margin-left: auto; font-size: 11px; color: #6c7590; font-variant-numeric: tabular-nums; }
+
 /* ---------------------------------------------------------------------
    ⚠ THE `hidden` ATTRIBUTE MUST ALWAYS WIN. Added v2.94.
    ---------------------------------------------------------------------

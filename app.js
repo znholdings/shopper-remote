@@ -14,6 +14,10 @@
 // ⚠ Command names here must match lib/remote-protocol.js's whitelist
 // exactly. Anything else is refused by the laptop, by design.
 const CFG = window.SHOPPER_REMOTE_CONFIG || {};
+
+// Bumped by hand with every PWA upload. If this does not match what you
+// just deployed, the phone is serving a cached copy - see P-35.
+const APP_BUILD = "v2.93.1";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -28,6 +32,7 @@ for (const id of [
   "lineCount","lines","log","generateBtn","approveAllBtn","buylistMeta","buylistItems","toast","installHint",
   "progress","progressText","genCard","genStep","genLog","previewBtn","discardSavedBtn",
   "blAddAsin","blAddQty","blAddBtn",
+  "pushRow","pushBtn","refreshBtn","reloadBtn","buildStamp",
 ]) els[id] = $(id);
 
 // --------------------------------------------------------------- state
@@ -362,12 +367,55 @@ function renderPayload() {
   els.discardSavedBtn.hidden = !(p.savedQueue && p.savedQueue.exists) || live;
 
   renderPrompt(p.prompt);
-  renderLines(p.lines || [], p.lineCount || 0, p.truncated);
+  // ⚠ P-36. Both of these rebuild their whole list from innerHTML = "",
+  // four times a minute. Skipping the rebuild while the user is inside
+  // that pane is what makes a quantity box typable at all - see
+  // isBeingEdited() for the full reasoning.
+  if (!isBeingEdited(els.lines)) renderLines(p.lines || [], p.lineCount || 0, p.truncated);
   els.log.textContent = (p.log || []).join("\n");
   renderBuylistGen(p.buylistGen);
-  renderBuylist(p.buylist);
+  if (!isBeingEdited(els.buylistItems)) renderBuylist(p.buylist);
   renderInFlight();
 }
+
+// ------------------------------------------------------- P-36: don't
+// destroy what the user is holding
+//
+// THE BUG THIS CLOSES. renderBuylist() and renderLines() both start with
+// `innerHTML = ""`, so every row, every button and every <input> is
+// destroyed and rebuilt on each 3-second poll. Zach: "every time I am
+// trying to edit a text box it pulls me out of the text box every few
+// seconds which makes it impossible to edit the box." It was not a
+// flicker - it was a full DOM teardown, twenty times a minute.
+//
+// Four things went wrong at once and this fixes all of them:
+//   - focus died with the element (and iOS dismissed the keyboard);
+//   - a half-typed quantity reverted, because the rebuilt input takes its
+//     value from the payload;
+//   - the Details panel re-collapsed;
+//   - scroll position could jump on a 51-row list.
+//
+// ⚠ The run pane matters MORE than the buylist here, and it is the half
+// nobody had tried: openBoughtForm() collects an order number, a quantity
+// and a dollar amount that flow straight into real spend totals, and that
+// form lives inside els.lines. It was being wiped mid-entry too.
+//
+// The rule is deliberately narrow: only skip while focus is genuinely
+// inside a field in THAT container. A tap on Approve does not suppress
+// anything, the other pane keeps updating, and the moment he leaves the
+// field the next tick renders normally. Nothing goes stale for longer
+// than one interaction.
+function isBeingEdited(container) {
+  if (!container) return false;
+  const el = document.activeElement;
+  if (!el || el === document.body) return false;
+  if (!/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return false;
+  return container.contains(el);
+}
+
+// Details panels are rebuilt with the rows, so which ones were open has
+// to survive outside the DOM or they snap shut under the user.
+const expandedAsins = new Set();
 
 // Formatters. `null` means "no value" and must render as the desktop's
 // "-", never as 0 - see numOrNull() in remote-protocol.js.
@@ -519,6 +567,59 @@ function lineBtn(label, name, payload) {
   return b;
 }
 
+// ------------------------------------------------- P-37: optimistic UI
+//
+// Even at the new cadence a tap costs a couple of seconds before the
+// laptop's own state comes back, and a button that looks inert for two
+// seconds gets pressed twice. So a buylist decision is applied to the
+// local copy of the payload IMMEDIATELY and re-rendered, then overwritten
+// by the real payload when it arrives.
+//
+// ⚠ This is a DISPLAY guess, never a decision. The laptop remains the
+// only thing that decides anything: the guess is unconditionally replaced
+// by the next published state, and if the command is refused, P-28's
+// outcome poll toasts the reason and the next payload puts the row back
+// the way it really is. Nothing here writes to the relay and nothing here
+// can approve a line the laptop did not approve.
+const OPTIMISTIC_DECISION = {
+  approve: "approved",
+  unapprove: null,
+  block: "blocked",
+  contingency: null,
+  push: "pushed",
+  // promote moves SECTION, not decision - left alone deliberately rather
+  // than guessed at, since guessing the wrong field is this feature's
+  // most repeated mistake.
+};
+
+function optBtn(label, asin, action) {
+  const b = document.createElement("button");
+  b.className = "mini-btn";
+  b.textContent = label;
+  b.addEventListener("click", () => buylistAction(asin, action));
+  return b;
+}
+
+function buylistAction(asin, action, extra = {}) {
+  if (lastPayload && lastPayload.buylist && Array.isArray(lastPayload.buylist.items)) {
+    const item = lastPayload.buylist.items.find((x) => x.asin === asin);
+    if (item) {
+      if (Object.prototype.hasOwnProperty.call(OPTIMISTIC_DECISION, action)) {
+        item.decision = OPTIMISTIC_DECISION[action];
+        item.conditional = false;
+      }
+      if (action === "conditional" && typeof extra.qty === "number") {
+        item.decision = "approved";
+        item.conditional = true;
+        item.qty = extra.qty;
+      }
+      item.pendingLocal = true;
+      if (!isBeingEdited(els.buylistItems)) renderBuylist(lastPayload.buylist);
+    }
+  }
+  sendCommand("buylistAction", { asin, action, ...extra });
+}
+
 // ⚠ The prompt renderer relays an answer. It never picks one, never
 // pre-selects a destructive default, and never times anything out - the
 // filler prompt's own 5-minute clock lives in the laptop's buy loop.
@@ -643,7 +744,6 @@ function renderBuylist(bl) {
 
     const more = document.createElement("div");
     more.className = "bl-more";
-    more.hidden = true;
     more.innerHTML =
       statCell("Score", i.score != null ? i.score.toFixed(2) : "-") +
       statCell("Unit cost", i.unitCost != null ? money(i.unitCost) : "-") +
@@ -655,11 +755,15 @@ function renderBuylist(bl) {
       statCell("RP total", fmtQty(i.rpTotalQuantity)) +
       statCell("Supplier", i.supplierNames ? escapeHtml(i.supplierNames) : "-");
 
+    // P-36: remembered outside the DOM, because the DOM is disposable.
+    more.hidden = !expandedAsins.has(i.asin);
     const toggle = document.createElement("button");
     toggle.className = "mini-btn bl-toggle";
-    toggle.textContent = "Details";
+    toggle.textContent = more.hidden ? "Details" : "Hide";
     toggle.addEventListener("click", () => {
       more.hidden = !more.hidden;
+      if (more.hidden) expandedAsins.delete(i.asin);
+      else expandedAsins.add(i.asin);
       toggle.textContent = more.hidden ? "Details" : "Hide";
     });
 
@@ -668,12 +772,13 @@ function renderBuylist(bl) {
     // ⚠ `decision` is a STRING, not a boolean - see P-27. `!!i.approved`
     // was always false, so this toggle could never say "Unapprove".
     const isApproved = i.decision === "approved";
-    actions.appendChild(
-      lineBtn(isApproved ? "Unapprove" : "Approve", "buylistAction", {
-        asin: i.asin,
-        action: isApproved ? "unapprove" : "approve",
-      })
+    const approveBtn = document.createElement("button");
+    approveBtn.className = "mini-btn";
+    approveBtn.textContent = isApproved ? "Unapprove" : "Approve";
+    approveBtn.addEventListener("click", () =>
+      buylistAction(i.asin, isApproved ? "unapprove" : "approve")
     );
+    actions.appendChild(approveBtn);
     // ⚠⚠ P-31 (v2.93). The button that used to sit here sent
     // `action: "reject"`. SHOPPER_BUYLIST_ACTION's switch has NO "reject"
     // case - the real set, read off the switch, is:
@@ -691,10 +796,10 @@ function renderBuylist(bl) {
     // approve, promote (up), demote to contingency (down), push (right),
     // block (no symbol). The phone now offers that same set and no
     // invented ones.
-    actions.appendChild(lineBtn("Promote", "buylistAction", { asin: i.asin, action: "promote" }));
-    actions.appendChild(lineBtn("Demote", "buylistAction", { asin: i.asin, action: "contingency" }));
-    actions.appendChild(lineBtn("Push", "buylistAction", { asin: i.asin, action: "push" }));
-    actions.appendChild(lineBtn("Block", "buylistAction", { asin: i.asin, action: "block" }));
+    actions.appendChild(optBtn("Promote", i.asin, "promote"));
+    actions.appendChild(optBtn("Demote", i.asin, "contingency"));
+    actions.appendChild(optBtn("Push", i.asin, "push"));
+    actions.appendChild(optBtn("Block", i.asin, "block"));
     actions.appendChild(toggle);
 
     const qty = document.createElement("input");
@@ -711,7 +816,7 @@ function renderBuylist(bl) {
     // "conditional" is the buylist's own quantity-adjust action - the real
     // one, read out of background.js. There is no separate set-quantity
     // message, and inventing one would mean writing buy logic here.
-    setQty.addEventListener("click", () => sendCommand("buylistAction", { asin: i.asin, action: "conditional", qty: Number(qty.value) || 1 }));
+    setQty.addEventListener("click", () => buylistAction(i.asin, "conditional", { qty: Number(qty.value) || 1 }));
     actions.append(qty, setQty);
 
     row.appendChild(actions);
@@ -772,6 +877,33 @@ els.blAddBtn.addEventListener("click", () => {
   els.blAddAsin.value = "";
   els.blAddQty.value = "";
 });
+// P-34: the ONLY place permission is ever requested, and it is a tap.
+els.pushBtn.addEventListener("click", () => setupPush((msg, bad) => toast(msg, !!bad)));
+
+// P-35. Two different jobs that are easy to confuse:
+//   Refresh    - ask the relay for state again, right now.
+//   Reload app - throw away the CACHED app.js / styles.css / config.js and
+//                fetch them fresh. This is the one that matters after a
+//                deploy: a Home Screen app has no address bar and no
+//                reload button, so without this the only way to pick up a
+//                new build is deleting the icon and re-adding it.
+els.refreshBtn.addEventListener("click", async () => {
+  els.refreshBtn.disabled = true;
+  try {
+    await poll();
+    toast("Refreshed");
+  } finally {
+    els.refreshBtn.disabled = false;
+  }
+});
+
+els.reloadBtn.addEventListener("click", () => {
+  // A query string is what actually defeats the cache here; reload(true)
+  // is non-standard and ignored by WebKit.
+  const base = location.href.split("?")[0].split("#")[0];
+  location.replace(base + "?r=" + Date.now());
+});
+
 els.tabRun.addEventListener("click", () => switchTab("run"));
 els.tabBuylist.addEventListener("click", () => switchTab("buylist"));
 
@@ -787,26 +919,109 @@ function switchTab(which) {
 // On iPhone this does nothing at all until the app is on the Home Screen -
 // Safari itself refuses. That is why the hint below is shown rather than
 // silently failing: a prompt he never sees is a run that sits paused.
-async function setupPush() {
-  const standalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+// ⚠⚠ P-34. THIS COULD NEVER HAVE WORKED, AND IT FAILED IN SILENCE.
+//
+// The v2.92/v2.93 version of this function was called once, from page
+// init, right after render(). Inside it sat:
+//
+//     if (Notification.permission === "default")
+//       await Notification.requestPermission();
+//
+// WebKit requires TRANSIENT USER ACTIVATION for requestPermission(). With
+// no activation iOS Safari rejects the call silently - no prompt, no
+// error, no rejected promise worth catching. Zach added the app to his
+// Home Screen, signed in, and was simply never asked. There was nothing
+// to see, which is why it took a code read to find.
+//
+// So permission is now only ever requested from a real tap, and every
+// outcome says what happened. `report` is the callback the button passes
+// in; the init path calls this with no reporter, purely to re-attach an
+// EXISTING subscription, and never asks for anything.
+async function setupPush(report) {
+  const say = typeof report === "function" ? report : () => {};
+  const standalone =
+    window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
   els.installHint.hidden = standalone;
-  if (!standalone || !("serviceWorker" in navigator) || !("PushManager" in window)) return;
+
+  // Every one of these used to be a bare `return`. Each is now a sentence.
+  if (!standalone) {
+    say("Add this to your Home Screen first - Safari refuses notifications in a browser tab.", true);
+    return;
+  }
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+    say("This iOS version does not support web push. iOS 16.4 or newer is required.", true);
+    return;
+  }
+  if (!CFG.vapidPublicKey || CFG.vapidPublicKey.startsWith("YOUR-")) {
+    say("Push is not configured - config.js has no VAPID key.", true);
+    return;
+  }
+  if (Notification.permission === "denied") {
+    // iOS REMEMBERS this, and re-asking does nothing at all. Say where to
+    // undo it rather than looping on a call that cannot succeed.
+    say("Notifications are blocked. Turn them on in iOS Settings > Notifications > Shopper.", true);
+    return;
+  }
+
   try {
     const reg = await navigator.serviceWorker.register("sw.js");
-    if (Notification.permission === "default") await Notification.requestPermission();
-    if (Notification.permission !== "granted") return;
-    if (!CFG.vapidPublicKey || CFG.vapidPublicKey.startsWith("YOUR-")) return;
-    const sub = await reg.pushManager.getSubscription() ||
-      await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(CFG.vapidPublicKey) });
-    await sb("push_subs?on_conflict=endpoint", {
+
+    if (Notification.permission === "default") {
+      // ⚠ Must be inside the tap. Do not hoist, defer, or await anything
+      // slow before this line - the activation is spent quickly.
+      const result = await Notification.requestPermission();
+      if (result !== "granted") {
+        say("Notifications were not allowed.", true);
+        return;
+      }
+    }
+
+    const sub =
+      (await reg.pushManager.getSubscription()) ||
+      (await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(CFG.vapidPublicKey),
+      }));
+
+    const res = await sb("push_subs?on_conflict=endpoint", {
       method: "POST",
       prefer: "resolution=merge-duplicates,return=minimal",
       body: [{ endpoint: sub.endpoint, subscription: sub.toJSON(), updated_at: new Date().toISOString() }],
     });
-  } catch {
-    /* push is a convenience layer - never let it break the app */
+    if (!res.ok) {
+      say("Could not save the subscription: " + res.reason, true);
+      return;
+    }
+    say("Notifications are on.");
+    renderPushButton();
+  } catch (err) {
+    // Still never allowed to break the app - but no longer allowed to be
+    // invisible either.
+    say("Could not turn on notifications: " + (err && err.message ? err.message : String(err)), true);
   }
 }
+
+// Shown until permission is actually granted, so the state is legible
+// rather than inferred from an absence of notifications.
+// P-35. Several hours went today on symptoms whose only cause was "the
+// phone is running an older copy than you think". This makes that a
+// glance instead of a database query: the app version plus the first few
+// characters of the VAPID key, which is what actually differs between a
+// current and a stale config.js.
+function renderBuildStamp() {
+  if (!els.buildStamp) return;
+  const key = (CFG.vapidPublicKey || "").slice(0, 6) || "none";
+  els.buildStamp.textContent = APP_BUILD + " · key " + key;
+}
+
+function renderPushButton() {
+  if (!els.pushRow) return;
+  const standalone =
+    window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+  const granted = typeof Notification !== "undefined" && Notification.permission === "granted";
+  els.pushRow.hidden = !standalone || granted;
+}
+
 
 function urlBase64ToUint8Array(base64String) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -829,7 +1044,11 @@ function urlBase64ToUint8Array(base64String) {
   const dev = store.get("shopper_device");
   if (dev) { deviceId = dev.deviceId; deviceName = dev.deviceName; }
   render();
+  // No reporter: this re-attaches an EXISTING subscription and must never
+  // ask for permission (P-34 - it cannot succeed here anyway).
   setupPush();
+  renderPushButton();
+  renderBuildStamp();
   // A phone that has been in a pocket for an hour must not show an hour-old
   // screen as if it were live.
   document.addEventListener("visibilitychange", () => { if (!document.hidden) poll(); });

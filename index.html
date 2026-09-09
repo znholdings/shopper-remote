@@ -30,6 +30,13 @@
 
     <!-- P-25. Proof the tap landed (progress), and what the laptop is
          actually doing (currentStep + the generation log tail). -->
+    <!-- P-34: permission is only ever requested from a real tap. Hidden
+         once granted, and in a browser tab (where it cannot work). -->
+    <div id="pushRow" class="push-row" hidden>
+      <span class="push-text">Notifications are off - a paused run won't reach you.</span>
+      <button id="pushBtn" class="primary-btn">Turn on notifications</button>
+    </div>
+
     <div id="progress" class="progress" hidden>
       <span class="spinner" aria-hidden="true"></span>
       <span id="progressText">Working...</span>
@@ -152,6 +159,14 @@
 
     <!-- iOS: web push does nothing at all in Safari until the app is on
          the home screen, and a missed prompt means a run sits paused. -->
+    <!-- P-35: a Home Screen app has no browser chrome, so these are the
+         only way to re-poll or to pick up a new deploy. -->
+    <div class="app-footer">
+      <button id="refreshBtn" class="ghost-btn">Refresh</button>
+      <button id="reloadBtn" class="ghost-btn">Reload app</button>
+      <span id="buildStamp" class="build-stamp"></span>
+    </div>
+
     <div id="installHint" class="install-hint" hidden>
       Add this to your Home Screen (Share &rarr; Add to Home Screen) to get
       notifications when a run stops and needs you.
