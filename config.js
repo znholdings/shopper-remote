@@ -6,7 +6,7 @@
 window.SHOPPER_REMOTE_CONFIG = {
   url: "https://nzhykxggikqxfnuzcvrz.supabase.co",
   anonKey: "sb_publishable_Qn_ogiHExxNvXNBwAfy3Sw_Pr4GAUCD",
-  // Filled in once the VAPID pair is generated - until then the app runs
-  // fine and simply cannot send notifications.
-  vapidPublicKey: "",
+  // VAPID public half. Public by design - it identifies the sender to the
+  // push service and is useless without the private half.
+  vapidPublicKey: "BF8jyuKLO6BNnbdZ9RuwrnRNpnSNfTtdF7B1NMwZoABO9L3zY4HAJY-1BMXT-oyXc5lWkZqJF4Q6sX4aR3zM__E",
 };
