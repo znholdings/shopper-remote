@@ -155,3 +155,24 @@ button { font: inherit; cursor: pointer; }
 .line.bl-rejected, .line.bl-blocked { border-left: 3px solid #7a3140; opacity: .75; }
 
 .l-src { color: #7aa2ff; }
+
+/* ---------------------------------------------------------------------
+   ⚠ THE `hidden` ATTRIBUTE MUST ALWAYS WIN. Added v2.94.
+   ---------------------------------------------------------------------
+   The browser's own [hidden] rule lives in the UA stylesheet, and ANY
+   author rule that sets `display` beats it. v2.93 added
+   `.progress { display: flex }` and `.bl-more { display: grid }`, both of
+   which are opened and closed with `el.hidden` - so both were pinned
+   permanently OPEN the moment this stylesheet shipped. Zach's phone showed
+   a spinner reading "Working..." over an idle queue, with nothing running.
+   It looked like a hung command and was a CSS specificity bug.
+
+   This is the v2.90 lesson wearing new clothes. That one was `class="hidden"`
+   fighting `el.hidden`; this one is a `display:` rule fighting the same
+   property. The codebase rule stands - markup closes an element with the
+   `hidden` ATTRIBUTE - and this is what makes that rule actually hold.
+
+   Keep this LAST in the file, and never give an element both a `display`
+   rule and `el.hidden` without it.
+   --------------------------------------------------------------------- */
+[hidden] { display: none !important; }
