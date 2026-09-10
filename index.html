@@ -153,6 +153,11 @@
         <p id="buylistMeta" class="muted"></p>
         <!-- P-43 (2026-09-09): "I need to know how much $ approved we have" -->
         <p id="buylistApproved" class="approved-total"></p>
+        <!-- P-47 (2026-09-09): "a horizontal version of what's on the desktop"
+             (the buylist's approved-spend tube). JS sets the fill width. -->
+        <div id="buylistApprovedBar" class="approved-progress" hidden>
+          <div id="buylistApprovedFill" class="approved-progress-fill"></div>
+        </div>
         <div id="buylistItems" class="lines"></div>
       </div>
     </section>

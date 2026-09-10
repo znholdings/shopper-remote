@@ -177,6 +177,40 @@ button { font: inherit; cursor: pointer; }
 }
 .build-stamp { margin-left: auto; font-size: 11px; color: #6c7590; font-variant-numeric: tabular-nums; }
 
+/* P-40/P-41/P-43/P-45 (2026-09-09): mobile buylist desktop-parity pass. */
+.bl-section-head { margin-top: 16px; }
+.bl-section-head:first-of-type { margin-top: 0; }
+.pc-badge { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px;
+  font-size: 10px; font-weight: 700; background: rgba(240,180,41,.18); color: var(--warn);
+  vertical-align: middle; }
+.approved-total { font-size: 15px; font-weight: 700; margin: 2px 0 8px; }
+.old-meat-box { margin: 8px 0 12px; padding: 10px 12px; border: 1px solid var(--line);
+  border-radius: 10px; background: var(--panel); font-size: 12px; line-height: 1.5; color: var(--muted); }
+
+/* P-47 (2026-09-09): horizontal version of the desktop buylist's
+   approved-spend tube. Same idea (a fill that turns "met" color when
+   Approved reaches Needed Today), the mobile app's own accent/good
+   colors rather than the desktop's chrome-laser palette so it matches
+   the rest of this page. */
+.approved-progress { width: 100%; height: 12px; margin: 0 0 12px; border-radius: 999px;
+  background: #0e1015; border: 1px solid var(--line); overflow: hidden; }
+.approved-progress-fill { height: 100%; width: 0%; border-radius: 999px;
+  background: var(--accent); transition: width 0.35s ease; }
+.approved-progress-fill.pc-met { background: var(--good); }
+
+/* P-48 (2026-09-09): "a bold yellow line around each section... to make
+   it more obvious" (Confirmed Buys / Contingency / Old Meat). */
+.bl-section { border: 2px solid var(--warn); border-radius: 12px; padding: 10px 10px 4px; margin: 0 0 16px; }
+.bl-section .bl-section-head { margin-top: 0; }
+
+/* P-49 (2026-09-09): the phone-side half of the Prep Center toggle - the
+   badge (above) was already read-only; this is "we need to... change
+   that." Same checkbox-plus-label shape as the desktop's
+   .prep-center-toggle, sized for a tap target. */
+.pc-toggle { display: inline-flex; align-items: center; gap: 5px; padding: 6px 10px;
+  border-radius: 9px; border: 1px solid var(--line); font-weight: 700; font-size: 13px; color: var(--text); }
+.pc-toggle input { width: 17px; height: 17px; }
+
 /* ---------------------------------------------------------------------
    ⚠ THE `hidden` ATTRIBUTE MUST ALWAYS WIN. Added v2.94.
    ---------------------------------------------------------------------
@@ -197,13 +231,3 @@ button { font: inherit; cursor: pointer; }
    rule and `el.hidden` without it.
    --------------------------------------------------------------------- */
 [hidden] { display: none !important; }
-
-/* P-40/P-41/P-43/P-45 (2026-09-09): mobile buylist desktop-parity pass. */
-.bl-section-head { margin-top: 16px; }
-.bl-section-head:first-of-type { margin-top: 0; }
-.pc-badge { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px;
-  font-size: 10px; font-weight: 700; background: rgba(240,180,41,.18); color: var(--warn);
-  vertical-align: middle; }
-.approved-total { font-size: 15px; font-weight: 700; margin: 2px 0 10px; }
-.old-meat-box { margin: 8px 0 12px; padding: 10px 12px; border: 1px solid var(--line);
-  border-radius: 10px; background: var(--panel); font-size: 12px; line-height: 1.5; color: var(--muted); }

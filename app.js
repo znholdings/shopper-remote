@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.96";
+const APP_BUILD = "v2.97";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -29,7 +29,8 @@ for (const id of [
   "runStatus","currentStep","tSpent","tNeeded","tToday","tBought",
   "startRow","modeSelect","startBtn","resumeSavedBtn","controlRow","pauseBtn","resumeBtn",
   "retryFailedBtn","finishNowBtn","abortBtn","unstickNote","addAsin","addQty","addPriority","addBtn",
-  "lineCount","lines","log","generateBtn","approveAllBtn","buylistMeta","buylistApproved","buylistItems","toast","installHint",
+  "lineCount","lines","log","generateBtn","approveAllBtn","buylistMeta","buylistApproved",
+  "buylistApprovedBar","buylistApprovedFill","buylistItems","toast","installHint",
   "progress","progressText","genCard","genStep","genLog","previewBtn","discardSavedBtn",
   "blAddAsin","blAddQty","blAddBtn",
   "pushRow","pushBtn","refreshBtn","reloadBtn","buildStamp",
@@ -658,6 +659,22 @@ function buylistAction(asin, action, extra = {}) {
   sendCommand("buylistAction", { asin, action, ...extra });
 }
 
+// P-49 (2026-09-09): "we need to be able to see and change that" (Prep
+// Center). Same optimistic-update shape as buylistAction() above, but its
+// own command - SHOPPER_BUYLIST_SET_PREP_CENTER is a dedicated message,
+// not a SHOPPER_BUYLIST_ACTION case (see remote-protocol.js's comment on
+// why: it doesn't touch budget allocation, just where the line ships).
+function buylistSetPrepCenter(asin, prepCenter) {
+  if (lastPayload && lastPayload.buylist && Array.isArray(lastPayload.buylist.items)) {
+    const item = lastPayload.buylist.items.find((x) => x.asin === asin);
+    if (item) {
+      item.prepCenter = prepCenter;
+      if (!isBeingEdited(els.buylistItems)) renderBuylist(lastPayload.buylist);
+    }
+  }
+  sendCommand("buylistSetPrepCenter", { asin, prepCenter });
+}
+
 // ⚠ The prompt renderer relays an answer. It never picks one, never
 // pre-selects a destructive default, and never times anything out - the
 // filler prompt's own 5-minute clock lives in the laptop's buy loop.
@@ -760,6 +777,22 @@ function renderBuylist(bl) {
     .reduce((sum, i) => sum + lineCostPhone(i), 0);
   els.buylistApproved.textContent = (bl.items || []).length ? `Approved: ${money(approvedTotal)}` : "";
 
+  // P-47: "a horizontal version of what's on the desktop." Desktop's tube
+  // (buylist.js) fills against 1.5x Spend Needed, with "met" once Approved
+  // reaches Spend Needed itself - same math here. Spend Needed IS
+  // day.neededToday (background.js: `neededToday: spendBreakdown.spendTarget`,
+  // the exact field buylist.js's own tube reads as spendTarget), already on
+  // the phone for the Run tab's own "Needed today" tile - no new field.
+  const neededToday = Number(lastPayload && lastPayload.day && lastPayload.day.neededToday) || 0;
+  const hasTarget = (bl.items || []).length > 0 && neededToday > 0;
+  els.buylistApprovedBar.hidden = !hasTarget;
+  if (hasTarget) {
+    const tubeTop = neededToday * 1.5;
+    const fillPct = Math.min(100, (approvedTotal / tubeTop) * 100);
+    els.buylistApprovedFill.style.width = `${fillPct}%`;
+    els.buylistApprovedFill.classList.toggle("pc-met", approvedTotal >= neededToday);
+  }
+
   els.buylistItems.innerHTML = "";
 
   // P-41: "I want confirmed, contingency, and old meat divided up into
@@ -769,11 +802,16 @@ function renderBuylist(bl) {
     const items = (bl.items || []).filter((i) => i.section === sec.key);
     if (!items.length) continue;
     const total = items.reduce((sum, i) => sum + lineCostPhone(i), 0);
+    // P-48: "a bold yellow line around each section... to make it more
+    // obvious." One wrapper per section so the border can go around the
+    // whole group, not just the heading.
+    const sectionWrap = document.createElement("div");
+    sectionWrap.className = "bl-section";
     const head = document.createElement("h2");
     head.className = "section-head bl-section-head";
     head.innerHTML =
       `${escapeHtml(sec.title)} <span class="count">${items.length} line${items.length === 1 ? "" : "s"} · ${money(total)}</span>`;
-    els.buylistItems.appendChild(head);
+    sectionWrap.appendChild(head);
 
     // P-45: Claude's plain-English read on the Old Meat pool - shown on
     // the desktop (buylist.js's renderOldMeatAssessment()), never sent to
@@ -782,10 +820,11 @@ function renderBuylist(bl) {
       const box = document.createElement("div");
       box.className = "old-meat-box";
       box.innerHTML = `<strong>🥩 Old Meat pool:</strong> ${escapeHtml(bl.poolAssessment)}`;
-      els.buylistItems.appendChild(box);
+      sectionWrap.appendChild(box);
     }
 
-    for (const i of items) els.buylistItems.appendChild(buylistCard(i));
+    for (const i of items) sectionWrap.appendChild(buylistCard(i));
+    els.buylistItems.appendChild(sectionWrap);
   }
 
   // A grouped view must never silently DROP a line. shapeBuylistItem()
@@ -794,11 +833,14 @@ function renderBuylist(bl) {
   const grouped = new Set(BUYLIST_SECTIONS.map((s) => s.key));
   const ungrouped = (bl.items || []).filter((i) => !grouped.has(i.section));
   if (ungrouped.length) {
+    const sectionWrap = document.createElement("div");
+    sectionWrap.className = "bl-section";
     const head = document.createElement("h2");
     head.className = "section-head bl-section-head";
     head.textContent = `Other (${ungrouped.length})`;
-    els.buylistItems.appendChild(head);
-    for (const i of ungrouped) els.buylistItems.appendChild(buylistCard(i));
+    sectionWrap.appendChild(head);
+    for (const i of ungrouped) sectionWrap.appendChild(buylistCard(i));
+    els.buylistItems.appendChild(sectionWrap);
   }
 }
 
@@ -904,6 +946,20 @@ function buylistCard(i) {
   actions.appendChild(optBtn("Demote", i.asin, "contingency"));
   actions.appendChild(optBtn("Push", i.asin, "push"));
   actions.appendChild(optBtn("Block", i.asin, "block"));
+
+  // P-49: the write half of the Prep Center badge above - mirrors the
+  // desktop's own .prep-center-toggle checkbox (buylist.js), same
+  // optimistic-then-confirm pattern every other action here uses.
+  const pcLabel = document.createElement("label");
+  pcLabel.className = "pc-toggle";
+  pcLabel.title = "Ship this item to the Prep Center warehouse instead of Home.";
+  const pcCheckbox = document.createElement("input");
+  pcCheckbox.type = "checkbox";
+  pcCheckbox.checked = !!i.prepCenter;
+  pcCheckbox.addEventListener("change", () => buylistSetPrepCenter(i.asin, pcCheckbox.checked));
+  pcLabel.append(pcCheckbox, document.createTextNode("Prep Center"));
+  actions.appendChild(pcLabel);
+
   actions.appendChild(toggle);
 
   const qty = document.createElement("input");
