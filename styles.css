@@ -211,6 +211,91 @@ button { font: inherit; cursor: pointer; }
   border-radius: 9px; border: 1px solid var(--line); font-weight: 700; font-size: 13px; color: var(--text); }
 .pc-toggle input { width: 17px; height: 17px; }
 
+/* =====================================================================
+   v2.98 - P-52, P-62, P-54, P-63, P-64, P-65, P-67, P-51
+   ===================================================================== */
+
+/* P-52 / P-62: a full status colour pass. Before this only `bought` and
+   `failed` had a colour at all, so every other status - including the line
+   actively being bought - rendered with the same neutral border as an
+   untouched one. The three "needs you" statuses share the warning colour
+   because they are actionable-but-not-broken (the desktop's own status
+   labels make the same distinction); out-of-stock and the skips are muted,
+   because they are finished and uninteresting. */
+.line-buying { border-color: var(--accent); box-shadow: 0 0 0 1px rgba(76,141,255,.35);
+  animation: line-pulse 1.6s ease-in-out infinite; }
+@keyframes line-pulse {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(76,141,255,.30); }
+  50% { box-shadow: 0 0 0 3px rgba(76,141,255,.16); }
+}
+.line-confirmed_bought, .line-assumed_met { border-color: rgba(53,196,106,.45); }
+.line-partial { border-color: rgba(240,180,41,.42); }
+.line-needs_approval, .line-needs_cap_approval, .line-needs_confirmation,
+.line-confirming { border-color: rgba(240,180,41,.60); }
+.line-out_of_stock, .line-skipped_by_user, .line-skipped_no_url,
+.line-skipped_manual_retailer, .line-skipped_no_cost, .line-not_attempted,
+.line-not_needed, .line-not_bought { border-color: rgba(154,161,177,.32); opacity: .88; }
+.line-pending, .line-pool { border-color: var(--line); }
+
+/* P-51: sync status, in the space that used to print "[object Object]". */
+.l-sync-bad { font-size: 12px; color: var(--bad); margin-top: 3px; }
+.l-sync-warn { font-size: 12px; color: var(--warn); margin-top: 3px; }
+
+/* P-54: the desktop's dual units/orders bars. Same class names as
+   buyqueue.js's own (.line-progress-bar / .line-progress-fill) on purpose -
+   two copies of one visual idea should at least be findable together. */
+.l-progress { margin: 6px 0 2px; display: flex; flex-direction: column; gap: 3px; }
+.l-progress-row { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
+.l-progress-text { font-variant-numeric: tabular-nums; }
+.line-progress-bar { height: 5px; border-radius: 4px; background: var(--line); overflow: hidden; }
+.line-progress-fill { height: 100%; background: var(--accent); transition: width .3s ease; }
+
+/* P-67: density. "normal" is the default and adds nothing - it is exactly
+   what shipped before this. */
+.density-row { display: inline-flex; gap: 4px; margin-left: 8px; vertical-align: middle; }
+.density-btn { background: transparent; color: var(--muted); border: 1px solid var(--line);
+  border-radius: 7px; padding: 3px 8px; font-size: 11px; font-weight: 700; }
+.density-btn.active { color: var(--text); border-color: var(--accent); background: rgba(76,141,255,.14); }
+.lines.density-compact .line { padding: 7px 9px; }
+.lines.density-compact .l-title { font-size: 13px; }
+
+/* P-64: pinned "what is happening right now", above the list. */
+.now-strip { position: sticky; top: 0; z-index: 5; display: flex; flex-direction: column; gap: 2px;
+  padding: 7px 10px; margin-bottom: 8px; border-radius: 9px;
+  background: rgba(76,141,255,.14); border: 1px solid rgba(76,141,255,.35); }
+.now-asin { font-size: 12px; font-weight: 800; color: var(--text); }
+.now-step { font-size: 12px; color: var(--muted); }
+
+/* P-63: the reason first, the boilerplate behind a disclosure. */
+.prompt-reason { margin: 4px 0 6px; font-size: 15px; font-weight: 800; color: var(--warn); }
+.prompt-details { margin: 0 0 8px; }
+.prompt-details > summary { font-size: 12px; color: var(--muted); cursor: pointer; }
+
+/* P-65: the end-of-queue report. */
+.report-card { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 4px; }
+.report-urgent { margin: 8px 0; padding: 10px 12px; border-radius: 10px;
+  background: rgba(240,180,41,.12); border: 1px solid rgba(240,180,41,.55); }
+.report-urgent-head { margin: 0 0 6px; font-size: 13px; color: var(--warn); }
+.report-urgent-item { font-size: 13px; margin: 6px 0; }
+.report-money { display: flex; flex-wrap: wrap; gap: 12px; font-size: 14px;
+  font-variant-numeric: tabular-nums; margin: 6px 0; }
+.report-short { color: var(--warn); }
+.report-checks { font-size: 12px; color: var(--muted); margin: 4px 0 8px; }
+.report-manual > summary { font-size: 13px; color: var(--muted); cursor: pointer; }
+.report-manual-item { font-size: 13px; margin: 6px 0; }
+.report-bucket { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; margin: 8px 0;
+  background: var(--panel); }
+.report-bucket > summary { font-size: 13px; font-weight: 700; cursor: pointer; }
+.report-line { display: flex; flex-direction: column; gap: 1px; padding: 6px 0;
+  border-top: 1px solid var(--line); }
+.report-line-asin { font-size: 12px; font-weight: 700; }
+.report-line-title { font-size: 13px; }
+.report-line-qty { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.report-line-note { font-size: 12px; color: var(--warn); }
+
+/* P-58: the sound toggle reads as ON when it is. */
+.ghost-btn.active { color: var(--good); border-color: rgba(53,196,106,.5); }
+
 /* ---------------------------------------------------------------------
    ⚠ THE `hidden` ATTRIBUTE MUST ALWAYS WIN. Added v2.94.
    ---------------------------------------------------------------------

@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.97";
+const APP_BUILD = "v2.98";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -34,6 +34,10 @@ for (const id of [
   "progress","progressText","genCard","genStep","genLog","previewBtn","discardSavedBtn",
   "blAddAsin","blAddQty","blAddBtn",
   "pushRow","pushBtn","refreshBtn","reloadBtn","buildStamp",
+  // v2.98: P-63 (promptReason/promptDetails), P-53 (skipFailedBtn),
+  // P-64 (nowStrip), P-67 (densityRow), P-65 (report*), P-58 (soundBtn).
+  "promptReason","promptDetails","skipFailedBtn","nowStrip","nowAsin","nowStep",
+  "densityRow","logSection","reportCard","reportUrgent","reportSummary","reportBuckets","soundBtn",
 ]) els[id] = $(id);
 
 // --------------------------------------------------------------- state
@@ -364,6 +368,11 @@ function renderPayload() {
   // Rule OUTPUT from the laptop - never re-derived here. lib/buy-queue-status.js
   // owns that rule and this page must not keep a second copy of it.
   els.retryFailedBtn.hidden = !(p.lines || []).some((l) => l.retryFailedEligible);
+  // P-53 (v2.98): the same rule OUTPUT already used for Retry, now also
+  // offering the other answer - give up on this one line and let the rest
+  // of the queue run. Reuses skipLine, which has been on the whitelist and
+  // handled by background.js since v2.92.
+  els.skipFailedBtn.hidden = els.retryFailedBtn.hidden;
 
   els.discardSavedBtn.hidden = !(p.savedQueue && p.savedQueue.exists) || live;
 
@@ -372,8 +381,13 @@ function renderPayload() {
   // four times a minute. Skipping the rebuild while the user is inside
   // that pane is what makes a quantity box typable at all - see
   // isBeingEdited() for the full reasoning.
-  if (!isBeingEdited(els.lines)) renderLines(p.lines || [], p.lineCount || 0, p.truncated);
+  if (!isBeingEdited(els.lines)) renderLines(p.lines || [], p.lineCount || 0, p.truncated, p.progress);
+  // P-51: entries arrive pre-formatted as strings now (they were objects,
+  // which join() turned into "[object Object]" for the whole log).
   els.log.textContent = (p.log || []).join("\n");
+  renderNowStrip(p);
+  renderReport(run);
+  maybePlaySounds(p);
   renderBuylistGen(p.buylistGen);
   if (!isBeingEdited(els.buylistItems)) renderBuylist(p.buylist);
   renderInFlight();
@@ -431,6 +445,84 @@ const expandedAsins = new Set();
 let lastRenderedLinesFp;
 let lastRenderedBuylistFp;
 
+// P-61 (v2.98): the line cards printed the raw status enum -
+// "confirmed_bought", "needs_cap_approval", "skipped_manual_retailer".
+//
+// ⚠ HAND-SYNCED COPY. The source of truth is QUEUE_STATUS_LABELS in
+// buyqueue/buyqueue.js. It cannot be imported: that file is part of the
+// extension bundle, this one is a separately deployed PWA with no shared
+// build step between them. Same hazard as the RETRYABLE_LINE_STATUSES
+// duplication that B13 (v2.78) had to fix after the two copies drifted -
+// if you add or rename a status there, change it here in the same edit.
+const QUEUE_STATUS_LABELS = {
+  pending: "Queued",
+  pool: "In pool",
+  buying: "Buying...",
+  bought: "Bought",
+  assumed_met: "Assumed met",
+  confirmed_bought: "Bought (confirmed)",
+  needs_confirmation: "Needs confirmation",
+  not_bought: "Not bought",
+  partial: "Partial",
+  failed: "Failed",
+  out_of_stock: "Out of stock",
+  needs_approval: "Needs price check",
+  needs_cap_approval: "Needs cap approval",
+  skipped_by_user: "Skipped",
+  skipped_no_url: "No source URL",
+  skipped_manual_retailer: "Manual buy (unsupported site)",
+  skipped_no_cost: "No cost data",
+  not_attempted: "Not attempted",
+  not_needed: "Not needed",
+  confirming: "Confirming...",
+};
+
+function statusLabel(status) {
+  return QUEUE_STATUS_LABELS[status] || status || "";
+}
+
+// P-55 (v2.98), the phone half. line.error is now cleared at the start of
+// every attempt on the laptop, but this is the belt to that fix's braces:
+// an error message only belongs on a line that is actually STOPPED and
+// waiting on a human. The desktop is far less exposed to a stale one -
+// buyqueue.js only ever shows it as a hover tooltip on the status pill,
+// while this page prints it in red under the card whenever it is truthy.
+const ERROR_VISIBLE_STATUSES = new Set([
+  "failed",
+  "error",
+  "needs_approval",
+  "needs_cap_approval",
+  "needs_confirmation",
+  "skipped_no_url",
+  "skipped_manual_retailer",
+  "skipped_no_cost",
+  "not_bought",
+]);
+
+// P-67 (v2.98): compact / normal / extended, persisted per phone. Drives a
+// class on the Lines container that the CSS and the renderer both key off
+// - "normal" is exactly what shipped before this, unchanged.
+const DENSITIES = ["compact", "normal", "extended"];
+let density = DENSITIES.includes(store.get("density")) ? store.get("density") : "normal";
+
+function setDensity(next) {
+  if (!DENSITIES.includes(next)) return;
+  density = next;
+  store.set("density", next);
+  renderDensityButtons();
+  // The fingerprint guard compares payload data only, so a density change
+  // has to invalidate it by hand or the list would not re-render at all.
+  lastRenderedLinesFp = undefined;
+  if (lastPayload) renderLines(lastPayload.lines || [], lastPayload.lineCount || 0, lastPayload.truncated);
+}
+
+function renderDensityButtons() {
+  if (!els.densityRow) return;
+  for (const btn of els.densityRow.querySelectorAll(".density-btn")) {
+    btn.classList.toggle("active", btn.dataset.density === density);
+  }
+}
+
 // Formatters. `null` means "no value" and must render as the desktop's
 // "-", never as 0 - see numOrNull() in remote-protocol.js.
 function fmtQty(n) { return typeof n === "number" && Number.isFinite(n) ? String(n) : "-"; }
@@ -458,31 +550,119 @@ function lineCostPhone(i) {
   return i.qty != null && i.unitCost != null ? i.qty * i.unitCost : 0;
 }
 
-function renderLines(lines, total, truncated) {
-  const fp = JSON.stringify([lines, total, truncated]);
+// P-54 (v2.98): the desktop's dual units/orders bars, for the line actually
+// being bought. The laptop gates `progress` to the current line already
+// (see projectProgress in lib/remote-protocol.js) - this only has to decide
+// whether THIS card is that line, and render nothing at all otherwise.
+function progressBarsHtml(l, progress) {
+  if (!progress || progress.asin !== l.asin || l.status !== "buying") return "";
+  const pct = (a, b) => (b > 0 ? Math.max(0, Math.min(100, (a / b) * 100)) : 0);
+  // Same "~N" convention the desktop uses for a dollar-mode estimate.
+  const plannedLabel = progress.ordersPlanned
+    ? (progress.ordersPlannedEstimated ? `~${progress.ordersPlanned}` : String(progress.ordersPlanned))
+    : "?";
+  return (
+    `<div class="l-progress">` +
+    `<div class="l-progress-row"><span class="l-progress-label">Units</span>` +
+    `<span class="l-progress-text">${progress.unitsOrdered} / ${progress.unitsTarget || "?"}</span></div>` +
+    `<div class="line-progress-bar"><div class="line-progress-fill" style="width:${pct(
+      progress.unitsOrdered,
+      progress.unitsTarget
+    )}%"></div></div>` +
+    `<div class="l-progress-row"><span class="l-progress-label">Orders</span>` +
+    `<span class="l-progress-text">${progress.ordersPlaced} / ${escapeHtml(plannedLabel)}</span></div>` +
+    `<div class="line-progress-bar"><div class="line-progress-fill" style="width:${pct(
+      progress.ordersPlaced,
+      progress.ordersPlanned
+    )}%"></div></div>` +
+    `</div>`
+  );
+}
+
+// P-51 (v2.98), replacing the "[object Object]" this space used to print.
+// Only ever says something when there IS something to say: a sync that
+// failed, or a Prep Center row that didn't land. A clean line renders
+// nothing here at all, exactly like the desktop.
+function syncHtml(l) {
+  const sync = l.sync;
+  if (!sync) return "";
+  const bits = [];
+  for (const sys of sync.systems || []) {
+    if (sys.ok) continue;
+    bits.push(
+      `<div class="l-sync-bad">${escapeHtml(sys.label)} "Ordered" update failed - ${escapeHtml(sys.reason)}</div>`
+    );
+  }
+  const pc = sync.prepCenter;
+  if (pc && !pc.ok) {
+    bits.push(
+      `<div class="l-sync-bad">Prep Center sheet: ${escapeHtml(pc.reason || "not written")}</div>`
+    );
+  } else if (pc && pc.skipped) {
+    bits.push(`<div class="l-sync-warn">Prep Center sheet: ${escapeHtml(pc.reason || "skipped")}</div>`);
+  }
+  // In extended density, say so even when everything worked - that view's
+  // whole job is "tell me everything about this line".
+  if (!bits.length && density === "extended") {
+    const okNames = (sync.systems || []).filter((x) => x.ok).map((x) => x.label);
+    if (pc && pc.ok && !pc.skipped) okNames.push("Prep Center");
+    if (okNames.length) bits.push(`<div class="l-meta">synced: ${escapeHtml(okNames.join(", "))}</div>`);
+  }
+  return bits.join("");
+}
+
+function renderLines(lines, total, truncated, progress) {
+  const fp = JSON.stringify([lines, total, truncated, progress, density]);
   if (fp === lastRenderedLinesFp) return;
   lastRenderedLinesFp = fp;
   els.lineCount.textContent = truncated ? `${lines.length} of ${total}` : String(total);
+  els.lines.className = `lines density-${density}`;
   els.lines.innerHTML = "";
   for (const l of lines) {
     const row = document.createElement("div");
     row.className = `line line-${l.status}`;
-    row.innerHTML =
+    // P-55: an error belongs on a line that is stopped and waiting on a
+    // human, not on one that is mid-retry or already bought.
+    const showError = !!l.error && ERROR_VISIBLE_STATUSES.has(l.status);
+    const head =
       `<div class="l-top"><span class="l-asin">${escapeHtml(l.asin)}</span>` +
-      `<span class="l-status">${escapeHtml(l.status)}</span></div>` +
-      `<div class="l-title">${escapeHtml(l.title)}</div>` +
-      `<div class="l-meta">${l.boughtQty}/${l.qty} units · ${money(l.spentDollars)}` +
-      // P-30: retailer was ALREADY in the payload and simply never printed.
-      `${l.retailer ? ` · ${escapeHtml(l.retailer)}` : ""}` +
-      `${l.multipackSize ? ` · pack of ${l.multipackSize}` : ""}` +
-      `${l.prepCenter ? " · prep center" : ""}` +
-      `${l.sheetRow ? ` · sheet ${escapeHtml(String(l.sheetRow))}` : ""}</div>` +
-      `${l.orderNumber ? `<div class="l-meta">order ${escapeHtml(l.orderNumber)}</div>` : ""}` +
-      `${l.runResult ? `<div class="l-meta">${escapeHtml(l.runResult)}</div>` : ""}` +
-      `${l.sourceUrl ? `<div class="l-meta"><a class="l-src" href="${escapeHtml(l.sourceUrl)}" target="_blank" rel="noopener noreferrer">source</a></div>` : ""}` +
-      (l.error ? `<div class="l-error">${escapeHtml(l.error)}</div>` : "");
+      // P-61: a label, not the raw enum.
+      `<span class="l-status">${escapeHtml(statusLabel(l.status))}</span></div>` +
+      `<div class="l-title">${escapeHtml(l.title)}</div>`;
+    if (density === "compact") {
+      // Status + title only, for scanning a long list - plus the error, if
+      // this line is stopped, because a compact view that hides the one
+      // thing needing attention is worse than no compact view.
+      row.innerHTML = head + (showError ? `<div class="l-error">${escapeHtml(l.error)}</div>` : "");
+    } else {
+      row.innerHTML =
+        head +
+        `<div class="l-meta">${l.boughtQty}/${l.qty} units · ${money(l.spentDollars)}` +
+        // P-30: retailer was ALREADY in the payload and simply never printed.
+        `${l.retailer ? ` · ${escapeHtml(l.retailer)}` : ""}` +
+        `${l.multipackSize ? ` · pack of ${l.multipackSize}` : ""}` +
+        `${l.prepCenter ? " · prep center" : ""}` +
+        `${l.sheetRow ? ` · sheet ${escapeHtml(String(l.sheetRow))}` : ""}</div>` +
+        progressBarsHtml(l, progress) +
+        `${l.orderNumber ? `<div class="l-meta">order ${escapeHtml(l.orderNumber)}</div>` : ""}` +
+        syncHtml(l) +
+        `${l.sourceUrl ? `<div class="l-meta"><a class="l-src" href="${escapeHtml(l.sourceUrl)}" target="_blank" rel="noopener noreferrer">source</a></div>` : ""}` +
+        `${density === "extended" && l.stopReason ? `<div class="l-meta">${escapeHtml(l.stopReason)}</div>` : ""}` +
+        (showError ? `<div class="l-error">${escapeHtml(l.error)}</div>` : "");
+    }
     const actions = document.createElement("div");
     actions.className = "l-actions";
+    // P-51: the retry the desktop has always offered for a failed RP/SB
+    // "Ordered" write, now reachable from the phone. Same handler, same
+    // params, and the same warning the desktop puts in its own tooltip.
+    for (const sys of (l.sync && l.sync.systems) || []) {
+      if (sys.ok) continue;
+      const b = lineBtn(`Retry ${sys.label}`, "retrySync", { lineId: l.lineId, asin: l.asin, system: sys.system });
+      b.title =
+        `Retries the ${sys.label} "Ordered" write for this line's ${(l.sync && l.sync.qty) || 0} bought unit(s). ` +
+        `If ${sys.label} recorded part of this before reporting failure, retrying could double it - check there first if a run ever looks off.`;
+      actions.appendChild(b);
+    }
     if (l.retryable) actions.appendChild(lineBtn("Try again", "retryLine", { lineId: l.lineId, asin: l.asin }));
     if (l.status === "needs_confirmation") {
       // ⚠ "Bought" needs an order number, a real quantity and a real dollar
@@ -682,7 +862,20 @@ function renderPrompt(prompt) {
   if (!prompt) { els.promptCard.hidden = true; return; }
   els.promptCard.hidden = false;
   els.promptTitle.textContent = prompt.title;
-  els.promptDetail.textContent = prompt.detail || "";
+  // P-63 (v2.98): the reason gets its own emphasized line and the long
+  // boilerplate goes behind "Details". Zach's own paused-run screenshot had
+  // a paragraph of explanation at exactly the same visual weight as the
+  // Resume / Retry / Abort buttons under it, so both were easy to skim past
+  // on a phone. Nothing about detectPausePrompt() changes - this is purely
+  // how the same text is laid out.
+  const detail = prompt.detail || "";
+  const reason = shortReason(detail);
+  els.promptReason.textContent = reason;
+  els.promptReason.hidden = !reason;
+  els.promptDetail.textContent = detail;
+  // No point offering "Details" when the details are just the reason again.
+  els.promptDetails.hidden = !detail || detail === reason;
+  els.promptDetails.open = false;
   els.promptExpiry.hidden = !prompt.expiresAt;
   if (prompt.expiresAt) {
     const secs = Math.max(0, Math.round((Date.parse(prompt.expiresAt) - Date.now()) / 1000));
@@ -735,6 +928,20 @@ function renderPrompt(prompt) {
     b.addEventListener("click", () => sendCommand(name, getPayload()));
     els.promptActions.appendChild(b);
   }
+}
+
+// The one short sentence worth reading first. A pause detail is usually a
+// long sentence with the actual cause quoted inside it ("Target cart purity
+// check failed..."); when there is no quote, the first sentence is the
+// closest thing to a headline. Falls back to a hard truncation rather than
+// showing a paragraph in the emphasized slot.
+function shortReason(detail) {
+  if (!detail) return "";
+  const quoted = detail.match(/["“]([^"”]{4,200})["”]/);
+  if (quoted) return quoted[1];
+  const firstSentence = (detail.match(/^[^.!?]*[.!?]/) || [])[0];
+  if (firstSentence && firstSentence.trim().length <= 160) return firstSentence.trim();
+  return detail.length > 160 ? `${detail.slice(0, 157)}...` : detail;
 }
 
 const ANSWER_LABELS = {
@@ -1002,6 +1209,35 @@ els.resumeSavedBtn.addEventListener("click", () => sendCommand("resumeSaved"));
 els.pauseBtn.addEventListener("click", () => sendCommand("pause"));
 els.resumeBtn.addEventListener("click", () => sendCommand("resume"));
 els.retryFailedBtn.addEventListener("click", () => sendCommand("retryFailed"));
+els.skipFailedBtn.addEventListener("click", () => {
+  // The failing line is identifiable from the same projected flag the button
+  // itself is gated on, so there is nothing new to send from the laptop.
+  const line = ((lastPayload && lastPayload.lines) || []).find((l) => l.retryFailedEligible);
+  if (!line) return toast("No failed line to skip.", true);
+  sendCommand("skipLine", { lineId: line.lineId, asin: line.asin });
+});
+if (els.densityRow) {
+  for (const btn of els.densityRow.querySelectorAll(".density-btn")) {
+    btn.addEventListener("click", () => setDensity(btn.dataset.density));
+  }
+}
+els.soundBtn.addEventListener("click", () => {
+  // ⚠ primeAudio() MUST run synchronously inside this handler - iOS only
+  // grants an AudioContext the right to make noise from a real gesture.
+  if (!soundsOn) {
+    if (!primeAudio()) return toast("This browser has no Web Audio support.", true);
+    soundsOn = true;
+    store.set("soundsOn", true);
+    renderSoundButton();
+    playSound("chunk-complete");
+    toast("Sounds on.");
+  } else {
+    soundsOn = false;
+    store.set("soundsOn", false);
+    renderSoundButton();
+    toast("Sounds off.");
+  }
+});
 els.finishNowBtn.addEventListener("click", () => sendCommand("finishNow"));
 els.abortBtn.addEventListener("click", () => {
   if (confirm("Abort the run? Whatever is mid-purchase is interrupted.")) sendCommand("abort");
@@ -1065,6 +1301,232 @@ els.reloadBtn.addEventListener("click", () => {
 
 els.tabRun.addEventListener("click", () => switchTab("run"));
 els.tabBuylist.addEventListener("click", () => switchTab("buylist"));
+
+// P-64 (v2.98): with 14+ lines the currently-buying card scrolls out of
+// view, and the one-line step narration lives up by the controls, away from
+// where he is actually looking. Sticky strip, no new payload fields -
+// currentAsin and currentStep have both always been projected.
+function renderNowStrip(p) {
+  const run = p.run || null;
+  const busy = run && (run.status === "running" || run.status === "collecting_urls");
+  const asin = run && run.currentAsin;
+  const step = run && run.currentStep;
+  if (!busy || (!asin && !step)) {
+    els.nowStrip.hidden = true;
+    return;
+  }
+  els.nowStrip.hidden = false;
+  const line = asin ? (p.lines || []).find((l) => l.asin === asin) : null;
+  els.nowAsin.textContent = asin ? (line && line.title ? `${asin} - ${line.title}` : asin) : "";
+  els.nowStep.textContent = step || "";
+}
+
+// P-65 (v2.98): the end-of-queue report, phone-shaped. The desktop's own
+// renderReport() is a dense <table> that does not fit here, so this mirrors
+// its CONTENT model (urgent items first and loud, then the money summary,
+// then one stacked section per outcome bucket) rather than its markup.
+const REPORT_BUCKET_LABELS = {
+  bought: "Bought",
+  partial: "Partial",
+  failed: "Failed",
+  needsApproval: "Needs price check",
+  outOfStock: "Out of stock",
+  skippedNoUrl: "No source URL",
+  skippedManualRetailer: "Manual buy (unsupported site)",
+  skippedNoCost: "No cost data",
+  notAttempted: "Not attempted",
+  notNeeded: "Not needed",
+  needsConfirmation: "Needs confirmation",
+  notBought: "Not bought",
+  skippedByUser: "Skipped by you",
+};
+
+function renderReport(run) {
+  const report = run && run.report;
+  if (!report) {
+    els.reportCard.hidden = true;
+    return;
+  }
+  els.reportCard.hidden = false;
+
+  // The two lists that exist precisely because they are easy to miss - see
+  // buildBuyQueueReport's own comment quoting Zach on reporting these
+  // "boldly". Never truncated, never collapsed.
+  const urgent = report.urgentTodo || [];
+  els.reportUrgent.hidden = !urgent.length;
+  els.reportUrgent.innerHTML = urgent.length
+    ? `<h3 class="report-urgent-head">Urgent - needs you (${urgent.length})</h3>` +
+      urgent.map((t) => `<div class="report-urgent-item">${escapeHtml(t.text)}</div>`).join("")
+    : "";
+
+  const v = report.verification || {};
+  const pcv = report.prepCenterVerification;
+  const checks = [];
+  for (const key of ["replenPulse", "sellerboard"]) {
+    const c = v[key];
+    if (!c) continue;
+    checks.push(
+      `${escapeHtml(c.label)}: ${c.checked} checked, ${c.matched} matched, ${c.fixed} fixed, ${c.stillWrong} still wrong`
+    );
+  }
+  if (pcv) {
+    checks.push(
+      `${escapeHtml(pcv.label)}: ${pcv.checked} checked, ${pcv.present} on the sheet, ${pcv.fixed} written by the re-check, ${pcv.missing} missing`
+    );
+  }
+
+  els.reportSummary.innerHTML =
+    `<div class="report-money">` +
+    `<span>Spent <strong>${money(report.totalSpent)}</strong></span>` +
+    `<span>Target ${money(report.spendTarget)}</span>` +
+    `${report.shortfall > 0 ? `<span class="report-short">Short ${money(report.shortfall)}</span>` : ""}` +
+    `</div>` +
+    (checks.length ? `<div class="report-checks">${checks.map((c) => `<div>${c}</div>`).join("")}</div>` : "") +
+    ((report.manualTodo || []).length
+      ? `<details class="report-manual"><summary>To do by hand (${report.manualTodo.length})</summary>` +
+        report.manualTodo.map((t) => `<div class="report-manual-item">${escapeHtml(t)}</div>`).join("") +
+        `</details>`
+      : "");
+
+  const buckets = report.buckets || {};
+  els.reportBuckets.innerHTML = Object.keys(REPORT_BUCKET_LABELS)
+    .filter((k) => buckets[k])
+    .map((k) => {
+      const b = buckets[k];
+      const rows = b.lines
+        .map(
+          (l) =>
+            `<div class="report-line"><span class="report-line-asin">${escapeHtml(l.asin)}</span>` +
+            `<span class="report-line-title">${escapeHtml(l.title)}</span>` +
+            `<span class="report-line-qty">${l.boughtQty}/${l.qty} · ${money(l.spentDollars)}</span>` +
+            `${l.stopReason || l.error ? `<span class="report-line-note">${escapeHtml(l.stopReason || l.error)}</span>` : ""}</div>`
+        )
+        .join("");
+      return (
+        `<details class="report-bucket"><summary>${escapeHtml(REPORT_BUCKET_LABELS[k])} (${b.count})</summary>` +
+        rows +
+        (b.truncated ? `<div class="muted small">Showing ${b.lines.length} of ${b.count}.</div>` : "") +
+        `</details>`
+      );
+    })
+    .join("");
+}
+
+// ------------------------------------------------------------- P-58
+// Sounds, the phone's own implementation.
+//
+// The extension's four sounds cannot be reused as a mechanism: an MV3
+// service worker cannot play audio at all, so background.js drives a hidden
+// chrome.offscreen document, and chrome.offscreen does not exist in a
+// browser or an installed PWA. The four .wav files themselves are also not
+// worth shipping here - they are synthesized tones already (see the
+// backlog's own note about swapping in real ones), so the same tones are
+// generated with Web Audio instead: no binary assets to deploy, nothing to
+// fetch, and it works with the app offline.
+//
+// ⚠ iOS is the real constraint, and it is the same shape as P-34's
+// notification bug: Safari blocks audio that is not the direct result of a
+// user gesture, silently. An AudioContext created and resumed inside a real
+// tap keeps working afterwards, so the "Sounds: on" button is not a
+// preference toggle with a side effect - the tap IS what makes sound
+// possible at all. Kept off by default for that reason: a switch he has to
+// press once, in the app, is honest; a setting that silently does nothing
+// is the failure this pattern already produced once.
+let audioCtx = null;
+let soundsOn = !!store.get("soundsOn");
+const SOUND_SPECS = {
+  "order-placed": [[880, 0.09], [1320, 0.13]],
+  "chunk-complete": [[660, 0.08], [990, 0.11]],
+  "queue-finished": [[523, 0.12], [659, 0.12], [784, 0.22]],
+  alert: [[440, 0.16], [330, 0.24]],
+};
+
+function primeAudio() {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return false;
+  if (!audioCtx) audioCtx = new AC();
+  if (audioCtx.state === "suspended") audioCtx.resume().catch(() => {});
+  return true;
+}
+
+function playSound(kind) {
+  if (!soundsOn || !audioCtx || audioCtx.state !== "running") return;
+  const spec = SOUND_SPECS[kind];
+  if (!spec) return;
+  let at = audioCtx.currentTime + 0.01;
+  for (const [freq, dur] of spec) {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(freq, at);
+    // Ramped, not switched: a bare start/stop on a sine is an audible click.
+    gain.gain.setValueAtTime(0.0001, at);
+    gain.gain.exponentialRampToValueAtTime(0.22, at + 0.012);
+    gain.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(at);
+    osc.stop(at + dur + 0.02);
+    at += dur;
+  }
+}
+
+function renderSoundButton() {
+  if (!els.soundBtn) return;
+  els.soundBtn.textContent = soundsOn ? "Sounds: on" : "Sounds: off";
+  els.soundBtn.classList.toggle("active", soundsOn);
+}
+
+// The phone has poll-based state and no event stream, so a sound has to be
+// driven by DIFFING one payload against the last - never by "the payload
+// says bought", which would fire on every tick for the rest of the run.
+// Deliberately silent on the very first payload after opening the app: the
+// whole run's history arrives at once there, and replaying it as a burst of
+// sounds would be noise, not information.
+let prevSoundState = null;
+
+function soundStateOf(p) {
+  const run = p.run || null;
+  const lines = {};
+  for (const l of p.lines || []) lines[l.lineId] = l.status;
+  return {
+    status: (run && run.status) || "",
+    totalSpent: (run && run.totalSpent) || 0,
+    promptKind: p.prompt ? p.prompt.kind : null,
+    lines,
+  };
+}
+
+const SOUND_DONE_STATUSES = new Set(["bought", "confirmed_bought", "partial", "assumed_met"]);
+const SOUND_END_STATUSES = new Set(["done", "aborted", "error"]);
+
+function maybePlaySounds(p) {
+  const next = soundStateOf(p);
+  const prev = prevSoundState;
+  prevSoundState = next;
+  if (!prev || !soundsOn) return;
+
+  // A run that just ended outranks everything else that happened on the
+  // same tick - one sound per tick, the most important one.
+  if (SOUND_END_STATUSES.has(next.status) && !SOUND_END_STATUSES.has(prev.status)) {
+    playSound("queue-finished");
+    return;
+  }
+  // A prompt that has just appeared is the one thing that actually needs
+  // him; same transition-only rule the push notification uses.
+  if (next.promptKind && next.promptKind !== prev.promptKind) {
+    playSound("alert");
+    return;
+  }
+  const finished = Object.keys(next.lines).some(
+    (id) => SOUND_DONE_STATUSES.has(next.lines[id]) && !SOUND_DONE_STATUSES.has(prev.lines[id] || "")
+  );
+  if (finished) {
+    playSound("chunk-complete");
+    return;
+  }
+  if (next.totalSpent > prev.totalSpent) playSound("order-placed");
+}
 
 function switchTab(which) {
   els.runPane.hidden = which !== "run";
@@ -1208,6 +1670,10 @@ function urlBase64ToUint8Array(base64String) {
   setupPush();
   renderPushButton();
   renderBuildStamp();
+  // v2.98: both read persisted state, so they have to paint once at boot -
+  // the poll-driven renderers never touch either control.
+  renderDensityButtons();
+  renderSoundButton();
   // A phone that has been in a pocket for an hour must not show an hour-old
   // screen as if it were live.
   document.addEventListener("visibilitychange", () => { if (!document.hidden) poll(); });

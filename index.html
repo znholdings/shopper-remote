@@ -68,7 +68,15 @@
         <!-- the pause prompt outranks everything else on the screen -->
         <div id="promptCard" class="prompt-card" hidden>
           <h2 id="promptTitle"></h2>
-          <p id="promptDetail" class="muted"></p>
+          <!-- P-63: the short reason, alone and emphasized. The long
+               boilerplate around it moves into the Details disclosure below,
+               so what actually happened and the buttons that answer it are
+               both visible without scrolling or squinting. -->
+          <p id="promptReason" class="prompt-reason" hidden></p>
+          <details id="promptDetails" class="prompt-details" hidden>
+            <summary>Details</summary>
+            <p id="promptDetail" class="muted"></p>
+          </details>
           <p id="promptExpiry" class="warn-text" hidden></p>
           <div id="promptFields" class="prompt-fields"></div>
           <div id="promptActions" class="prompt-actions"></div>
@@ -105,6 +113,10 @@
           <button id="pauseBtn" class="secondary-btn">Pause</button>
           <button id="resumeBtn" class="secondary-btn" hidden>Resume</button>
           <button id="retryFailedBtn" class="secondary-btn" hidden>Retry failed buy</button>
+          <!-- P-53: a paused run offered Resume / Retry / Abort and no way
+               to give up on just the one line that failed. skipLine was
+               already whitelisted and already wired for a line in flight. -->
+          <button id="skipFailedBtn" class="secondary-btn" hidden>Skip failed buy</button>
           <button id="finishNowBtn" class="secondary-btn" hidden>Finish now</button>
           <button id="abortBtn" class="danger-btn">Abort</button>
         </div>
@@ -129,13 +141,42 @@
           </div>
         </details>
 
-        <h2 class="section-head">Lines <span id="lineCount" class="count"></span></h2>
-        <div id="lines" class="lines"></div>
-
-        <details class="section">
+        <!-- P-56: was the last block in this pane, under everything. Zach
+             wants it near the top - it is the only window into what the
+             extension is doing while he is away from the laptop. -->
+        <details class="section" id="logSection">
           <summary>Activity log</summary>
           <pre id="log" class="log"></pre>
         </details>
+
+        <h2 class="section-head">
+          Lines <span id="lineCount" class="count"></span>
+          <!-- P-67: compact / normal / extended density for the list below. -->
+          <span id="densityRow" class="density-row">
+            <button class="density-btn" data-density="compact">Compact</button>
+            <button class="density-btn" data-density="normal">Normal</button>
+            <button class="density-btn" data-density="extended">Extended</button>
+          </span>
+        </h2>
+
+        <!-- P-64: what is happening right now, pinned above the list so it
+             stays visible however far down the list is scrolled. -->
+        <div id="nowStrip" class="now-strip" hidden>
+          <span id="nowAsin" class="now-asin"></span>
+          <span id="nowStep" class="now-step"></span>
+        </div>
+
+        <div id="lines" class="lines"></div>
+
+        <!-- P-65: the end-of-queue report. Everything in it is computed by
+             the laptop already (buildBuyQueueReport); none of it had ever
+             been sent to the phone. -->
+        <div id="reportCard" class="report-card" hidden>
+          <h2 class="section-head">Run report</h2>
+          <div id="reportUrgent" class="report-urgent" hidden></div>
+          <div id="reportSummary" class="report-summary"></div>
+          <div id="reportBuckets"></div>
+        </div>
       </div>
 
       <div id="buylistPane" hidden>
@@ -169,6 +210,10 @@
     <!-- P-35: a Home Screen app has no browser chrome, so these are the
          only way to re-poll or to pick up a new deploy. -->
     <div class="app-footer">
+      <!-- P-58: sounds have to be armed by a real tap - iOS blocks audio
+           playback that is not the direct result of a user gesture, the same
+           class of silent failure P-34 hit with notification permission. -->
+      <button id="soundBtn" class="ghost-btn">Sounds: off</button>
       <button id="refreshBtn" class="ghost-btn">Refresh</button>
       <button id="reloadBtn" class="ghost-btn">Reload app</button>
       <span id="buildStamp" class="build-stamp"></span>
