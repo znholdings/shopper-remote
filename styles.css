@@ -296,6 +296,16 @@ button { font: inherit; cursor: pointer; }
 /* P-58: the sound toggle reads as ON when it is. */
 .ghost-btn.active { color: var(--good); border-color: rgba(53,196,106,.5); }
 
+/* P-246 (v3.60): where today's spending goal came from. Mirrored from the
+   desktop; the phone never sets it. No `display` rule here on purpose - it
+   is opened and closed with `el.hidden`. */
+.default-note {
+  margin: 6px 2px 0;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--muted, #8b94a3);
+}
+
 /* ---------------------------------------------------------------------
    ⚠ THE `hidden` ATTRIBUTE MUST ALWAYS WIN. Added v2.94.
    ---------------------------------------------------------------------

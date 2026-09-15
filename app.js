@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.98";
+const APP_BUILD = "v3.60";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -26,7 +26,7 @@ for (const id of [
   "app","deviceName","signOutBtn","liveBanner","signinView","signInBtn","signinError",
   "pickerView","deviceList","mainView","tabRun","tabBuylist","runPane","buylistPane",
   "promptCard","promptTitle","promptDetail","promptExpiry","promptFields","promptActions",
-  "runStatus","currentStep","tSpent","tNeeded","tToday","tBought",
+  "runStatus","currentStep","tSpent","tNeeded","tToday","tBought","tDefaultNote",
   "startRow","modeSelect","startBtn","resumeSavedBtn","controlRow","pauseBtn","resumeBtn",
   "retryFailedBtn","finishNowBtn","abortBtn","unstickNote","addAsin","addQty","addPriority","addBtn",
   "lineCount","lines","log","generateBtn","approveAllBtn","buylistMeta","buylistApproved",
@@ -351,6 +351,17 @@ function renderPayload() {
 
   els.tSpent.textContent = money(run && run.totalSpent);
   els.tNeeded.textContent = money(p.day && p.day.neededToday);
+  // \u26a0\u26a0 P-246 (v3.60): WHERE TODAY'S SPENDING GOAL CAME FROM, MIRRORED
+  // ONLY. The phone shows the sentence the desktop produced; it does not
+  // compose its own, and it has no control that changes either the default
+  // or the goal.
+  if (els.tDefaultNote) {
+    const note = (p.day && p.day.defaultNote) || "";
+    els.tDefaultNote.textContent = note;
+    // \u26a0 `el.hidden`, never a class - this app has no `.hidden` rule and
+    // v2.94 pinned [hidden] as the last rule precisely so this works.
+    els.tDefaultNote.hidden = !note;
+  }
   els.tToday.textContent = money(p.day && p.day.spentToday);
   els.tBought.textContent = String((run && run.linesBought) || 0);
 
