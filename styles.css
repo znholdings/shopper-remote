@@ -306,6 +306,30 @@ button { font: inherit; cursor: pointer; }
   color: var(--muted, #8b94a3);
 }
 
+/* B-459 (v4.49): read-only Inventory tab. One colour per bucket, same as the
+   laptop's pipeline page: house lime, prep violet, transit cyan. */
+:root { --house: #a3e635; --prep: #a78bfa; --transit: #22d3ee; }
+.inv-totals { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 8px 0; }
+.inv-total { background: var(--panel); border: 1px solid var(--line); border-top: 3px solid var(--line); border-radius: 10px; padding: 8px 10px; min-width: 0; }
+.inv-total b { display: block; font-size: 20px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.inv-total.inv-house { border-top-color: var(--house); }
+.inv-total.inv-prep { border-top-color: var(--prep); }
+.inv-total.inv-transit { border-top-color: var(--transit); }
+.inv-box { margin: 8px 0 12px; }
+.inv-box-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px; margin-bottom: 4px; }
+.inv-box-bad .inv-box-head b { color: var(--bad); }
+.inv-box-good .inv-box-head b { color: var(--good); }
+.inv-box .line, #invRows .line { margin-bottom: 6px; }
+.inv-row-top { display: flex; gap: 8px; align-items: baseline; justify-content: space-between; }
+.inv-title { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: 14px; }
+.inv-units { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.inv-nums { display: flex; flex-wrap: wrap; gap: 6px 12px; margin: 4px 0 2px; font-size: 13px; font-variant-numeric: tabular-nums; }
+.inv-n.inv-house { color: var(--house); }
+.inv-n.inv-prep { color: var(--prep); }
+.inv-n.inv-transit { color: var(--transit); }
+.inv-n.inv-neg { color: var(--bad); font-weight: 700; }
+.inv-filter { width: 100%; box-sizing: border-box; padding: 10px; margin: 4px 0 8px; border-radius: 8px; border: 1px solid var(--line); background: #0e1015; color: var(--text); font-size: 16px; }
+
 /* ---------------------------------------------------------------------
    ⚠ THE `hidden` ATTRIBUTE MUST ALWAYS WIN. Added v2.94.
    ---------------------------------------------------------------------

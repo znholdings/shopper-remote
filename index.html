@@ -62,6 +62,7 @@
       <nav class="tabs">
         <button id="tabRun" class="tab active">Run</button>
         <button id="tabBuylist" class="tab">Buylist</button>
+        <button id="tabInventory" class="tab">Inventory</button>
       </nav>
 
       <div id="runPane">
@@ -203,6 +204,27 @@
           <div id="buylistApprovedFill" class="approved-progress-fill"></div>
         </div>
         <div id="buylistItems" class="lines"></div>
+      </div>
+
+      <!-- B-459 (v4.49): read-only. What the laptop's Inventory Pipeline
+           page last stored - House / Prep / In transit and the Arrivals
+           boxes. Nothing on this tab can move a unit. -->
+      <div id="inventoryPane" hidden>
+        <p id="invAsOf" class="muted"></p>
+        <div class="inv-totals">
+          <div class="inv-total inv-house"><span class="t-label">House</span><b id="invHouse">-</b></div>
+          <div class="inv-total inv-prep"><span class="t-label">Prep</span><b id="invPrep">-</b></div>
+          <div class="inv-total inv-transit"><span class="t-label">In transit</span><b id="invTransit">-</b></div>
+        </div>
+        <div class="section">
+          <h3>Arrivals <span id="invArrivalsCount" class="count"></span></h3>
+          <div id="invArrivals"></div>
+        </div>
+        <div class="section">
+          <h3>Products <span id="invProductCount" class="count"></span></h3>
+          <input id="invFilter" class="inv-filter" type="search" placeholder="Filter by ASIN or name" autocapitalize="off" autocomplete="off" />
+          <div id="invRows" class="lines"></div>
+        </div>
       </div>
     </section>
 

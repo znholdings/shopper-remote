@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v3.60";
+const APP_BUILD = "v4.49";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -38,6 +38,9 @@ for (const id of [
   // P-64 (nowStrip), P-67 (densityRow), P-65 (report*), P-58 (soundBtn).
   "promptReason","promptDetails","skipFailedBtn","nowStrip","nowAsin","nowStep",
   "densityRow","logSection","reportCard","reportUrgent","reportSummary","reportBuckets","soundBtn",
+  // B-459 (v4.49): the read-only Inventory tab.
+  "tabInventory","inventoryPane","invAsOf","invHouse","invPrep","invTransit",
+  "invArrivalsCount","invArrivals","invProductCount","invFilter","invRows",
 ]) els[id] = $(id);
 
 // --------------------------------------------------------------- state
@@ -401,6 +404,7 @@ function renderPayload() {
   maybePlaySounds(p);
   renderBuylistGen(p.buylistGen);
   if (!isBeingEdited(els.buylistItems)) renderBuylist(p.buylist);
+  renderInventory(p.inventory);
   renderInFlight();
 }
 
@@ -1312,6 +1316,8 @@ els.reloadBtn.addEventListener("click", () => {
 
 els.tabRun.addEventListener("click", () => switchTab("run"));
 els.tabBuylist.addEventListener("click", () => switchTab("buylist"));
+els.tabInventory.addEventListener("click", () => switchTab("inventory"));
+els.invFilter.addEventListener("input", () => renderInventory(lastPayload && lastPayload.inventory));
 
 // P-64 (v2.98): with 14+ lines the currently-buying card scrolls out of
 // view, and the one-line step narration lives up by the controls, away from
@@ -1542,8 +1548,125 @@ function maybePlaySounds(p) {
 function switchTab(which) {
   els.runPane.hidden = which !== "run";
   els.buylistPane.hidden = which !== "buylist";
+  els.inventoryPane.hidden = which !== "inventory";
   els.tabRun.classList.toggle("active", which === "run");
   els.tabBuylist.classList.toggle("active", which === "buylist");
+  els.tabInventory.classList.toggle("active", which === "inventory");
+}
+
+// ------------------------------------------------ B-459: Inventory (read-only)
+//
+// Every figure is what the laptop's pipeline last STORED (lib/remote-
+// inventory.js projects it; nothing here adds, merges or re-dates). Built
+// with textContent only. Rebuilt only when the projection or the filter
+// changes, so the 3-second poll never fights the filter box.
+let lastInventoryKey = "";
+
+function invNode(tag, cls, text) {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (text != null) n.textContent = String(text);
+  return n;
+}
+
+function invUnits(v) {
+  const n = Number(v) || 0;
+  return (Math.round(n * 1000) / 1000).toLocaleString();
+}
+
+function invDay(iso) {
+  if (!iso) return "";
+  const d = new Date(iso + "T12:00:00");
+  return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+}
+
+function invAgo(iso) {
+  const t = Date.parse(iso || "");
+  if (!Number.isFinite(t)) return "never";
+  const m = Math.max(0, Math.round((Date.now() - t) / 60000));
+  if (m < 60) return m + " min ago";
+  const h = Math.round(m / 60);
+  return h < 48 ? h + " h ago" : Math.round(h / 24) + " days ago";
+}
+
+function invArrivalBox(title, box, tone) {
+  const wrap = invNode("div", "inv-box" + (tone ? " inv-box-" + tone : ""));
+  const head = invNode("div", "inv-box-head");
+  head.appendChild(invNode("b", null, title));
+  head.appendChild(invNode("span", "count", box.rowCount + " product(s) · " + invUnits(box.units) + "u"));
+  wrap.appendChild(head);
+  if (!box.rows.length) {
+    wrap.appendChild(invNode("div", "muted", "Nothing."));
+    return wrap;
+  }
+  for (const r of box.rows) {
+    const row = invNode("div", "line inv-arrival");
+    const top = invNode("div", "inv-row-top");
+    top.appendChild(invNode("span", "inv-title", r.title || r.asin));
+    top.appendChild(invNode("b", "inv-units", invUnits(r.units) + "u"));
+    row.appendChild(top);
+    const bits = [r.asin, r.retailer, r.destination === "prep" ? "to Prep" : r.destination === "house" ? "to House" : ""];
+    if (r.date) bits.push((r.isGuess ? "~" : "") + invDay(r.date));
+    if (r.daysLate > 0) bits.push(r.daysLate + "d late");
+    if (r.carrier) bits.push(r.carrier);
+    row.appendChild(invNode("div", "l-meta", bits.filter(Boolean).join(" · ")));
+    wrap.appendChild(row);
+  }
+  if (box.rowCount > box.rows.length) wrap.appendChild(invNode("div", "muted", "+" + (box.rowCount - box.rows.length) + " more on the laptop"));
+  return wrap;
+}
+
+function renderInventory(inv) {
+  const filter = (els.invFilter.value || "").trim().toLowerCase();
+  const key = JSON.stringify(inv || null) + "|" + filter;
+  if (key === lastInventoryKey) return;
+  lastInventoryKey = key;
+  els.invArrivals.textContent = "";
+  els.invRows.textContent = "";
+  if (!inv || !inv.available) {
+    els.invAsOf.textContent = inv
+      ? "Nothing on file yet - run a refresh on the laptop's Inventory Pipeline page."
+      : "Waiting for the laptop to send inventory (needs Shopper v4.49 on the laptop).";
+    els.invHouse.textContent = els.invPrep.textContent = els.invTransit.textContent = "-";
+    els.invArrivalsCount.textContent = els.invProductCount.textContent = "";
+    return;
+  }
+  els.invAsOf.textContent = "As of the laptop's last pipeline refresh, " + invAgo(inv.generatedAt) + ". Read-only.";
+  els.invHouse.textContent = invUnits(inv.totals.house);
+  els.invPrep.textContent = invUnits(inv.totals.prep);
+  els.invTransit.textContent = invUnits(inv.totals.inTransit);
+
+  const a = inv.arrivals;
+  if (!a) {
+    els.invArrivalsCount.textContent = "";
+    els.invArrivals.appendChild(invNode("div", "muted", "The arrivals report was not built on the last refresh."));
+  } else {
+    const c = a.counts;
+    els.invArrivalsCount.textContent = c.guessed ? "(~ = estimated from past lead time)" : "";
+    if (a.overdue.rowCount) els.invArrivals.appendChild(invArrivalBox("Overdue", a.overdue, "bad"));
+    els.invArrivals.appendChild(invArrivalBox("Today", a.today, "good"));
+    els.invArrivals.appendChild(invArrivalBox("Tomorrow", a.tomorrow));
+    for (const b of a.later) els.invArrivals.appendChild(invArrivalBox(invDay(b.day), b));
+    if (a.laterDayCount > a.later.length) els.invArrivals.appendChild(invNode("div", "muted", "+" + (a.laterDayCount - a.later.length) + " more day(s) on the laptop"));
+    if (a.undated.rowCount) els.invArrivals.appendChild(invArrivalBox("No date yet", a.undated));
+  }
+
+  const rows = inv.rows.filter((r) => !filter || r.asin.toLowerCase().includes(filter) || (r.title || "").toLowerCase().includes(filter));
+  els.invProductCount.textContent = "(" + (filter ? rows.length + " of " : "") + inv.productCount + ")";
+  for (const r of rows) {
+    const row = invNode("div", "line inv-product");
+    const top = invNode("div", "inv-row-top");
+    top.appendChild(invNode("span", "inv-title", r.title || r.asin));
+    row.appendChild(top);
+    const nums = invNode("div", "inv-nums");
+    nums.appendChild(invNode("span", "inv-n inv-house" + (r.house < 0 ? " inv-neg" : ""), "House " + invUnits(r.house)));
+    nums.appendChild(invNode("span", "inv-n inv-prep" + (r.prep < 0 ? " inv-neg" : ""), "Prep " + invUnits(r.prep)));
+    nums.appendChild(invNode("span", "inv-n inv-transit", "Transit " + invUnits(r.inTransit)));
+    row.appendChild(nums);
+    row.appendChild(invNode("div", "l-meta", r.asin));
+    els.invRows.appendChild(row);
+  }
+  if (inv.rowsTruncated) els.invRows.appendChild(invNode("div", "muted", "Showing the " + inv.rows.length + " largest - the rest are on the laptop."));
 }
 
 // ------------------------------------------------------------ push (iOS)
