@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v4.51";
+const APP_BUILD = "v4.56";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -45,6 +45,11 @@ for (const id of [
   "invArrivalsCount","invArrivals","invProductCount","invFilter","invRows",
   // B-465 (v4.50): tap a House / Prep / In transit tile for its products.
   "invBucketPanel","invBucketTitle","invBucketNote","invBucketTable",
+  // B-490 (v4.56): the read-only Dashboard tab.
+  "tabDashboard","dashboardPane","dashAsOf","dashNotifCount","dashNotifs",
+  "dashNextRun","dashNextHead","dashNextSub","dashLastRun","dashLastHead","dashLastSub",
+  "dashSpend","dashPipeAsOf","dashArrivals","dashNeedsYou","dashFlow",
+  "dashRrCount","dashRrSummary","dashRrList",
 ]) els[id] = $(id);
 
 // --------------------------------------------------------------- state
@@ -441,6 +446,7 @@ function renderPayload() {
   renderBuylistGen(p.buylistGen);
   if (!isBeingEdited(els.buylistItems)) renderBuylist(p.buylist);
   renderInventory(p.inventory);
+  renderDashboard(p.dashboard);
   renderInFlight();
 }
 
@@ -1355,6 +1361,7 @@ els.reloadBtn.addEventListener("click", () => {
   location.replace(base + "?r=" + Date.now());
 });
 
+els.tabDashboard.addEventListener("click", () => switchTab("dashboard"));
 els.tabRun.addEventListener("click", () => switchTab("run"));
 els.tabBuylist.addEventListener("click", () => switchTab("buylist"));
 els.tabInventory.addEventListener("click", () => switchTab("inventory"));
@@ -1599,6 +1606,8 @@ function switchTab(which) {
   els.runPane.hidden = which !== "run";
   els.buylistPane.hidden = which !== "buylist";
   els.inventoryPane.hidden = which !== "inventory";
+  els.dashboardPane.hidden = which !== "dashboard";
+  els.tabDashboard.classList.toggle("active", which === "dashboard");
   els.tabRun.classList.toggle("active", which === "run");
   els.tabBuylist.classList.toggle("active", which === "buylist");
   els.tabInventory.classList.toggle("active", which === "inventory");
@@ -1918,3 +1927,153 @@ function urlBase64ToUint8Array(base64String) {
   // screen as if it were live.
   document.addEventListener("visibilitychange", () => { if (!document.hidden) poll(); });
 })();
+
+// ------------------------------------------------ B-490: Dashboard (read-only)
+//
+// A mirror of the laptop's Dashboard as it last built it (lib/remote-
+// dashboard.js projects the SAME snapshot the desktop page renders; nothing
+// here recomputes a figure). textContent only. Rebuilt only when the
+// projection changes, so the 3-second poll costs nothing on a quiet day.
+let lastDashboardKey = "";
+
+function dashMoney(v) {
+  if (v == null || !Number.isFinite(Number(v))) return "-";
+  return "$" + Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function dashMoneyShort(v) {
+  if (v == null || !Number.isFinite(Number(v))) return "";
+  return "$" + Math.round(Number(v)).toLocaleString();
+}
+
+function dashAgoMs(ms) {
+  if (!ms) return "never";
+  const m = Math.max(0, Math.round((Date.now() - ms) / 60000));
+  if (m < 60) return m + " min ago";
+  const h = Math.round(m / 60);
+  return h < 48 ? h + " h ago" : Math.round(h / 24) + " days ago";
+}
+
+function dashTile(label, value, extra, cls) {
+  const t = invNode("div", "dash-tile" + (cls ? " " + cls : ""));
+  t.appendChild(invNode("span", "t-label", label));
+  t.appendChild(invNode("b", null, value));
+  if (extra) t.appendChild(invNode("span", "dash-money", extra));
+  return t;
+}
+
+function renderDashboard(d) {
+  const key = JSON.stringify(d || null);
+  if (key === lastDashboardKey) return;
+  lastDashboardKey = key;
+  for (const k of ["dashNotifs", "dashSpend", "dashFlow", "dashRrList"]) els[k].textContent = "";
+  els.dashNextRun.classList.remove("owed", "caught-up");
+  if (!d) {
+    els.dashAsOf.textContent = "Waiting for the laptop to send its Dashboard (needs Shopper v4.56 on the laptop, and the Dashboard opened there once).";
+    els.dashNotifCount.textContent = els.dashPipeAsOf.textContent = els.dashRrCount.textContent = "";
+    els.dashNextHead.textContent = els.dashLastHead.textContent = "-";
+    els.dashNextSub.textContent = els.dashLastSub.textContent = els.dashRrSummary.textContent = "";
+    els.dashArrivals.hidden = els.dashNeedsYou.hidden = true;
+    return;
+  }
+  els.dashAsOf.textContent =
+    "Money figures from the laptop's last Dashboard refresh, " + dashAgoMs(d.remoteBuiltAt) + "." +
+    (d.stale ? " Refresh on the laptop for live figures." : "") + " Read-only.";
+
+  // notifications
+  els.dashNotifCount.textContent = "(" + d.openCount + ")";
+  if (!d.notifications.length) els.dashNotifs.appendChild(invNode("div", "muted", "Nothing needs attention right now."));
+  for (const n of d.notifications) {
+    const row = invNode("div", "line dash-notif sev-" + n.severity);
+    const top = invNode("div", "inv-row-top");
+    top.appendChild(invNode("span", "dash-sev", n.severity));
+    top.appendChild(invNode("span", "inv-title", n.title));
+    row.appendChild(top);
+    if (n.detail) row.appendChild(invNode("div", "l-meta", n.detail));
+    if (n.examples.length) {
+      const ul = invNode("ul", "dash-ex");
+      for (const e of n.examples) ul.appendChild(invNode("li", null, e));
+      if (n.count > n.examples.length) ul.appendChild(invNode("li", null, "+" + (n.count - n.examples.length) + " more"));
+      row.appendChild(ul);
+    }
+    els.dashNotifs.appendChild(row);
+  }
+  if (d.openCount > d.notifications.length) els.dashNotifs.appendChild(invNode("div", "muted", "+" + (d.openCount - d.notifications.length) + " more on the laptop"));
+
+  // next run - the same three states the desktop uses
+  const next = d.nextRun;
+  if (next.state === "owed") {
+    els.dashNextRun.classList.add("owed");
+    els.dashNextHead.textContent = dashMoney(next.neededToday) + " still needed today";
+    els.dashNextSub.textContent = next.spentToday != null ? dashMoney(next.spentToday) + " spent so far today." : "";
+  } else if (next.state === "caughtUp") {
+    els.dashNextRun.classList.add("caught-up");
+    els.dashNextHead.textContent = "You're all caught up";
+    els.dashNextSub.textContent = next.spentToday != null ? dashMoney(next.spentToday) + " spent today." : "";
+  } else {
+    els.dashNextHead.textContent = "Spend figures not loaded";
+    els.dashNextSub.textContent = "Refresh the Dashboard on the laptop.";
+  }
+
+  // last run
+  const last = d.lastRun;
+  if (!last.available) {
+    els.dashLastHead.textContent = "No run yet";
+    els.dashLastSub.textContent = "";
+  } else {
+    els.dashLastHead.textContent = last.status + (last.totalSpent != null ? " · " + dashMoneyShort(last.totalSpent) : "");
+    els.dashLastSub.textContent =
+      last.bought + " bought · " + last.partial + " partial · " + last.failed + " failed · " + last.skipped + " skipped" +
+      (last.needsConfirmation ? " · " + last.needsConfirmation + " to confirm" : "") +
+      (last.finishedAt ? " · " + new Date(last.finishedAt).toLocaleString() : "");
+  }
+
+  // spend & bank
+  const sp = d.spend;
+  els.dashSpend.appendChild(dashTile("Bank balance", dashMoney(sp.bankBalance), "", "wide"));
+  els.dashSpend.appendChild(dashTile("Spent today", dashMoney(sp.spentToday)));
+  els.dashSpend.appendChild(dashTile("Needed today", dashMoney(sp.neededToday)));
+  els.dashSpend.appendChild(dashTile("Minimum (month)", dashMoney(sp.monthMinimum)));
+  els.dashSpend.appendChild(dashTile("Month", dashMoney(sp.month)));
+  els.dashSpend.appendChild(dashTile("Cushion", dashMoney(sp.cushion)));
+  els.dashSpend.appendChild(dashTile("Cushion target", dashMoney(sp.cushionTarget)));
+
+  // pipeline
+  const p = d.pipeline;
+  if (!p.available) {
+    els.dashPipeAsOf.textContent = "";
+    els.dashArrivals.hidden = els.dashNeedsYou.hidden = true;
+    els.dashFlow.appendChild(invNode("div", "muted", "Nothing on file yet - run a refresh on the laptop's Pipeline page."));
+  } else {
+    els.dashPipeAsOf.textContent = p.generatedAt ? "(refreshed " + invAgo(p.generatedAt) + ")" : "";
+    els.dashArrivals.hidden = false;
+    els.dashArrivals.textContent = p.arrivalsToday
+      ? p.arrivalsToday + " order" + (p.arrivalsToday === 1 ? "" : "s") + " arriving today" +
+        (p.arrivalsTomorrow ? ", " + p.arrivalsTomorrow + " tomorrow" : "") +
+        (p.arrivalsGuessed ? " - " + p.arrivalsGuessed + " estimated" : "")
+      : p.arrivalsTomorrow
+        ? "Nothing arriving today. " + p.arrivalsTomorrow + " due tomorrow."
+        : "Nothing arriving today or tomorrow.";
+    els.dashNeedsYou.hidden = !(p.needsYou > 0);
+    els.dashNeedsYou.textContent = p.needsYou + " thing" + (p.needsYou === 1 ? "" : "s") + " waiting on your answer (on the laptop).";
+    const m = p.money || {};
+    els.dashFlow.appendChild(dashTile("House", invUnits(p.house), dashMoneyShort(m.house), "dash-house"));
+    els.dashFlow.appendChild(dashTile("Prep", invUnits(p.prep), dashMoneyShort(m.prep), "dash-prep"));
+    els.dashFlow.appendChild(dashTile("In transit", invUnits(p.inTransit), dashMoneyShort(m.inTransit), "dash-transit"));
+    els.dashFlow.appendChild(dashTile("On hand", invUnits(p.onHand), dashMoneyShort(m.onHand)));
+    els.dashFlow.appendChild(dashTile("Products", invUnits(p.asinCount), p.negative ? p.negative + " reading negative" : "", "wide"));
+  }
+
+  // run reviews
+  const rr = d.runReviews;
+  els.dashRrCount.textContent = "(" + rr.total + ")";
+  els.dashRrSummary.textContent = rr.total
+    ? rr.severe + " severe · " + rr.high + " high · " + rr.medium + " medium (" + rr.latestRunSevere + " severe on the latest reviewed run)"
+    : "No run reviews recorded yet.";
+  for (const r of rr.newest) {
+    const row = invNode("div", "line dash-notif sev-" + (r.severity === "severe" ? "critical" : r.severity));
+    row.appendChild(invNode("span", "dash-sev", r.severity));
+    row.appendChild(invNode("div", "l-meta", r.what || "No anomalies found on this run."));
+    els.dashRrList.appendChild(row);
+  }
+}

@@ -9,6 +9,7 @@
   <title>Shopper Remote</title>
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="apple-touch-icon" href="icon-180.png" />
+  <link rel="icon" type="image/png" href="shoppy-64.png" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -18,7 +19,7 @@
        on his behalf. -->
   <div id="app">
     <header class="topbar">
-      <div class="brand">Shopper</div>
+      <div class="brand"><img src="shoppy-64.png" alt="" class="brand-logo" />Shopper</div>
       <div id="deviceName" class="device-name"></div>
       <button id="signOutBtn" class="ghost-btn" hidden>Sign out</button>
     </header>
@@ -60,6 +61,8 @@
 
     <section id="mainView" class="view" hidden>
       <nav class="tabs">
+        <!-- B-490 (v4.56): the desktop Dashboard, mirrored read-only. -->
+        <button id="tabDashboard" class="tab">Dashboard</button>
         <button id="tabRun" class="tab active">Run</button>
         <button id="tabBuylist" class="tab">Buylist</button>
         <button id="tabInventory" class="tab">Inventory</button>
@@ -209,6 +212,45 @@
           <div id="buylistApprovedFill" class="approved-progress-fill"></div>
         </div>
         <div id="buylistItems" class="lines"></div>
+      </div>
+
+      <!-- B-490 (v4.56): read-only. The laptop's Dashboard as it last built
+           it (Refresh on the laptop re-reads the live figures). Nothing
+           on this tab changes anything - Mark done / Dismiss stay on the
+           laptop. -->
+      <div id="dashboardPane" hidden>
+        <p id="dashAsOf" class="muted"></p>
+        <div class="section dash-sec">
+          <h3>Urgent notifications <span id="dashNotifCount" class="count"></span></h3>
+          <div id="dashNotifs" class="lines"></div>
+        </div>
+        <div class="dash-two">
+          <div class="dash-card" id="dashNextRun">
+            <span class="t-label">Next run</span>
+            <b id="dashNextHead" class="dash-head">-</b>
+            <span id="dashNextSub" class="muted small"></span>
+          </div>
+          <div class="dash-card" id="dashLastRun">
+            <span class="t-label">Last run</span>
+            <b id="dashLastHead" class="dash-head">-</b>
+            <span id="dashLastSub" class="muted small"></span>
+          </div>
+        </div>
+        <div class="section dash-sec">
+          <h3>Spend &amp; bank</h3>
+          <div id="dashSpend" class="dash-grid"></div>
+        </div>
+        <div class="section dash-sec">
+          <h3>Inventory pipeline <span id="dashPipeAsOf" class="count"></span></h3>
+          <div id="dashArrivals" class="dash-banner" hidden></div>
+          <div id="dashNeedsYou" class="dash-banner dash-banner-warn" hidden></div>
+          <div id="dashFlow" class="dash-grid dash-flow"></div>
+        </div>
+        <div class="section dash-sec">
+          <h3>Run reviews <span id="dashRrCount" class="count"></span></h3>
+          <p id="dashRrSummary" class="muted small"></p>
+          <div id="dashRrList" class="lines"></div>
+        </div>
       </div>
 
       <!-- B-459 (v4.49): read-only. What the laptop's Inventory Pipeline
