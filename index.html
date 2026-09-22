@@ -212,9 +212,15 @@
       <div id="inventoryPane" hidden>
         <p id="invAsOf" class="muted"></p>
         <div class="inv-totals">
-          <div class="inv-total inv-house"><span class="t-label">House</span><b id="invHouse">-</b></div>
-          <div class="inv-total inv-prep"><span class="t-label">Prep</span><b id="invPrep">-</b></div>
-          <div class="inv-total inv-transit"><span class="t-label">In transit</span><b id="invTransit">-</b></div>
+          <!-- B-465 (v4.50): each tile opens its products, largest first. -->
+          <div class="inv-total inv-house" data-bucket="house" role="button" tabindex="0" aria-pressed="false"><span class="t-label">House</span><b id="invHouse">-</b></div>
+          <div class="inv-total inv-prep" data-bucket="prep" role="button" tabindex="0" aria-pressed="false"><span class="t-label">Prep</span><b id="invPrep">-</b></div>
+          <div class="inv-total inv-transit" data-bucket="transit" role="button" tabindex="0" aria-pressed="false"><span class="t-label">In transit</span><b id="invTransit">-</b></div>
+        </div>
+        <div id="invBucketPanel" class="section" hidden>
+          <h3 id="invBucketTitle"></h3>
+          <p id="invBucketNote" class="muted" hidden></p>
+          <table id="invBucketTable" class="inv-table"></table>
         </div>
         <div class="section">
           <h3>Arrivals <span id="invArrivalsCount" class="count"></span></h3>

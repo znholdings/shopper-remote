@@ -329,6 +329,19 @@ button { font: inherit; cursor: pointer; }
 .inv-n.inv-transit { color: var(--transit); }
 .inv-n.inv-neg { color: var(--bad); font-weight: 700; }
 .inv-filter { width: 100%; box-sizing: border-box; padding: 10px; margin: 4px 0 8px; border-radius: 8px; border: 1px solid var(--line); background: #0e1015; color: var(--text); font-size: 16px; }
+/* B-465 (v4.50): the tiles are buttons; the open one is outlined. */
+.inv-total[data-bucket] { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.inv-total.inv-total-on { outline: 2px solid var(--text); outline-offset: -1px; }
+.inv-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 13px; }
+.inv-table th { text-align: left; color: var(--muted); font-weight: 600; padding: 4px 6px; border-bottom: 1px solid var(--line); }
+.inv-table td { padding: 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.inv-table th:nth-child(1) { width: auto; }
+.inv-table th:nth-child(2) { width: 7.5em; }
+.inv-table th:nth-child(3) { width: 4.5em; }
+.inv-table .inv-title { overflow-wrap: anywhere; }
+.inv-table .inv-asin { font-size: 11px; color: var(--muted); overflow-wrap: anywhere; }
+.inv-table .inv-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.inv-table .inv-neg { color: var(--bad); font-weight: 700; }
 
 /* ---------------------------------------------------------------------
    ⚠ THE `hidden` ATTRIBUTE MUST ALWAYS WIN. Added v2.94.

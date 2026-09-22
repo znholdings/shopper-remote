@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v4.49";
+const APP_BUILD = "v4.50";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -41,6 +41,8 @@ for (const id of [
   // B-459 (v4.49): the read-only Inventory tab.
   "tabInventory","inventoryPane","invAsOf","invHouse","invPrep","invTransit",
   "invArrivalsCount","invArrivals","invProductCount","invFilter","invRows",
+  // B-465 (v4.50): tap a House / Prep / In transit tile for its products.
+  "invBucketPanel","invBucketTitle","invBucketNote","invBucketTable",
 ]) els[id] = $(id);
 
 // --------------------------------------------------------------- state
@@ -49,6 +51,10 @@ let deviceId = null;     // the laptop we are driving
 let deviceName = "";
 let lastPayload = null;
 let pollTimer = null;
+// B-464 (v4.50): when the laptop's row was last written (device_state.updated_at).
+let lastUpdatedAt = null;
+// B-465 (v4.50): which Inventory tile is open - "house" | "prep" | "transit" | null.
+let invBucket = null;
 
 const store = {
   get(k) { try { return JSON.parse(localStorage.getItem(k) || "null"); } catch { return null; } },
@@ -222,8 +228,12 @@ async function poll() {
   if (res.ok && Array.isArray(res.json) && res.json[0]) {
     lastPayload = res.json[0].payload || null;
     deviceName = res.json[0].device_name || deviceName;
+    lastUpdatedAt = res.json[0].updated_at || lastUpdatedAt;
     renderPayload();
   }
+  // B-464: judged on EVERY tick, fetched or not, so a laptop that went
+  // quiet cannot keep showing its last word ("Idle") forever.
+  renderLiveness(lastPayload && lastPayload.liveness);
   // P-28. Same tick, so an outcome never lags the state it produced.
   await pollCommandOutcomes().catch(() => {});
 }
@@ -323,10 +333,34 @@ function escapeHtml(s) {
   return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
+// B-464 (v4.50). MEASURED 2026-09-22: Supabase showed the laptop's row last
+// written 2026-09-20 20:24Z, and the phone still said "Idle" 32 hours later -
+// the banner only ever repeated what the laptop last SAID. A live laptop
+// rewrites its row at least every 45s (HEARTBEAT_MAX_INTERVAL_MS), so 3
+// minutes without a write is four missed cycles: say so, on every tab.
+const LAPTOP_STALE_MS = 3 * 60 * 1000;
+
+function laptopStaleness(updatedAtIso, nowMs) {
+  const t = Date.parse(updatedAtIso || "");
+  if (!Number.isFinite(t) || nowMs - t <= LAPTOP_STALE_MS) return "";
+  const when = new Date(t).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  const m = Math.round((nowMs - t) / 60000);
+  const h = Math.round(m / 60);
+  const ago = m < 60 ? m + " min ago" : h < 48 ? h + " h ago" : Math.round(h / 24) + " days ago";
+  return "Laptop not heard from since " + when + " (" + ago + ") - what you see is its last update.";
+}
+
 // The banner Zach asked for: "running" and "go to the machine" must never
 // look the same.
 function renderLiveness(live) {
   const b = els.liveBanner;
+  const stale = laptopStaleness(lastUpdatedAt, Date.now());
+  if (stale) {
+    b.hidden = false;
+    b.className = "live-banner tone-offline";
+    b.textContent = stale;
+    return;
+  }
   if (!live) { b.hidden = true; return; }
   b.hidden = false;
   b.className = `live-banner tone-${live.status}`;
@@ -1318,6 +1352,15 @@ els.tabRun.addEventListener("click", () => switchTab("run"));
 els.tabBuylist.addEventListener("click", () => switchTab("buylist"));
 els.tabInventory.addEventListener("click", () => switchTab("inventory"));
 els.invFilter.addEventListener("input", () => renderInventory(lastPayload && lastPayload.inventory));
+// B-465: a tile opens its bucket's table; the same tile closes it.
+for (const tile of document.querySelectorAll(".inv-total[data-bucket]")) {
+  const toggle = () => {
+    invBucket = invBucket === tile.dataset.bucket ? null : tile.dataset.bucket;
+    renderInventory(lastPayload && lastPayload.inventory);
+  };
+  tile.addEventListener("click", toggle);
+  tile.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } });
+}
 
 // P-64 (v2.98): with 14+ lines the currently-buying card scrolls out of
 // view, and the one-line step narration lives up by the controls, away from
@@ -1618,7 +1661,7 @@ function invArrivalBox(title, box, tone) {
 
 function renderInventory(inv) {
   const filter = (els.invFilter.value || "").trim().toLowerCase();
-  const key = JSON.stringify(inv || null) + "|" + filter;
+  const key = JSON.stringify(inv || null) + "|" + filter + "|" + invBucket;
   if (key === lastInventoryKey) return;
   lastInventoryKey = key;
   els.invArrivals.textContent = "";
@@ -1629,12 +1672,14 @@ function renderInventory(inv) {
       : "Waiting for the laptop to send inventory (needs Shopper v4.49 on the laptop).";
     els.invHouse.textContent = els.invPrep.textContent = els.invTransit.textContent = "-";
     els.invArrivalsCount.textContent = els.invProductCount.textContent = "";
+    renderInvBucket(null);
     return;
   }
   els.invAsOf.textContent = "As of the laptop's last pipeline refresh, " + invAgo(inv.generatedAt) + ". Read-only.";
   els.invHouse.textContent = invUnits(inv.totals.house);
   els.invPrep.textContent = invUnits(inv.totals.prep);
   els.invTransit.textContent = invUnits(inv.totals.inTransit);
+  renderInvBucket(inv);
 
   const a = inv.arrivals;
   if (!a) {
@@ -1667,6 +1712,60 @@ function renderInventory(inv) {
     els.invRows.appendChild(row);
   }
   if (inv.rowsTruncated) els.invRows.appendChild(invNode("div", "muted", "Showing the " + inv.rows.length + " largest - the rest are on the laptop."));
+}
+
+// B-465 (v4.50). One bucket's products, largest first. Read-only, from the
+// rows the laptop already sent - nothing is fetched or re-added here.
+const INV_BUCKETS = {
+  house: { field: "house", label: "House" },
+  prep: { field: "prep", label: "Prep" },
+  transit: { field: "inTransit", label: "In transit" },
+};
+
+function invBucketRows(rows, bucket) {
+  const b = INV_BUCKETS[bucket];
+  if (!b) return [];
+  return (rows || [])
+    .filter((r) => Number(r[b.field]) !== 0 && Number.isFinite(Number(r[b.field])))
+    .sort((x, y) => Number(y[b.field]) - Number(x[b.field]));
+}
+
+function renderInvBucket(inv) {
+  for (const t of document.querySelectorAll(".inv-total[data-bucket]")) {
+    const on = t.dataset.bucket === invBucket;
+    t.classList.toggle("inv-total-on", on);
+    t.setAttribute("aria-pressed", on ? "true" : "false");
+  }
+  els.invBucketTable.textContent = "";
+  const b = INV_BUCKETS[invBucket];
+  if (!b || !inv || !inv.available) { els.invBucketPanel.hidden = true; return; }
+  els.invBucketPanel.hidden = false;
+  const rows = invBucketRows(inv.rows, invBucket);
+  els.invBucketTitle.textContent = b.label + " - " + rows.length + " product(s)";
+  els.invBucketNote.textContent = inv.rowsTruncated
+    ? "Only the " + inv.rows.length + " largest products reach the phone; the total above counts them all."
+    : "";
+  els.invBucketNote.hidden = !inv.rowsTruncated;
+  if (!rows.length) {
+    els.invBucketTable.appendChild(invNode("caption", "muted", "Nothing here."));
+    return;
+  }
+  const head = invNode("tr");
+  head.appendChild(invNode("th", null, "Product"));
+  head.appendChild(invNode("th", null, "ASIN"));
+  head.appendChild(invNode("th", "inv-num", "Units"));
+  const thead = invNode("thead");
+  thead.appendChild(head);
+  const tbody = invNode("tbody");
+  for (const r of rows) {
+    const tr = invNode("tr");
+    tr.appendChild(invNode("td", "inv-title", r.title || r.asin));
+    tr.appendChild(invNode("td", "inv-asin", r.asin));
+    tr.appendChild(invNode("td", "inv-num" + (Number(r[b.field]) < 0 ? " inv-neg" : ""), invUnits(r[b.field])));
+    tbody.appendChild(tr);
+  }
+  els.invBucketTable.appendChild(thead);
+  els.invBucketTable.appendChild(tbody);
 }
 
 // ------------------------------------------------------------ push (iOS)
