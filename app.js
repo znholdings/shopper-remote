@@ -1732,7 +1732,7 @@ function invBucketRows(rows, bucket) {
 
 function renderInvBucket(inv) {
   for (const t of document.querySelectorAll(".inv-total[data-bucket]")) {
-    const on = t.dataset.bucket === invBucket;
+    const on = !!(inv && inv.available) && t.dataset.bucket === invBucket;
     t.classList.toggle("inv-total-on", on);
     t.setAttribute("aria-pressed", on ? "true" : "false");
   }
