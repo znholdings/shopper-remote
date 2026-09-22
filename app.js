@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v4.50";
+const APP_BUILD = "v4.51";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -33,6 +33,8 @@ for (const id of [
   "buylistApprovedBar","buylistApprovedFill","buylistItems","toast","installHint",
   "progress","progressText","genCard","genStep","genLog","previewBtn","discardSavedBtn",
   "blAddAsin","blAddQty","blAddBtn",
+  // B-466 (v4.51): House / Prep for "Add an ASIN".
+  "addDest",
   "pushRow","pushBtn","refreshBtn","reloadBtn","buildStamp",
   // v2.98: P-63 (promptReason/promptDetails), P-53 (skipFailedBtn),
   // P-64 (nowStrip), P-67 (densityRow), P-65 (report*), P-58 (soundBtn).
@@ -1294,7 +1296,12 @@ els.abortBtn.addEventListener("click", () => {
 els.addBtn.addEventListener("click", () => {
   const asin = els.addAsin.value.trim().toUpperCase();
   if (!asin) return;
-  sendCommand("addManualLine", { asin, qty: Number(els.addQty.value) || 1, priority: els.addPriority.value });
+  sendCommand("addManualLine", {
+    asin,
+    qty: Number(els.addQty.value) || 1,
+    priority: els.addPriority.value,
+    destination: els.addDest && els.addDest.value === "prep" ? "prep" : "house",
+  });
   els.addAsin.value = "";
   els.addQty.value = "";
 });
