@@ -21,7 +21,8 @@
   let data = null;          // the projection (payload.fba)
   let points = [];          // decoded + merged
   let lastKey = "";         // fingerprint of the projection last drawn
-  const view = { days: null, custom: null, customOpen: false, measure: null, style: null, table: false, moreChips: false, trendSeries: null };
+  // B-515 (v4.63): `trendlines` null = follow the laptop's setting.
+  const view = { days: null, custom: null, customOpen: false, measure: null, style: null, table: false, moreChips: false, trendSeries: null, trendlines: null };
 
   function loadView() {
     try {
@@ -29,12 +30,13 @@
       if (raw && typeof raw === "object") {
         for (const k of ["days", "measure", "style", "trendSeries"]) if (raw[k] != null) view[k] = raw[k];
         view.table = !!raw.table;
+        if (typeof raw.trendlines === "boolean") view.trendlines = raw.trendlines;
       }
     } catch (_e) { /* private mode: the laptop's settings are used */ }
   }
   function saveView() {
     try {
-      localStorage.setItem(VIEW_KEY, JSON.stringify({ days: view.days, measure: view.measure, style: view.style, trendSeries: view.trendSeries, table: view.table }));
+      localStorage.setItem(VIEW_KEY, JSON.stringify({ days: view.days, measure: view.measure, style: view.style, trendSeries: view.trendSeries, table: view.table, trendlines: view.trendlines }));
     } catch (_e) { /* the page still draws */ }
   }
   loadView();
@@ -60,6 +62,7 @@
   }
   function measure() { return view.measure === "units" || view.measure === "value" ? view.measure : settings().measure; }
   function style() { return ["columns", "lines", "area"].includes(view.style) ? view.style : settings().style; }
+  function trendlines() { return typeof view.trendlines === "boolean" ? view.trendlines : settings().showTrendlines !== false; }
   function days() {
     const s = settings();
     return s.presets.includes(view.days) ? view.days : s.defaultRange;
@@ -139,6 +142,12 @@
     $("fbaCustomToggle").setAttribute("aria-expanded", view.customOpen ? "true" : "false");
     $("fbaCustom").hidden = !view.customOpen;
     $("fbaTableToggle").classList.toggle("is-on", view.table);
+    const tl = $("fbaTrendlinesToggle");
+    if (tl) {
+      tl.hidden = st === "lines";
+      tl.classList.toggle("is-on", trendlines());
+      tl.setAttribute("aria-pressed", trendlines() ? "true" : "false");
+    }
   }
 
   function renderChips() {
@@ -197,12 +206,12 @@
     if (st === "columns") {
       trend.append(F.drawColumnsTrend(document, {
         points: sl.points, keys: s.trendSeries, measure: m, splitInbound: s.splitInboundInBars,
-        markers, bands, hourly: sl.hourly, lo: sl.lo, hi, width, height,
+        markers, bands, hourly: sl.hourly, lo: sl.lo, hi, width, height, showLines: trendlines(),
       }));
     } else {
       trend.append(F.drawTrend(document, {
         points: sl.points, keys: s.trendSeries, measure: m, style: st,
-        compare, markers, bands, hourly: sl.hourly, lo: sl.lo, hi, width, height,
+        compare, markers, bands, hourly: sl.hourly, lo: sl.lo, hi, width, height, showLines: trendlines(),
       }));
     }
     if (s.showCompare && !compare && st !== "columns") trend.append(node("p", "ai-note", "Previous period: history does not reach back that far yet."));
@@ -312,6 +321,7 @@
       draw();
     });
     on("fbaTableToggle", () => { view.table = !view.table; saveView(); draw(); });
+    on("fbaTrendlinesToggle", () => { view.trendlines = !trendlines(); saveView(); draw(); });
     on("fbaApplyCustom", () => {
       const fv = $("fbaFrom").value, tv = $("fbaTo").value;
       const f = fv ? new Date(fv + "T00:00:00").getTime() : null;

@@ -77,6 +77,10 @@ const AMZINV_DEFAULTS = Object.freeze({
   splitInboundInBars: false,
   showMarkers: true,
   showCompare: false,
+  // B-515 (v4.63): the chosen series drawn as lines over the Columns chart,
+  // and the top edge of each band on the Area chart. On by default (what
+  // every release before this drew); the "Trendlines" button turns them off.
+  showTrendlines: true,
   dip: { enabled: true, windowDays: 14, fireDays: 1, measure: "value" },
   alerts: {
     unfulfillableJump: { enabled: true, pct: 25, minUnits: 5 },
@@ -113,6 +117,7 @@ function normalizeSettings(raw) {
     splitInboundInBars: bool(r.splitInboundInBars, d.splitInboundInBars),
     showMarkers: bool(r.showMarkers, d.showMarkers),
     showCompare: bool(r.showCompare, d.showCompare),
+    showTrendlines: bool(r.showTrendlines, d.showTrendlines),
     dip: {
       enabled: bool(r.dip && r.dip.enabled, d.dip.enabled),
       windowDays: clampInt(r.dip && r.dip.windowDays, 3, 90, d.dip.windowDays),
@@ -391,7 +396,7 @@ function tickLabel(t, hourly) {
 }
 
 // ---- trend chart -------------------------------------------------------------
-function drawTrend(doc, { points, keys, measure, style, compare = null, markers = [], bands = [], hourly, lo, hi, width = 860, height = 300 }) {
+function drawTrend(doc, { points, keys, measure, style, compare = null, markers = [], bands = [], hourly, lo, hi, width = 860, height = 300, showLines = true }) {
   const m = measure === "units" ? "units" : "value";
   const wrap = el(doc, "div", "ai-trend");
   if (!points.length) {
@@ -459,7 +464,11 @@ function drawTrend(doc, { points, keys, measure, style, compare = null, markers 
       const bottom = points.map((p, i) => [x(p.t), y(stacks[i][k][0])]).reverse().map(([a, b]) => `L${a.toFixed(1)},${b.toFixed(1)}`).join("");
       root.append(svg(doc, "path", { d: top + bottom + "Z", fill: s.color, class: "ai-area", "data-key": k }));
     }
-    root.append(svg(doc, "path", { d: top, stroke: s.color, "stroke-dasharray": s.dash || null, class: "ai-line", "data-key": k }));
+    // B-515 (v4.63): on the Area chart the band edges are the trendlines and
+    // can be turned off; on the Lines chart the lines ARE the chart.
+    if (!area || showLines !== false) {
+      root.append(svg(doc, "path", { d: top, stroke: s.color, "stroke-dasharray": s.dash || null, class: "ai-line", "data-key": k }));
+    }
   }
   // shipment markers
   for (const mk of markers) {
@@ -574,14 +583,15 @@ function columnStacks(points, measure, splitInbound) {
   });
 }
 
-function drawColumnsTrend(doc, { points, keys = [], measure, splitInbound = false, markers = [], bands = [], hourly, lo, hi, width = 860, height = 300 }) {
+function drawColumnsTrend(doc, { points, keys = [], measure, splitInbound = false, markers = [], bands = [], hourly, lo, hi, width = 860, height = 300, showLines = true }) {
   const m = measure === "units" ? "units" : "value";
   const wrap = el(doc, "div", "ai-trend");
   if (!points.length) {
     wrap.append(el(doc, "p", "ai-empty", "No history in this range yet - one row is added every hour."));
     return wrap;
   }
-  const lines = keys.filter((k) => SERIES_BY_KEY[k]);
+  // B-515 (v4.63): "Trendlines" off = columns only.
+  const lines = showLines === false ? [] : keys.filter((k) => SERIES_BY_KEY[k]);
   const cols = columnStacks(points, m, splitInbound);
   const pad = { l: 64, r: 16, t: 14, b: 28 };
   const W = width - pad.l - pad.r, H = height - pad.t - pad.b;

@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v4.61";
+const APP_BUILD = "v4.63";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
