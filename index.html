@@ -66,6 +66,8 @@
         <button id="tabRun" class="tab active">Run</button>
         <button id="tabBuylist" class="tab">Buylist</button>
         <button id="tabInventory" class="tab">Inventory</button>
+        <!-- B-510 (v4.61): the laptop's FBA Inventory page, read-only. -->
+        <button id="tabFba" class="tab">FBA</button>
       </nav>
 
       <div id="runPane">
@@ -251,6 +253,15 @@
           <p id="dashRrSummary" class="muted small"></p>
           <div id="dashRrList" class="lines"></div>
         </div>
+        <!-- B-511 (v4.61): the desktop Dashboard's FBA card - tap for the FBA tab. -->
+        <div class="section dash-sec dash-fba-sec" id="dashFbaSec" role="button" tabindex="0" aria-label="FBA inventory - open the FBA tab">
+          <h3>FBA inventory <span id="dashFbaAsOf" class="count"></span></h3>
+          <div id="dashFbaBanners"></div>
+          <p id="dashFbaEmpty" class="muted" hidden></p>
+          <div id="dashFbaTiles" class="dash-grid dash-fba"></div>
+          <div id="dashFbaSpark" class="fba-spark"></div>
+          <p class="muted small">Tap for the full FBA view.</p>
+        </div>
       </div>
 
       <!-- B-459 (v4.49): read-only. What the laptop's Inventory Pipeline
@@ -279,6 +290,40 @@
           <div id="invRows" class="lines"></div>
         </div>
       </div>
+
+      <!-- B-510 (v4.61): read-only. The laptop's FBA Inventory page, drawn
+           by the same code (fba-lib.js is built from its lib/ files). No
+           command, no write, no Amazon pull. -->
+      <div id="fbaPane" hidden>
+        <p id="fbaAsOf" class="muted"></p>
+        <div id="fbaBanners" class="fba-banners"></div>
+        <div id="fbaBody" class="fba-paper" hidden>
+          <section class="fba-sec">
+            <h3 class="ai-h2">Right now</h3>
+            <p class="ai-note" id="fbaNowNote"></p>
+            <div id="fbaBars"></div>
+          </section>
+          <section class="fba-sec">
+            <h3 class="ai-h2">Over time</h3>
+            <div class="ai-controls">
+              <div class="ai-seg fba-ranges" id="fbaRanges" role="group" aria-label="Time range"></div>
+              <button type="button" class="ai-seg-btn ai-seg-lone" id="fbaCustomToggle" aria-expanded="false">Custom</button>
+              <div class="ai-seg" id="fbaMeasure" role="group" aria-label="Measure"></div>
+              <div class="ai-seg" id="fbaStyle" role="group" aria-label="Chart style"></div>
+              <button type="button" class="ai-seg-btn ai-seg-lone" id="fbaTableToggle">Table</button>
+            </div>
+            <div class="ai-custom" id="fbaCustom" hidden>
+              <label>From <input type="date" id="fbaFrom" /></label>
+              <label>To <input type="date" id="fbaTo" /></label>
+              <button type="button" class="ai-btn ai-btn-small" id="fbaApplyCustom">Apply</button>
+            </div>
+            <div class="ai-chips" id="fbaChips" aria-label="Series on the chart"></div>
+            <div id="fbaTrend"></div>
+            <div id="fbaTable" class="fba-table-wrap" hidden></div>
+          </section>
+          <p class="ai-note fba-foot">Tap or drag across the chart to read a day. Range, $/Units, style and series are remembered on this phone only - the laptop's Chart settings do not change. <a id="fbaWorkbook" class="ai-link" target="_blank" rel="noopener" hidden>History workbook</a></p>
+        </div>
+      </div>
     </section>
 
     <div id="toast" class="toast" hidden></div>
@@ -304,6 +349,9 @@
   </div>
 
   <script src="config.js"></script>
+  <!-- B-510 (v4.61): fba-lib.js is GENERATED from lib/ (test/_fba-bundle.mjs). -->
+  <script src="fba-lib.js"></script>
+  <script src="fba-view.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

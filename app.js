@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v4.56";
+const APP_BUILD = "v4.61";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -50,6 +50,8 @@ for (const id of [
   "dashNextRun","dashNextHead","dashNextSub","dashLastRun","dashLastHead","dashLastSub",
   "dashSpend","dashPipeAsOf","dashArrivals","dashNeedsYou","dashFlow",
   "dashRrCount","dashRrSummary","dashRrList",
+  // B-510/B-511 (v4.61): the read-only FBA tab (remote/fba-view.js draws it).
+  "tabFba","fbaPane","dashFbaSec",
 ]) els[id] = $(id);
 
 // --------------------------------------------------------------- state
@@ -447,6 +449,8 @@ function renderPayload() {
   if (!isBeingEdited(els.buylistItems)) renderBuylist(p.buylist);
   renderInventory(p.inventory);
   renderDashboard(p.dashboard);
+  // B-510/B-511 (v4.61): the FBA tab and the Dashboard's FBA card.
+  if (self.ShopperFbaView) self.ShopperFbaView.render(p.fba);
   renderInFlight();
 }
 
@@ -1365,6 +1369,15 @@ els.tabDashboard.addEventListener("click", () => switchTab("dashboard"));
 els.tabRun.addEventListener("click", () => switchTab("run"));
 els.tabBuylist.addEventListener("click", () => switchTab("buylist"));
 els.tabInventory.addEventListener("click", () => switchTab("inventory"));
+els.tabFba.addEventListener("click", () => switchTab("fba"));
+// B-511 (v4.61): the Dashboard's FBA card opens the FBA tab.
+els.dashFbaSec.addEventListener("click", () => switchTab("fba"));
+els.dashFbaSec.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" || e.key === " ") {
+    e.preventDefault();
+    switchTab("fba");
+  }
+});
 els.invFilter.addEventListener("input", () => renderInventory(lastPayload && lastPayload.inventory));
 // B-465: a tile opens its bucket's table; the same tile closes it.
 for (const tile of document.querySelectorAll(".inv-total[data-bucket]")) {
@@ -1607,6 +1620,10 @@ function switchTab(which) {
   els.buylistPane.hidden = which !== "buylist";
   els.inventoryPane.hidden = which !== "inventory";
   els.dashboardPane.hidden = which !== "dashboard";
+  els.fbaPane.hidden = which !== "fba";
+  els.tabFba.classList.toggle("active", which === "fba");
+  // The chart is drawn at the pane's real width, which is 0 while hidden.
+  if (which === "fba" && self.ShopperFbaView) self.ShopperFbaView.shown();
   els.tabDashboard.classList.toggle("active", which === "dashboard");
   els.tabRun.classList.toggle("active", which === "run");
   els.tabBuylist.classList.toggle("active", which === "buylist");
