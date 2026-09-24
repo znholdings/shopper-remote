@@ -108,8 +108,18 @@
       F.drawStackedBar(document, { title: "Units", segments: u.segments, total: u.total, measure: "units" }),
       F.drawStackedBar(document, { title: "$ at cost", segments: v.segments, total: v.total, measure: "value" })
     );
-    $("fbaNowNote").textContent = "Amazon's own count at " + new Date(p.t).toLocaleString() + ", valued at the cost in effect then." +
-      (p.unpricedUnits ? " " + p.unpricedUnits + " unit(s) have no cost on file and are in Units but not in $." : "");
+    // B-547 (v4.68): Shopper's Ordered, its own rows under Amazon's.
+    const ou = F.orderedSegments(data.ordered, "units"), ov = F.orderedSegments(data.ordered, "value");
+    if (ou && ov) {
+      bars.append(
+        F.drawOrderedBar(document, { title: "Ordered, not at Amazon yet - units", seg: ou, measure: "units" }),
+        F.drawOrderedBar(document, { title: "Ordered, not at Amazon yet - $ at cost", seg: ov, measure: "value" })
+      );
+    }
+    const ord = F.orderedNote(data.ordered);
+    $("fbaNowNote").textContent = "Amazon's own count at " + F.fmtCT(p.t) + ", valued at the cost in effect then." +
+      (p.unpricedUnits ? " " + p.unpricedUnits + " unit(s) have no cost on file and are in Units but not in $." : "") +
+      (ord ? " " + ord : "");
   }
 
   function segBtn(label, on, onClick) {
@@ -229,7 +239,7 @@
       return;
     }
     if (!data.available) { asOf.textContent = "Read-only."; return; }
-    asOf.textContent = (data.pulledAt ? "Amazon's figures as of " + new Date(data.pulledAt).toLocaleString() : "No Amazon pull yet") +
+    asOf.textContent = (data.pulledAt ? "Amazon's figures as of " + F.fmtCT(data.pulledAt) : "No Amazon pull yet") +
       " · " + data.rowCount + " hourly row(s) on file · sent " + agoText(data.builtAt) + ". Read-only.";
     const link = $("fbaWorkbook");
     if (data.historyUrl) { link.href = data.historyUrl; link.hidden = false; } else link.hidden = true;
@@ -292,7 +302,7 @@
       return;
     }
     // The laptop's settings for the alerts - the card and the FBA tab say the same thing.
-    const model = F.fbaCardModel({ points, pulledAt: data.pulledAt, settings: data.settings });
+    const model = F.fbaCardModel({ points, pulledAt: data.pulledAt, settings: data.settings, ordered: data.ordered || null });
     if (data.error) bannersEl.append(node("div", "dash-banner dash-banner-warn", "⚠ Last Amazon pull failed: " + data.error + " The figures below are from the last good pull."));
     if (model.empty) {
       empty.hidden = false;
@@ -302,11 +312,19 @@
       return;
     }
     empty.hidden = true;
-    asOf.textContent = "(as of " + new Date(model.asOf).toLocaleString() + ")";
+    asOf.textContent = "(as of " + F.fmtCT(model.asOf) + ")";
     for (const a of model.alerts) bannersEl.append(node("div", "dash-banner dash-banner-warn", "⚠ " + a.text));
     for (const t of model.tiles) {
       const tile = node("div", "dash-tile fba-" + t.key);
       tile.append(node("span", "t-label", t.label), node("b", null, F.fmt(t.units, "units")), node("span", "dash-money", F.fmt(t.value, "value")));
+      tiles.append(tile);
+    }
+    // B-547 (v4.68): Shopper's Ordered (in transit + house + prep), after Amazon's four.
+    if (model.ordered) {
+      const o = model.ordered;
+      const tile = node("div", "dash-tile fba-ordered");
+      tile.title = o.hover;
+      tile.append(node("span", "t-label", "Ordered (Shopper)"), node("b", null, F.fmt(o.units, "units")), node("span", "dash-money", F.fmt(o.value, "value") + (o.unpricedUnits > 0 ? " · " + o.unpricedUnits + " not in $" : "")));
       tiles.append(tile);
     }
     drawSpark(spark, model.spark);
@@ -324,8 +342,9 @@
     on("fbaTrendlinesToggle", () => { view.trendlines = !trendlines(); saveView(); draw(); });
     on("fbaApplyCustom", () => {
       const fv = $("fbaFrom").value, tv = $("fbaTo").value;
-      const f = fv ? new Date(fv + "T00:00:00").getTime() : null;
-      const t = tv ? new Date(tv + "T23:59:59").getTime() : null;
+      // v4.68: the dates picked are Central days.
+      const f = fv ? F.centralDayStart(fv) : null;
+      const t = tv ? F.centralDayEnd(tv) : null;
       if (f == null && t == null) return;
       if (f != null && t != null && f > t) { banner($("fbaBanners"), "From is after To - nothing changed.", "error"); return; }
       view.custom = { from: f, to: t };

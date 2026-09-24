@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v4.63";
+const APP_BUILD = "v4.68";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -349,10 +349,21 @@ function escapeHtml(s) {
 // minutes without a write is four missed cycles: say so, on every tab.
 const LAPTOP_STALE_MS = 3 * 60 * 1000;
 
+// B-544 (v4.68): Shopper's times are US Central (Pacific only for events at
+// the prep center) - shown the same on the phone, not in the phone's own zone.
+function centralText(value, opts) {
+  const t = typeof value === "number" ? value : Date.parse(value || "");
+  if (!Number.isFinite(t)) return "";
+  const o = Object.assign({ month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }, opts || {});
+  o.timeZone = "America/Chicago";
+  return new Date(t).toLocaleString("en-US", o) + " CT";
+}
+
 function laptopStaleness(updatedAtIso, nowMs) {
   const t = Date.parse(updatedAtIso || "");
   if (!Number.isFinite(t) || nowMs - t <= LAPTOP_STALE_MS) return "";
-  const when = new Date(t).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  // B-544 (v4.68): Central time, not the phone's own zone.
+  const when = new Date(t).toLocaleString("en-US", { timeZone: "America/Chicago", weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) + " CT";
   const m = Math.round((nowMs - t) / 60000);
   const h = Math.round(m / 60);
   const ago = m < 60 ? m + " min ago" : h < 48 ? h + " h ago" : Math.round(h / 24) + " days ago";
@@ -1033,7 +1044,7 @@ function renderBuylist(bl) {
 
   els.buylistMeta.textContent =
     `${bl.itemCount} line(s)${bl.truncated ? ` (showing first ${(bl.items || []).length})` : ""}` +
-    `${bl.generatedAt ? ` · generated ${new Date(bl.generatedAt).toLocaleString()}` : ""}` +
+    `${bl.generatedAt ? ` · generated ${centralText(bl.generatedAt)}` : ""}` +
     `${bl.excludedCount ? ` · ${bl.excludedCount} other ASIN${bl.excludedCount === 1 ? "" : "s"} left out` : ""}`;
 
   // P-43: "I need to know how much $ approved we have when I approve a buy
@@ -2042,7 +2053,7 @@ function renderDashboard(d) {
     els.dashLastSub.textContent =
       last.bought + " bought · " + last.partial + " partial · " + last.failed + " failed · " + last.skipped + " skipped" +
       (last.needsConfirmation ? " · " + last.needsConfirmation + " to confirm" : "") +
-      (last.finishedAt ? " · " + new Date(last.finishedAt).toLocaleString() : "");
+      (last.finishedAt ? " · " + centralText(last.finishedAt) : "");
   }
 
   // spend & bank

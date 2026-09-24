@@ -57,7 +57,17 @@ const SERIES = [
   ["futureReserved", "Future Supply Reserved", GREY, "2 3", "future"],
   ["futureBuyable", "Future Supply Buyable", GREY, "6 3", "future"],
   ["total", "Total", INK, "", "total"],
+  // B-547 (v4.68): Shopper's own figure (in transit + house + prep), NOT an
+  // Amazon status - its own colour and a dotted line, never in a stack.
+  ["ordered", "Ordered (Shopper)", "#8c6d46", "1 3", "ordered"],
 ];
+// B-547: series that are NOT part of Amazon's Total - drawn as a line only,
+// never stacked into a column or an area band.
+const SEPARATE_SERIES = Object.freeze(["ordered"]);
+const ORDERED_SERIES_HOVER = "Shopper's figure, not Amazon's: bought but not at Amazon yet = in transit + house + prep.";
+// ⚠ Same labels as lib/ordered-inventory.js ORDERED_HISTORY_HEADER (this file
+// is bundled for the phone and cannot import that one; a test holds them equal).
+const ORDERED_COLS = Object.freeze({ units: "Ordered Units", value: "Ordered $", unpriced: "Ordered Unpriced Units" });
 const SERIES_BY_KEY = Object.fromEntries(SERIES.map((s) => [s[0], { key: s[0], label: s[1], color: s[2], dash: s[3], group: s[4] }]));
 const OTHER = { key: "other", label: "Other", color: SLOT.green, dash: "" };
 
@@ -73,7 +83,7 @@ const AMZINV_DEFAULTS = Object.freeze({
   measure: "value", // value | units
   // B-502 (v4.60): "columns" (one stacked column per day + lines on top) is the default.
   style: "columns", // columns | lines | area
-  trendSeries: ["available", "inboundAll", "fcTransfer", "fcProcessing", "customerOrders", "unfulfillable", "researching"],
+  trendSeries: ["available", "inboundAll", "fcTransfer", "fcProcessing", "customerOrders", "unfulfillable", "researching", "ordered"],
   splitInboundInBars: false,
   showMarkers: true,
   showCompare: false,
@@ -105,6 +115,9 @@ function normalizeSettings(raw) {
   if (!presets.length) presets = d.presets.slice();
   const defaultRange = presets.includes(clampInt(r.defaultRange, 0, 3650, -1)) ? clampInt(r.defaultRange, 0, 3650, 30) : presets.includes(d.defaultRange) ? d.defaultRange : presets[0];
   const trendSeries = Array.isArray(r.trendSeries) ? r.trendSeries.filter((k) => SERIES_BY_KEY[k]) : d.trendSeries.slice();
+  // B-547 (v4.68): a series list saved before Ordered existed gets it once
+  // (seriesVersion 2); after that, turning it off sticks.
+  if (Array.isArray(r.trendSeries) && !(Number(r.seriesVersion) >= 2) && !trendSeries.includes("ordered")) trendSeries.push("ordered");
   const ra = r.alerts || {};
   const jump = (x, dd) => ({ enabled: bool(x && x.enabled, dd.enabled), pct: clampInt(x && x.pct, 1, 1000, dd.pct), minUnits: clampInt(x && x.minUnits, 0, 100000, dd.minUnits) });
   const rs = ra.receivingStuck || {};
@@ -118,6 +131,7 @@ function normalizeSettings(raw) {
     showMarkers: bool(r.showMarkers, d.showMarkers),
     showCompare: bool(r.showCompare, d.showCompare),
     showTrendlines: bool(r.showTrendlines, d.showTrendlines),
+    seriesVersion: 2,
     dip: {
       enabled: bool(r.dip && r.dip.enabled, d.dip.enabled),
       windowDays: clampInt(r.dip && r.dip.windowDays, 3, 90, d.dip.windowDays),
@@ -160,6 +174,8 @@ function parseHistory(values) {
   if (tCol < 0) return [];
   const map = SPAPI_FIELDS.map(([key, label]) => [key, col(`${label} Units`), col(`${label} $`)]);
   const unpricedCol = col("Unpriced Units");
+  // B-547: blank / missing -> null (an older row has no Ordered figure).
+  const oU = col(ORDERED_COLS.units), oV = col(ORDERED_COLS.value), oP = col(ORDERED_COLS.unpriced);
   const out = [];
   for (const r of rows.slice(1)) {
     const t = Date.parse(r[tCol]);
@@ -171,18 +187,68 @@ function parseHistory(values) {
     }
     units.inboundAll = units.inboundWorking + units.inboundShipped + units.inboundReceiving;
     value.inboundAll = value.inboundWorking + value.inboundShipped + value.inboundReceiving;
-    out.push({ t, units, value, unpricedUnits: unpricedCol >= 0 ? num(r[unpricedCol]) ?? 0 : 0 });
+    units.ordered = oU >= 0 ? num(r[oU]) : null;
+    value.ordered = oV >= 0 && units.ordered != null ? num(r[oV]) : null;
+    const pt = { t, units, value, unpricedUnits: unpricedCol >= 0 ? num(r[unpricedCol]) ?? 0 : 0 };
+    if (units.ordered != null) pt.orderedUnpriced = oP >= 0 ? num(r[oP]) ?? 0 : 0;
+    out.push(pt);
   }
   out.sort((a, b) => a.t - b.t);
   return out;
 }
 
-function localDayKey(t) {
-  const d = new Date(t);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+// ---- US Central time (Zach's rule, v4.68) ----------------------------------
+// Every date/time this page shows or groups by is US Central
+// (America/Chicago), whatever the machine's clock is set to. Inline here, not
+// lib/local-time.js: this file is bundled into the phone's remote/fba-lib.js,
+// which carries only the lib/amzinv*.js / fba-card / remote-fba files.
+const CT_ZONE = "America/Chicago";
+const ctPartsFmt = new Intl.DateTimeFormat("en-US", { timeZone: CT_ZONE, year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric", hourCycle: "h23" });
+const ctDateTimeFmt = new Intl.DateTimeFormat("en-US", { timeZone: CT_ZONE, year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "2-digit" });
+const ctDateFmt = new Intl.DateTimeFormat("en-US", { timeZone: CT_ZONE, year: "numeric", month: "numeric", day: "numeric" });
+
+function centralParts(t) {
+  const o = {};
+  for (const p of ctPartsFmt.formatToParts(new Date(t))) if (p.type !== "literal") o[p.type] = Number(p.value);
+  return { y: o.year, m: o.month, d: o.day, h: o.hour % 24, min: o.minute };
 }
 
-// One point per local day: the LAST snapshot of that day.
+// "2026-09-24" - the Central calendar day of an instant.
+function centralDayKey(t) {
+  const p = centralParts(t);
+  return `${p.y}-${String(p.m).padStart(2, "0")}-${String(p.d).padStart(2, "0")}`;
+}
+// Kept under its old name for existing callers; the day is Central now.
+const localDayKey = centralDayKey;
+
+// "9/24/2026, 3:05 PM CT" / "9/24/2026 CT" ("date").
+function fmtCT(t, mode = "datetime") {
+  if (t == null || !Number.isFinite(new Date(t).getTime())) return "—";
+  return `${(mode === "date" ? ctDateFmt : ctDateTimeFmt).format(new Date(t))} CT`;
+}
+
+// The instant a Central calendar day ("YYYY-MM-DD") starts; null if bad.
+function centralDayStart(ymd) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ymd || ""));
+  if (!m) return null;
+  const wall = Date.UTC(+m[1], +m[2] - 1, +m[3]);
+  let t = wall + 6 * 3600000; // CST guess
+  for (let i = 0; i < 2; i++) {
+    const p = centralParts(t);
+    const offset = Date.UTC(p.y, p.m - 1, p.d, p.h, p.min) - t;
+    t = wall - offset;
+  }
+  return t;
+}
+// The last second of that Central day (the old "T23:59:59" meaning).
+function centralDayEnd(ymd) {
+  const s = centralDayStart(ymd);
+  if (s == null) return null;
+  const next = centralDayKey(s + 30 * 3600000);
+  return centralDayStart(next) - 1000;
+}
+
+// One point per Central day: the LAST snapshot of that day.
 function dailyPoints(points) {
   const byDay = new Map();
   for (const p of points) byDay.set(localDayKey(p.t), p);
@@ -269,7 +335,7 @@ function parseScanpowerTime(s) {
   return Number.isFinite(ms) ? ms : null;
 }
 
-// Batches past step 4 (sent), grouped per local day of the batch's opened time.
+// Batches past step 4 (sent), grouped per Central day of the batch's opened time.
 function shipmentMarkers(batchMeta, { lo, hi }) {
   const byDay = new Map();
   for (const b of Array.isArray(batchMeta) ? batchMeta : []) {
@@ -305,13 +371,50 @@ function barSegments(point, measure, splitInbound) {
   return { segments: segments.map((s) => ({ ...s, pct: base > 0 ? (s.v / base) * 100 : 0 })), total, base };
 }
 
+// ---- B-547: the "Ordered" row (Shopper's figure, apart from Amazon's) --------
+const ORDERED_BAR_PARTS = Object.freeze([
+  ["inTransit", "In transit", 1],
+  ["house", "House", 0.7],
+  ["prep", "Prep center", 0.45],
+]);
+
+// `ordered` = what SHOPPER_AMZINV_GET answers as `ordered` (or null).
+// -> null when there is nothing to draw.
+function orderedSegments(ordered, measure) {
+  if (!ordered || !ordered.parts) return null;
+  const m = measure === "units" ? "units" : "value";
+  const color = SERIES_BY_KEY.ordered.color;
+  const segments = ORDERED_BAR_PARTS.map(([k, label, opacity]) => {
+    const part = ordered.parts[k] || {};
+    const v = Number(part[m]) || 0;
+    return { key: k, label, color, opacity, v };
+  });
+  const total = m === "units" ? Number(ordered.units) || 0 : Number(ordered.value) || 0;
+  const base = segments.reduce((acc, x) => acc + Math.max(0, x.v), 0);
+  return {
+    total,
+    unpricedUnits: Number(ordered.unpricedUnits) || 0,
+    segments: segments.map((x) => ({ ...x, pct: base > 0 ? (Math.max(0, x.v) / base) * 100 : 0 })),
+  };
+}
+
+// The line under the Ordered row. "" when nothing is on file.
+function orderedNote(ordered) {
+  if (!ordered || !ordered.parts) return "";
+  const u = Number(ordered.unpricedUnits) || 0;
+  const a = Number(ordered.unpricedAsinCount) || 0;
+  const unpriced = u > 0 ? ` ${u} ordered unit(s)${a ? ` (${a} product${a === 1 ? "" : "s"})` : ""} have no cost on file - counted in units, left out of $.` : "";
+  const when = ordered.asOf ? ` Pipeline as of ${fmtCT(ordered.asOf)}.` : "";
+  return `Ordered is Shopper's own figure, not Amazon's: bought but not at Amazon yet = in transit + house + prep.${when}${unpriced}`;
+}
+
 // ---- formatting ----------------------------------------------------------------
 function fmt(v, measure) {
   if (!Number.isFinite(v)) return "—";
   if (measure === "units") return Math.round(v).toLocaleString("en-US");
   return "$" + v.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 }
-__m["amzinv.js"] = { AMZINV_SETTINGS_KEY, DAY_MS, SLOT, SERIES, SERIES_BY_KEY, OTHER, BAR_BASE, BAR_SPLIT, AMZINV_DEFAULTS, normalizeSettings, rangeLabel, parseHistory, localDayKey, dailyPoints, sliceRange, previousPeriod, dipSignal, extraAlerts, parseScanpowerTime, shipmentMarkers, barSegments, fmt };
+__m["amzinv.js"] = { AMZINV_SETTINGS_KEY, DAY_MS, SLOT, SERIES, SEPARATE_SERIES, ORDERED_SERIES_HOVER, ORDERED_COLS, SERIES_BY_KEY, OTHER, BAR_BASE, BAR_SPLIT, AMZINV_DEFAULTS, normalizeSettings, rangeLabel, parseHistory, CT_ZONE, centralParts, centralDayKey, localDayKey, fmtCT, centralDayStart, centralDayEnd, dailyPoints, sliceRange, previousPeriod, dipSignal, extraAlerts, parseScanpowerTime, shipmentMarkers, barSegments, ORDERED_BAR_PARTS, orderedSegments, orderedNote, fmt };
 })();
 // ---- lib/amzinv-chart.js ----
 (function () {
@@ -324,7 +427,7 @@ __m["amzinv.js"] = { AMZINV_SETTINGS_KEY, DAY_MS, SLOT, SERIES, SERIES_BY_KEY, O
 // Marks (dataviz): 2px lines, 2px surface gaps between stacked segments,
 // recessive grid, legend always shown for >= 2 series, values in ink (never
 // the series colour), a crosshair + tooltip on hover, a table view.
-const { BAR_BASE, BAR_SPLIT, DAY_MS, SERIES_BY_KEY, fmt } = __m["amzinv.js"];
+const { BAR_BASE, BAR_SPLIT, DAY_MS, ORDERED_SERIES_HOVER, SEPARATE_SERIES, SERIES_BY_KEY, centralParts, fmt, fmtCT } = __m["amzinv.js"];
 
 const NS = "http://www.w3.org/2000/svg";
 function svg(doc, tag, attrs = {}, kids = []) {
@@ -370,6 +473,51 @@ function drawStackedBar(doc, { title, segments, total, measure }) {
   return box;
 }
 
+// B-547 (v4.68): the "Ordered" row under Amazon's bars - Shopper's figure,
+// its own bar, its own total, its own hover text. Never mixed into Amazon's.
+function drawOrderedBar(doc, { title, seg, measure }) {
+  const box = el(doc, "div", "ai-bar ai-bar-ordered");
+  box.title = ORDERED_SERIES_HOVER;
+  const head = el(doc, "div", "ai-bar-head");
+  head.append(el(doc, "span", "ai-bar-title", title), el(doc, "span", "ai-bar-total", fmt(seg.total, measure)));
+  const track = el(doc, "div", "ai-bar-track");
+  track.setAttribute("role", "img");
+  track.setAttribute("aria-label", `${title} (${ORDERED_SERIES_HOVER}) ` + seg.segments.map((s) => `${s.label} ${fmt(s.v, measure)}`).join(", "));
+  for (const s of seg.segments) {
+    if (!(s.v > 0)) continue;
+    const d = el(doc, "div", "ai-bar-seg");
+    d.style.width = `${s.pct}%`;
+    d.style.background = s.color;
+    d.style.opacity = String(s.opacity);
+    d.title = `${s.label}: ${fmt(s.v, measure)} - ${ORDERED_SERIES_HOVER}`;
+    track.append(d);
+  }
+  const legend = el(doc, "div", "ai-legend");
+  for (const s of seg.segments) {
+    const item = el(doc, "span", "ai-legend-item");
+    const sw = el(doc, "span", "ai-swatch");
+    sw.style.background = s.color;
+    sw.style.opacity = String(s.opacity);
+    item.append(sw, el(doc, "span", "ai-legend-label", s.label), el(doc, "span", "ai-legend-val", fmt(s.v, measure)));
+    legend.append(item);
+  }
+  box.append(head, track, legend);
+  return box;
+}
+
+// A line through the points that have a value; a gap (new "M") wherever a
+// point has none (B-547: Ordered has no value on rows older than v4.68).
+function gapPath(points, x, y, get) {
+  let out = "", pen = false;
+  for (const p of points) {
+    const v = get(p);
+    if (v == null || !Number.isFinite(v)) { pen = false; continue; }
+    out += `${pen ? "L" : "M"}${x(p.t).toFixed(1)},${y(v).toFixed(1)}`;
+    pen = true;
+  }
+  return out;
+}
+
 // Area mode stacks only statuses that do not overlap (a parent and its own
 // parts would double-count): headline statuses, with Inbound replaced by its
 // three parts when any part is chosen.
@@ -390,9 +538,10 @@ function niceMax(v) {
   for (const m of [1, 2, 2.5, 5, 10]) if (m * p >= v) return m * p;
   return 10 * p;
 }
+// v4.68: US Central, whatever the machine's clock says.
 function tickLabel(t, hourly) {
-  const d = new Date(t);
-  return hourly ? `${d.getHours()}:00` : `${d.getMonth() + 1}/${d.getDate()}`;
+  const p = centralParts(t);
+  return hourly ? `${p.h}:00` : `${p.m}/${p.d}`;
 }
 
 // ---- trend chart -------------------------------------------------------------
@@ -404,7 +553,8 @@ function drawTrend(doc, { points, keys, measure, style, compare = null, markers 
     return wrap;
   }
   const area = style === "area";
-  const shown = area ? stackableSeries(keys) : keys.filter((k) => SERIES_BY_KEY[k]);
+  // B-547: a separate series (Ordered) is never stacked - on Area it rides on top as a line.
+  const shown = area ? [...stackableSeries(keys), ...keys.filter((k) => SEPARATE_SERIES.includes(k))] : keys.filter((k) => SERIES_BY_KEY[k]);
   const pad = { l: 64, r: 16, t: 14, b: 28 };
   const W = width - pad.l - pad.r, H = height - pad.t - pad.b;
   const t0 = Number.isFinite(lo) ? Math.min(lo, points[0].t) : points[0].t;
@@ -415,11 +565,16 @@ function drawTrend(doc, { points, keys, measure, style, compare = null, markers 
   const stacks = points.map((p) => {
     let acc = 0;
     const s = {};
-    for (const k of shown) { const v = p[m][k] || 0; s[k] = area ? [acc, (acc += v)] : [0, v]; }
+    for (const k of shown) {
+      const raw = p[m][k];
+      if (SEPARATE_SERIES.includes(k)) { s[k] = [0, raw == null ? null : raw]; continue; }
+      const v = raw || 0;
+      s[k] = area ? [acc, (acc += v)] : [0, v];
+    }
     return s;
   });
   let max = 0;
-  for (const s of stacks) for (const k of shown) max = Math.max(max, s[k][1]);
+  for (const s of stacks) for (const k of shown) max = Math.max(max, s[k][1] || 0);
   if (compare && !area) for (const p of compare) for (const k of shown) max = Math.max(max, p[m][k] || 0);
   const yMax = niceMax(max);
   const y = (v) => pad.t + H - (v / yMax) * H;
@@ -451,22 +606,25 @@ function drawTrend(doc, { points, keys, measure, style, compare = null, markers 
   // previous period (dashed, lines mode only - a dashed stack would lie)
   if (compare && compare.length && !area) {
     for (const k of shown) {
-      const d = compare.map((p, i) => `${i ? "L" : "M"}${x(p.t).toFixed(1)},${y(p[m][k] || 0).toFixed(1)}`).join("");
+      const d = gapPath(compare, x, y, (p) => (SEPARATE_SERIES.includes(k) ? p[m][k] : p[m][k] || 0));
       root.append(svg(doc, "path", { d, class: "ai-compare", stroke: SERIES_BY_KEY[k].color }));
     }
   }
   // series
-  const drawOrder = area ? shown.slice().reverse() : shown;
+  // Separate series (Ordered) last, so its line sits on top of the bands.
+  const drawOrder = area ? [...shown.filter((k) => !SEPARATE_SERIES.includes(k)).reverse(), ...shown.filter((k) => SEPARATE_SERIES.includes(k))] : shown;
   for (const k of drawOrder) {
     const s = SERIES_BY_KEY[k];
-    const top = points.map((p, i) => `${i ? "L" : "M"}${x(p.t).toFixed(1)},${y(stacks[i][k][1]).toFixed(1)}`).join("");
-    if (area) {
+    const sep = SEPARATE_SERIES.includes(k);
+    const idx = new Map(points.map((p, i) => [p, i]));
+    const top = gapPath(points, x, y, (p) => stacks[idx.get(p)][k][1]);
+    if (area && !sep) {
       const bottom = points.map((p, i) => [x(p.t), y(stacks[i][k][0])]).reverse().map(([a, b]) => `L${a.toFixed(1)},${b.toFixed(1)}`).join("");
       root.append(svg(doc, "path", { d: top + bottom + "Z", fill: s.color, class: "ai-area", "data-key": k }));
     }
     // B-515 (v4.63): on the Area chart the band edges are the trendlines and
     // can be turned off; on the Lines chart the lines ARE the chart.
-    if (!area || showLines !== false) {
+    if (!area || sep || showLines !== false) {
       root.append(svg(doc, "path", { d: top, stroke: s.color, "stroke-dasharray": s.dash || null, class: "ai-line", "data-key": k }));
     }
   }
@@ -496,9 +654,9 @@ function drawTrend(doc, { points, keys, measure, style, compare = null, markers 
     const p = points[best];
     cross.setAttribute("x1", x(p.t)); cross.setAttribute("x2", x(p.t)); cross.setAttribute("visibility", "visible");
     tip.textContent = "";
-    const d = new Date(p.t);
-    tip.append(el(doc, "div", "ai-tip-head", hourly ? d.toLocaleString() : d.toLocaleDateString()));
+    tip.append(el(doc, "div", "ai-tip-head", fmtCT(p.t, hourly ? "datetime" : "date")));
     for (const k of shown) {
+      if (p[m][k] == null) continue;
       const row = el(doc, "div", "ai-tip-row");
       const sw = el(doc, "span", "ai-swatch");
       sw.style.background = SERIES_BY_KEY[k].color;
@@ -527,6 +685,7 @@ function drawTrend(doc, { points, keys, measure, style, compare = null, markers 
     sw.style.background = s.color;
     if (s.dash) sw.classList.add("ai-swatch-sub");
     item.append(sw, el(doc, "span", "ai-legend-label", s.label));
+    if (SEPARATE_SERIES.includes(k)) item.title = ORDERED_SERIES_HOVER;
     legend.append(item);
   }
   if (compare && compare.length && !area) legend.append(el(doc, "span", "ai-legend-note", "Dashed = previous period"));
@@ -549,15 +708,15 @@ function drawTable(doc, { points, keys, measure, hourly }) {
   const tbody = el(doc, "tbody");
   for (const p of points.slice().reverse()) {
     const row = el(doc, "tr");
-    const d = new Date(p.t);
-    row.append(el(doc, "td", null, hourly ? d.toLocaleString() : d.toLocaleDateString()));
-    for (const k of keys) row.append(el(doc, "td", "ai-num", fmt(p[m][k] || 0, m)));
+    row.append(el(doc, "td", null, fmtCT(p.t, hourly ? "datetime" : "date")));
+    // B-547: an older row has no Ordered figure - "—", not 0.
+    for (const k of keys) row.append(el(doc, "td", "ai-num", p[m][k] == null && SEPARATE_SERIES.includes(k) ? "—" : fmt(p[m][k] || 0, m)));
     tbody.append(row);
   }
   table.append(thead, tbody);
   return table;
 }
-__m["amzinv-chart.js"] = { svg, el, drawStackedBar, stackableSeries, niceMax, tickLabel, drawTrend, drawTable };
+__m["amzinv-chart.js"] = { svg, el, drawStackedBar, drawOrderedBar, gapPath, stackableSeries, niceMax, tickLabel, drawTrend, drawTable };
 })();
 // ---- lib/amzinv-columns.js ----
 (function () {
@@ -570,8 +729,8 @@ __m["amzinv-chart.js"] = { svg, el, drawStackedBar, stackableSeries, niceMax, ti
 // top of the columns.
 //
 // No innerHTML; takes `doc` so tests hand in a fake document.
-const { DAY_MS, SERIES_BY_KEY, barSegments, fmt } = __m["amzinv.js"];
-const { el, niceMax, svg, tickLabel } = __m["amzinv-chart.js"];
+const { DAY_MS, ORDERED_SERIES_HOVER, SEPARATE_SERIES, SERIES_BY_KEY, barSegments, fmt, fmtCT } = __m["amzinv.js"];
+const { el, gapPath, niceMax, svg, tickLabel } = __m["amzinv-chart.js"];
 
 // The columns for a list of points: [{ t, segments:[{key,label,color,dash,v,y0,y1}], total, top }].
 function columnStacks(points, measure, splitInbound) {
@@ -644,7 +803,8 @@ function drawColumnsTrend(doc, { points, keys = [], measure, splitInbound = fals
   // lines on top
   for (const k of lines) {
     const s = SERIES_BY_KEY[k];
-    const d = points.map((p, i) => `${i ? "L" : "M"}${x(p.t).toFixed(1)},${y(p[m][k] || 0).toFixed(1)}`).join("");
+    // B-547: Ordered (a separate series) breaks where a row has no value.
+    const d = gapPath(points, x, y, (p) => (SEPARATE_SERIES.includes(k) ? p[m][k] : p[m][k] || 0));
     root.append(svg(doc, "path", { d, stroke: s.color, "stroke-dasharray": s.dash || null, class: "ai-line ai-line-over", "data-key": k }));
   }
   for (const mk of markers) {
@@ -671,14 +831,24 @@ function drawColumnsTrend(doc, { points, keys = [], measure, splitInbound = fals
     const c = cols[best];
     cross.setAttribute("x1", x(c.t)); cross.setAttribute("x2", x(c.t)); cross.setAttribute("visibility", "visible");
     tip.textContent = "";
-    const d = new Date(c.t);
-    tip.append(el(doc, "div", "ai-tip-head", `${hourly ? d.toLocaleString() : d.toLocaleDateString()} · Total ${fmt(c.total, m)}`));
+    tip.append(el(doc, "div", "ai-tip-head", `${fmtCT(c.t, hourly ? "datetime" : "date")} · Total ${fmt(c.total, m)}`));
     for (const s of c.segments.slice().reverse()) {
       if (!(s.v > 0)) continue;
       const row = el(doc, "div", "ai-tip-row");
       const sw = el(doc, "span", "ai-swatch");
       sw.style.background = s.color;
       row.append(sw, el(doc, "span", "ai-tip-label", s.label), el(doc, "span", "ai-tip-val", fmt(s.v, m)));
+      tip.append(row);
+    }
+    // B-547: Ordered is not part of Amazon's Total - its own row under it.
+    const pt = points[best];
+    for (const k of lines) {
+      if (!SEPARATE_SERIES.includes(k) || pt[m][k] == null) continue;
+      const row = el(doc, "div", "ai-tip-row ai-tip-separate");
+      const sw = el(doc, "span", "ai-swatch");
+      sw.style.background = SERIES_BY_KEY[k].color;
+      row.title = ORDERED_SERIES_HOVER;
+      row.append(sw, el(doc, "span", "ai-tip-label", `${SERIES_BY_KEY[k].label} - not in Total`), el(doc, "span", "ai-tip-val", fmt(pt[m][k], m)));
       tip.append(row);
     }
     tip.hidden = false;
@@ -709,6 +879,11 @@ function drawColumnsTrend(doc, { points, keys = [], measure, splitInbound = fals
   }
   if (lines.length) legend.append(el(doc, "span", "ai-legend-note", `Lines: ${lines.map((k) => SERIES_BY_KEY[k].label).join(", ")}`));
   legend.append(el(doc, "span", "ai-legend-note", "Each column adds up to Total"));
+  if (lines.some((k) => SEPARATE_SERIES.includes(k))) {
+    const note = el(doc, "span", "ai-legend-note", "Ordered (dotted) = Shopper's in transit + house + prep, not in Total");
+    note.title = ORDERED_SERIES_HOVER;
+    legend.append(note);
+  }
   if (markers.length) legend.append(el(doc, "span", "ai-legend-note", "▼ = shipment sent"));
   if (bands.length) legend.append(el(doc, "span", "ai-legend-note", "Shaded = supply-squeeze day"));
   const plot = el(doc, "div", "ai-plot");
@@ -757,7 +932,7 @@ __m["amzinv-chips.js"] = { isHeadlineSeries, chipGroups };
 // RECORD at the newest pull (rule 25).
 // ⚠ The alert wording lives HERE and the FBA Inventory page uses it too, so
 // the Dashboard banner and the page banner can never say different things.
-const { DAY_MS, dipSignal, extraAlerts, fmt, sliceRange } = __m["amzinv.js"];
+const { DAY_MS, ORDERED_SERIES_HOVER, dipSignal, extraAlerts, fmt, sliceRange } = __m["amzinv.js"];
 
 const FBA_CARD_TILES = Object.freeze([
   ["available", "Available"],
@@ -780,10 +955,26 @@ function fbaAlerts(points, settings) {
   return out.concat(extraAlerts(points, settings.alerts));
 }
 
-function fbaCardModel({ points, pulledAt = null, settings, now = Date.now() }) {
+// B-547 (v4.68): the Ordered tile - Shopper's in transit + house + prep at
+// the last pull (SHOPPER_AMZINV_GET's `ordered`), apart from Amazon's four.
+// null when there is nothing on file.
+function orderedTile(ordered) {
+  if (!ordered || !ordered.parts) return null;
+  const u = Number(ordered.unpricedUnits) || 0;
+  return {
+    key: "ordered",
+    label: "Ordered",
+    units: Number(ordered.units) || 0,
+    value: Number(ordered.value) || 0,
+    unpricedUnits: u,
+    hover: ORDERED_SERIES_HOVER + (u > 0 ? ` ${u} unit(s) have no cost on file and are left out of $.` : ""),
+  };
+}
+
+function fbaCardModel({ points, pulledAt = null, settings, now = Date.now(), ordered = null }) {
   const pts = Array.isArray(points) ? points : [];
   const latest = pts.length ? pts[pts.length - 1] : null;
-  if (!latest) return { empty: true, tiles: [], alerts: [], spark: [], asOf: pulledAt || null };
+  if (!latest) return { empty: true, tiles: [], alerts: [], spark: [], asOf: pulledAt || null, ordered: orderedTile(ordered) };
   const tiles = FBA_CARD_TILES.map(([key, label]) => ({
     key,
     label,
@@ -800,6 +991,7 @@ function fbaCardModel({ points, pulledAt = null, settings, now = Date.now() }) {
     alerts: fbaAlerts(pts, settings),
     spark,
     unpricedUnits: latest.unpricedUnits || 0,
+    ordered: orderedTile(ordered),
   };
 }
 
@@ -814,7 +1006,7 @@ function sparkPaths(spark, { width = 240, height = 48, pad = 4 } = {}) {
   const path = (k) => spark.map((p, i) => `${i ? "L" : "M"}${x(p.t).toFixed(1)},${y(p[k]).toFixed(1)}`).join("");
   return { available: path("available"), inbound: path("inbound"), max };
 }
-__m["fba-card.js"] = { FBA_CARD_TILES, FBA_SPARK_DAYS, squeezeText, fbaAlerts, fbaCardModel, sparkPaths };
+__m["fba-card.js"] = { FBA_CARD_TILES, FBA_SPARK_DAYS, squeezeText, fbaAlerts, orderedTile, fbaCardModel, sparkPaths };
 })();
 // ---- lib/remote-fba.js ----
 (function () {
@@ -867,10 +1059,13 @@ const r2 = (v) => {
 };
 const str = (v, max = 200) => (v == null ? null : String(v).slice(0, max));
 
+// B-547 (v4.68): null stays null (an older row has no Ordered figure - the
+// phone must draw a gap there, not a zero).
+const r2n = (v) => (v == null ? null : r2(v));
 function encodeFbaPoint(p) {
   const out = [Number(p.t), r2(p.unpricedUnits)];
-  for (const k of FBA_REMOTE_KEYS) out.push(r2(p.units && p.units[k]));
-  for (const k of FBA_REMOTE_KEYS) out.push(r2(p.value && p.value[k]));
+  for (const k of FBA_REMOTE_KEYS) out.push(r2n(p.units && p.units[k]));
+  for (const k of FBA_REMOTE_KEYS) out.push(r2n(p.value && p.value[k]));
   return out;
 }
 
@@ -883,8 +1078,8 @@ function decodeFbaPoints(rows, keys = FBA_REMOTE_KEYS) {
     if (!Array.isArray(a) || !Number.isFinite(Number(a[0]))) continue;
     const units = {}, value = {};
     for (let i = 0; i < n; i++) {
-      units[keys[i]] = Number(a[2 + i]) || 0;
-      value[keys[i]] = Number(a[2 + n + i]) || 0;
+      units[keys[i]] = a[2 + i] === null ? null : Number(a[2 + i]) || 0;
+      value[keys[i]] = a[2 + n + i] === null ? null : Number(a[2 + n + i]) || 0;
     }
     // Derived exactly as parseHistory() derives it (the sum of its three
     // parts), so the phone's figure is the laptop's to the last float bit.
@@ -914,6 +1109,21 @@ function shapeBatch(b) {
   };
 }
 
+// B-547: only the figures the phone draws.
+function shapeOrdered(o) {
+  if (!o || !o.parts) return null;
+  const part = (k) => ({ units: r2(o.parts[k] && o.parts[k].units), value: r2(o.parts[k] && o.parts[k].value), unpricedUnits: r2(o.parts[k] && o.parts[k].unpricedUnits) });
+  return {
+    available: true,
+    units: r2(o.units),
+    value: r2(o.value),
+    unpricedUnits: r2(o.unpricedUnits),
+    unpricedAsinCount: Number(o.unpricedAsinCount) || 0,
+    parts: { inTransit: part("inTransit"), house: part("house"), prep: part("prep") },
+    asOf: Number.isFinite(Number(o.asOf)) ? Number(o.asOf) : null,
+  };
+}
+
 // Pure. `res` = what SHOPPER_AMZINV_GET answers (or { loadError }).
 // `rawSettings` = the laptop's stored shopperAmzInvSettings (normalized here,
 // so the phone starts on the same range, measure, style and series).
@@ -940,6 +1150,8 @@ function projectFba(res, rawSettings, { nowMs = Date.now() } = {}) {
     hourly: hourly.map(encodeFbaPoint),
     daily: daily.map(encodeFbaPoint),
     batches: (Array.isArray(res.batches) ? res.batches : []).slice(0, FBA_REMOTE_MAX_BATCHES).map(shapeBatch),
+    // B-547 (v4.68): Shopper's Ordered at the last pull, for the phone's row + tile.
+    ordered: shapeOrdered(res.ordered),
   };
 }
 
@@ -965,7 +1177,7 @@ async function readFbaForRemote(read, { nowMs = Date.now(), ttlMs = FBA_REMOTE_C
   }
   return cache.value;
 }
-__m["remote-fba.js"] = { FBA_REMOTE_HOURLY_DAYS, FBA_REMOTE_MAX_DAYS, FBA_REMOTE_CACHE_MS, FBA_REMOTE_MAX_BATCHES, FBA_REMOTE_KEYS, encodeFbaPoint, decodeFbaPoints, mergeFbaPoints, projectFba, resetFbaCache, readFbaForRemote };
+__m["remote-fba.js"] = { FBA_REMOTE_HOURLY_DAYS, FBA_REMOTE_MAX_DAYS, FBA_REMOTE_CACHE_MS, FBA_REMOTE_MAX_BATCHES, FBA_REMOTE_KEYS, encodeFbaPoint, decodeFbaPoints, mergeFbaPoints, shapeOrdered, projectFba, resetFbaCache, readFbaForRemote };
 })();
 root.ShopperFBA = Object.freeze(Object.assign({}, ...Object.values(__m)));
 })(typeof self !== "undefined" ? self : globalThis);

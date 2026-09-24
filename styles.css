@@ -402,6 +402,10 @@ button { font: inherit; cursor: pointer; }
 .fba-paper .ai-bar-track { display: flex; gap: 2px; height: 24px; border-radius: 6px; overflow: hidden; background: #f1eff6; }
 .fba-paper .ai-bar-seg { height: 100%; min-width: 2px; }
 .fba-paper .ai-bar-seg-sub { opacity: 0.7; }
+/* B-547 (v4.68): Shopper's Ordered row, set apart from Amazon's bars. */
+.fba-paper .ai-bar-ordered { margin-top: 14px; padding-top: 10px; border-top: 1px dashed #d9d5e6; }
+.fba-paper .ai-bar-ordered .ai-bar-title { color: #6b5334; }
+.fba-paper .ai-tip-separate { border-top: 1px dashed #d9d5e6; margin-top: 4px; padding-top: 4px; }
 .fba-paper .ai-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 8px; font-size: 12px; color: #3d3852; }
 .fba-paper .ai-legend-item { display: inline-flex; align-items: center; gap: 5px; }
 .fba-paper .ai-legend-val { color: #69657a; font-variant-numeric: tabular-nums; }
@@ -458,6 +462,8 @@ button { font: inherit; cursor: pointer; }
 .dash-fba .fba-inboundAll { border-top: 3px solid #eb6834; }
 .dash-fba .fba-reservedTotal { border-top: 3px solid #8a8698; }
 .dash-fba .fba-unfulfillable { border-top: 3px solid #e34948; }
+/* B-547 (v4.68): Shopper's Ordered tile - full width, apart from Amazon's four. */
+.dash-fba .fba-ordered { border-top: 3px dotted #8c6d46; grid-column: 1 / -1; }
 .fba-spark { margin-top: 8px; }
 .fba-spark-svg { width: 100%; height: 56px; display: block; }
 .fba-spark-line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
