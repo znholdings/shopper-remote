@@ -99,23 +99,16 @@
   function renderNow() {
     const bars = $("fbaBars");
     bars.textContent = "";
-    const p = points.length ? points[points.length - 1] : null;
+    // B-566 (v4.74): one full stack (same lib code as the laptop page).
+    const p = F.withLiveParts(points.length ? points[points.length - 1] : null, data.ordered);
     if (!p) { $("fbaNowNote").textContent = "No history rows yet - the first one is written by the laptop's next Amazon pull."; return; }
     const s = settings();
     const u = F.barSegments(p, "units", s.splitInboundInBars);
     const v = F.barSegments(p, "value", s.splitInboundInBars);
     bars.append(
-      F.drawStackedBar(document, { title: "Units", segments: u.segments, total: u.total, measure: "units" }),
-      F.drawStackedBar(document, { title: "$ at cost", segments: v.segments, total: v.total, measure: "value" })
+      F.drawStackedBar(document, { title: "Units", segments: u.segments, total: u.total, measure: "units", amazonTotal: u.allInventory ? u.amazonTotal : null }),
+      F.drawStackedBar(document, { title: "$ at cost", segments: v.segments, total: v.total, measure: "value", amazonTotal: v.allInventory ? v.amazonTotal : null })
     );
-    // B-547 (v4.68): Shopper's Ordered, its own rows under Amazon's.
-    const ou = F.orderedSegments(data.ordered, "units"), ov = F.orderedSegments(data.ordered, "value");
-    if (ou && ov) {
-      bars.append(
-        F.drawOrderedBar(document, { title: "Ordered, not at Amazon yet - units", seg: ou, measure: "units" }),
-        F.drawOrderedBar(document, { title: "Ordered, not at Amazon yet - $ at cost", seg: ov, measure: "value" })
-      );
-    }
     const ord = F.orderedNote(data.ordered);
     $("fbaNowNote").textContent = "Amazon's own count at " + F.fmtCT(p.t) + ", valued at the cost in effect then." +
       (p.unpricedUnits ? " " + p.unpricedUnits + " unit(s) have no cost on file and are in Units but not in $." : "") +

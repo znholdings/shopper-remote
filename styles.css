@@ -399,6 +399,9 @@ button { font: inherit; cursor: pointer; }
 .fba-paper .ai-bar { margin: 10px 0 6px; }
 .fba-paper .ai-bar-head { display: flex; justify-content: space-between; font-size: 13px; font-weight: 700; margin-bottom: 6px; }
 .fba-paper .ai-bar-total { font-variant-numeric: tabular-nums; }
+/* B-566 (v4.74) */
+.fba-paper .ai-bar-head { flex-wrap: wrap; }
+.fba-paper .ai-bar-sub { flex-basis: 100%; font-size: 12px; font-weight: 400; opacity: 0.75; margin-top: 2px; }
 .fba-paper .ai-bar-track { display: flex; gap: 2px; height: 24px; border-radius: 6px; overflow: hidden; background: #f1eff6; }
 .fba-paper .ai-bar-seg { height: 100%; min-width: 2px; }
 .fba-paper .ai-bar-seg-sub { opacity: 0.7; }
@@ -489,4 +492,33 @@ button { font: inherit; cursor: pointer; }
    Keep this LAST in the file, and never give an element both a `display`
    rule and `el.hidden` without it.
    --------------------------------------------------------------------- */
+/* v4.74 (B-567 - B-574): phone parity controls (remote/parity.js). */
+.need-card { display: flex; flex-direction: column; gap: 6px; }
+.need-body { font-size: 13px; line-height: 1.45; }
+.need-actions { flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.need-input { font: inherit; font-size: 14px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line, #3a3a4a); background: var(--panel); color: var(--text); min-width: 0; max-width: 100%; }
+.need-num { width: 112px; }
+.need-split-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.parity-edit, .parity-ding { flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.parity-why summary { cursor: pointer; font-size: 13px; }
+.parity-why-text { white-space: pre-wrap; font-size: 12px; margin: 6px 0 0; }
+.parity-refresh { flex-wrap: wrap; }
+#goalBox .controls { flex-wrap: wrap; align-items: center; gap: 6px; }
+
+/* B-579 (v4.75): Box contents */
+.bx-section h3 { margin: 4px 0 6px; }
+.bx-text { width: 100%; box-sizing: border-box; min-height: 140px; padding: 10px; border-radius: 8px; border: 1px solid var(--line); background: #0e1015; color: var(--text); font-size: 16px; line-height: 1.35; }
+.bx-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; align-items: center; }
+.bx-batch { flex: 1 1 160px; min-width: 0; padding: 10px; border-radius: 8px; border: 1px solid var(--line); background: #0e1015; color: var(--text); font-size: 15px; }
+.bx-head { font-weight: 700; margin: 6px 0; }
+.bx-box-title { font-weight: 700; font-size: 14px; margin-bottom: 3px; overflow-wrap: anywhere; }
+.bx-questions select, .bx-questions input { width: 100%; box-sizing: border-box; padding: 10px; border-radius: 8px; border: 1px solid var(--line); background: #0e1015; color: var(--text); font-size: 16px; }
+.bx-questions h4 { margin: 10px 0 4px; }
+.bx-replace { display: block; margin: 8px 0; font-size: 14px; }
+.bx-upload { width: 100%; margin-top: 6px; }
+.bx-ok { color: var(--good); font-weight: 700; }
+.bx-working { color: var(--warn); }
+.bx-status p { overflow-wrap: anywhere; }
+
 [hidden] { display: none !important; }
+

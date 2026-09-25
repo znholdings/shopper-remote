@@ -102,6 +102,8 @@
         <!-- P-246 (v3.60): where today's spending goal came from. Mirrored
              from the desktop, never set here. -->
         <div id="tDefaultNote" class="default-note" hidden></div>
+        <!-- v4.74 (B-573): the daily spending goal + what happens when it is met. -->
+        <div id="goalBox" class="section"></div>
 
         <div id="startRow" class="controls" hidden>
           <label class="mode-row">
@@ -268,6 +270,10 @@
            page last stored - House / Prep / In transit and the Arrivals
            boxes. Nothing on this tab can move a unit. -->
       <div id="inventoryPane" hidden>
+        <!-- B-579 (v4.75): dictate box contents, upload the pack list to ScanPower. -->
+        <div id="boxesSection" class="section bx-section"></div>
+        <!-- v4.74 (B-567): the same Quick / Full refresh as the laptop. -->
+        <div id="invRefresh"></div>
         <p id="invAsOf" class="muted"></p>
         <div class="inv-totals">
           <!-- B-465 (v4.50): each tile opens its products, largest first. -->
@@ -280,6 +286,10 @@
           <p id="invBucketNote" class="muted" hidden></p>
           <table id="invBucketTable" class="inv-table"></table>
         </div>
+        <!-- v4.74 (B-568): the laptop's Needs you cards, with their answers. -->
+        <div id="needsSection" class="section"></div>
+        <!-- v4.74 (B-569): "What showed up", sliced by the dropdown. -->
+        <div id="latestSection" class="section"></div>
         <div class="section">
           <h3>Arrivals <span id="invArrivalsCount" class="count"></span></h3>
           <div id="invArrivals"></div>
@@ -295,6 +305,8 @@
            by the same code (fba-lib.js is built from its lib/ files). No
            command, no write, no Amazon pull. -->
       <div id="fbaPane" hidden>
+        <!-- v4.74 (B-574 / B-576): the one Quick / Full refresh. -->
+        <div id="fbaRefresh"></div>
         <p id="fbaAsOf" class="muted"></p>
         <div id="fbaBanners" class="fba-banners"></div>
         <div id="fbaBody" class="fba-paper" hidden>
@@ -355,5 +367,7 @@
   <script src="fba-lib.js"></script>
   <script src="fba-view.js"></script>
   <script src="app.js"></script>
+  <script src="parity.js"></script>
+  <script src="boxes.js"></script>
 </body>
 </html>

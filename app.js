@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v4.68";
+const APP_BUILD = "v4.75";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -158,7 +158,7 @@ async function sendCommand(name, payload = {}) {
       role: "active",
     }],
   });
-  if (!res.ok) { toast(`Could not send: ${res.reason}`, true); return; }
+  if (!res.ok) { toast(`Could not send: ${res.reason}`, true); return null; }
   const row = Array.isArray(res.json) ? res.json[0] : null;
   if (row && row.id) {
     inFlight.set(row.id, { name, at: Date.now() });
@@ -167,7 +167,24 @@ async function sendCommand(name, payload = {}) {
   toast("Sent");
   // Poll straight away so the effect shows without waiting a full tick.
   setTimeout(poll, 400);
+  // v4.74: the row id, so remote/parity.js can wait for the laptop's answer
+  // before a second step (e.g. take leftovers off, THEN dismiss the card).
+  return row && row.id ? row.id : null;
 }
+
+// v4.74: id -> resolve(status) for callers that wait (remote/parity.js).
+const waiters = new Map();
+function waitFor(id) {
+  return new Promise((resolve) => {
+    if (!id) { resolve("not sent"); return; }
+    waiters.set(id, resolve);
+  });
+}
+function settleWaiter(id, status) {
+  const w = waiters.get(id);
+  if (w) { waiters.delete(id); w(status); }
+}
+self.ShopperRemote = Object.freeze({ sendCommand: (name, payload) => sendCommand(name, payload), waitFor });
 
 // ------------------------------------------------------- command outcomes
 //
@@ -207,6 +224,7 @@ async function pollCommandOutcomes() {
     if (row.status === "pending" || row.status === "running") continue;
 
     inFlight.delete(row.id);
+    settleWaiter(row.id, row.status);
     const label = (REMOTE_LABELS[pending.name] || pending.name);
     const fmt = OUTCOME_LABEL[row.status];
     if (row.status === "done") {
@@ -225,6 +243,7 @@ async function pollCommandOutcomes() {
   for (const [id, c] of [...inFlight.entries()]) {
     if (now - c.at < COMMAND_TIMEOUT_MS) continue;
     inFlight.delete(id);
+    settleWaiter(id, "timeout");
     toast(`${REMOTE_LABELS[c.name] || c.name}: no response from the laptop after 5 minutes.`, true);
   }
   renderInFlight();
@@ -266,6 +285,7 @@ const REMOTE_LABELS = {
   buylistAction: "Buylist action", buylistApproveAll: "Approve all",
   preview: "Refresh preview",
   buylistAddManual: "Add ASIN to buylist",
+  boxesRead: "Read boxes", boxesAnswer: "Save answers", boxesUpload: "Upload boxes", boxesClear: "Start over",
 };
 
 // P-25, half one: proof the tap landed. A command that is still pending or
@@ -462,6 +482,10 @@ function renderPayload() {
   renderDashboard(p.dashboard);
   // B-510/B-511 (v4.61): the FBA tab and the Dashboard's FBA card.
   if (self.ShopperFbaView) self.ShopperFbaView.render(p.fba);
+  // v4.74 (B-567 - B-574): refresh, Needs you, latest arrivals, goal.
+  if (self.ShopperParity) self.ShopperParity.render(p);
+  // B-579 (v4.75): Box contents -> ScanPower (remote/boxes.js).
+  if (self.ShopperBoxes) self.ShopperBoxes.render(p);
   renderInFlight();
 }
 
@@ -1260,6 +1284,8 @@ function buylistCard(i) {
 
   row.appendChild(actions);
   row.appendChild(more);
+  // v4.74 (B-572): Ding + "Why this Buy Score" (remote/parity.js).
+  if (self.ShopperParity) self.ShopperParity.decorateBuylistCard(row, i);
   return row;
 }
 
@@ -1676,7 +1702,7 @@ function invAgo(iso) {
   return h < 48 ? h + " h ago" : Math.round(h / 24) + " days ago";
 }
 
-function invArrivalBox(title, box, tone) {
+function invArrivalBox(title, box, tone, kind) {
   const wrap = invNode("div", "inv-box" + (tone ? " inv-box-" + tone : ""));
   const head = invNode("div", "inv-box-head");
   head.appendChild(invNode("b", null, title));
@@ -1697,6 +1723,8 @@ function invArrivalBox(title, box, tone) {
     if (r.daysLate > 0) bits.push(r.daysLate + "d late");
     if (r.carrier) bits.push(r.carrier);
     row.appendChild(invNode("div", "l-meta", bits.filter(Boolean).join(" · ")));
+    // v4.74 (B-569): last update, and "It arrived" + date on Overdue rows.
+    if (self.ShopperParity) self.ShopperParity.decorateArrival(row, r, kind || "");
     wrap.appendChild(row);
   }
   if (box.rowCount > box.rows.length) wrap.appendChild(invNode("div", "muted", "+" + (box.rowCount - box.rows.length) + " more on the laptop"));
@@ -1704,8 +1732,11 @@ function invArrivalBox(title, box, tone) {
 }
 
 function renderInventory(inv) {
+  // v4.74: rows now carry inputs (count, expiry, It arrived date) - never
+  // rebuild under a finger that is typing (P-36's rule).
+  if (isBeingEdited(els.inventoryPane)) return;
   const filter = (els.invFilter.value || "").trim().toLowerCase();
-  const key = JSON.stringify(inv || null) + "|" + filter + "|" + invBucket;
+  const key = JSON.stringify(inv || null) + "|" + JSON.stringify((lastPayload && lastPayload.houseExpiry) || null) + "|" + filter + "|" + invBucket;
   if (key === lastInventoryKey) return;
   lastInventoryKey = key;
   els.invArrivals.textContent = "";
@@ -1719,7 +1750,7 @@ function renderInventory(inv) {
     renderInvBucket(null);
     return;
   }
-  els.invAsOf.textContent = "As of the laptop's last pipeline refresh, " + invAgo(inv.generatedAt) + ". Read-only.";
+  els.invAsOf.textContent = "As of the laptop's last pipeline refresh, " + invAgo(inv.generatedAt) + " (" + new Date(inv.generatedAt).toLocaleString("en-US", { timeZone: "America/Chicago", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) + " CT).";
   els.invHouse.textContent = invUnits(inv.totals.house);
   els.invPrep.textContent = invUnits(inv.totals.prep);
   els.invTransit.textContent = invUnits(inv.totals.inTransit);
@@ -1732,7 +1763,7 @@ function renderInventory(inv) {
   } else {
     const c = a.counts;
     els.invArrivalsCount.textContent = c.guessed ? "(~ = estimated from past lead time)" : "";
-    if (a.overdue.rowCount) els.invArrivals.appendChild(invArrivalBox("Overdue", a.overdue, "bad"));
+    if (a.overdue.rowCount) els.invArrivals.appendChild(invArrivalBox("Overdue", a.overdue, "bad", "overdue"));
     els.invArrivals.appendChild(invArrivalBox("Today", a.today, "good"));
     els.invArrivals.appendChild(invArrivalBox("Tomorrow", a.tomorrow));
     for (const b of a.later) els.invArrivals.appendChild(invArrivalBox(invDay(b.day), b));
@@ -1753,6 +1784,8 @@ function renderInventory(inv) {
     nums.appendChild(invNode("span", "inv-n inv-transit", "Transit " + invUnits(r.inTransit)));
     row.appendChild(nums);
     row.appendChild(invNode("div", "l-meta", r.asin));
+    // v4.74 (B-570/B-571): pencil count + house expiry date.
+    if (self.ShopperParity) self.ShopperParity.decorateProduct(row, r);
     els.invRows.appendChild(row);
   }
   if (inv.rowsTruncated) els.invRows.appendChild(invNode("div", "muted", "Showing the " + inv.rows.length + " largest - the rest are on the laptop."));

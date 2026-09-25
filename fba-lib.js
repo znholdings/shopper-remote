@@ -59,11 +59,30 @@ const SERIES = [
   ["total", "Total", INK, "", "total"],
   // B-547 (v4.68): Shopper's own figure (in transit + house + prep), NOT an
   // Amazon status - its own colour and a dotted line, never in a stack.
-  ["ordered", "Ordered (Shopper)", "#8c6d46", "1 3", "ordered"],
+  ["ordered", "Ordered (Shopper)", "#8c6d46", "1 3", "allInventory"],
+  // B-566 (v4.74): Zach - ONE full stack of all inventory. Shopper's three
+  // parts are segments of the same bars and columns as Amazon's statuses (one
+  // hue family, darkest = furthest from Amazon), and All inventory = Amazon's
+  // Total + the three is the headline total. "Ordered" (the three summed, a
+  // dotted line) stays for rows written before the parts were split out.
+  ["ordInTransit", "In transit (Shopper)", "#7a5a34", "", "ordInTransit"],
+  ["ordHouse", "House (Shopper)", "#a67c47", "", "ordHouse"],
+  ["ordPrep", "Prep (Shopper)", "#d0ab78", "", "ordPrep"],
+  ["allInventory", "All inventory", "#3d2b1f", "", "allInventory"],
 ];
+// B-566: the Shopper segments, in stack order (after Amazon's + Other).
+const SHOPPER_PARTS = Object.freeze(["ordInTransit", "ordHouse", "ordPrep"]);
+// ⚠ Same labels as lib/ordered-inventory.js ORDERED_PARTS_HISTORY_HEADER (a test holds them equal).
+const ORDERED_PART_COLS = Object.freeze([
+  ["ordInTransit", "In transit Units", "In transit $"],
+  ["ordHouse", "House Units", "House $"],
+  ["ordPrep", "Prep Units", "Prep $"],
+]);
+const ALL_INVENTORY_HOVER = "All inventory = Amazon's Total + Shopper's in transit + house + prep (bought, not at Amazon yet).";
 // B-547: series that are NOT part of Amazon's Total - drawn as a line only,
 // never stacked into a column or an area band.
-const SEPARATE_SERIES = Object.freeze(["ordered"]);
+// B-566: + All inventory (a total line over the stack, like Amazon's Total).
+const SEPARATE_SERIES = Object.freeze(["ordered", "allInventory"]);
 const ORDERED_SERIES_HOVER = "Shopper's figure, not Amazon's: bought but not at Amazon yet = in transit + house + prep.";
 // ⚠ Same labels as lib/ordered-inventory.js ORDERED_HISTORY_HEADER (this file
 // is bundled for the phone and cannot import that one; a test holds them equal).
@@ -83,7 +102,7 @@ const AMZINV_DEFAULTS = Object.freeze({
   measure: "value", // value | units
   // B-502 (v4.60): "columns" (one stacked column per day + lines on top) is the default.
   style: "columns", // columns | lines | area
-  trendSeries: ["available", "inboundAll", "fcTransfer", "fcProcessing", "customerOrders", "unfulfillable", "researching", "ordered"],
+  trendSeries: ["available", "inboundAll", "fcTransfer", "fcProcessing", "customerOrders", "unfulfillable", "researching", "allInventory"],
   splitInboundInBars: false,
   showMarkers: true,
   showCompare: false,
@@ -118,6 +137,12 @@ function normalizeSettings(raw) {
   // B-547 (v4.68): a series list saved before Ordered existed gets it once
   // (seriesVersion 2); after that, turning it off sticks.
   if (Array.isArray(r.trendSeries) && !(Number(r.seriesVersion) >= 2) && !trendSeries.includes("ordered")) trendSeries.push("ordered");
+  // B-566 (v4.74, seriesVersion 3): the Ordered line becomes the All inventory line, once.
+  if (Array.isArray(r.trendSeries) && !(Number(r.seriesVersion) >= 3)) {
+    const i = trendSeries.indexOf("ordered");
+    if (i >= 0) trendSeries.splice(i, 1);
+    if (!trendSeries.includes("allInventory")) trendSeries.push("allInventory");
+  }
   const ra = r.alerts || {};
   const jump = (x, dd) => ({ enabled: bool(x && x.enabled, dd.enabled), pct: clampInt(x && x.pct, 1, 1000, dd.pct), minUnits: clampInt(x && x.minUnits, 0, 100000, dd.minUnits) });
   const rs = ra.receivingStuck || {};
@@ -131,7 +156,7 @@ function normalizeSettings(raw) {
     showMarkers: bool(r.showMarkers, d.showMarkers),
     showCompare: bool(r.showCompare, d.showCompare),
     showTrendlines: bool(r.showTrendlines, d.showTrendlines),
-    seriesVersion: 2,
+    seriesVersion: 3,
     dip: {
       enabled: bool(r.dip && r.dip.enabled, d.dip.enabled),
       windowDays: clampInt(r.dip && r.dip.windowDays, 3, 90, d.dip.windowDays),
@@ -176,6 +201,7 @@ function parseHistory(values) {
   const unpricedCol = col("Unpriced Units");
   // B-547: blank / missing -> null (an older row has no Ordered figure).
   const oU = col(ORDERED_COLS.units), oV = col(ORDERED_COLS.value), oP = col(ORDERED_COLS.unpriced);
+  const partCols = ORDERED_PART_COLS.map(([k, u, v]) => [k, { i: col(u) }, { i: col(v) }]);
   const out = [];
   for (const r of rows.slice(1)) {
     const t = Date.parse(r[tCol]);
@@ -189,6 +215,21 @@ function parseHistory(values) {
     value.inboundAll = value.inboundWorking + value.inboundShipped + value.inboundReceiving;
     units.ordered = oU >= 0 ? num(r[oU]) : null;
     value.ordered = oV >= 0 && units.ordered != null ? num(r[oV]) : null;
+    // B-566: the three parts (rows from v4.74 on); null = not on this row.
+    let partsOk = true;
+    for (const [k, uName, vName] of partCols) {
+      const u = uName.i >= 0 ? num(r[uName.i]) : null;
+      units[k] = u;
+      value[k] = u != null && vName.i >= 0 ? num(r[vName.i]) ?? 0 : null;
+      if (u == null) partsOk = false;
+    }
+    if (!partsOk) for (const k of SHOPPER_PARTS) { units[k] = null; value[k] = null; }
+    else if (units.ordered == null) {
+      units.ordered = SHOPPER_PARTS.reduce((a, k) => a + units[k], 0);
+      value.ordered = SHOPPER_PARTS.reduce((a, k) => a + value[k], 0);
+    }
+    units.allInventory = units.ordered != null ? units.total + units.ordered : null;
+    value.allInventory = value.ordered != null ? value.total + value.ordered : null;
     const pt = { t, units, value, unpricedUnits: unpricedCol >= 0 ? num(r[unpricedCol]) ?? 0 : 0 };
     if (units.ordered != null) pt.orderedUnpriced = oP >= 0 ? num(r[oP]) ?? 0 : 0;
     out.push(pt);
@@ -360,15 +401,53 @@ function barSegments(point, measure, splitInbound) {
     if (splitInbound && BAR_SPLIT[k]) keys.push(...BAR_SPLIT[k]);
     else keys.push(k);
   }
-  const total = point[m].total;
+  const amazonTotal = point[m].total;
   const segments = keys.map((k) => ({ ...SERIES_BY_KEY[k], v: point[m][k] || 0 }));
   const covered = segments.reduce((a, s) => a + s.v, 0);
-  const rest = Math.round((total - covered) * 100) / 100;
+  const rest = Math.round((amazonTotal - covered) * 100) / 100;
   if (rest > 0) segments.push({ ...OTHER, v: rest });
   // A segment's share is of the bar's own total (or of the covered sum when
   // Amazon's Total is smaller - the bar must never overflow).
-  const base = Math.max(total, covered);
-  return { segments: segments.map((s) => ({ ...s, pct: base > 0 ? (s.v / base) * 100 : 0 })), total, base };
+  const amazonBase = Math.max(amazonTotal, covered);
+  // B-566 (v4.74): Shopper's in transit / house / prep on top of Amazon's, so
+  // the bar adds up to everything owned. A row with only the summed Ordered
+  // figure (v4.68 - v4.73) gets one "Ordered" segment; a row with neither
+  // stays Amazon-only and says so (allInventory false).
+  const shopper = [];
+  if (SHOPPER_PARTS.every((k) => point[m][k] != null)) {
+    for (const k of SHOPPER_PARTS) shopper.push({ ...SERIES_BY_KEY[k], v: Math.max(0, point[m][k] || 0) });
+  } else if (point[m].ordered != null) {
+    shopper.push({ ...SERIES_BY_KEY.ordered, label: "Ordered (Shopper, not split)", dash: "", v: Math.max(0, point[m].ordered || 0) });
+  }
+  const shopperSum = shopper.reduce((a, s) => a + s.v, 0);
+  const allInventory = shopper.length > 0;
+  const all = [...segments, ...shopper];
+  const base = amazonBase + shopperSum;
+  const total = allInventory ? Math.round((amazonTotal + shopperSum) * 100) / 100 : amazonTotal;
+  return {
+    segments: all.map((s) => ({ ...s, pct: base > 0 ? (s.v / base) * 100 : 0 })),
+    total, base, amazonTotal, allInventory,
+    totalLabel: allInventory ? "All inventory" : "Amazon Total",
+  };
+}
+
+// B-566: the newest history row may predate the split (or the pull that
+// wrote it had no pipeline state); the page's live Ordered parts fill it in.
+function withLiveParts(point, ordered) {
+  if (!point || !ordered || !ordered.parts) return point;
+  if (SHOPPER_PARTS.every((k) => point.units[k] != null)) return point;
+  const map = { ordInTransit: "inTransit", ordHouse: "house", ordPrep: "prep" };
+  const units = { ...point.units }, value = { ...point.value };
+  for (const k of SHOPPER_PARTS) {
+    const part = ordered.parts[map[k]] || {};
+    units[k] = Number(part.units) || 0;
+    value[k] = Number(part.value) || 0;
+  }
+  units.ordered = SHOPPER_PARTS.reduce((a, k) => a + units[k], 0);
+  value.ordered = SHOPPER_PARTS.reduce((a, k) => a + value[k], 0);
+  units.allInventory = units.total + units.ordered;
+  value.allInventory = value.total + value.ordered;
+  return { ...point, units, value };
 }
 
 // ---- B-547: the "Ordered" row (Shopper's figure, apart from Amazon's) --------
@@ -405,7 +484,7 @@ function orderedNote(ordered) {
   const a = Number(ordered.unpricedAsinCount) || 0;
   const unpriced = u > 0 ? ` ${u} ordered unit(s)${a ? ` (${a} product${a === 1 ? "" : "s"})` : ""} have no cost on file - counted in units, left out of $.` : "";
   const when = ordered.asOf ? ` Pipeline as of ${fmtCT(ordered.asOf)}.` : "";
-  return `Ordered is Shopper's own figure, not Amazon's: bought but not at Amazon yet = in transit + house + prep.${when}${unpriced}`;
+  return `All inventory = Amazon's Total + Shopper's own in transit + house + prep (bought, not at Amazon yet).${when}${unpriced}`;
 }
 
 // ---- formatting ----------------------------------------------------------------
@@ -414,7 +493,7 @@ function fmt(v, measure) {
   if (measure === "units") return Math.round(v).toLocaleString("en-US");
   return "$" + v.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 }
-__m["amzinv.js"] = { AMZINV_SETTINGS_KEY, DAY_MS, SLOT, SERIES, SEPARATE_SERIES, ORDERED_SERIES_HOVER, ORDERED_COLS, SERIES_BY_KEY, OTHER, BAR_BASE, BAR_SPLIT, AMZINV_DEFAULTS, normalizeSettings, rangeLabel, parseHistory, CT_ZONE, centralParts, centralDayKey, localDayKey, fmtCT, centralDayStart, centralDayEnd, dailyPoints, sliceRange, previousPeriod, dipSignal, extraAlerts, parseScanpowerTime, shipmentMarkers, barSegments, ORDERED_BAR_PARTS, orderedSegments, orderedNote, fmt };
+__m["amzinv.js"] = { AMZINV_SETTINGS_KEY, DAY_MS, SLOT, SERIES, SHOPPER_PARTS, ORDERED_PART_COLS, ALL_INVENTORY_HOVER, SEPARATE_SERIES, ORDERED_SERIES_HOVER, ORDERED_COLS, SERIES_BY_KEY, OTHER, BAR_BASE, BAR_SPLIT, AMZINV_DEFAULTS, normalizeSettings, rangeLabel, parseHistory, CT_ZONE, centralParts, centralDayKey, localDayKey, fmtCT, centralDayStart, centralDayEnd, dailyPoints, sliceRange, previousPeriod, dipSignal, extraAlerts, parseScanpowerTime, shipmentMarkers, barSegments, withLiveParts, ORDERED_BAR_PARTS, orderedSegments, orderedNote, fmt };
 })();
 // ---- lib/amzinv-chart.js ----
 (function () {
@@ -427,7 +506,7 @@ __m["amzinv.js"] = { AMZINV_SETTINGS_KEY, DAY_MS, SLOT, SERIES, SEPARATE_SERIES,
 // Marks (dataviz): 2px lines, 2px surface gaps between stacked segments,
 // recessive grid, legend always shown for >= 2 series, values in ink (never
 // the series colour), a crosshair + tooltip on hover, a table view.
-const { BAR_BASE, BAR_SPLIT, DAY_MS, ORDERED_SERIES_HOVER, SEPARATE_SERIES, SERIES_BY_KEY, centralParts, fmt, fmtCT } = __m["amzinv.js"];
+const { ALL_INVENTORY_HOVER, BAR_BASE, BAR_SPLIT, DAY_MS, ORDERED_SERIES_HOVER, SEPARATE_SERIES, SERIES_BY_KEY, SHOPPER_PARTS, centralParts, fmt, fmtCT } = __m["amzinv.js"];
 
 const NS = "http://www.w3.org/2000/svg";
 function svg(doc, tag, attrs = {}, kids = []) {
@@ -444,10 +523,16 @@ function el(doc, tag, cls, text) {
 }
 
 // ---- stacked bar (one per measure) ----------------------------------------
-function drawStackedBar(doc, { title, segments, total, measure }) {
+// B-566 (v4.74): `amazonTotal` given = the bar is All inventory; Amazon's own
+// Total stays readable on the line under the title.
+function drawStackedBar(doc, { title, segments, total, measure, amazonTotal = null }) {
   const box = el(doc, "div", "ai-bar");
   const head = el(doc, "div", "ai-bar-head");
   head.append(el(doc, "span", "ai-bar-title", title), el(doc, "span", "ai-bar-total", fmt(total, measure)));
+  if (amazonTotal != null) {
+    head.title = ALL_INVENTORY_HOVER;
+    head.append(el(doc, "span", "ai-bar-sub", `All inventory \u00b7 Amazon's Total ${fmt(amazonTotal, measure)} + Shopper's ${fmt(total - amazonTotal, measure)}`));
+  }
   const track = el(doc, "div", "ai-bar-track");
   track.setAttribute("role", "img");
   track.setAttribute("aria-label", `${title}: ` + segments.map((s) => `${s.label} ${fmt(s.v, measure)}`).join(", "));
@@ -529,6 +614,8 @@ function stackableSeries(keys) {
     if (parts.length) out.push(...parts);
     else if (chosen.has(k)) out.push(k);
   }
+  // B-566 (v4.74): Shopper's parts stack on top of Amazon's.
+  for (const k of SHOPPER_PARTS) if (chosen.has(k)) out.push(k);
   return out;
 }
 
@@ -729,7 +816,7 @@ __m["amzinv-chart.js"] = { svg, el, drawStackedBar, drawOrderedBar, gapPath, sta
 // top of the columns.
 //
 // No innerHTML; takes `doc` so tests hand in a fake document.
-const { DAY_MS, ORDERED_SERIES_HOVER, SEPARATE_SERIES, SERIES_BY_KEY, barSegments, fmt, fmtCT } = __m["amzinv.js"];
+const { ALL_INVENTORY_HOVER, DAY_MS, ORDERED_SERIES_HOVER, SEPARATE_SERIES, SERIES_BY_KEY, barSegments, fmt, fmtCT } = __m["amzinv.js"];
 const { el, gapPath, niceMax, svg, tickLabel } = __m["amzinv-chart.js"];
 
 // The columns for a list of points: [{ t, segments:[{key,label,color,dash,v,y0,y1}], total, top }].
@@ -738,7 +825,7 @@ function columnStacks(points, measure, splitInbound) {
     const b = barSegments(p, measure, splitInbound);
     let acc = 0;
     const segments = b.segments.map((s) => ({ key: s.key, label: s.label, color: s.color, dash: s.dash, v: s.v, y0: acc, y1: (acc += s.v) }));
-    return { t: p.t, segments, total: b.total, top: acc };
+    return { t: p.t, segments, total: b.total, top: acc, amazonTotal: b.amazonTotal, totalLabel: b.totalLabel || "Total", allInventory: !!b.allInventory };
   });
 }
 
@@ -831,7 +918,13 @@ function drawColumnsTrend(doc, { points, keys = [], measure, splitInbound = fals
     const c = cols[best];
     cross.setAttribute("x1", x(c.t)); cross.setAttribute("x2", x(c.t)); cross.setAttribute("visibility", "visible");
     tip.textContent = "";
-    tip.append(el(doc, "div", "ai-tip-head", `${fmtCT(c.t, hourly ? "datetime" : "date")} · Total ${fmt(c.total, m)}`));
+    tip.append(el(doc, "div", "ai-tip-head", `${fmtCT(c.t, hourly ? "datetime" : "date")} · ${c.totalLabel} ${fmt(c.total, m)}`));
+    // B-566 (v4.74): Amazon's own Total stays readable.
+    if (c.allInventory) {
+      const am = el(doc, "div", "ai-tip-row ai-tip-separate", `Amazon's Total ${fmt(c.amazonTotal, m)}`);
+      am.title = ALL_INVENTORY_HOVER;
+      tip.append(am);
+    }
     for (const s of c.segments.slice().reverse()) {
       if (!(s.v > 0)) continue;
       const row = el(doc, "div", "ai-tip-row");
@@ -840,15 +933,15 @@ function drawColumnsTrend(doc, { points, keys = [], measure, splitInbound = fals
       row.append(sw, el(doc, "span", "ai-tip-label", s.label), el(doc, "span", "ai-tip-val", fmt(s.v, m)));
       tip.append(row);
     }
-    // B-547: Ordered is not part of Amazon's Total - its own row under it.
+    // B-547: a separate line (Ordered / All inventory) - its own row.
     const pt = points[best];
     for (const k of lines) {
-      if (!SEPARATE_SERIES.includes(k) || pt[m][k] == null) continue;
+      if (!SEPARATE_SERIES.includes(k) || pt[m][k] == null || k === "allInventory") continue;
       const row = el(doc, "div", "ai-tip-row ai-tip-separate");
       const sw = el(doc, "span", "ai-swatch");
       sw.style.background = SERIES_BY_KEY[k].color;
       row.title = ORDERED_SERIES_HOVER;
-      row.append(sw, el(doc, "span", "ai-tip-label", `${SERIES_BY_KEY[k].label} - not in Total`), el(doc, "span", "ai-tip-val", fmt(pt[m][k], m)));
+      row.append(sw, el(doc, "span", "ai-tip-label", `${SERIES_BY_KEY[k].label} (line)`), el(doc, "span", "ai-tip-val", fmt(pt[m][k], m)));
       tip.append(row);
     }
     tip.hidden = false;
@@ -878,9 +971,14 @@ function drawColumnsTrend(doc, { points, keys = [], measure, splitInbound = fals
     legend.append(item);
   }
   if (lines.length) legend.append(el(doc, "span", "ai-legend-note", `Lines: ${lines.map((k) => SERIES_BY_KEY[k].label).join(", ")}`));
-  legend.append(el(doc, "span", "ai-legend-note", "Each column adds up to Total"));
-  if (lines.some((k) => SEPARATE_SERIES.includes(k))) {
-    const note = el(doc, "span", "ai-legend-note", "Ordered (dotted) = Shopper's in transit + house + prep, not in Total");
+  // B-566 (v4.74): the columns now carry Shopper's parts too.
+  const allNote = el(doc, "span", "ai-legend-note", cols.some((c) => c.allInventory)
+    ? "Each column adds up to All inventory (Amazon's Total + Shopper's in transit, house, prep)"
+    : "Each column adds up to Amazon's Total");
+  allNote.title = ALL_INVENTORY_HOVER;
+  legend.append(allNote);
+  if (lines.includes("ordered")) {
+    const note = el(doc, "span", "ai-legend-note", "Ordered (dotted) = Shopper's in transit + house + prep");
     note.title = ORDERED_SERIES_HOVER;
     legend.append(note);
   }
