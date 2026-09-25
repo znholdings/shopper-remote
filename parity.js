@@ -167,6 +167,7 @@
         btn("None stayed - take them off", "primary-btn", (e) => run("setPartialCounts", {
           destination: s.location,
           entries: s.rows.map((r) => ({ asin: r.asin, units: r.takeOffTo })),
+          excludeBatchIds: s.batchId ? [String(s.batchId)] : [],
           note: `Nothing stayed behind from ${s.batch} (B-539, from the phone)`,
         }, e.target, () => run("dismissCheck", { id: s.id })))
       );
