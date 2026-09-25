@@ -102,7 +102,10 @@ const AMZINV_DEFAULTS = Object.freeze({
   measure: "value", // value | units
   // B-502 (v4.60): "columns" (one stacked column per day + lines on top) is the default.
   style: "columns", // columns | lines | area
-  trendSeries: ["available", "inboundAll", "fcTransfer", "fcProcessing", "customerOrders", "unfulfillable", "researching", "allInventory"],
+  // B-605 (v4.78): Zach - only series that never overlap are on by default:
+  // Amazon's headline statuses + Shopper's Ordered as ONE stacked segment
+  // (B-604). Totals, subtotals and Shopper's three parts start off.
+  trendSeries: ["available", "inboundAll", "fcTransfer", "fcProcessing", "customerOrders", "unfulfillable", "researching", "ordered"],
   splitInboundInBars: false,
   showMarkers: true,
   showCompare: false,
@@ -132,7 +135,7 @@ function normalizeSettings(raw) {
   let presets = Array.isArray(r.presets) ? r.presets.map((x) => clampInt(x, 0, 3650, null)).filter((x) => x !== null) : d.presets.slice();
   presets = [...new Set(presets)].sort((a, b) => (a === 0) - (b === 0) || a - b).slice(0, 8);
   if (!presets.length) presets = d.presets.slice();
-  const defaultRange = presets.includes(clampInt(r.defaultRange, 0, 3650, -1)) ? clampInt(r.defaultRange, 0, 3650, 30) : presets.includes(d.defaultRange) ? d.defaultRange : presets[0];
+  let defaultRange = presets.includes(clampInt(r.defaultRange, 0, 3650, -1)) ? clampInt(r.defaultRange, 0, 3650, 30) : presets.includes(d.defaultRange) ? d.defaultRange : presets[0];
   const trendSeries = Array.isArray(r.trendSeries) ? r.trendSeries.filter((k) => SERIES_BY_KEY[k]) : d.trendSeries.slice();
   // B-547 (v4.68): a series list saved before Ordered existed gets it once
   // (seriesVersion 2); after that, turning it off sticks.
@@ -142,6 +145,13 @@ function normalizeSettings(raw) {
     const i = trendSeries.indexOf("ordered");
     if (i >= 0) trendSeries.splice(i, 1);
     if (!trendSeries.includes("allInventory")) trendSeries.push("allInventory");
+  }
+  // B-605 / B-607 (v4.78, seriesVersion 4): a list saved before this release
+  // is reset ONCE to the non-overlapping default set, and the chart opens on
+  // 30d once. After that the reader's own choices stick.
+  if (raw && typeof raw === "object" && !(Number(r.seriesVersion) >= 4)) {
+    if (Array.isArray(r.trendSeries)) trendSeries.splice(0, trendSeries.length, ...d.trendSeries);
+    if (presets.includes(30)) defaultRange = 30;
   }
   const ra = r.alerts || {};
   const jump = (x, dd) => ({ enabled: bool(x && x.enabled, dd.enabled), pct: clampInt(x && x.pct, 1, 1000, dd.pct), minUnits: clampInt(x && x.minUnits, 0, 100000, dd.minUnits) });
@@ -156,7 +166,7 @@ function normalizeSettings(raw) {
     showMarkers: bool(r.showMarkers, d.showMarkers),
     showCompare: bool(r.showCompare, d.showCompare),
     showTrendlines: bool(r.showTrendlines, d.showTrendlines),
-    seriesVersion: 3,
+    seriesVersion: 4,
     dip: {
       enabled: bool(r.dip && r.dip.enabled, d.dip.enabled),
       windowDays: clampInt(r.dip && r.dip.windowDays, 3, 90, d.dip.windowDays),
@@ -603,19 +613,70 @@ function gapPath(points, x, y, get) {
   return out;
 }
 
-// Area mode stacks only statuses that do not overlap (a parent and its own
-// parts would double-count): headline statuses, with Inbound replaced by its
-// three parts when any part is chosen.
-function stackableSeries(keys) {
-  const chosen = new Set(keys);
-  const out = [];
+// B-604 / B-605 (v4.78): the chips decide what the Columns and Area charts
+// STACK. A chosen series stacks only when it covers inventory no other
+// stacked series covers (a parent and its own parts would double-count):
+//   * Amazon's headline statuses, a chosen part replacing its parent
+//     (`splitInbound` = the bar setting: a chosen Inbound (all) stacks as its
+//     three parts);
+//   * then Shopper's "Ordered" as ONE segment - or, only while Ordered is
+//     off, whichever of its three parts are chosen.
+// Everything else chosen (Total, Reserved Total, All inventory, a parent
+// whose part is stacked, a part while Ordered is on, sub-statuses with no
+// stack slot) is a LINE at its own value, never stacked.
+// `other` = every Amazon headline status is fully stacked, so Amazon's
+// uncovered rest ("Other") belongs in the column too.
+function stackPlan(keys, splitInbound = false) {
+  const chosen = new Set((keys || []).filter((k) => SERIES_BY_KEY[k]));
+  const stack = [], covered = new Set();
+  let other = true;
   for (const k of BAR_BASE) {
     const parts = BAR_SPLIT[k] ? BAR_SPLIT[k].filter((p) => chosen.has(p)) : [];
-    if (parts.length) out.push(...parts);
-    else if (chosen.has(k)) out.push(k);
+    if (parts.length) {
+      stack.push(...parts);
+      if (parts.length < BAR_SPLIT[k].length) other = false;
+    } else if (chosen.has(k)) {
+      if (splitInbound && BAR_SPLIT[k]) { stack.push(...BAR_SPLIT[k]); covered.add(k); } else stack.push(k);
+    } else other = false;
   }
-  // B-566 (v4.74): Shopper's parts stack on top of Amazon's.
-  for (const k of SHOPPER_PARTS) if (chosen.has(k)) out.push(k);
+  if (chosen.has("ordered")) stack.push("ordered");
+  else for (const k of SHOPPER_PARTS) if (chosen.has(k)) stack.push(k);
+  const lines = Object.keys(SERIES_BY_KEY).filter((k) => chosen.has(k) && !stack.includes(k) && !covered.has(k));
+  return { stack, lines, other };
+}
+// Kept for callers/tests that only need the stacked keys.
+function stackableSeries(keys) {
+  return stackPlan(keys).stack;
+}
+// A series as drawn IN a stack: Ordered is a solid segment there (its dotted
+// look belongs to the line it is when not stacked).
+function stackStyle(k) {
+  const s = SERIES_BY_KEY[k];
+  return k === "ordered" ? { ...s, dash: "" } : s;
+}
+// B-608 (v4.78): short y-axis labels ("$150k", "12.5k") - "$150,000" ran
+// off the left edge of a phone-width chart. Values elsewhere stay exact.
+function fmtAxis(v, measure) {
+  const pre = measure === "units" ? "" : "$";
+  const a = Math.abs(v);
+  if (a >= 1e6) return pre + +(v / 1e6).toFixed(1) + "M";
+  if (a >= 1e3) return pre + +(v / 1e3).toFixed(1) + "k";
+  return pre + Math.round(v);
+}
+// B-608 (v4.78): which points get a date label - at most 7, fewer on a
+// narrow chart, and never two closer than 48px (they printed on top of each
+// other as "9/2/2/2/25" when a 30d range held only a few days).
+function xTickIndexes(points, x, W) {
+  const maxTicks = Math.max(2, Math.min(7, Math.floor(W / 64)));
+  const step = Math.max(1, Math.ceil(points.length / maxTicks));
+  const out = [];
+  let last = -Infinity;
+  for (let i = 0; i < points.length; i += step) {
+    const px = x(points[i].t);
+    if (px - last < 48) continue;
+    out.push(i);
+    last = px;
+  }
   return out;
 }
 
@@ -640,11 +701,16 @@ function drawTrend(doc, { points, keys, measure, style, compare = null, markers 
     return wrap;
   }
   const area = style === "area";
-  // B-547: a separate series (Ordered) is never stacked - on Area it rides on top as a line.
-  const shown = area ? [...stackableSeries(keys), ...keys.filter((k) => SEPARATE_SERIES.includes(k))] : keys.filter((k) => SERIES_BY_KEY[k]);
+  // B-604 (v4.78): on Area the chips' stack plan decides - Ordered stacks as
+  // one band; anything that would double-count rides on top as a line.
+  const plan = stackPlan(keys);
+  const shown = area ? [...plan.stack, ...plan.lines] : keys.filter((k) => SERIES_BY_KEY[k]);
+  const lineOnly = new Set(area ? plan.lines : shown);
   const pad = { l: 64, r: 16, t: 14, b: 28 };
   const W = width - pad.l - pad.r, H = height - pad.t - pad.b;
-  const t0 = Number.isFinite(lo) ? Math.min(lo, points[0].t) : points[0].t;
+  // B-608 (v4.78): the axis starts at the first row on file, not at the
+  // range's start - a 30d range with 4 days of history was 90% empty.
+  const t0 = points[0].t;
   const t1 = Number.isFinite(hi) ? hi : points[points.length - 1].t;
   const span = Math.max(t1 - t0, hourly ? 3600000 : DAY_MS);
   const x = (t) => pad.l + ((t - t0) / span) * W;
@@ -654,9 +720,9 @@ function drawTrend(doc, { points, keys, measure, style, compare = null, markers 
     const s = {};
     for (const k of shown) {
       const raw = p[m][k];
-      if (SEPARATE_SERIES.includes(k)) { s[k] = [0, raw == null ? null : raw]; continue; }
-      const v = raw || 0;
-      s[k] = area ? [acc, (acc += v)] : [0, v];
+      if (lineOnly.has(k)) { s[k] = [0, SEPARATE_SERIES.includes(k) ? (raw == null ? null : raw) : raw || 0]; continue; }
+      const v = Math.max(0, raw || 0);
+      s[k] = [acc, (acc += v)];
     }
     return s;
   });
@@ -672,15 +738,13 @@ function drawTrend(doc, { points, keys, measure, style, compare = null, markers 
     const v = (yMax / 4) * i;
     root.append(svg(doc, "line", { x1: pad.l, x2: pad.l + W, y1: y(v), y2: y(v), class: "ai-grid" }));
     const lab = svg(doc, "text", { x: pad.l - 8, y: y(v) + 4, class: "ai-axis", "text-anchor": "end" });
-    lab.textContent = fmt(v, m === "units" ? "units" : "value");
+    lab.textContent = fmtAxis(v, m);
     root.append(lab);
   }
   // x ticks (<= 7)
   // B-510 (v4.61): at most 7 date labels, fewer on a narrow (phone) chart
   // so "9/12" and "9/15" never print on top of each other (~64px each).
-  const maxTicks = Math.max(2, Math.min(7, Math.floor(W / 64)));
-  const step = Math.max(1, Math.ceil(points.length / maxTicks));
-  for (let i = 0; i < points.length; i += step) {
+  for (const i of xTickIndexes(points, x, W)) {
     const lab = svg(doc, "text", { x: x(points[i].t), y: height - 8, class: "ai-axis", "text-anchor": "middle" });
     lab.textContent = tickLabel(points[i].t, hourly);
     root.append(lab);
@@ -699,10 +763,10 @@ function drawTrend(doc, { points, keys, measure, style, compare = null, markers 
   }
   // series
   // Separate series (Ordered) last, so its line sits on top of the bands.
-  const drawOrder = area ? [...shown.filter((k) => !SEPARATE_SERIES.includes(k)).reverse(), ...shown.filter((k) => SEPARATE_SERIES.includes(k))] : shown;
+  const drawOrder = area ? [...plan.stack.slice().reverse(), ...plan.lines] : shown;
   for (const k of drawOrder) {
-    const s = SERIES_BY_KEY[k];
-    const sep = SEPARATE_SERIES.includes(k);
+    const sep = lineOnly.has(k);
+    const s = area && !sep ? stackStyle(k) : SERIES_BY_KEY[k];
     const idx = new Map(points.map((p, i) => [p, i]));
     const top = gapPath(points, x, y, (p) => stacks[idx.get(p)][k][1]);
     if (area && !sep) {
@@ -803,7 +867,7 @@ function drawTable(doc, { points, keys, measure, hourly }) {
   table.append(thead, tbody);
   return table;
 }
-__m["amzinv-chart.js"] = { svg, el, drawStackedBar, drawOrderedBar, gapPath, stackableSeries, niceMax, tickLabel, drawTrend, drawTable };
+__m["amzinv-chart.js"] = { svg, el, drawStackedBar, drawOrderedBar, gapPath, stackPlan, stackableSeries, stackStyle, fmtAxis, xTickIndexes, niceMax, tickLabel, drawTrend, drawTable };
 })();
 // ---- lib/amzinv-columns.js ----
 (function () {
@@ -816,16 +880,43 @@ __m["amzinv-chart.js"] = { svg, el, drawStackedBar, drawOrderedBar, gapPath, sta
 // top of the columns.
 //
 // No innerHTML; takes `doc` so tests hand in a fake document.
-const { ALL_INVENTORY_HOVER, DAY_MS, ORDERED_SERIES_HOVER, SEPARATE_SERIES, SERIES_BY_KEY, barSegments, fmt, fmtCT } = __m["amzinv.js"];
-const { el, gapPath, niceMax, svg, tickLabel } = __m["amzinv-chart.js"];
+const { ALL_INVENTORY_HOVER, BAR_BASE, DAY_MS, centralDayKey, centralDayStart, ORDERED_SERIES_HOVER, OTHER, SEPARATE_SERIES, SERIES_BY_KEY, SHOPPER_PARTS, barSegments, fmt, fmtCT } = __m["amzinv.js"];
+const { el, fmtAxis, gapPath, niceMax, stackPlan, stackStyle, svg, tickLabel, xTickIndexes } = __m["amzinv-chart.js"];
 
 // The columns for a list of points: [{ t, segments:[{key,label,color,dash,v,y0,y1}], total, top }].
-function columnStacks(points, measure, splitInbound) {
+// B-604 (v4.78): `keys` given = the chips decide what stacks (stackPlan -
+// Ordered as ONE segment, nothing that double-counts). No `keys` = the full
+// "Right now" bar (barSegments), as before.
+function columnStacks(points, measure, splitInbound, keys = null) {
+  if (Array.isArray(keys)) return chosenStacks(points, measure === "units" ? "units" : "value", stackPlan(keys, splitInbound));
   return points.map((p) => {
     const b = barSegments(p, measure, splitInbound);
     let acc = 0;
     const segments = b.segments.map((s) => ({ key: s.key, label: s.label, color: s.color, dash: s.dash, v: s.v, y0: acc, y1: (acc += s.v) }));
     return { t: p.t, segments, total: b.total, top: acc, amazonTotal: b.amazonTotal, totalLabel: b.totalLabel || "Total", allInventory: !!b.allInventory };
+  });
+}
+
+const SHOPPER_STACK = new Set(["ordered", ...SHOPPER_PARTS]);
+function chosenStacks(points, m, plan) {
+  const amazonKeys = plan.stack.filter((k) => !SHOPPER_STACK.has(k));
+  const shopperKeys = plan.stack.filter((k) => SHOPPER_STACK.has(k));
+  return points.map((p) => {
+    const segs = amazonKeys.map((k) => ({ ...stackStyle(k), v: Math.max(0, p[m][k] || 0) }));
+    if (plan.other) {
+      const covered = BAR_BASE.reduce((a, k) => a + (p[m][k] || 0), 0);
+      const rest = Math.round(((p[m].total || 0) - covered) * 100) / 100;
+      if (rest > 0) segs.push({ ...OTHER, v: rest });
+    }
+    // A row older than v4.68 has no Shopper figure: no segment, and the
+    // column is not called All inventory.
+    const hasShopper = shopperKeys.length > 0 && shopperKeys.every((k) => p[m][k] != null);
+    if (hasShopper) for (const k of shopperKeys) segs.push({ ...stackStyle(k), v: Math.max(0, p[m][k] || 0) });
+    let acc = 0;
+    const segments = segs.map((s) => ({ key: s.key, label: s.label, color: s.color, dash: s.dash, v: s.v, y0: acc, y1: (acc += s.v) }));
+    const full = plan.other && hasShopper && (shopperKeys.includes("ordered") || shopperKeys.length === SHOPPER_PARTS.length);
+    const totalLabel = full ? "All inventory" : plan.other && !hasShopper ? "Amazon Total" : "Shown";
+    return { t: p.t, segments, total: Math.round(acc * 100) / 100, top: acc, amazonTotal: p[m].total, totalLabel, allInventory: full };
   });
 }
 
@@ -836,16 +927,24 @@ function drawColumnsTrend(doc, { points, keys = [], measure, splitInbound = fals
     wrap.append(el(doc, "p", "ai-empty", "No history in this range yet - one row is added every hour."));
     return wrap;
   }
-  // B-515 (v4.63): "Trendlines" off = columns only.
-  const lines = showLines === false ? [] : keys.filter((k) => SERIES_BY_KEY[k]);
-  const cols = columnStacks(points, m, splitInbound);
+  // B-604 (v4.78): the chips decide the stack. A chosen series that is not
+  // stacked (it would double-count) is always a line; "Trendlines" (B-515)
+  // adds lines for the stacked ones too.
+  const plan = stackPlan(keys, splitInbound);
+  const lines = showLines === false ? plan.lines : keys.filter((k) => SERIES_BY_KEY[k]);
+  const cols = columnStacks(points, m, splitInbound, keys);
   const pad = { l: 64, r: 16, t: 14, b: 28 };
   const W = width - pad.l - pad.r, H = height - pad.t - pad.b;
   const slot = hourly ? 3600000 : DAY_MS;
-  const t0 = Math.min(Number.isFinite(lo) ? lo : points[0].t, points[0].t) - slot / 2;
-  const t1 = Math.max(Number.isFinite(hi) ? hi : points[points.length - 1].t, points[points.length - 1].t) + slot / 2;
+  // B-608 (v4.78): start at the first row on file, not the range's start.
+  // B-608 (v4.78): a daily column sits in the MIDDLE of its Central day, so
+  // two days' last snapshots taken a few hours apart never draw on top of
+  // each other (they overlapped at the right edge).
+  const snap = (t) => (hourly ? t : centralDayStart(centralDayKey(t)) + DAY_MS / 2);
+  const t0 = snap(points[0].t) - slot / 2;
+  const t1 = Math.max(Number.isFinite(hi) ? hi : 0, snap(points[points.length - 1].t)) + slot / 2;
   const span = Math.max(t1 - t0, slot);
-  const x = (t) => pad.l + ((t - t0) / span) * W;
+  const x = (t) => pad.l + ((snap(t) - t0) / span) * W;
   const colW = Math.max(2, Math.min(40, (slot / span) * W * 0.72));
 
   let max = 0;
@@ -859,14 +958,11 @@ function drawColumnsTrend(doc, { points, keys = [], measure, splitInbound = fals
     const v = (yMax / 4) * i;
     root.append(svg(doc, "line", { x1: pad.l, x2: pad.l + W, y1: y(v), y2: y(v), class: "ai-grid" }));
     const lab = svg(doc, "text", { x: pad.l - 8, y: y(v) + 4, class: "ai-axis", "text-anchor": "end" });
-    lab.textContent = fmt(v, m);
+    lab.textContent = fmtAxis(v, m);
     root.append(lab);
   }
-  // B-510 (v4.61): at most 7 date labels, fewer on a narrow (phone) chart
-  // so "9/12" and "9/15" never print on top of each other (~64px each).
-  const maxTicks = Math.max(2, Math.min(7, Math.floor(W / 64)));
-  const step = Math.max(1, Math.ceil(points.length / maxTicks));
-  for (let i = 0; i < points.length; i += step) {
+  // B-608 (v4.78): at most 7 labels, never two closer than 48px.
+  for (const i of xTickIndexes(points, x, W)) {
     const lab = svg(doc, "text", { x: x(points[i].t), y: height - 8, class: "ai-axis", "text-anchor": "middle" });
     lab.textContent = tickLabel(points[i].t, hourly);
     root.append(lab);
@@ -933,14 +1029,14 @@ function drawColumnsTrend(doc, { points, keys = [], measure, splitInbound = fals
       row.append(sw, el(doc, "span", "ai-tip-label", s.label), el(doc, "span", "ai-tip-val", fmt(s.v, m)));
       tip.append(row);
     }
-    // B-547: a separate line (Ordered / All inventory) - its own row.
+    // B-604 (v4.78): every chosen series that is NOT stacked - its own row.
     const pt = points[best];
-    for (const k of lines) {
-      if (!SEPARATE_SERIES.includes(k) || pt[m][k] == null || k === "allInventory") continue;
+    for (const k of plan.lines) {
+      if (pt[m][k] == null || (k === "allInventory" && c.allInventory)) continue;
       const row = el(doc, "div", "ai-tip-row ai-tip-separate");
       const sw = el(doc, "span", "ai-swatch");
       sw.style.background = SERIES_BY_KEY[k].color;
-      row.title = ORDERED_SERIES_HOVER;
+      if (SEPARATE_SERIES.includes(k)) row.title = ORDERED_SERIES_HOVER;
       row.append(sw, el(doc, "span", "ai-tip-label", `${SERIES_BY_KEY[k].label} (line)`), el(doc, "span", "ai-tip-val", fmt(pt[m][k], m)));
       tip.append(row);
     }
@@ -974,10 +1070,10 @@ function drawColumnsTrend(doc, { points, keys = [], measure, splitInbound = fals
   // B-566 (v4.74): the columns now carry Shopper's parts too.
   const allNote = el(doc, "span", "ai-legend-note", cols.some((c) => c.allInventory)
     ? "Each column adds up to All inventory (Amazon's Total + Shopper's in transit, house, prep)"
-    : "Each column adds up to Amazon's Total");
+    : cols.some((c) => c.totalLabel === "Amazon Total") ? "Each column adds up to Amazon's Total" : "Each column adds up to the series chosen above");
   allNote.title = ALL_INVENTORY_HOVER;
   legend.append(allNote);
-  if (lines.includes("ordered")) {
+  if (lines.includes("ordered") && !plan.stack.includes("ordered")) {
     const note = el(doc, "span", "ai-legend-note", "Ordered (dotted) = Shopper's in transit + house + prep");
     note.title = ORDERED_SERIES_HOVER;
     legend.append(note);
@@ -995,20 +1091,24 @@ __m["amzinv-columns.js"] = { columnStacks, drawColumnsTrend };
 (function () {
 "use strict";
 // lib/amzinv-chips.js - B-504 (v4.60). Which series chips the FBA Inventory
-// "Over time" row shows. Headline statuses (a series whose group is itself)
-// always show; sub-statuses (Inbound Working, Unf Expired, Future Supply ...)
-// only after "More" - except one that is already switched on, which always
-// shows so every line on the chart has a chip to turn it off.
+// "Over time" row shows.
+// B-606 (v4.78): Zach - only the chips that are on by default show; every
+// other series waits behind "More". A series that is switched on always
+// shows too, so every line / segment on the chart has a chip to turn it off,
+// and a default chip turned off keeps its place (so it can be turned back on).
+const { AMZINV_DEFAULTS } = __m["amzinv.js"];
+
 function isHeadlineSeries(s) {
   return !!s && s.group === s.key;
 }
 
-function chipGroups(seriesList, onSet, showMore) {
+function chipGroups(seriesList, onSet, showMore, defaultKeys = AMZINV_DEFAULTS.trendSeries) {
   const on = onSet instanceof Set ? onSet : new Set(onSet || []);
+  const dflt = new Set(defaultKeys || []);
   const shown = [];
   let hiddenCount = 0;
   for (const s of seriesList) {
-    if (showMore || isHeadlineSeries(s) || on.has(s.key)) shown.push(s.key);
+    if (showMore || dflt.has(s.key) || on.has(s.key)) shown.push(s.key);
     else hiddenCount += 1;
   }
   return { shown, hiddenCount };

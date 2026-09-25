@@ -311,20 +311,28 @@
         <div id="fbaBanners" class="fba-banners"></div>
         <div id="fbaBody" class="fba-paper" hidden>
           <section class="fba-sec">
-            <h3 class="ai-h2">Right now</h3>
+            <!-- B-603 (v4.78): notes behind one Details toggle. -->
+            <div class="fba-head-row"><h3 class="ai-h2">Right now</h3><button type="button" class="fba-notes-btn" id="fbaNotesToggle" aria-expanded="false">&#9432; Details</button></div>
             <p class="ai-note" id="fbaNowNote"></p>
             <div id="fbaBars"></div>
           </section>
           <section class="fba-sec">
             <h3 class="ai-h2">Over time</h3>
-            <div class="ai-controls">
-              <div class="ai-seg fba-ranges" id="fbaRanges" role="group" aria-label="Time range"></div>
-              <button type="button" class="ai-seg-btn ai-seg-lone" id="fbaCustomToggle" aria-expanded="false">Custom</button>
-              <div class="ai-seg" id="fbaMeasure" role="group" aria-label="Measure"></div>
-              <div class="ai-seg" id="fbaStyle" role="group" aria-label="Chart style"></div>
-              <button type="button" class="ai-seg-btn ai-seg-lone" id="fbaTableToggle">Table</button>
-              <!-- B-515 (v4.63) -->
-              <button type="button" class="ai-seg-btn ai-seg-lone" id="fbaTrendlinesToggle" aria-pressed="true">Trendlines</button>
+            <!-- B-603 (v4.78): three tidy rows at phone width. -->
+            <div class="ai-controls fba-controls">
+              <div class="fba-ctl-row">
+                <div class="ai-seg fba-ranges" id="fbaRanges" role="group" aria-label="Time range"></div>
+                <button type="button" class="ai-seg-btn ai-seg-lone" id="fbaCustomToggle" aria-expanded="false">Custom</button>
+              </div>
+              <div class="fba-ctl-row">
+                <div class="ai-seg" id="fbaMeasure" role="group" aria-label="Measure"></div>
+                <div class="ai-seg fba-style" id="fbaStyle" role="group" aria-label="Chart style"></div>
+              </div>
+              <div class="fba-ctl-row">
+                <button type="button" class="ai-seg-btn ai-seg-lone" id="fbaTableToggle">Table</button>
+                <!-- B-515 (v4.63) -->
+                <button type="button" class="ai-seg-btn ai-seg-lone" id="fbaTrendlinesToggle" aria-pressed="true">Trendlines</button>
+              </div>
             </div>
             <div class="ai-custom" id="fbaCustom" hidden>
               <label>From <input type="date" id="fbaFrom" /></label>
@@ -335,7 +343,7 @@
             <div id="fbaTrend"></div>
             <div id="fbaTable" class="fba-table-wrap" hidden></div>
           </section>
-          <p class="ai-note fba-foot">Tap or drag across the chart to read a day. Range, $/Units, style and series are remembered on this phone only - the laptop's Chart settings do not change. <a id="fbaWorkbook" class="ai-link" target="_blank" rel="noopener" hidden>History workbook</a></p>
+          <p class="ai-note fba-foot"><span class="fba-foot-text">Tap or drag across the chart to read a day. Range, $/Units, style and series are remembered on this phone only - the laptop's Chart settings do not change. </span><a id="fbaWorkbook" class="ai-link" target="_blank" rel="noopener" hidden>History workbook</a></p>
         </div>
       </div>
     </section>

@@ -467,6 +467,34 @@ button { font: inherit; cursor: pointer; }
 .dash-fba .fba-unfulfillable { border-top: 3px solid #e34948; }
 /* B-547 (v4.68): Shopper's Ordered tile - full width, apart from Amazon's four. */
 .dash-fba .fba-ordered { border-top: 3px dotted #8c6d46; grid-column: 1 / -1; }
+/* B-603 (v4.78): FBA tab, phone pass. */
+body::before { content: ""; position: fixed; top: 0; left: 0; right: 0; height: env(safe-area-inset-top); background: var(--bg); z-index: 50; pointer-events: none; }
+.fba-head-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.fba-head-row .ai-h2 { margin: 0; }
+.fba-notes-btn { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; border: 1px solid rgba(72, 58, 122, 0.25); background: #fff; color: #6937d9; }
+.fba-notes-btn.is-on { background: #6937d9; color: #fff; border-color: #6937d9; }
+#fbaPane:not(.fba-notes-on) #fbaNowNote,
+#fbaPane:not(.fba-notes-on) .fba-paper .ai-legend-note,
+#fbaPane:not(.fba-notes-on) .fba-foot-text,
+#fbaPane:not(.fba-notes-on) .fba-paper .ai-bar-sub { display: none; }
+.fba-paper #fbaBars .ai-bar .ai-legend { display: none; }
+.fba-paper #fbaBars .ai-bar { margin: 8px 0 4px; }
+.fba-paper #fbaBars .ai-bar-track { height: 18px; }
+.fba-now-table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 13px; }
+.fba-now-table th { font-size: 11px; font-weight: 700; color: #69657a; text-transform: uppercase; letter-spacing: 0.04em; padding: 2px 4px 4px; border-bottom: 1px solid #ecebf1; }
+.fba-now-table td { padding: 4px; border-bottom: 1px solid #f3f2f7; white-space: nowrap; }
+.fba-now-table .ai-num { text-align: right; font-variant-numeric: tabular-nums; }
+.fba-now-label { display: flex; align-items: center; gap: 6px; white-space: normal !important; }
+.fba-now-total td { font-weight: 800; border-bottom: 0; border-top: 1px solid #d9d5e6; }
+.fba-paper .fba-controls { display: flex; flex-direction: column; align-items: stretch; gap: 6px; }
+.fba-ctl-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.fba-ctl-row .fba-ranges { flex: 1 1 auto; overflow: visible; }
+.fba-ctl-row .fba-ranges .ai-seg-btn, .fba-ctl-row .fba-style .ai-seg-btn { flex: 1 1 0; padding: 7px 6px; }
+.fba-ctl-row .fba-style { flex: 1 1 auto; }
+.fba-paper .fba-table-wrap { max-height: 360px; overflow: auto; }
+.fba-paper .fba-table-wrap .ai-table th { position: sticky; top: 0; background: #fff; }
+.fba-paper .fba-table-wrap .ai-table td:first-child, .fba-paper .fba-table-wrap .ai-table th:first-child { position: sticky; left: 0; background: #fff; }
+.fba-paper #fbaTrend .ai-legend { gap: 3px 10px; font-size: 11px; }
 .fba-spark { margin-top: 8px; }
 .fba-spark-svg { width: 100%; height: 56px; display: block; }
 .fba-spark-line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }

@@ -14,7 +14,9 @@
   "use strict";
   const F = self.ShopperFBA;
   const $ = (id) => document.getElementById(id);
-  const VIEW_KEY = "shopperFbaPhoneView";
+  // B-605 / B-607 (v4.78): a new key, so every phone starts once on the new
+  // defaults (30d, non-overlapping series) instead of an older saved pick.
+  const VIEW_KEY = "shopperFbaPhoneView2";
   const SPARK_W = 300, SPARK_H = 56;
   const NS = "http://www.w3.org/2000/svg";
 
@@ -22,7 +24,7 @@
   let points = [];          // decoded + merged
   let lastKey = "";         // fingerprint of the projection last drawn
   // B-515 (v4.63): `trendlines` null = follow the laptop's setting.
-  const view = { days: null, custom: null, customOpen: false, measure: null, style: null, table: false, moreChips: false, trendSeries: null, trendlines: null };
+  const view = { days: null, custom: null, customOpen: false, measure: null, style: null, table: false, moreChips: false, trendSeries: null, trendlines: null, notes: false };
 
   function loadView() {
     try {
@@ -30,13 +32,14 @@
       if (raw && typeof raw === "object") {
         for (const k of ["days", "measure", "style", "trendSeries"]) if (raw[k] != null) view[k] = raw[k];
         view.table = !!raw.table;
+        view.notes = !!raw.notes;
         if (typeof raw.trendlines === "boolean") view.trendlines = raw.trendlines;
       }
     } catch (_e) { /* private mode: the laptop's settings are used */ }
   }
   function saveView() {
     try {
-      localStorage.setItem(VIEW_KEY, JSON.stringify({ days: view.days, measure: view.measure, style: view.style, trendSeries: view.trendSeries, table: view.table, trendlines: view.trendlines }));
+      localStorage.setItem(VIEW_KEY, JSON.stringify({ days: view.days, measure: view.measure, style: view.style, trendSeries: view.trendSeries, table: view.table, trendlines: view.trendlines, notes: view.notes }));
     } catch (_e) { /* the page still draws */ }
   }
   loadView();
@@ -107,12 +110,39 @@
     const v = F.barSegments(p, "value", s.splitInboundInBars);
     bars.append(
       F.drawStackedBar(document, { title: "Units", segments: u.segments, total: u.total, measure: "units", amazonTotal: u.allInventory ? u.amazonTotal : null }),
-      F.drawStackedBar(document, { title: "$ at cost", segments: v.segments, total: v.total, measure: "value", amazonTotal: v.allInventory ? v.amazonTotal : null })
+      F.drawStackedBar(document, { title: "$ at cost", segments: v.segments, total: v.total, measure: "value", amazonTotal: v.allInventory ? v.amazonTotal : null }),
+      nowTable(u, v)
     );
     const ord = F.orderedNote(data.ordered);
     $("fbaNowNote").textContent = "Amazon's own count at " + F.fmtCT(p.t) + ", valued at the cost in effect then." +
       (p.unpricedUnits ? " " + p.unpricedUnits + " unit(s) have no cost on file and are in Units but not in $." : "") +
       (ord ? " " + ord : "");
+  }
+
+  // B-603 (v4.78): one small table (status · units · $ · share) in place of
+  // the two wrapped legends under the bars (hidden on the phone by CSS).
+  function nowTable(u, v) {
+    const t = node("table", "fba-now-table");
+    const hr = node("tr");
+    for (const h of ["", "Units", "$", "%"]) hr.append(node("th", h ? "ai-num" : null, h));
+    const thead = node("thead"); thead.append(hr);
+    const tbody = node("tbody");
+    for (const s of u.segments) {
+      const sv = v.segments.find((x) => x.key === s.key) || { v: 0, pct: 0 };
+      if (!(s.v > 0) && !(sv.v > 0)) continue;
+      const tr = node("tr");
+      const lab = node("td", "fba-now-label");
+      const sw = node("span", "ai-swatch" + (s.dash ? " ai-swatch-sub" : ""));
+      sw.style.background = s.color;
+      lab.append(sw, document.createTextNode(s.label));
+      tr.append(lab, node("td", "ai-num", F.fmt(s.v, "units")), node("td", "ai-num", F.fmt(sv.v, "value")), node("td", "ai-num", Math.round(sv.pct || 0) + "%"));
+      tbody.append(tr);
+    }
+    const tot = node("tr", "fba-now-total");
+    tot.append(node("td", null, u.allInventory ? "All inventory" : "Amazon Total"), node("td", "ai-num", F.fmt(u.total, "units")), node("td", "ai-num", F.fmt(v.total, "value")), node("td", "ai-num", ""));
+    tbody.append(tot);
+    t.append(thead, tbody);
+    return t;
   }
 
   function segBtn(label, on, onClick) {
@@ -145,6 +175,10 @@
     $("fbaCustomToggle").setAttribute("aria-expanded", view.customOpen ? "true" : "false");
     $("fbaCustom").hidden = !view.customOpen;
     $("fbaTableToggle").classList.toggle("is-on", view.table);
+    // B-603 (v4.78): the explanatory text sits behind "Details".
+    $("fbaPane").classList.toggle("fba-notes-on", view.notes);
+    const nt = $("fbaNotesToggle");
+    if (nt) { nt.classList.toggle("is-on", view.notes); nt.setAttribute("aria-expanded", view.notes ? "true" : "false"); }
     const tl = $("fbaTrendlinesToggle");
     if (tl) {
       tl.hidden = st === "lines";
@@ -232,8 +266,9 @@
       return;
     }
     if (!data.available) { asOf.textContent = "Read-only."; return; }
-    asOf.textContent = (data.pulledAt ? "Amazon's figures as of " + F.fmtCT(data.pulledAt) : "No Amazon pull yet") +
-      " · " + data.rowCount + " hourly row(s) on file · sent " + agoText(data.builtAt) + ". Read-only.";
+    // B-603 (v4.78): one short line; the row count moved behind Details.
+    asOf.textContent = (data.pulledAt ? "As of " + F.fmtCT(data.pulledAt) : "No Amazon pull yet") + " · sent " + agoText(data.builtAt);
+    asOf.title = data.rowCount + " hourly row(s) on file. Read-only.";
     const link = $("fbaWorkbook");
     if (data.historyUrl) { link.href = data.historyUrl; link.hidden = false; } else link.hidden = true;
   }
@@ -332,6 +367,7 @@
       draw();
     });
     on("fbaTableToggle", () => { view.table = !view.table; saveView(); draw(); });
+    on("fbaNotesToggle", () => { view.notes = !view.notes; saveView(); draw(); });
     on("fbaTrendlinesToggle", () => { view.trendlines = !trendlines(); saveView(); draw(); });
     on("fbaApplyCustom", () => {
       const fv = $("fbaFrom").value, tv = $("fbaTo").value;
