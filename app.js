@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v4.80";
+const APP_BUILD = "v4.84";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -1682,9 +1682,38 @@ function invNode(tag, cls, text) {
   return n;
 }
 
+// B-645 (v4.84): partial units as a fraction ("1,060 1/3"). A copy of
+// lib/unit-fraction.js formatUnitsFraction (this page is a classic script);
+// test/v484-build.test.mjs runs both over the same values.
+function shopperUnitsFraction(v) {
+  const x = Number(v);
+  if (!Number.isFinite(x)) return "0";
+  const sign = x < 0 ? "-" : "";
+  const a = Math.abs(x);
+  let whole = Math.floor(a + 1e-9);
+  const frac = a - whole;
+  if (frac < 0.0005) return sign + whole.toLocaleString("en-US");
+  if (1 - frac < 0.0005) return sign + (whole + 1).toLocaleString("en-US");
+  let best = null;
+  for (const d of [2, 3, 4, 5, 6, 8, 10, 12]) {
+    const num = Math.round(frac * d);
+    if (num <= 0 || num >= d) continue;
+    const err = Math.abs(frac - num / d);
+    if (!best || err < best.err - 1e-9) best = { num, d, err };
+  }
+  if (!best) {
+    whole = Math.round(a);
+    return (whole === 0 ? "" : sign) + whole.toLocaleString("en-US");
+  }
+  const gcd = (p, q) => (q ? gcd(q, p % q) : p);
+  const g = gcd(best.num, best.d);
+  const f = `${best.num / g}/${best.d / g}`;
+  return sign + (whole ? `${whole.toLocaleString("en-US")} ${f}` : f);
+}
+self.shopperUnitsFraction = shopperUnitsFraction;
+
 function invUnits(v) {
-  const n = Number(v) || 0;
-  return (Math.round(n * 1000) / 1000).toLocaleString();
+  return shopperUnitsFraction(Number(v) || 0);
 }
 
 function invDay(iso) {

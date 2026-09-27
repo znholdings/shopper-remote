@@ -31,9 +31,10 @@
     b.addEventListener("click", onClick);
     return b;
   }
+  // B-645 (v4.84): the same fraction the rest of the phone shows (app.js).
   function units(v) {
     const n = Number(v) || 0;
-    return (Math.round(n * 1000) / 1000).toLocaleString();
+    return typeof self.shopperUnitsFraction === "function" ? self.shopperUnitsFraction(n) : (Math.round(n * 1000) / 1000).toLocaleString();
   }
   function editing(container) {
     const a = document.activeElement;
@@ -142,7 +143,10 @@
 
     for (const o of needs.overdue) {
       const c = needCard(o.title || o.asin, `${o.retailer || "order"} #${o.orderNumber} · to ${o.destination === "prep" ? "Prep" : "the House"} · ${o.ageDays} days ago`,
-        `${units(o.open)} of ${units(o.ordered)} units still open. ` + (o.emails ? `${o.emails} delivery email(s) landed.` : "No delivery email has ever landed."));
+        `${units(o.open)} of ${units(o.ordered)} units still open. ` +
+          (o.late && o.late.daysLate
+            ? `Due ${o.late.date} - ${o.late.daysLate} day(s) ago.`
+            : o.emails ? `${o.emails} delivery email(s) landed.` : "No delivery email has ever landed."));
       const a = actions();
       const day = node("input", "need-input");
       day.type = "date";
