@@ -246,7 +246,8 @@
         </div>
         <div class="section dash-sec">
           <h3>Inventory pipeline <span id="dashPipeAsOf" class="count"></span></h3>
-          <div id="dashArrivals" class="dash-banner" hidden></div>
+          <!-- B-663 (v4.85): tap for the Arrivals boxes on the Inventory tab. -->
+          <div id="dashArrivals" class="dash-banner dash-tap" role="button" tabindex="0" aria-label="Arrivals - open the Arrivals list" hidden></div>
           <div id="dashNeedsYou" class="dash-banner dash-banner-warn" hidden></div>
           <div id="dashFlow" class="dash-grid dash-flow"></div>
         </div>
@@ -263,6 +264,21 @@
           <div id="dashFbaTiles" class="dash-grid dash-fba"></div>
           <div id="dashFbaSpark" class="fba-spark"></div>
           <p class="muted small">Tap for the full FBA view.</p>
+        </div>
+      </div>
+
+      <!-- B-662 (v4.85): the Bank view - opened from the Dashboard's Bank
+           balance tile. Read-only: what the laptop's last Dashboard refresh
+           read off the Bank tab. -->
+      <div id="bankPane" hidden>
+        <button id="bankBack" class="linkish" type="button">&lsaquo; Dashboard</button>
+        <div class="section dash-sec">
+          <h3>Bank</h3>
+          <div class="dash-tile wide bank-balance"><span class="t-label">Balance</span><b id="bankBal">-</b><span id="bankAsOf" class="dash-money"></span></div>
+        </div>
+        <div class="section dash-sec">
+          <h3>Recent transactions <span id="bankCount" class="count"></span></h3>
+          <div id="bankRows" class="lines"></div>
         </div>
       </div>
 

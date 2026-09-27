@@ -501,6 +501,15 @@ body::before { content: ""; position: fixed; top: 0; left: 0; right: 0; height: 
 .fba-spark-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; font-size: 12px; color: var(--muted); margin-top: 4px; }
 .fba-spark-key { display: inline-flex; align-items: center; gap: 5px; }
 
+/* B-662 / B-663 (v4.85): tappable Bank tile and arrivals line; the Bank view. */
+.dash-tap { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.dash-tile.dash-tap .dash-money { color: var(--accent); }
+.dash-banner.dash-tap::after { content: " \203A"; }
+.linkish { background: none; border: 0; color: var(--accent); padding: 6px 0; font-weight: 700; }
+.bank-row .bank-top { display: flex; justify-content: space-between; gap: 8px; min-width: 0; }
+.bank-row .bank-what { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bank-row .bank-amt { flex: none; font-variant-numeric: tabular-nums; }
+
 /* ---------------------------------------------------------------------
    ⚠ THE `hidden` ATTRIBUTE MUST ALWAYS WIN. Added v2.94.
    ---------------------------------------------------------------------
@@ -549,4 +558,5 @@ body::before { content: ""; position: fixed; top: 0; left: 0; right: 0; height: 
 .bx-status p { overflow-wrap: anywhere; }
 
 [hidden] { display: none !important; }
+
 

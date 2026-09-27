@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v4.84";
+const APP_BUILD = "v4.85";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -52,6 +52,8 @@ for (const id of [
   "dashRrCount","dashRrSummary","dashRrList",
   // B-510/B-511 (v4.61): the read-only FBA tab (remote/fba-view.js draws it).
   "tabFba","fbaPane","dashFbaSec",
+  // B-662 (v4.85): the Bank view, opened from the Bank balance tile.
+  "bankPane","bankBack","bankBal","bankAsOf","bankCount","bankRows",
 ]) els[id] = $(id);
 
 // --------------------------------------------------------------- state
@@ -1415,6 +1417,20 @@ els.dashFbaSec.addEventListener("keydown", (e) => {
     switchTab("fba");
   }
 });
+// B-663 (v4.85): the arrivals line opens the Arrivals boxes on the Inventory tab.
+function openArrivals() {
+  switchTab("inventory");
+  if (els.invArrivals && els.invArrivals.scrollIntoView) els.invArrivals.scrollIntoView({ block: "start" });
+}
+els.dashArrivals.addEventListener("click", openArrivals);
+els.dashArrivals.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" || e.key === " ") {
+    e.preventDefault();
+    openArrivals();
+  }
+});
+// B-662 (v4.85): the Bank view's way back.
+els.bankBack.addEventListener("click", () => switchTab("dashboard"));
 els.invFilter.addEventListener("input", () => renderInventory(lastPayload && lastPayload.inventory));
 // B-465: a tile opens its bucket's table; the same tile closes it.
 for (const tile of document.querySelectorAll(".inv-total[data-bucket]")) {
@@ -1658,10 +1674,13 @@ function switchTab(which) {
   els.inventoryPane.hidden = which !== "inventory";
   els.dashboardPane.hidden = which !== "dashboard";
   els.fbaPane.hidden = which !== "fba";
+  // B-662 (v4.85): the Bank view is part of the Dashboard (no tab button of its own).
+  els.bankPane.hidden = which !== "bank";
+  if (which === "bank") window.scrollTo(0, 0);
   els.tabFba.classList.toggle("active", which === "fba");
   // The chart is drawn at the pane's real width, which is 0 while hidden.
   if (which === "fba" && self.ShopperFbaView) self.ShopperFbaView.shown();
-  els.tabDashboard.classList.toggle("active", which === "dashboard");
+  els.tabDashboard.classList.toggle("active", which === "dashboard" || which === "bank");
   els.tabRun.classList.toggle("active", which === "run");
   els.tabBuylist.classList.toggle("active", which === "buylist");
   els.tabInventory.classList.toggle("active", which === "inventory");
@@ -2052,6 +2071,33 @@ function dashTile(label, value, extra, cls) {
   return t;
 }
 
+// B-662 (v4.85): the Bank view. Read-only; textContent only.
+function renderBank(sp) {
+  els.bankBal.textContent = dashMoney(sp && sp.bankBalance);
+  els.bankAsOf.textContent = sp && sp.bankAsOf ? "read " + invAgo(new Date(sp.bankAsOf).toISOString()) : "";
+  els.bankRows.textContent = "";
+  const rows = sp && Array.isArray(sp.bankRecent) ? sp.bankRecent : null;
+  if (!rows) {
+    els.bankCount.textContent = "";
+    els.bankRows.appendChild(invNode("div", "muted", "Not read yet - refresh the Dashboard on the laptop."));
+    return;
+  }
+  els.bankCount.textContent = "(" + rows.length + ")";
+  if (!rows.length) els.bankRows.appendChild(invNode("div", "muted", "No transactions on the Bank tab."));
+  for (const r of rows) {
+    const row = invNode("div", "line bank-row");
+    const top = invNode("div", "bank-top");
+    top.appendChild(invNode("span", "bank-what", r.title || r.asin || r.flag || "Entry"));
+    top.appendChild(invNode("b", "bank-amt", r.totalDollars == null ? "-" : (r.totalDollars < 0 ? "-" : "") + dashMoney(Math.abs(r.totalDollars))));
+    row.appendChild(top);
+    const meta = [r.date, r.units != null ? r.units + "u" : "", r.runningBalance != null ? "balance " + dashMoney(r.runningBalance) : "", r.flag]
+      .filter(Boolean)
+      .join(" · ");
+    if (meta) row.appendChild(invNode("div", "l-meta", meta));
+    els.bankRows.appendChild(row);
+  }
+}
+
 function renderDashboard(d) {
   const key = JSON.stringify(d || null);
   if (key === lastDashboardKey) return;
@@ -2120,7 +2166,19 @@ function renderDashboard(d) {
 
   // spend & bank
   const sp = d.spend;
-  els.dashSpend.appendChild(dashTile("Bank balance", dashMoney(sp.bankBalance), "", "wide"));
+  // B-662 (v4.85): the Bank balance tile opens the Bank view.
+  const bankTile = dashTile("Bank balance", dashMoney(sp.bankBalance), "Tap for transactions", "wide dash-tap");
+  bankTile.setAttribute("role", "button");
+  bankTile.setAttribute("tabindex", "0");
+  bankTile.addEventListener("click", () => switchTab("bank"));
+  bankTile.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      switchTab("bank");
+    }
+  });
+  els.dashSpend.appendChild(bankTile);
+  renderBank(sp);
   els.dashSpend.appendChild(dashTile("Spent today", dashMoney(sp.spentToday)));
   els.dashSpend.appendChild(dashTile("Needed today", dashMoney(sp.neededToday)));
   els.dashSpend.appendChild(dashTile("Minimum (month)", dashMoney(sp.monthMinimum)));
