@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v4.92";
+const APP_BUILD = "v4.93";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -1771,7 +1771,7 @@ function invArrivalBox(title, box, tone, kind) {
     if (r.daysLate > 0) bits.push(r.daysLate + "d late");
     if (r.carrier) bits.push(r.carrier);
     row.appendChild(invNode("div", "l-meta", bits.filter(Boolean).join(" · ")));
-    // v4.74 (B-569): last update, and "It arrived" + date on Overdue rows.
+    // v4.74 (B-569): last update, and "It arrived" + date (every row since B-691).
     if (self.ShopperParity) self.ShopperParity.decorateArrival(row, r, kind || "");
     wrap.appendChild(row);
   }

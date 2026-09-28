@@ -152,7 +152,7 @@
       day.type = "date";
       day.value = todayFor(o.destination);
       a.append(
-        btn("It arrived", "primary-btn", (e) => run("orderArrived", { orderNumber: o.orderNumber, asin: o.asin, units: o.open, at: noonIso(day.value, o.destination) || new Date().toISOString() }, e.target)),
+        btn("It arrived", "primary-btn", (e) => run("orderArrived", { orderNumber: o.orderNumber, asin: o.asin, units: o.open, at: noonIso(day.value, o.destination) || new Date().toISOString(), section: "Phone › Needs you" }, e.target)),
         day,
         btn("It never arrived", "danger-btn", (e) => { if (confirm(`Mark ${units(o.open)} units of order ${o.orderNumber} as never arrived?`)) run("orderNeverArrived", { orderNumber: o.orderNumber, asin: o.asin, units: o.open }, e.target); }),
         btn("Keep waiting", "secondary-btn", (e) => run("orderKeepWaiting", { key: o.key }, e.target))
@@ -255,7 +255,9 @@
   function decorateArrival(rowEl, r, kind) {
     if (r.lastUpdate) rowEl.append(node("div", "l-meta", `Last update: ${r.lastUpdate.text}${r.lastUpdate.atMs ? " (" + ctText(r.lastUpdate.atMs) + ")" : ""}`));
     else rowEl.append(node("div", "l-meta muted", "No tracking email yet"));
-    if (kind !== "overdue") return;
+    // B-691 (v4.93): "It arrived" + date on EVERY arrival row (Today,
+    // Tomorrow, each later day, No date) - was Overdue only. Same command
+    // (orderArrived) and the same orders-to-close the laptop published.
     const a = actions();
     if (!r.closeOrders || !r.closeOrders.length) {
       a.append(node("span", "muted small", "Refresh to mark this arrived (several orders behind it)."));
@@ -269,7 +271,7 @@
     const b = btn("It arrived", "primary-btn", async () => {
       if (!day.value) return;
       for (const o of r.closeOrders) {
-        const st = await run("orderArrived", { orderNumber: o.orderNumber, asin: r.asin, units: o.units, at: noonIso(day.value, dest), note: "Marked arrived from the phone's Arrivals › Overdue" }, b);
+        const st = await run("orderArrived", { orderNumber: o.orderNumber, asin: r.asin, units: o.units, at: noonIso(day.value, dest), note: "Marked arrived from the phone's Arrivals › " + (kind === "overdue" ? "Overdue" : "Upcoming"), section: "Phone › " + (kind === "overdue" ? "Overdue" : "Upcoming") }, b);
         if (st !== "done") break;
       }
     });
@@ -304,12 +306,29 @@
     });
     a.append(pencil);
     if (Number(r.house) > 0) {
-      const d = node("input", "need-input");
-      d.type = "date";
-      d.value = expiry[r.asin] || "";
+      // B-683 (v4.93): a typed MM/DD/YYYY box (numeric keypad, slashes put
+      // in automatically) instead of the iOS calendar wheel. Still sends
+      // YYYY-MM-DD; empty clears, as before; anything else half-typed or
+      // impossible is refused here and never sent.
+      const DI = self.ShopperDateInput;
+      const d = node("input", "need-input date-typed");
+      if (DI) DI.attach(d); else d.type = "date";
+      d.value = DI ? DI.isoToTyped(expiry[r.asin] || "") : (expiry[r.asin] || "");
       d.title = "Expiry date - saved to All Orders, same cell as the laptop's Expires column";
-      const save = btn("Save expiry", "secondary-btn", () => run("houseExpirySet", { asin: r.asin, expires: d.value || "" }, save));
-      a.append(node("span", "muted small", "Expires"), d, save);
+      const bad = node("span", "error-text small", "Use MM/DD/YYYY");
+      bad.hidden = true;
+      d.addEventListener("input", () => { bad.hidden = true; });
+      const save = btn("Save expiry", "secondary-btn", () => {
+        const expires = DI ? DI.readValue(d.value) : (d.value || "");
+        if (expires === null) {
+          bad.hidden = false;
+          d.setAttribute("aria-invalid", "true");
+          d.focus();
+          return;
+        }
+        run("houseExpirySet", { asin: r.asin, expires }, save);
+      });
+      a.append(node("span", "muted small", "Expires"), d, save, bad);
     }
     rowEl.append(a);
   }

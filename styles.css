@@ -557,6 +557,8 @@ body::before { content: ""; position: fixed; top: 0; left: 0; right: 0; height: 
 .bx-working { color: var(--warn); }
 .bx-status p { overflow-wrap: anywhere; }
 
+/* B-683 (v4.93): typed MM/DD/YYYY expiry box. */
+.date-typed { width: 8.5em; font-variant-numeric: tabular-nums; }
+.date-typed[aria-invalid="true"] { border-color: var(--bad); }
+
 [hidden] { display: none !important; }
-
-
