@@ -11,6 +11,9 @@
 // again replaces that box), the text box empties once the laptop reports the
 // words read (readHash), and a failed read puts the words back (failedText).
 // Every saved box has a Remove button; upload stays its own confirmed tap.
+// B-712 (v4.96): before the batch reaches ScanPower's Pack step the laptop
+// keeps the WORDS (payload.boxes.pending, phase "waiting"); each saved
+// message shows with its own Remove, and Re-check reads them once at Pack.
 (function () {
   "use strict";
   const $ = (id) => document.getElementById(id);
@@ -62,14 +65,14 @@
     batchSel = node("select", "bx-batch");
     batchSel.setAttribute("aria-label", "ScanPower batch");
     batchSel.addEventListener("change", () => {
-      const s = last && last.saved;
+      const s = last && (last.saved || last.pending);
       if (!s || !last.batch || !batchSel.value || batchSel.value === last.batch.id) return;
-      if (!confirm("Start a new box list for that batch? Boxes " + s.label + " saved for " + last.batch.name + " will be dropped when it reads.")) batchSel.value = "";
+      if (!confirm("Start a new box list for that batch? What is saved for " + last.batch.name + " (" + s.text + ") will be dropped when it reads.")) batchSel.value = "";
     });
     readBtn = btn("Read boxes", "primary-btn", async () => {
       const text = ta.value.trim();
       // B-711: no words + saved boxes = re-check them against ScanPower.
-      if (!text && !(last && last.saved)) return;
+      if (!text && !(last && (last.saved || last.pending))) return;
       lsSet(SENT_KEY, text);
       readBtn.disabled = true;
       await R().sendCommand("boxesRead", { text, batchId: batchSel.value || "" });
@@ -93,7 +96,7 @@
 
   function readLabel() {
     if (!readBtn) return;
-    const saved = !!(last && last.saved);
+    const saved = !!(last && (last.saved || last.pending));
     readBtn.textContent = !saved ? "Read boxes" : ta.value.trim() ? "Add boxes" : "Re-check with ScanPower";
   }
 
@@ -118,7 +121,7 @@
     const list = (b && b.batches) || [];
     const keep = batchSel.value;
     while (batchSel.firstChild) batchSel.removeChild(batchSel.firstChild);
-    const o0 = node("option", null, b && b.saved && b.batch ? b.batch.name + " (saved boxes)" : "Newest batch");
+    const o0 = node("option", null, b && b.batch && (b.saved || b.pending) ? b.batch.name + (b.saved ? " (saved boxes)" : " (saved words)") : "Newest batch");
     o0.value = "";
     batchSel.appendChild(o0);
     for (const x of list) {
@@ -159,6 +162,27 @@
       }
       list.appendChild(card);
     }
+    box.appendChild(list);
+  }
+
+  // B-712: words kept until the batch reaches the Pack step.
+  function renderPending(b, box, withRemove) {
+    const pd = b.pending;
+    box.appendChild(node("p", "bx-saved", pd.text));
+    const list = node("div", "lines");
+    pd.texts.forEach((t, n) => {
+      const card = node("div", "line bx-box");
+      card.appendChild(node("div", "l-meta", t));
+      if (withRemove) {
+        const rm = btn("Remove", "ghost-btn bx-remove", () => {
+          if (!confirm("Remove this saved message?")) return;
+          rm.disabled = true;
+          R().sendCommand("boxesRemove", { id: b.id, key: "w" + n });
+        });
+        card.appendChild(rm);
+      }
+      list.appendChild(card);
+    });
     box.appendChild(list);
   }
 
@@ -244,8 +268,15 @@
       statusEl.appendChild(node("p", "bx-working", (phase === "reading" ? "Reading boxes… " : "Uploading… ") + (b.step || "")));
       return;
     }
+    if (phase === "waiting" && b.pending) {
+      renderPending(b, statusEl, true);
+      if (b.draft && b.draft.boxes && b.draft.boxes.length) renderCards(b, statusEl, false);
+      statusEl.appendChild(node("p", "muted", (b.batch ? b.batch.name : "The batch") + " is not at ScanPower's Pack step yet, so the boxes can't be matched to products. Keep adding boxes. When it reaches Pack, empty the text box and tap Re-check with ScanPower."));
+      return;
+    }
     if (phase === "failed") {
       statusEl.appendChild(node("p", "error-text", b.error || "It stopped."));
+      if (b.pending) renderPending(b, statusEl, false);
       // B-711: the saved boxes are still saved - show them.
       if (b.draft && b.draft.boxes && b.draft.boxes.length) {
         renderCards(b, statusEl, false);
