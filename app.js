@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v4.94";
+const APP_BUILD = "v4.95";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -287,7 +287,7 @@ const REMOTE_LABELS = {
   buylistAction: "Buylist action", buylistApproveAll: "Approve all",
   preview: "Refresh preview",
   buylistAddManual: "Add ASIN to buylist",
-  boxesRead: "Read boxes", boxesAnswer: "Save answers", boxesUpload: "Upload boxes", boxesClear: "Start over",
+  boxesRead: "Read boxes", boxesAnswer: "Save answers", boxesUpload: "Upload boxes", boxesClear: "Start over", boxesRemove: "Remove box",
 };
 
 // P-25, half one: proof the tap landed. A command that is still pending or

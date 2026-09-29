@@ -553,6 +553,9 @@ body::before { content: ""; position: fixed; top: 0; left: 0; right: 0; height: 
 .bx-questions h4 { margin: 10px 0 4px; }
 .bx-replace { display: block; margin: 8px 0; font-size: 14px; }
 .bx-upload { width: 100%; margin-top: 6px; }
+/* B-711 (v4.95): the saved box list line and each card's Remove button. */
+.bx-saved { font-weight: 700; margin: 6px 0; color: var(--text); }
+.bx-remove { margin-top: 6px; padding: 6px 12px; font-size: 14px; }
 .bx-ok { color: var(--good); font-weight: 700; }
 .bx-working { color: var(--warn); }
 .bx-status p { overflow-wrap: anywhere; }

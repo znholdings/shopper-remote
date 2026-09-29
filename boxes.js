@@ -5,11 +5,25 @@
 // out every number, and refuses what it must (lib/box-contents.js,
 // background/box-contents-handlers.js). What is drawn here is what the laptop
 // published (payload.boxes). Built with textContent only (no innerHTML).
+//
+// B-711 (v4.95): box contents in steps. The box list lives on the laptop,
+// not in this text box: each read ADDS the boxes just said (a letter said
+// again replaces that box), the text box empties once the laptop reports the
+// words read (readHash), and a failed read puts the words back (failedText).
+// Every saved box has a Remove button; upload stays its own confirmed tap.
 (function () {
   "use strict";
   const $ = (id) => document.getElementById(id);
   const R = () => self.ShopperRemote || { sendCommand: async () => null, waitFor: async () => "unknown" };
   const DRAFT_KEY = "shopperBoxesText";
+  const SENT_KEY = "shopperBoxesSent"; // B-711: the words of the read in flight
+  // Same as textHash in lib/box-contents-steps.js (test v495 checks parity).
+  function textHash(s) {
+    const t = String(s == null ? "" : s).trim();
+    let h = 5381;
+    for (let k = 0; k < t.length; k++) h = ((h * 33) ^ t.charCodeAt(k)) >>> 0;
+    return h.toString(16);
+  }
 
   function node(tag, cls, text) {
     const n = document.createElement(tag);
@@ -42,22 +56,30 @@
     ta.rows = 7;
     ta.placeholder = "Box A is a U-Haul large, 46 lbs. It has 24 Kotex regular 50-count and 22 Crest Pro-Health Smooth. Box B ...";
     ta.value = lsGet(DRAFT_KEY);
-    ta.addEventListener("input", () => lsSet(DRAFT_KEY, ta.value));
+    ta.addEventListener("input", () => { lsSet(DRAFT_KEY, ta.value); readLabel(); });
     sec.appendChild(ta);
     const row = node("div", "bx-row");
     batchSel = node("select", "bx-batch");
     batchSel.setAttribute("aria-label", "ScanPower batch");
+    batchSel.addEventListener("change", () => {
+      const s = last && last.saved;
+      if (!s || !last.batch || !batchSel.value || batchSel.value === last.batch.id) return;
+      if (!confirm("Start a new box list for that batch? Boxes " + s.label + " saved for " + last.batch.name + " will be dropped when it reads.")) batchSel.value = "";
+    });
     readBtn = btn("Read boxes", "primary-btn", async () => {
       const text = ta.value.trim();
-      if (!text) return;
+      // B-711: no words + saved boxes = re-check them against ScanPower.
+      if (!text && !(last && last.saved)) return;
+      lsSet(SENT_KEY, text);
       readBtn.disabled = true;
       await R().sendCommand("boxesRead", { text, batchId: batchSel.value || "" });
       readBtn.disabled = false;
     });
     clearBtn = btn("Start over", "ghost-btn", () => {
-      if (!confirm("Clear the text and the box draft?")) return;
+      if (!confirm("Clear the text and every saved box?")) return;
       ta.value = "";
       lsSet(DRAFT_KEY, "");
+      lsSet(SENT_KEY, "");
       R().sendCommand("boxesClear", {});
     });
     row.appendChild(batchSel);
@@ -69,11 +91,34 @@
     return true;
   }
 
+  function readLabel() {
+    if (!readBtn) return;
+    const saved = !!(last && last.saved);
+    readBtn.textContent = !saved ? "Read boxes" : ta.value.trim() ? "Add boxes" : "Re-check with ScanPower";
+  }
+
+  // B-711: empty the text box once the laptop has read those words; put
+  // them back when a read failed and the box is empty.
+  function syncText(b) {
+    if (!b) return;
+    const sent = lsGet(SENT_KEY).trim();
+    if (sent && b.readHash && b.readHash === textHash(sent)) {
+      const cur = ta.value.trim();
+      if (cur.startsWith(sent)) ta.value = cur.slice(sent.length).trim();
+      lsSet(DRAFT_KEY, ta.value);
+      lsSet(SENT_KEY, "");
+    } else if (b.phase === "failed" && b.failedText && !ta.value.trim()) {
+      ta.value = b.failedText;
+      lsSet(DRAFT_KEY, ta.value);
+      lsSet(SENT_KEY, "");
+    }
+  }
+
   function fillBatches(b) {
     const list = (b && b.batches) || [];
     const keep = batchSel.value;
     while (batchSel.firstChild) batchSel.removeChild(batchSel.firstChild);
-    const o0 = node("option", null, "Newest batch");
+    const o0 = node("option", null, b && b.saved && b.batch ? b.batch.name + " (saved boxes)" : "Newest batch");
     o0.value = "";
     batchSel.appendChild(o0);
     for (const x of list) {
@@ -94,19 +139,34 @@
     return s ? s.t : "#" + i;
   }
 
-  function renderDraft(b, box) {
+  // B-711: the saved box list. Remove only while the draft is up for review.
+  function renderCards(b, box, withRemove) {
     const d = b.draft;
-    box.appendChild(node("div", "bx-head", (b.batch ? b.batch.name : "?") + " · Pack group " + (b.packGroup || "?")));
-    if (b.existing && b.existing.units > 0) box.appendChild(node("p", "warn-text", "ScanPower already has " + b.existing.units + " units in " + b.existing.boxes + " box(es) here. Uploading replaces them."));
+    if (b.saved) box.appendChild(node("p", "bx-saved", b.saved.text));
     const list = node("div", "lines");
     for (const x of d.boxes) {
       const card = node("div", "line bx-box");
       card.appendChild(node("div", "bx-box-title", (x.letter || "#") + " → B" + x.num + " · " + (x.size || "?") + (x.L ? " (" + x.L + "×" + x.W + "×" + x.H + ")" : "") + " · " + (x.weight == null ? "?" : x.weight) + " lb"));
       if (!x.lines.length) card.appendChild(node("div", "l-meta", "no units"));
       for (const l of x.lines) card.appendChild(node("div", "l-meta", l.q + " × " + skuName(b, l.i) + (l.r ? " (the rest)" : "")));
+      if (withRemove && x.key) {
+        const rm = btn("Remove", "ghost-btn bx-remove", () => {
+          if (!confirm("Remove box " + x.key + " from the saved boxes?")) return;
+          rm.disabled = true;
+          R().sendCommand("boxesRemove", { id: b.id, key: x.key });
+        });
+        card.appendChild(rm);
+      }
       list.appendChild(card);
     }
     box.appendChild(list);
+  }
+
+  function renderDraft(b, box) {
+    const d = b.draft;
+    box.appendChild(node("div", "bx-head", (b.batch ? b.batch.name : "?") + " · Pack group " + (b.packGroup || "?")));
+    if (b.existing && b.existing.units > 0) box.appendChild(node("p", "warn-text", "ScanPower already has " + b.existing.units + " units in " + b.existing.boxes + " box(es) here. Uploading replaces them."));
+    renderCards(b, box, true);
 
     if (d.questions.length) {
       const qs = node("div", "bx-questions");
@@ -156,7 +216,7 @@
         lab.appendChild(node("span", null, " Replace what ScanPower has now"));
         box.appendChild(lab);
       }
-      const go = btn("Upload " + d.boxes.length + " boxes to ScanPower", "primary-btn bx-upload", () => {
+      const go = btn("I'm done — upload " + d.boxes.length + " boxes to ScanPower", "primary-btn bx-upload", () => {
         if (replace && !replace.checked) { alert("Tick “Replace” first - ScanPower already has boxes here."); return; }
         if (!confirm("Upload " + d.boxes.length + " boxes (" + placed + " units) to " + (b.batch ? b.batch.name : "ScanPower") + "?")) return;
         go.disabled = true;
@@ -173,6 +233,8 @@
     const b = p ? p.boxes : null;
     last = b;
     fillBatches(b);
+    syncText(b);
+    readLabel();
     if (editing()) return;
     while (statusEl.firstChild) statusEl.removeChild(statusEl.firstChild);
     const phase = b ? b.phase : "idle";
@@ -184,6 +246,11 @@
     }
     if (phase === "failed") {
       statusEl.appendChild(node("p", "error-text", b.error || "It stopped."));
+      // B-711: the saved boxes are still saved - show them.
+      if (b.draft && b.draft.boxes && b.draft.boxes.length) {
+        renderCards(b, statusEl, false);
+        statusEl.appendChild(node("p", "muted", "Your saved boxes are kept. Add more, or tap Re-check with ScanPower (empty text box) to get back to the upload."));
+      }
       return;
     }
     if (phase === "done" && b.result) {
