@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.00";
+const APP_BUILD = "v2.01";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -52,6 +52,8 @@ for (const id of [
   "dashRrCount","dashRrSummary","dashRrList",
   // B-510/B-511 (v4.61): the read-only FBA tab (remote/fba-view.js draws it).
   "tabFba","fbaPane","dashFbaSec",
+  // B-741 (v2.01): the Min tab (remote/belowmin-view.js draws it).
+  "tabBelowMin","belowMinPane",
   // B-662 (v4.85): the Bank view, opened from the Bank balance tile.
   "bankPane","bankBack","bankBal","bankAsOf","bankCount","bankRows",
 ]) els[id] = $(id);
@@ -484,6 +486,7 @@ function renderPayload() {
   renderDashboard(p.dashboard);
   // B-510/B-511 (v4.61): the FBA tab and the Dashboard's FBA card.
   if (self.ShopperFbaView) self.ShopperFbaView.render(p.fba);
+  if (self.ShopperBelowMinView) self.ShopperBelowMinView.render(p.belowMin);
   // v4.74 (B-567 - B-574): refresh, Needs you, latest arrivals, goal.
   if (self.ShopperParity) self.ShopperParity.render(p);
   // B-579 (v4.75): Box contents -> ScanPower (remote/boxes.js).
@@ -1409,6 +1412,8 @@ els.tabRun.addEventListener("click", () => switchTab("run"));
 els.tabBuylist.addEventListener("click", () => switchTab("buylist"));
 els.tabInventory.addEventListener("click", () => switchTab("inventory"));
 els.tabFba.addEventListener("click", () => switchTab("fba"));
+els.tabBelowMin.addEventListener("click", () => switchTab("belowmin"));
+if (self.ShopperBelowMinView) self.ShopperBelowMinView.wire();
 // B-511 (v4.61): the Dashboard's FBA card opens the FBA tab.
 els.dashFbaSec.addEventListener("click", () => switchTab("fba"));
 els.dashFbaSec.addEventListener("keydown", (e) => {
@@ -1674,10 +1679,12 @@ function switchTab(which) {
   els.inventoryPane.hidden = which !== "inventory";
   els.dashboardPane.hidden = which !== "dashboard";
   els.fbaPane.hidden = which !== "fba";
+  els.belowMinPane.hidden = which !== "belowmin";
   // B-662 (v4.85): the Bank view is part of the Dashboard (no tab button of its own).
   els.bankPane.hidden = which !== "bank";
   if (which === "bank") window.scrollTo(0, 0);
   els.tabFba.classList.toggle("active", which === "fba");
+  els.tabBelowMin.classList.toggle("active", which === "belowmin");
   // The chart is drawn at the pane's real width, which is 0 while hidden.
   if (which === "fba" && self.ShopperFbaView) self.ShopperFbaView.shown();
   els.tabDashboard.classList.toggle("active", which === "dashboard" || which === "bank");

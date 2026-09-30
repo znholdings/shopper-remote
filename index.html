@@ -76,6 +76,8 @@
         <button id="tabInventory" class="tab"><svg class="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h11"/><path d="M3 17h7"/><circle cx="17" cy="7" r="3"/><circle cx="13" cy="17" r="3"/><path d="M20 7h1M16 17h5"/></svg><span class="tab-label">Inventory</span></button>
         <!-- B-510 (v4.61): the laptop's FBA Inventory page, read-only. -->
         <button id="tabFba" class="tab"><svg class="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg><span class="tab-label">FBA</span></button>
+        <!-- B-741 (v2.01): Buy Box under the Seller Snap min. -->
+        <button id="tabBelowMin" class="tab"><svg class="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12l-8 8-9-9V3h8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg><span class="tab-label">Min</span></button>
       </nav>
 
       <div id="runPane">
@@ -328,6 +330,15 @@
       <!-- B-510 (v4.61): read-only. The laptop's FBA Inventory page, drawn
            by the same code (fba-lib.js is built from its lib/ files). No
            command, no write, no Amazon pull. -->
+      <!-- B-741 (v2.01): the laptop's Below Min list, with the same choices. -->
+      <div id="belowMinPane" hidden>
+        <div class="bmm-head"><button type="button" class="secondary-btn" id="bmmCheck">Check now</button><button type="button" class="primary-btn" id="bmmSend" disabled>Send to Seller Snap</button></div>
+        <p id="bmmAsOf" class="muted"></p>
+        <div id="bmmBanner" class="ai-banner ai-banner-warn" hidden></div>
+        <p class="muted small">Sending a price lowers your Seller Snap min to it; Seller Snap can then go that low to win the Buy Box. Don't change hides a listing until its Buy Box or min changes.</p>
+        <div id="bmmBody"></div>
+      </div>
+
       <div id="fbaPane" hidden>
         <!-- v4.74 (B-574 / B-576): the one Quick / Full refresh. -->
         <div id="fbaRefresh"></div>
@@ -398,6 +409,8 @@
   <!-- B-510 (v4.61): fba-lib.js is GENERATED from lib/ (test/_fba-bundle.mjs). -->
   <script src="fba-lib.js"></script>
   <script src="fba-view.js"></script>
+  <script src="belowmin-lib.js"></script>
+  <script src="belowmin-view.js"></script>
   <script src="app.js"></script>
   <!-- B-683 (v4.93): typed MM/DD/YYYY date box, used by parity.js. -->
   <script src="date-input.js"></script>

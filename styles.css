@@ -694,4 +694,18 @@ body { background: var(--s-bg); color: var(--s-text); font-family: var(--s-font)
 #mainView > .tabs .tab-icon { display: block; }
 .primary-btn { border-radius: 10px; }
 
+/* B-741 (v2.01): the Min tab - Buy Box under the Seller Snap min. Tokens only. */
+.bmm-head { display: flex; gap: 8px; margin: 10px 0 6px; }
+.bmm-head button { flex: 1; }
+.bmm-card { background: var(--s-surface); border: 1px solid var(--s-line); border-radius: var(--s-r); padding: 12px; margin: 10px 0; display: grid; gap: 8px; min-width: 0; }
+.bmm-title { font-weight: 700; color: var(--s-text); text-decoration: none; overflow-wrap: anywhere; }
+.bmm-nums { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.bmm-num { background: var(--s-bg); border-radius: var(--s-r-sm); padding: 6px 8px; min-width: 0; }
+.bmm-choice { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 10px; border: 1px solid var(--s-line); border-radius: var(--s-r-sm); min-width: 0; }
+.bmm-choice input[type="radio"] { margin: 0; }
+.bmm-off { opacity: .6; }
+.bmm-price { width: 90px; }
+.bmm-sub { flex-basis: 100%; padding-left: 24px; }
+.bmm-recent { padding-left: 18px; }
+
 [hidden] { display: none !important; }
