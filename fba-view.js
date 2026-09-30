@@ -90,7 +90,7 @@
     host.textContent = "";
     if (!data) return;
     if (!data.available) { banner(host, "Could not read the FBA history on the laptop: " + (data.loadError || "unknown error"), "error"); return; }
-    if (data.connected === false) banner(host, "Amazon is not connected - paste the SP-API keys on the laptop's Setup page.", "warn");
+    if (data.connected === false) banner(host, "Amazon is not connected - paste the SP-API keys on the laptop's Settings page.", "warn");
     if (data.error) banner(host, "Last Amazon pull failed: " + data.error + " The figures below are from the last good pull.", "error");
     if (data.historyError) banner(host, "The last history row was NOT saved: " + data.historyError, "error");
     const s = settings();
@@ -335,7 +335,7 @@
     if (model.empty) {
       empty.hidden = false;
       empty.textContent = data.connected === false
-        ? "Amazon is not connected - paste the SP-API keys on the laptop's Setup page."
+        ? "Amazon is not connected - paste the SP-API keys on the laptop's Settings page."
         : "No FBA history on file yet - the first row is written by the laptop's next Amazon pull.";
       return;
     }

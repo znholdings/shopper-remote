@@ -160,6 +160,15 @@ __m["sellersnap-price.js"] = { TREND_DEAD_BAND, referralFee, fbaFee, profitAt, b
 // lib/keepa-charts.js compactChart(). Import-free and DOM-agnostic (takes
 // `doc`), so the phone runs this same file (remote/belowmin-lib.js bundle).
 // Colours are classes (kc-*), set with --s-* tokens in each stylesheet.
+//
+// v2.0.4 (B-758): interactive. Keepa's own chart cannot be framed (MEASURED
+// 2026-09-30: keepa.com answers with frame-ancestors = Keepa's extension,
+// keepa.com and amazon.* only - Shopper's pages and the phone are refused),
+// so these panels became the interactive ones: range buttons (30 days,
+// 90 days, 6 months, 1 year - up to what was bought; a year since v2.0.4),
+// and a crosshair - hover (laptop) or touch-and-drag (phone) shows the date
+// and every panel's value at that moment. The chosen range is remembered per
+// device (localStorage, best effort).
 const NS = "http://www.w3.org/2000/svg";
 const KC_W = 320;
 const KC_PAD_L = 38;
@@ -169,12 +178,29 @@ const KC_PANELS = [
   { key: "rank", title: "Sales rank · monthly sold", h: 64 },
   { key: "offers", title: "Offers", h: 48 },
 ];
+const KC_RANGES = [
+  { days: 30, label: "30d" },
+  { days: 90, label: "90d" },
+  { days: 180, label: "6m" },
+  { days: 365, label: "1y" },
+];
+const KC_DEFAULT_RANGE = 90;
+const RANGE_KEY = "shopperKeepaRange";
 
 function el(doc, tag, attrs = {}, text) {
   const n = doc.createElementNS(NS, tag);
   for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, String(v));
   if (text != null) n.textContent = String(text);
   return n;
+}
+
+// Segments of a step series that show inside [from, days].
+function visiblePoints(points, from, days) {
+  const pts = points || [];
+  return pts.filter((p, i) => {
+    const tNext = i + 1 < pts.length ? pts[i + 1][0] : days;
+    return tNext > from && p[0] <= days;
+  });
 }
 
 function extent(points) {
@@ -187,17 +213,19 @@ function extent(points) {
 }
 
 // A step line (Keepa series hold their value until the next point), with
-// gaps where the value is null, held to the right edge.
-function stepPath(points, days, x0, x1, y0, y1, ext) {
+// gaps where the value is null, held to the right edge. `from` (days) is the
+// left edge of the window; a value set before it is drawn from the edge.
+function stepPath(points, days, x0, x1, y0, y1, ext, from = 0) {
   if (!points || !points.length || !ext) return "";
-  const X = (d) => x0 + (Math.max(0, Math.min(days, d)) / days) * (x1 - x0);
+  const span = days - from || 1;
+  const X = (d) => x0 + ((Math.max(from, Math.min(days, d)) - from) / span) * (x1 - x0);
   const Y = (v) => y1 - ((v - ext[0]) / (ext[1] - ext[0])) * (y1 - y0);
   let d = "";
   let open = false;
   for (let i = 0; i < points.length; i++) {
     const [t, v] = points[i];
     const tNext = i + 1 < points.length ? points[i + 1][0] : days;
-    if (v == null) { open = false; continue; }
+    if (v == null || tNext <= from) { open = false; continue; }
     const x = X(t).toFixed(1), y = Y(v).toFixed(1), xe = X(tNext).toFixed(1);
     d += open ? `V${y}H${xe}` : `M${x},${y}H${xe}`;
     open = true;
@@ -205,14 +233,112 @@ function stepPath(points, days, x0, x1, y0, y1, ext) {
   return d;
 }
 
+// The value in force at `day` (a step series), or null.
+function valueAt(points, day) {
+  let v = null;
+  for (const [t, val] of points || []) {
+    if (t > day) break;
+    v = val;
+  }
+  return v;
+}
+
 const fmtMoney = (v) => "$" + (v >= 100 ? v.toFixed(0) : v.toFixed(2));
 const fmtK = (v) => (v >= 10000 ? Math.round(v / 1000) + "k" : String(Math.round(v)));
+const fmtInt = (v) => String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const fmtDay = (ms) => { const d = new Date(ms); return `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}`; };
 
-// Returns a <div class="kc"> holding the three panels, or a note when
-// there is no chart yet.
-function drawKeepaCharts(doc, chart, { asOf = null } = {}) {
+// The ranges a chart can show: every standard one up to what was bought,
+// plus the whole span when it is not one of them.
+function rangesFor(chart) {
+  const days = (chart && chart.days) || KC_DEFAULT_RANGE;
+  const list = KC_RANGES.filter((r) => r.days <= days);
+  if (!list.some((r) => r.days === days)) list.push({ days, label: `${days}d` });
+  return list;
+}
+
+function pickRange(chart, wanted) {
+  const list = rangesFor(chart);
+  const w = Number(wanted);
+  if (list.some((r) => r.days === w)) return w;
+  return list.some((r) => r.days === KC_DEFAULT_RANGE) ? KC_DEFAULT_RANGE : list[list.length - 1].days;
+}
+
+// "Sep 12 · Buy Box $16.37 · Rank #12,345 · Sold 300/mo · Offers 7"
+function readoutText(chart, day) {
+  const bits = [fmtDay(chart.startMs + day * 86400000)];
+  const bb = valueAt(chart.bb, day);
+  const rank = valueAt(chart.rank, day);
+  const sold = valueAt(chart.sold, day);
+  const offers = valueAt(chart.offers, day);
+  bits.push(bb == null ? "Buy Box -" : `Buy Box ${fmtMoney(bb)}`);
+  if (rank != null) bits.push(`Rank #${fmtInt(rank)}`);
+  if (sold != null) bits.push(`Sold ${fmtInt(sold)}/mo`);
+  if (offers != null) bits.push(`Offers ${fmtInt(offers)}`);
+  return bits.join(" · ");
+}
+
+function readRange() {
+  try { return typeof localStorage !== "undefined" ? Number(localStorage.getItem(RANGE_KEY)) || null : null; } catch { return null; }
+}
+function saveRange(days) {
+  try { if (typeof localStorage !== "undefined") localStorage.setItem(RANGE_KEY, String(days)); } catch { /* per-device nicety */ }
+}
+const on = (n, type, fn) => { if (n && typeof n.addEventListener === "function") n.addEventListener(type, fn); };
+
+// The three panels for one window, plus a cursor line in each.
+function drawPanels(doc, chart, from) {
+  const days = chart.days || KC_DEFAULT_RANGE;
+  const x0 = KC_PAD_L, x1 = KC_W - KC_PAD_R;
+  const svgs = [];
+  KC_PANELS.forEach((panel, idx) => {
+    const last = idx === KC_PANELS.length - 1;
+    const H = panel.h + (last ? 14 : 0);
+    const svg = el(doc, "svg", { viewBox: `0 0 ${KC_W} ${H}`, class: "kc-svg", role: "img", "aria-label": panel.title, preserveAspectRatio: "xMidYMid meet" });
+    const y0 = 12, y1 = panel.h - 4;
+    svg.append(el(doc, "text", { x: x0, y: 9, class: "kc-title" }, panel.title));
+    svg.append(el(doc, "rect", { x: x0, y: y0, width: x1 - x0, height: y1 - y0, class: "kc-frame" }));
+    const vis = (pts) => visiblePoints(pts, from, days);
+    const addLine = (pts, cls, ext) => { const d = stepPath(pts, days, x0, x1, y0, y1, ext, from); if (d) svg.append(el(doc, "path", { d, class: cls })); };
+    const axis = (ext, side, fmt, cls) => {
+      if (!ext) return;
+      const x = side === "l" ? x0 - 3 : x1 + 3;
+      const anchor = side === "l" ? "end" : "start";
+      svg.append(el(doc, "text", { x, y: y0 + 7, "text-anchor": anchor, class: "kc-axis " + cls }, fmt(ext[1])));
+      svg.append(el(doc, "text", { x, y: y1, "text-anchor": anchor, class: "kc-axis " + cls }, fmt(ext[0])));
+    };
+    if (panel.key === "bb") {
+      const e = extent(vis(chart.bb));
+      addLine(chart.bb, "kc-line kc-bb", e);
+      axis(e, "l", fmtMoney, "kc-bb-t");
+      if (!e) svg.append(el(doc, "text", { x: (x0 + x1) / 2, y: (y0 + y1) / 2 + 3, "text-anchor": "middle", class: "kc-axis" }, "no Buy Box history"));
+    } else if (panel.key === "rank") {
+      const er = extent(vis(chart.rank));
+      const es = extent(vis(chart.sold).concat([[from, 0]]));
+      addLine(chart.rank, "kc-line kc-rank", er);
+      addLine(chart.sold, "kc-line kc-sold", es);
+      axis(es, "l", fmtK, "kc-sold-t");
+      axis(er, "r", (v) => "#" + fmtK(v), "kc-rank-t");
+    } else {
+      const e = extent(vis(chart.offers).concat([[from, 0]]));
+      addLine(chart.offers, "kc-line kc-offers", e);
+      axis(e, "l", fmtK, "kc-offers-t");
+      const startMs = chart.startMs + from * 86400000, endMs = chart.endMs;
+      [[x0, startMs, "start"], [(x0 + x1) / 2, (startMs + endMs) / 2, "middle"], [x1, endMs, "end"]].forEach(([x, ms, a]) => {
+        svg.append(el(doc, "text", { x, y: H - 2, "text-anchor": a, class: "kc-axis" }, fmtDay(ms)));
+      });
+    }
+    const cursor = el(doc, "line", { x1: x0, x2: x0, y1: y0, y2: y1, class: "kc-cursor", visibility: "hidden" });
+    svg.append(cursor);
+    svgs.push({ svg, cursor });
+  });
+  return svgs;
+}
+
+// Returns a <div class="kc"> holding the range buttons, the readout, the
+// three panels and a note - or a note when there is no chart yet.
+function drawKeepaCharts(doc, chart, { asOf = null, range = null } = {}) {
   const wrap = doc.createElement("div");
   wrap.className = "kc";
   if (!chart) {
@@ -222,53 +348,64 @@ function drawKeepaCharts(doc, chart, { asOf = null } = {}) {
     wrap.append(p);
     return wrap;
   }
-  const days = chart.days || 90;
-  const x0 = KC_PAD_L, x1 = KC_W - KC_PAD_R;
-  KC_PANELS.forEach((panel, idx) => {
-    const last = idx === KC_PANELS.length - 1;
-    const H = panel.h + (last ? 14 : 0);
-    const svg = el(doc, "svg", { viewBox: `0 0 ${KC_W} ${H}`, class: "kc-svg", role: "img", "aria-label": panel.title, preserveAspectRatio: "xMidYMid meet" });
-    const y0 = 12, y1 = panel.h - 4;
-    svg.append(el(doc, "text", { x: x0, y: 9, class: "kc-title" }, panel.title));
-    svg.append(el(doc, "rect", { x: x0, y: y0, width: x1 - x0, height: y1 - y0, class: "kc-frame" }));
-    const addLine = (pts, cls, ext) => { const d = stepPath(pts, days, x0, x1, y0, y1, ext); if (d) svg.append(el(doc, "path", { d, class: cls })); };
-    const axis = (ext, side, fmt, cls) => {
-      if (!ext) return;
-      const x = side === "l" ? x0 - 3 : x1 + 3;
-      const anchor = side === "l" ? "end" : "start";
-      svg.append(el(doc, "text", { x, y: y0 + 7, "text-anchor": anchor, class: "kc-axis " + cls }, fmt(ext[1])));
-      svg.append(el(doc, "text", { x, y: y1, "text-anchor": anchor, class: "kc-axis " + cls }, fmt(ext[0])));
-    };
-    if (panel.key === "bb") {
-      const e = extent(chart.bb);
-      addLine(chart.bb, "kc-line kc-bb", e);
-      axis(e, "l", fmtMoney, "kc-bb-t");
-      if (!e) svg.append(el(doc, "text", { x: (x0 + x1) / 2, y: (y0 + y1) / 2 + 3, "text-anchor": "middle", class: "kc-axis" }, "no Buy Box history"));
-    } else if (panel.key === "rank") {
-      const er = extent(chart.rank);
-      const es = extent((chart.sold || []).map(([t, v]) => [t, v]).concat([[0, 0]]));
-      addLine(chart.rank, "kc-line kc-rank", er);
-      addLine(chart.sold, "kc-line kc-sold", es);
-      axis(es, "l", fmtK, "kc-sold-t");
-      axis(er, "r", (v) => "#" + fmtK(v), "kc-rank-t");
-    } else {
-      const e = extent((chart.offers || []).concat([[0, 0]]));
-      addLine(chart.offers, "kc-line kc-offers", e);
-      axis(e, "l", fmtK, "kc-offers-t");
-      const startMs = chart.startMs, endMs = chart.endMs;
-      [[x0, startMs, "start"], [(x0 + x1) / 2, (startMs + endMs) / 2, "middle"], [x1, endMs, "end"]].forEach(([x, ms, a]) => {
-        svg.append(el(doc, "text", { x, y: H - 2, "text-anchor": a, class: "kc-axis" }, fmtDay(ms)));
-      });
-    }
-    wrap.append(svg);
-  });
+  const days = chart.days || KC_DEFAULT_RANGE;
+  let current = pickRange(chart, range != null ? range : readRange());
+
+  const bar = doc.createElement("div");
+  bar.className = "kc-ranges";
+  const readout = doc.createElement("div");
+  readout.className = "kc-readout";
+  const panels = doc.createElement("div");
+  panels.className = "kc-panels";
   const note = doc.createElement("div");
   note.className = "kc-note";
-  note.textContent = `Keepa, last ${days} days${asOf ? ` · as of ${fmtDay(asOf)}` : ""}`;
-  wrap.append(note);
+  const buttons = [];
+
+  const render = () => {
+    const from = Math.max(0, days - current);
+    panels.textContent = "";
+    const svgs = drawPanels(doc, chart, from);
+    for (const { svg } of svgs) panels.append(svg);
+    readout.textContent = "Point at a chart to read its values";
+    note.textContent = `Keepa, last ${current} days${asOf ? ` · as of ${fmtDay(asOf)}` : ""}`;
+    for (const b of buttons) b.node.className = "kc-range" + (b.days === current ? " kc-range-on" : "");
+    const x0 = KC_PAD_L, x1 = KC_W - KC_PAD_R;
+    const show = (evt, svg) => {
+      if (!svg || typeof svg.getBoundingClientRect !== "function") return;
+      const rect = svg.getBoundingClientRect();
+      if (!rect || !rect.width) return;
+      const xSvg = ((evt.clientX - rect.left) / rect.width) * KC_W;
+      const xc = Math.max(x0, Math.min(x1, xSvg));
+      const day = from + ((xc - x0) / (x1 - x0)) * (days - from);
+      for (const s of svgs) {
+        s.cursor.setAttribute("x1", xc.toFixed(1));
+        s.cursor.setAttribute("x2", xc.toFixed(1));
+        s.cursor.setAttribute("visibility", "visible");
+      }
+      readout.textContent = readoutText(chart, day);
+    };
+    const hide = () => { for (const s of svgs) s.cursor.setAttribute("visibility", "hidden"); };
+    for (const { svg } of svgs) {
+      on(svg, "pointermove", (e) => show(e, svg));
+      on(svg, "pointerdown", (e) => show(e, svg));
+      on(svg, "pointerleave", hide);
+    }
+  };
+
+  for (const r of rangesFor(chart)) {
+    const b = doc.createElement("button");
+    b.type = "button";
+    b.textContent = r.label;
+    if (typeof b.setAttribute === "function") b.setAttribute("aria-label", `Show the last ${r.days} days`);
+    on(b, "click", () => { current = r.days; saveRange(current); render(); });
+    buttons.push({ node: b, days: r.days });
+    bar.append(b);
+  }
+  render();
+  wrap.append(bar, readout, panels, note);
   return wrap;
 }
-__m["keepa-chart-svg.js"] = { KC_W, KC_PAD_L, KC_PAD_R, KC_PANELS, extent, stepPath, drawKeepaCharts };
+__m["keepa-chart-svg.js"] = { KC_W, KC_PAD_L, KC_PAD_R, KC_PANELS, KC_RANGES, KC_DEFAULT_RANGE, visiblePoints, extent, stepPath, valueAt, rangesFor, pickRange, readoutText, drawKeepaCharts };
 })();
 root.ShopperPrice = Object.freeze(Object.assign({}, ...Object.values(__m)));
 })(self);

@@ -739,4 +739,12 @@ body { background: var(--s-bg); color: var(--s-text); font-family: var(--s-font)
 .bmm-sub { flex-basis: 100%; padding-left: 24px; }
 .bmm-recent { padding-left: 18px; }
 
+/* B-758 (v2.0.4): range buttons, the readout and the crosshair. */
+.kc-ranges { display: flex; flex-wrap: wrap; gap: 4px; }
+.kc-range { padding: 2px 8px; border: 1px solid var(--s-line); border-radius: var(--s-r-pill); background: var(--s-surface); color: var(--s-text-muted); font: inherit; font-size: 11px; cursor: pointer; }
+.kc-range-on { background: var(--s-violet-bg); border-color: var(--s-violet); color: var(--s-violet-ink); font-weight: 700; }
+.kc-readout { min-height: 1.4em; font-size: 11px; color: var(--s-text); overflow-wrap: anywhere; }
+.kc-panels { display: grid; gap: 2px; touch-action: pan-y; }
+.kc-cursor { stroke: var(--s-text-muted); stroke-width: 1; stroke-dasharray: 2 2; pointer-events: none; }
+
 [hidden] { display: none !important; }
