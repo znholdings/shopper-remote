@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#111318" />
+  <meta name="theme-color" content="#6937d9" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>Shopper Remote</title>
@@ -11,6 +11,13 @@
   <link rel="apple-touch-icon" href="icon-180.png" />
   <link rel="icon" type="image/png" href="shoppy-64.png" />
   <link rel="stylesheet" href="styles.css" />
+  <!-- Shopper 2 (v2.00, B-732): light / dark before first paint. The phone
+       follows its own setting unless the top-bar button picked one. -->
+  <script>
+    (function () {
+      try { var t = localStorage.getItem("shopperTheme"); if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t); } catch (e) {}
+    })();
+  </script>
 </head>
 <body>
   <!-- P-15 (v2.93). This page is a MIRROR of the Buy Queue side pane plus
@@ -19,8 +26,9 @@
        on his behalf. -->
   <div id="app">
     <header class="topbar">
-      <div class="brand"><img src="shoppy-64.png" alt="" class="brand-logo" />Shopper</div>
+      <div class="brand"><img src="shoppy-64.png" alt="" class="brand-logo" /><span class="brand-word">Shopper 2</span></div>
       <div id="deviceName" class="device-name"></div>
+      <button id="themeBtn" class="ghost-btn theme-btn" type="button" aria-label="Switch light / dark"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg></button>
       <button id="signOutBtn" class="ghost-btn" hidden>Sign out</button>
     </header>
 
@@ -62,12 +70,12 @@
     <section id="mainView" class="view" hidden>
       <nav class="tabs">
         <!-- B-490 (v4.56): the desktop Dashboard, mirrored read-only. -->
-        <button id="tabDashboard" class="tab">Dashboard</button>
-        <button id="tabRun" class="tab active">Run</button>
-        <button id="tabBuylist" class="tab">Buylist</button>
-        <button id="tabInventory" class="tab">Inventory</button>
+        <button id="tabDashboard" class="tab"><svg class="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg><span class="tab-label">Dashboard</span></button>
+        <button id="tabRun" class="tab active"><svg class="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18l-2 9H6L4 3H2"/><circle cx="8" cy="20" r="1.5"/><circle cx="17" cy="20" r="1.5"/></svg><span class="tab-label">Run</span></button>
+        <button id="tabBuylist" class="tab"><svg class="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5h11M9 12h11M9 19h11"/><path d="M4 5l1 1 2-2M4 12l1 1 2-2M4 19l1 1 2-2"/></svg><span class="tab-label">Buylist</span></button>
+        <button id="tabInventory" class="tab"><svg class="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h11"/><path d="M3 17h7"/><circle cx="17" cy="7" r="3"/><circle cx="13" cy="17" r="3"/><path d="M20 7h1M16 17h5"/></svg><span class="tab-label">Inventory</span></button>
         <!-- B-510 (v4.61): the laptop's FBA Inventory page, read-only. -->
-        <button id="tabFba" class="tab">FBA</button>
+        <button id="tabFba" class="tab"><svg class="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg><span class="tab-label">FBA</span></button>
       </nav>
 
       <div id="runPane">
@@ -395,5 +403,20 @@
   <script src="date-input.js"></script>
   <script src="parity.js"></script>
   <script src="boxes.js"></script>
+  <script>
+    // Shopper 2 (v2.00, B-732): the top-bar theme button - system -> light -> dark.
+    (function () {
+      var b = document.getElementById("themeBtn");
+      if (!b) return;
+      b.addEventListener("click", function () {
+        var cur = document.documentElement.getAttribute("data-theme");
+        var sysDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+        var shown = cur || (sysDark ? "dark" : "light");
+        var next = shown === "dark" ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", next);
+        try { localStorage.setItem("shopperTheme", next); } catch (e) {}
+      });
+    })();
+  </script>
 </body>
 </html>
