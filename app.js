@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.7";
+const APP_BUILD = "v2.0.8";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -56,6 +56,8 @@ for (const id of [
   "tabBelowMin","belowMinPane",
   // B-742 (v2.0.7): the Ship tab (remote/wizard-view.js draws it).
   "tabWizard","wizardPane","wizardHost",
+  // B-765 (v2.0.8): the Cash tab (remote/cashflow-view.js draws it).
+  "tabCashFlow","cashFlowPane",
   // B-662 (v4.85): the Bank view, opened from the Bank balance tile.
   "bankPane","bankBack","bankBal","bankAsOf","bankCount","bankRows",
 ]) els[id] = $(id);
@@ -495,6 +497,8 @@ function renderPayload() {
       send: (action, payload) => sendCommand("wizardAction", { action, payload }),
     });
   }
+  // B-765 (v2.0.8): the Cash tab.
+  if (self.ShopperCashFlowView) self.ShopperCashFlowView.render(p.cashFlow);
   // v4.74 (B-567 - B-574): refresh, Needs you, latest arrivals, goal.
   if (self.ShopperParity) self.ShopperParity.render(p);
   // B-579 (v4.75): Box contents -> ScanPower (remote/boxes.js).
@@ -1422,7 +1426,9 @@ els.tabInventory.addEventListener("click", () => switchTab("inventory"));
 els.tabFba.addEventListener("click", () => switchTab("fba"));
 els.tabBelowMin.addEventListener("click", () => switchTab("belowmin"));
 els.tabWizard.addEventListener("click", () => switchTab("wizard"));
+els.tabCashFlow.addEventListener("click", () => switchTab("cashflow"));
 if (self.ShopperBelowMinView) self.ShopperBelowMinView.wire();
+if (self.ShopperCashFlowView) self.ShopperCashFlowView.wire();
 // B-511 (v4.61): the Dashboard's FBA card opens the FBA tab.
 els.dashFbaSec.addEventListener("click", () => switchTab("fba"));
 els.dashFbaSec.addEventListener("keydown", (e) => {
@@ -1691,6 +1697,10 @@ function switchTab(which) {
   els.belowMinPane.hidden = which !== "belowmin";
   els.wizardPane.hidden = which !== "wizard";
   els.tabWizard.classList.toggle("active", which === "wizard");
+  // B-765 (v2.0.8): the Cash tab; its charts are drawn at the pane's real width.
+  els.cashFlowPane.hidden = which !== "cashflow";
+  els.tabCashFlow.classList.toggle("active", which === "cashflow");
+  if (which === "cashflow" && self.ShopperCashFlowView) self.ShopperCashFlowView.shown();
   // B-662 (v4.85): the Bank view is part of the Dashboard (no tab button of its own).
   els.bankPane.hidden = which !== "bank";
   if (which === "bank") window.scrollTo(0, 0);

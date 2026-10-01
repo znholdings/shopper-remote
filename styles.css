@@ -777,4 +777,69 @@ body { background: var(--s-bg); color: var(--s-text); font-family: var(--s-font)
 .wz-btn:disabled { opacity: .45; }
 .wz-more { justify-self: start; }
 
+
+/* B-765 (v2.0.8): the Cash tab (remote/cashflow-view.js). Tokens only. The
+   chart marks are lib/shopper-ui.css's own rules for lib/s-chart.js. */
+.cfm-head { display: flex; gap: 8px; margin: 10px 0 6px; }
+.cfm-head button { flex: 1; }
+.cfm-tabs { display: inline-flex; flex-wrap: wrap; max-width: 100%; gap: 2px; padding: 3px; background: var(--s-n2); border-radius: var(--s-r-sm); margin: 4px 0 8px; }
+.cfm-tab { border: 0; background: transparent; color: var(--s-text-muted); font: 600 13px/1 var(--s-font); padding: 8px 10px; border-radius: 6px; }
+.cfm-tab[aria-pressed="true"] { background: var(--s-surface); color: var(--s-text); box-shadow: var(--s-elev-1); }
+.cfm-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 4px 0 10px; }
+.cfm-stat { background: var(--s-surface); border: 1px solid var(--s-line-soft); border-radius: var(--s-r); padding: 10px; min-width: 0; }
+.cfm-stat-label { font-size: 11px; font-weight: 700; color: var(--s-text-muted); text-transform: uppercase; letter-spacing: .04em; overflow-wrap: anywhere; }
+.cfm-stat-value { font: 800 20px/1.15 var(--s-font); color: var(--s-text); margin-top: 4px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.cfm-stat-sub { font-size: 12px; color: var(--s-text-muted); margin-top: 4px; line-height: 1.4; overflow-wrap: anywhere; }
+.cfm-stat-sub b { font-weight: 700; }
+.cfm-card { background: var(--s-surface); border: 1px solid var(--s-line-soft); border-radius: var(--s-r); padding: 12px 10px; margin: 10px 0; min-width: 0; }
+.cfm-card-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; }
+.cfm-card-head .cfm-tabs { margin: 0; }
+.cfm-h { margin: 0; font-size: 16px; color: var(--s-text); }
+.cfm-chart { width: 100%; min-height: 160px; margin-top: 8px; }
+.cfm-note { font-size: 12px; color: var(--s-text-muted); line-height: 1.45; margin: 6px 0 0; overflow-wrap: anywhere; }
+.cfm-sentence { font-size: 15px; font-weight: 600; color: var(--s-text); margin: 10px 0 4px; overflow-wrap: anywhere; }
+.cfm-empty { padding: 18px 8px; text-align: center; color: var(--s-text-muted); font-size: 13px; }
+.cfm-proj-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; margin-top: 10px; }
+.cfm-table-wrap { overflow-x: auto; }
+.cfm-table { border-collapse: collapse; width: 100%; font-size: 12px; }
+.cfm-table th { text-align: left; color: var(--s-text-muted); font-weight: 700; padding: 6px; border-bottom: 1px solid var(--s-line); white-space: nowrap; }
+.cfm-table td { padding: 6px; border-bottom: 1px solid var(--s-line-soft); color: var(--s-text); white-space: nowrap; }
+.cfm-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+#cashFlowPane .cf-up { color: var(--s-green-ink); }
+#cashFlowPane .cf-down { color: var(--s-red-ink); }
+#cashFlowPane .cf-flat { color: var(--s-text-muted); }
+#cashFlowPane .cf-verdict { font-weight: 700; }
+.s-chart { width: 100%; height: auto; display: block; font-family: var(--s-font); }
+.s-chart .grid { stroke: var(--s-line-soft); }
+.s-chart .label { fill: var(--s-text-muted); font-size: 11px; }
+.s-chart .s-bar { fill: color-mix(in srgb, var(--s-violet) 28%, transparent); }
+.s-chart .s-bar.neg { fill: color-mix(in srgb, var(--s-red) 35%, transparent); }
+.s-chart .s-line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.s-chart .s-line.dash { stroke-dasharray: 5 4; }
+.s-chart .s-mark-1 { stroke: var(--s-violet); }
+.s-chart .s-mark-2 { stroke: var(--s-magenta); }
+.s-chart .s-mark-3 { stroke: var(--s-cyan); }
+.s-chart .s-mark-4 { stroke: var(--s-green); }
+.s-chart .s-mark-5 { stroke: var(--s-orange); }
+.s-chart .s-band { fill: color-mix(in srgb, var(--s-violet) 14%, transparent); stroke: none; }
+.s-chart .s-ref { stroke: var(--s-text-faint); stroke-dasharray: 3 3; }
+.s-chart .s-forecast-zone { fill: color-mix(in srgb, var(--s-n2) 55%, transparent); }
+.s-chart .s-area.a-available { fill: color-mix(in srgb, var(--s-green) 55%, transparent); }
+.s-chart .s-area.a-inbound { fill: color-mix(in srgb, var(--s-cyan) 55%, transparent); }
+.s-chart .s-area.a-transfer { fill: color-mix(in srgb, var(--s-violet) 55%, transparent); }
+.s-chart .s-tip-line { stroke: var(--s-text-faint); }
+.s-chart .s-tip-box { fill: var(--s-surface); stroke: var(--s-line); }
+.s-chart .s-tip-text { fill: var(--s-text); font-size: 11px; }
+.s-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--s-text-muted); margin-top: 6px; }
+.s-legend i { display: inline-block; width: 14px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+.s-legend i.k1 { background: var(--s-violet); } .s-legend i.k2 { background: var(--s-magenta); } .s-legend i.k3 { background: var(--s-cyan); }
+.s-legend i.k4 { background: var(--s-green); } .s-legend i.k5 { background: var(--s-orange); }
+.s-legend i.kbar { background: color-mix(in srgb, var(--s-violet) 28%, transparent); height: 10px; }
+.s-legend i.kband { background: color-mix(in srgb, var(--s-violet) 14%, transparent); height: 10px; }
+/* Eight tabs on a 375px phone: a little less padding and type below 430px. */
+@media (max-width: 430px) {
+  #mainView > .tabs { padding-left: 2px; padding-right: 2px; }
+  #mainView > .tabs .tab { font-size: 10px; padding: 6px 1px; }
+}
+
 [hidden] { display: none !important; }
