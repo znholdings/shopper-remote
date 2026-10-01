@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.6";
+const APP_BUILD = "v2.0.7";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -54,6 +54,8 @@ for (const id of [
   "tabFba","fbaPane","dashFbaSec",
   // B-741 (v2.01): the Min tab (remote/belowmin-view.js draws it).
   "tabBelowMin","belowMinPane",
+  // B-742 (v2.0.7): the Ship tab (remote/wizard-view.js draws it).
+  "tabWizard","wizardPane","wizardHost",
   // B-662 (v4.85): the Bank view, opened from the Bank balance tile.
   "bankPane","bankBack","bankBal","bankAsOf","bankCount","bankRows",
 ]) els[id] = $(id);
@@ -487,6 +489,12 @@ function renderPayload() {
   // B-510/B-511 (v4.61): the FBA tab and the Dashboard's FBA card.
   if (self.ShopperFbaView) self.ShopperFbaView.render(p.fba);
   if (self.ShopperBelowMinView) self.ShopperBelowMinView.render(p.belowMin);
+  // B-742 (v2.0.7): the Ship tab - every tap goes to the laptop as wizardAction.
+  if (self.ShopperWizardView) {
+    self.ShopperWizardView.render(els.wizardHost, p.wizard ? p.wizard.screen : null, {
+      send: (action, payload) => sendCommand("wizardAction", { action, payload }),
+    });
+  }
   // v4.74 (B-567 - B-574): refresh, Needs you, latest arrivals, goal.
   if (self.ShopperParity) self.ShopperParity.render(p);
   // B-579 (v4.75): Box contents -> ScanPower (remote/boxes.js).
@@ -1413,6 +1421,7 @@ els.tabBuylist.addEventListener("click", () => switchTab("buylist"));
 els.tabInventory.addEventListener("click", () => switchTab("inventory"));
 els.tabFba.addEventListener("click", () => switchTab("fba"));
 els.tabBelowMin.addEventListener("click", () => switchTab("belowmin"));
+els.tabWizard.addEventListener("click", () => switchTab("wizard"));
 if (self.ShopperBelowMinView) self.ShopperBelowMinView.wire();
 // B-511 (v4.61): the Dashboard's FBA card opens the FBA tab.
 els.dashFbaSec.addEventListener("click", () => switchTab("fba"));
@@ -1680,6 +1689,8 @@ function switchTab(which) {
   els.dashboardPane.hidden = which !== "dashboard";
   els.fbaPane.hidden = which !== "fba";
   els.belowMinPane.hidden = which !== "belowmin";
+  els.wizardPane.hidden = which !== "wizard";
+  els.tabWizard.classList.toggle("active", which === "wizard");
   // B-662 (v4.85): the Bank view is part of the Dashboard (no tab button of its own).
   els.bankPane.hidden = which !== "bank";
   if (which === "bank") window.scrollTo(0, 0);

@@ -692,6 +692,9 @@ body { background: var(--s-bg); color: var(--s-text); font-family: var(--s-font)
 }
 #mainView > .tabs .tab.active { color: var(--s-accent); background: var(--s-accent-bg); border: 0; }
 #mainView > .tabs .tab-icon { display: block; }
+/* B-742 (v2.0.7): seven tabs on a 375px phone - each tab sized to its own label
+   (Dashboard and Inventory get the room Run/FBA/Ship/Min do not need). */
+#mainView > .tabs .tab { flex: 1 1 auto; white-space: nowrap; }
 .primary-btn { border-radius: 10px; }
 
 /* B-741 (v2.01), B-745/746/747 (v2.0.2): the Min tab - Buy Box under the Seller Snap min. Tokens only. */
@@ -746,5 +749,32 @@ body { background: var(--s-bg); color: var(--s-text); font-family: var(--s-font)
 .kc-readout { min-height: 1.4em; font-size: 11px; color: var(--s-text); overflow-wrap: anywhere; }
 .kc-panels { display: grid; gap: 2px; touch-action: pan-y; }
 .kc-cursor { stroke: var(--s-text-muted); stroke-width: 1; stroke-dasharray: 2 2; pointer-events: none; }
+
+/* B-742 (v2.0.7): the Ship tab - the Shipment Wizard (remote/wizard-view.js). Big and plain. */
+.wz { display: grid; gap: 12px; min-width: 0; }
+.wz-step { font-size: 12px; font-weight: 700; color: var(--s-text-muted); text-transform: uppercase; letter-spacing: .04em; }
+.wz-title { margin: 0; font-size: 24px; line-height: 1.2; color: var(--s-text); overflow-wrap: anywhere; }
+.wz-say { margin: 0; font-size: 18px; line-height: 1.4; color: var(--s-text); overflow-wrap: anywhere; }
+.wz-muted { color: var(--s-text-muted); }
+.wz-working { padding: 10px 12px; border-radius: var(--s-r-sm); background: var(--s-accent-bg); color: var(--s-accent); font-weight: 700; }
+.wz-error { padding: 10px 12px; border-radius: var(--s-r-sm); background: var(--s-red-bg); color: var(--s-red-ink); font-weight: 600; overflow-wrap: anywhere; }
+.wz-note, .wz-hint { padding: 10px 12px; border-radius: var(--s-r-sm); background: var(--s-surface-2); color: var(--s-text); }
+.wz-rows { display: grid; gap: 8px; }
+.wz-row { display: grid; gap: 6px; padding: 10px; border: 1px solid var(--s-line); border-radius: var(--s-r-sm); background: var(--s-surface); min-width: 0; }
+.wz-row.is-done { border-color: var(--s-green); background: var(--s-green-bg); }
+.wz-row-title { font-weight: 700; font-size: 16px; color: var(--s-text); overflow-wrap: anywhere; }
+.wz-row-sub { font-size: 12px; color: var(--s-text-muted); overflow-wrap: anywhere; }
+.wz-row-text { font-size: 17px; color: var(--s-text); overflow-wrap: anywhere; }
+.wz-row-q { font-size: 17px; font-weight: 700; color: var(--s-text); }
+.wz-row-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.wz-input { min-width: 0; width: 140px; max-width: 100%; font-size: 17px; padding: 8px 10px; border: 1px solid var(--s-line); border-radius: var(--s-r-sm); background: var(--s-surface); color: var(--s-text); }
+.wz-dictate { display: grid; gap: 8px; }
+.wz-textarea { width: 100%; box-sizing: border-box; font-size: 17px; padding: 10px; border: 1px solid var(--s-line); border-radius: var(--s-r-sm); background: var(--s-surface); color: var(--s-text); }
+.wz-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+.wz-btn { font-size: 17px; padding: 12px 16px; border-radius: var(--s-r); border: 1px solid var(--s-line); background: var(--s-surface); color: var(--s-text); font-weight: 600; max-width: 100%; overflow-wrap: anywhere; }
+.wz-btn-primary { background: var(--s-accent); border-color: var(--s-accent); color: var(--s-on-accent); }
+.wz-btn-small { font-size: 14px; padding: 6px 10px; }
+.wz-btn:disabled { opacity: .45; }
+.wz-more { justify-self: start; }
 
 [hidden] { display: none !important; }

@@ -77,6 +77,8 @@
         <!-- B-510 (v4.61): the laptop's FBA Inventory page, read-only. -->
         <button id="tabFba" class="tab"><svg class="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg><span class="tab-label">FBA</span></button>
         <!-- B-741 (v2.01): Buy Box under the Seller Snap min. -->
+        <!-- B-742 (v2.0.7): the Shipment Wizard. -->
+        <button id="tabWizard" class="tab"><svg class="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h11v9H3z"/><path d="M14 10h4l3 3v3h-7"/><circle cx="7" cy="18" r="1.6"/><circle cx="17" cy="18" r="1.6"/></svg><span class="tab-label">Ship</span></button>
         <button id="tabBelowMin" class="tab"><svg class="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12l-8 8-9-9V3h8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg><span class="tab-label">Min</span></button>
       </nav>
 
@@ -331,6 +333,8 @@
            by the same code (fba-lib.js is built from its lib/ files). No
            command, no write, no Amazon pull. -->
       <!-- B-741 (v2.01): the laptop's Below Min list, with the same choices. -->
+      <!-- B-742 (v2.0.7): the Shipment Wizard - the same screens as the laptop's Ship to Amazon page. -->
+      <div id="wizardPane" hidden><div id="wizardHost"></div></div>
       <div id="belowMinPane" hidden>
         <div class="bmm-head"><button type="button" class="secondary-btn" id="bmmCheck">Check now</button><button type="button" class="primary-btn" id="bmmSend" disabled>Send to Seller Snap</button></div>
         <p id="bmmAsOf" class="muted"></p>
@@ -411,6 +415,7 @@
   <script src="fba-view.js"></script>
   <script src="belowmin-lib.js"></script>
   <script src="belowmin-view.js"></script>
+  <script src="wizard-view.js"></script>
   <script src="app.js"></script>
   <!-- B-683 (v4.93): typed MM/DD/YYYY date box, used by parity.js. -->
   <script src="date-input.js"></script>
