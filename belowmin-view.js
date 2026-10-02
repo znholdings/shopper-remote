@@ -100,18 +100,26 @@
     }
     head.append(tabs);
     box.append(head);
+    // B-794 (v2.0.9): each seller's stock from Keepa - asked for per ASIN
+    // (a stock check can cost ~15 Keepa tokens), kept a day on the laptop.
+    const stockRow = el("div", "bmm-stock-row");
+    const sb = el("button", "mini-btn", r.stockAt ? "Check stock again" : "Check stock");
+    sb.type = "button";
+    sb.addEventListener("click", () => self.ShopperRemote.sendCommand("belowMinStock", { asin: r.asin, force: !!r.stockAt }));
+    stockRow.append(sb, el("span", "muted small", r.stockAt ? "Stock from Keepa" : "Stock: not checked"));
+    box.append(stockRow);
     if (!all) { box.append(el("p", "muted small", "Offer list not read yet.")); return box; }
     const list = offerView === "prime" ? all.filter((o) => o.channel === "FBA") : all;
     if (!list.length) { box.append(el("p", "muted small", "No Prime (FBA) offers.")); return box; }
     const show = openOffers.has(r.sku) ? list : list.slice(0, 6);
     const t = el("table", "bmm-offer-table");
     const hr = el("tr");
-    for (const h of ["Seller", "", "Price", "ROI", "Margin"]) hr.append(el("th", null, h));
+    for (const h of ["Seller", "Stock", "", "Price", "ROI", "Margin"]) hr.append(el("th", null, h));
     t.append(hr);
     for (const o of show) {
       const at = P ? P.profitAt(o.price, rowFor(r)) : null;
       const tr = el("tr", o.you ? "bmm-you" : "");
-      tr.append(el("td", "bmm-seller", o.you ? "You" : o.seller), el("td", null, o.channel), el("td", null, money(o.price)),
+      tr.append(el("td", "bmm-seller", o.you ? "You" : o.seller), el("td", "bmm-stockn", typeof o.stock === "number" ? String(o.stock) : "-"), el("td", null, o.channel), el("td", null, money(o.price)),
         el("td", bad(at && at.roi) ? "warn-text" : "", pct(at && at.roi)), el("td", bad(at && at.margin) ? "warn-text" : "", pct(at && at.margin)));
       t.append(tr);
     }
@@ -214,7 +222,7 @@
     data = p || null;
     for (const sku of Object.keys(choices)) if (!(data && (data.rows || []).some((r) => r.sku === sku))) delete choices[sku];
     // Don't redraw under his thumb while he is choosing - only when the list changed.
-    const key = JSON.stringify(data && [data.readAt, data.count, data.error, data.lastSend, (data.rows || []).map((r) => [r.sku, r.bb, r.min, r.chartAt, r.offers ? r.offers.length : -1])]);
+    const key = JSON.stringify(data && [data.readAt, data.count, data.error, data.lastSend, (data.rows || []).map((r) => [r.sku, r.bb, r.min, r.chartAt, r.offers ? r.offers.length : -1, r.stockAt || 0])]);
     if (key === lastKey) return;
     lastKey = key;
     draw();

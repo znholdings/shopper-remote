@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.8";
+const APP_BUILD = "v2.0.9";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -60,6 +60,8 @@ for (const id of [
   "tabCashFlow","cashFlowPane",
   // B-662 (v4.85): the Bank view, opened from the Bank balance tile.
   "bankPane","bankBack","bankBal","bankAsOf","bankCount","bankRows",
+  // B-776 (v2.0.9): the report card's heading (it also shows the LAST run's report).
+  "reportHead",
 ]) els[id] = $(id);
 
 // --------------------------------------------------------------- state
@@ -418,6 +420,8 @@ function renderLiveness(live) {
     paused: "Paused",
     stalled: "Needs you at the laptop",
     offline: "Laptop not responding",
+    // B-775 (v2.0.9): a queue that ended is finished, not idle.
+    finished: "Finished",
     idle: "Idle",
   }[live.status] || live.status;
   b.textContent = live.reason ? `${label} - ${live.reason}` : label;
@@ -483,6 +487,9 @@ function renderPayload() {
   els.log.textContent = (p.log || []).join("\n");
   renderNowStrip(p);
   renderReport(run);
+  // B-774 / B-776 (v2.0.9): Right now, the money band, the outcome counts and
+  // the end-of-queue report sheet (remote/run-view.js).
+  if (self.ShopperRunViewPhone) self.ShopperRunViewPhone.render(p);
   maybePlaySounds(p);
   renderBuylistGen(p.buylistGen);
   if (!isBeingEdited(els.buylistItems)) renderBuylist(p.buylist);
@@ -725,22 +732,49 @@ function syncHtml(l) {
 }
 
 function renderLines(lines, total, truncated, progress) {
-  const fp = JSON.stringify([lines, total, truncated, progress, density]);
+  const run = (lastPayload && lastPayload.run) || null;
+  const fp = JSON.stringify([lines, total, truncated, progress, density, run && run.status, run && run.currentLineId, run && run.retryLaterLineIds]);
   if (fp === lastRenderedLinesFp) return;
   lastRenderedLinesFp = fp;
   els.lineCount.textContent = truncated ? `${lines.length} of ${total}` : String(total);
   els.lines.className = `lines density-${density}`;
   els.lines.innerHTML = "";
-  for (const l of lines) {
+  // B-772 / B-774 (v2.0.9): the list in the order the run takes it - Buying
+  // now, Up next, Fallback pool, Done (remote/run-lib.js runListGroups, the
+  // laptop's rule). While the queue runs, a line that has not started moves
+  // up or down (reorderLine); buying and finished lines are locked.
+  const RL = self.ShopperRunLib || null;
+  const queueStatus = (run && run.status) || "";
+  const canMove = !!(RL && RL.canReorderLive(queueStatus));
+  const ordered = [];
+  if (RL) {
+    for (const g of RL.runListGroups(lines, { currentLineId: run && run.currentLineId, queueStatus })) {
+      if (!g.lines.length) continue;
+      ordered.push({ head: g, count: g.lines.length });
+      g.lines.forEach((l, i) => ordered.push({ l, block: canMove ? g.reorder : null, index: i, n: g.lines.length }));
+    }
+  } else {
+    for (const l of lines) ordered.push({ l, block: null });
+  }
+  for (const item of ordered) {
+    if (item.head) {
+      const h = document.createElement("div");
+      h.className = `l-group l-group-${item.head.key}`;
+      h.textContent = `${item.head.title} (${item.count})`;
+      els.lines.appendChild(h);
+      continue;
+    }
+    const l = item.l;
     const row = document.createElement("div");
-    row.className = `line line-${l.status}`;
+    const outcome = RL ? RL.outcomeOf(l) : "";
+    row.className = `line line-${l.status}${outcome ? ` oc-${outcome}` : ""}`;
     // P-55: an error belongs on a line that is stopped and waiting on a
     // human, not on one that is mid-retry or already bought.
     const showError = !!l.error && ERROR_VISIBLE_STATUSES.has(l.status);
     const head =
       `<div class="l-top"><span class="l-asin">${escapeHtml(l.asin)}</span>` +
       // P-61: a label, not the raw enum.
-      `<span class="l-status">${escapeHtml(statusLabel(l.status))}</span></div>` +
+      `<span class="l-status">${escapeHtml(RL ? RL.outcomeLabel(l, QUEUE_STATUS_LABELS, { retryLater: run && run.retryLaterLineIds }) : statusLabel(l.status))}</span></div>` +
       `<div class="l-title">${escapeHtml(l.title)}</div>`;
     if (density === "compact") {
       // Status + title only, for scanning a long list - plus the error, if
@@ -796,6 +830,19 @@ function renderLines(lines, total, truncated, progress) {
     }
     if (l.status === "pending" || l.status === "pool") {
       actions.appendChild(lineBtn("Skip", "skipPlannedLine", { lineId: l.lineId, asin: l.asin }));
+    }
+    // B-772 (v2.0.9): up / down, the same move rule as the laptop's drag.
+    if (item.block) {
+      const move = (label, title, to, disabled) => {
+        const b = lineBtn(label, "reorderLine", { block: item.block, lineIds: RL.moveLiveLine(lines, item.block, l.lineId, to) });
+        b.classList.add("l-move");
+        b.title = title;
+        b.setAttribute("aria-label", title);
+        b.disabled = !!disabled;
+        actions.appendChild(b);
+      };
+      move("\u2191", "Move up one place", item.index - 1, item.index === 0);
+      move("\u2193", "Move down one place", item.index + 1, item.index >= item.n - 1);
     }
     // P-29: the line actually being worked could not be skipped from the
     // phone at all - only planned ones. `skipLine` was in the whitelist
@@ -1035,10 +1082,13 @@ function renderPrompt(prompt) {
 
   for (const name of prompt.answers || []) {
     const b = document.createElement("button");
-    const destructive = name === "abort" || name === "skipSourceUrl" || name === "fillerSkip" || name === "multipackCancel";
+    const destructive = name === "abort" || name === "skipSourceUrl" || name === "fillerSkip" || name === "multipackCancel" || name === "declineOrder";
     b.className = destructive ? "secondary-btn" : "primary-btn";
-    b.textContent = ANSWER_LABELS[name] || name;
-    b.addEventListener("click", () => sendCommand(name, getPayload()));
+    // B-774 (v2.0.9): a prompt may name its own answers ("Resume anyway",
+    // "Skip failed buy") - the same words the laptop's buttons use.
+    b.textContent = (prompt.labels && prompt.labels[name]) || ANSWER_LABELS[name] || name;
+    // B-777 (v2.0.9): "Place order" sends approved: true (the laptop's own answer).
+    b.addEventListener("click", () => sendCommand(name, name === "approveOrder" ? { ...getPayload(), approved: true } : getPayload()));
     els.promptActions.appendChild(b);
   }
 }
@@ -1065,6 +1115,9 @@ const ANSWER_LABELS = {
   approvePrice: "Approve change",
   approveCap: "Approve & place order",
   approveOrder: "Place order",
+  // B-774 (v2.0.9): the laptop's decline, and the failure pause's retry.
+  declineOrder: "Skip this order",
+  retryFailed: "Retry failed buy",
   multipackOk: "Yes, proceed",
   multipackCancel: "No, skip this buy",
   resume: "Resume (skip it)",
@@ -1478,7 +1531,9 @@ function renderNowStrip(p) {
   els.nowStrip.hidden = false;
   const line = asin ? (p.lines || []).find((l) => l.asin === asin) : null;
   els.nowAsin.textContent = asin ? (line && line.title ? `${asin} - ${line.title}` : asin) : "";
-  els.nowStep.textContent = step || "";
+  // B-774 (v2.0.9): the engine's own sentence when there is one (the queue's
+  // "Opening X..." used to sit here for the whole line).
+  els.nowStep.textContent = (run && run.engineStep) || step || "";
 }
 
 // P-65 (v2.98): the end-of-queue report, phone-shaped. The desktop's own
@@ -1490,6 +1545,8 @@ const REPORT_BUCKET_LABELS = {
   partial: "Partial",
   failed: "Failed",
   needsApproval: "Needs price check",
+  // B-774 (v2.0.9): a safety cap never approved had no section.
+  needsCapApproval: "Needs cap approval",
   outOfStock: "Out of stock",
   skippedNoUrl: "No source URL",
   skippedManualRetailer: "Manual buy (unsupported site)",
@@ -1502,19 +1559,36 @@ const REPORT_BUCKET_LABELS = {
 };
 
 function renderReport(run) {
-  const report = run && run.report;
+  // B-776 (v2.0.9): once the queue is cleared on the laptop, the Run tab
+  // keeps showing the LAST finished run's report (storage
+  // shopperBuyQueueLastReport, projected as lastReport).
+  const lr = (lastPayload && lastPayload.lastReport) || null;
+  const own = run && run.report;
+  const report = own || (lr && lr.report) || null;
   if (!report) {
     els.reportCard.hidden = true;
     return;
   }
   els.reportCard.hidden = false;
+  if (els.reportHead) {
+    els.reportHead.textContent = own ? "Run report" : `Last run report${lr && lr.finishedAt ? " · " + centralText(lr.finishedAt) : ""}`;
+  }
+  const parts = reportParts(report);
+  els.reportUrgent.hidden = !parts.urgentCount;
+  els.reportUrgent.innerHTML = parts.urgent;
+  els.reportSummary.innerHTML = parts.summary;
+  els.reportBuckets.innerHTML = parts.buckets;
+}
+
+// The report as three HTML strings (escaped), shared by the Run tab's card
+// and the report sheet (remote/run-view.js).
+function reportParts(report) {
 
   // The two lists that exist precisely because they are easy to miss - see
   // buildBuyQueueReport's own comment quoting Zach on reporting these
   // "boldly". Never truncated, never collapsed.
   const urgent = report.urgentTodo || [];
-  els.reportUrgent.hidden = !urgent.length;
-  els.reportUrgent.innerHTML = urgent.length
+  const urgentHtml = urgent.length
     ? `<h3 class="report-urgent-head">Urgent - needs you (${urgent.length})</h3>` +
       urgent.map((t) => `<div class="report-urgent-item">${escapeHtml(t.text)}</div>`).join("")
     : "";
@@ -1535,7 +1609,7 @@ function renderReport(run) {
     );
   }
 
-  els.reportSummary.innerHTML =
+  const summaryHtml =
     `<div class="report-money">` +
     `<span>Spent <strong>${money(report.totalSpent)}</strong></span>` +
     `<span>Target ${money(report.spendTarget)}</span>` +
@@ -1549,7 +1623,8 @@ function renderReport(run) {
       : "");
 
   const buckets = report.buckets || {};
-  els.reportBuckets.innerHTML = Object.keys(REPORT_BUCKET_LABELS)
+  const RL = self.ShopperRunLib || null;
+  const bucketsHtml = Object.keys(REPORT_BUCKET_LABELS)
     .filter((k) => buckets[k])
     .map((k) => {
       const b = buckets[k];
@@ -1558,7 +1633,7 @@ function renderReport(run) {
           (l) =>
             `<div class="report-line"><span class="report-line-asin">${escapeHtml(l.asin)}</span>` +
             `<span class="report-line-title">${escapeHtml(l.title)}</span>` +
-            `<span class="report-line-qty">${l.boughtQty}/${l.qty} · ${money(l.spentDollars)}</span>` +
+            `<span class="report-line-qty">${l.boughtQty}/${l.qty} · ${money(l.spentDollars)}${RL && (l.endedOutOfStock || l.limitReached || l.recoveryDefect) ? ` · ${escapeHtml(RL.outcomeLabel(l, QUEUE_STATUS_LABELS))}` : ""}</span>` +
             `${l.stopReason || l.error ? `<span class="report-line-note">${escapeHtml(l.stopReason || l.error)}</span>` : ""}</div>`
         )
         .join("");
@@ -1570,6 +1645,7 @@ function renderReport(run) {
       );
     })
     .join("");
+  return { urgent: urgentHtml, urgentCount: urgent.length, summary: summaryHtml, buckets: bucketsHtml };
 }
 
 // ------------------------------------------------------------- P-58
@@ -1703,7 +1779,7 @@ function switchTab(which) {
   if (which === "cashflow" && self.ShopperCashFlowView) self.ShopperCashFlowView.shown();
   // B-662 (v4.85): the Bank view is part of the Dashboard (no tab button of its own).
   els.bankPane.hidden = which !== "bank";
-  if (which === "bank") window.scrollTo(0, 0);
+  if (which === "bank") scrollAppTop();
   els.tabFba.classList.toggle("active", which === "fba");
   els.tabBelowMin.classList.toggle("active", which === "belowmin");
   // The chart is drawn at the pane's real width, which is 0 while hidden.
@@ -2099,6 +2175,41 @@ function dashTile(label, value, extra, cls) {
   return t;
 }
 
+// B-795 (v2.0.9): a Dashboard pipeline tile opens the matching view on the
+// Inventory tab - House / Prep / In transit open that tile's product table,
+// On hand the totals, Products the product list.
+function openInventoryView(bucket, anchor) {
+  invBucket = bucket || null;
+  switchTab("inventory");
+  renderInventory(lastPayload && lastPayload.inventory);
+  const target = anchor === "products" ? els.invFilter : bucket ? els.invBucketPanel : els.inventoryPane;
+  if (target && !target.hidden && target.scrollIntoView) target.scrollIntoView({ block: "start" });
+  else scrollAppTop();
+}
+
+function dashTileGo(tile, bucket, anchor) {
+  tile.classList.add("dash-tap");
+  tile.setAttribute("role", "button");
+  tile.setAttribute("tabindex", "0");
+  const go = () => openInventoryView(bucket, anchor);
+  tile.addEventListener("click", go);
+  tile.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      go();
+    }
+  });
+  return tile;
+}
+
+// B-796 (v2.0.9): #app is the scroll container (the page itself no longer
+// scrolls, so iOS cannot drag the fixed tab bar with it) - "scroll to top"
+// means both.
+function scrollAppTop() {
+  window.scrollTo(0, 0);
+  if (els.app) els.app.scrollTop = 0;
+}
+
 // B-662 (v4.85): the Bank view. Read-only; textContent only.
 function renderBank(sp) {
   els.bankBal.textContent = dashMoney(sp && sp.bankBalance);
@@ -2187,7 +2298,10 @@ function renderDashboard(d) {
   } else {
     els.dashLastHead.textContent = last.status + (last.totalSpent != null ? " · " + dashMoneyShort(last.totalSpent) : "");
     els.dashLastSub.textContent =
-      last.bought + " bought · " + last.partial + " partial · " + last.failed + " failed · " + last.skipped + " skipped" +
+      last.bought + " bought · " + last.partial + " partial · " + last.failed + " failed" +
+      // B-774 (v2.0.9): out of stock is its own count, never folded into failed.
+      (last.outOfStock ? " · " + last.outOfStock + " out of stock" : "") +
+      " · " + last.skipped + " skipped" +
       (last.needsConfirmation ? " · " + last.needsConfirmation + " to confirm" : "") +
       (last.finishedAt ? " · " + centralText(last.finishedAt) : "");
   }
@@ -2233,11 +2347,12 @@ function renderDashboard(d) {
     els.dashNeedsYou.hidden = !(p.needsYou > 0);
     els.dashNeedsYou.textContent = p.needsYou + " thing" + (p.needsYou === 1 ? "" : "s") + " waiting on your answer (on the laptop).";
     const m = p.money || {};
-    els.dashFlow.appendChild(dashTile("House", invUnits(p.house), dashMoneyShort(m.house), "dash-house"));
-    els.dashFlow.appendChild(dashTile("Prep", invUnits(p.prep), dashMoneyShort(m.prep), "dash-prep"));
-    els.dashFlow.appendChild(dashTile("In transit", invUnits(p.inTransit), dashMoneyShort(m.inTransit), "dash-transit"));
-    els.dashFlow.appendChild(dashTile("On hand", invUnits(p.onHand), dashMoneyShort(m.onHand)));
-    els.dashFlow.appendChild(dashTile("Products", invUnits(p.asinCount), p.negative ? p.negative + " reading negative" : "", "wide"));
+    // B-795 (v2.0.9): every pipeline tile opens its view on the Inventory tab.
+    els.dashFlow.appendChild(dashTileGo(dashTile("House", invUnits(p.house), dashMoneyShort(m.house), "dash-house"), "house"));
+    els.dashFlow.appendChild(dashTileGo(dashTile("Prep", invUnits(p.prep), dashMoneyShort(m.prep), "dash-prep"), "prep"));
+    els.dashFlow.appendChild(dashTileGo(dashTile("In transit", invUnits(p.inTransit), dashMoneyShort(m.inTransit), "dash-transit"), "transit"));
+    els.dashFlow.appendChild(dashTileGo(dashTile("On hand", invUnits(p.onHand), dashMoneyShort(m.onHand)), null, "totals"));
+    els.dashFlow.appendChild(dashTileGo(dashTile("Products", invUnits(p.asinCount), p.negative ? p.negative + " reading negative" : "", "wide"), null, "products"));
   }
 
   // run reviews

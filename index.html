@@ -70,10 +70,10 @@
     <section id="mainView" class="view" hidden>
       <nav class="tabs">
         <!-- B-490 (v4.56): the desktop Dashboard, mirrored read-only. -->
-        <button id="tabDashboard" class="tab"><svg class="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg><span class="tab-label">Dashboard</span></button>
+        <button id="tabDashboard" class="tab"><svg class="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg><span class="tab-label" data-short="Home">Dashboard</span></button>
         <button id="tabRun" class="tab active"><svg class="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18l-2 9H6L4 3H2"/><circle cx="8" cy="20" r="1.5"/><circle cx="17" cy="20" r="1.5"/></svg><span class="tab-label">Run</span></button>
         <button id="tabBuylist" class="tab"><svg class="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5h11M9 12h11M9 19h11"/><path d="M4 5l1 1 2-2M4 12l1 1 2-2M4 19l1 1 2-2"/></svg><span class="tab-label">Buylist</span></button>
-        <button id="tabInventory" class="tab"><svg class="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h11"/><path d="M3 17h7"/><circle cx="17" cy="7" r="3"/><circle cx="13" cy="17" r="3"/><path d="M20 7h1M16 17h5"/></svg><span class="tab-label">Inventory</span></button>
+        <button id="tabInventory" class="tab"><svg class="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h11"/><path d="M3 17h7"/><circle cx="17" cy="7" r="3"/><circle cx="13" cy="17" r="3"/><path d="M20 7h1M16 17h5"/></svg><span class="tab-label" data-short="Stock">Inventory</span></button>
         <!-- B-510 (v4.61): the laptop's FBA Inventory page, read-only. -->
         <button id="tabFba" class="tab"><svg class="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg><span class="tab-label">FBA</span></button>
         <!-- B-741 (v2.01): Buy Box under the Seller Snap min. -->
@@ -102,17 +102,34 @@
           <div id="promptActions" class="prompt-actions"></div>
         </div>
 
+        <!-- B-774 (v2.0.9): RIGHT NOW - the line, order k of N, and the step of
+             the buy (remote/run-lib.js = lib/buy-stage.js; remote/run-view.js
+             draws it). Hidden when there is no queue. -->
+        <section id="runHero" class="run-hero" hidden>
+          <div class="rh-head"><span class="rh-eyebrow">Right now</span><span id="rhOrder" class="rh-order" hidden></span></div>
+          <div id="rhTitle" class="rh-title"></div>
+          <div id="rhMeta" class="rh-meta"></div>
+          <p id="rhStage" class="rh-stage"></p>
+          <ol id="runTracker" class="rh-tracker" aria-label="Steps of this buy"></ol>
+          <p id="rhEngine" class="rh-engine" hidden></p>
+        </section>
+
         <div class="statline">
           <span id="runStatus" class="pill">idle</span>
           <span id="currentStep" class="step-text"></span>
         </div>
 
-        <div class="totals">
+        <!-- B-774 (v2.0.9): MONEY - spent and LEFT to spend, this run and today. -->
+        <div class="totals money-band">
           <div class="total"><span class="t-label">Spent this run</span><span id="tSpent" class="t-value">$0.00</span></div>
-          <div class="total"><span class="t-label">Needed today</span><span id="tNeeded" class="t-value">$0.00</span></div>
+          <div class="total t-left" id="tRunLeftBox"><span class="t-label">Left this run</span><span id="tRunLeft" class="t-value">-</span><span id="tRunTarget" class="t-sub"></span></div>
           <div class="total"><span class="t-label">Spent today</span><span id="tToday" class="t-value">$0.00</span></div>
+          <div class="total t-left" id="tDayLeftBox"><span class="t-label">Left today</span><span id="tLeftToday" class="t-value">-</span><span class="t-sub">goal <span id="tNeeded">$0.00</span></span></div>
+          <div class="total"><span class="t-label">Safety cap (line)</span><span id="tCap" class="t-value">-</span></div>
           <div class="total"><span class="t-label">Lines bought</span><span id="tBought" class="t-value">0</span></div>
         </div>
+        <!-- B-774 (v2.0.9): out of stock and failed, counted apart. -->
+        <div id="runOutcomes" class="run-outcomes" hidden></div>
         <!-- P-246 (v3.60): where today's spending goal came from. Mirrored
              from the desktop, never set here. -->
         <div id="tDefaultNote" class="default-note" hidden></div>
@@ -202,7 +219,7 @@
              the laptop already (buildBuyQueueReport); none of it had ever
              been sent to the phone. -->
         <div id="reportCard" class="report-card" hidden>
-          <h2 class="section-head">Run report</h2>
+          <h2 id="reportHead" class="section-head">Run report</h2>
           <div id="reportUrgent" class="report-urgent" hidden></div>
           <div id="reportSummary" class="report-summary"></div>
           <div id="reportBuckets"></div>
@@ -248,7 +265,8 @@
             <b id="dashNextHead" class="dash-head">-</b>
             <span id="dashNextSub" class="muted small"></span>
           </div>
-          <div class="dash-card" id="dashLastRun">
+          <!-- B-776 (v2.0.9): tap for the last run's report. -->
+          <div class="dash-card dash-tap" id="dashLastRun" role="button" tabindex="0" aria-label="Last run - open its report">
             <span class="t-label">Last run</span>
             <b id="dashLastHead" class="dash-head">-</b>
             <span id="dashLastSub" class="muted small"></span>
@@ -399,6 +417,18 @@
       </div>
     </section>
 
+    <!-- B-776 (v2.0.9): the end-of-queue report pops up here when the queue
+         finishes while the app is open (and from the Dashboard's Last run). -->
+    <div id="reportSheet" class="report-sheet" role="dialog" aria-modal="true" aria-labelledby="reportSheetTitle" hidden>
+      <div class="report-sheet-box">
+        <h2 id="reportSheetTitle" class="report-sheet-title">Buy Queue finished</h2>
+        <p id="reportSheetSummary" class="report-sheet-summary"></p>
+        <div id="reportSheetUrgent" class="report-urgent" hidden></div>
+        <div id="reportSheetBody"></div>
+        <button id="reportSheetClose" class="primary-btn big" type="button">Got it</button>
+      </div>
+    </div>
+
     <div id="toast" class="toast" hidden></div>
 
     <!-- iOS: web push does nothing at all in Safari until the app is on
@@ -431,7 +461,10 @@
   <!-- B-765 (v2.0.8): cashflow-lib.js is GENERATED from lib/s-chart.js (test/_cashflow-bundle.mjs). -->
   <script src="cashflow-lib.js"></script>
   <script src="cashflow-view.js"></script>
+  <!-- B-774 (v2.0.9): run-lib.js is GENERATED from lib/ (test/_run-bundle.mjs). -->
+  <script src="run-lib.js"></script>
   <script src="app.js"></script>
+  <script src="run-view.js"></script>
   <!-- B-683 (v4.93): typed MM/DD/YYYY date box, used by parity.js. -->
   <script src="date-input.js"></script>
   <script src="parity.js"></script>

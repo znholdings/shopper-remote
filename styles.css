@@ -277,7 +277,8 @@ button { font: inherit; cursor: pointer; }
 
 /* P-35: refresh / reload / build stamp. */
 .app-footer {
-  display: flex; align-items: center; gap: 10px;
+  /* B-766 (v2.0.9): wraps at 320 px - the build stamp ran 10 px past the screen. */
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
   margin: 18px 0 8px; padding-top: 12px;
   border-top: 1px solid var(--s-blue-ink);
 }
@@ -841,5 +842,105 @@ body { background: var(--s-bg); color: var(--s-text); font-family: var(--s-font)
   #mainView > .tabs { padding-left: 2px; padding-right: 2px; }
   #mainView > .tabs .tab { font-size: 10px; padding: 6px 1px; }
 }
+
+/* B-775 (v2.0.9): a queue that ended says Finished (it said Idle). */
+.live-banner.tone-finished { background: color-mix(in srgb, var(--s-violet) 12%, transparent); color: var(--s-violet-ink); }
+
+/* ── B-796 (v2.0.9): the tab bar stays put. On iOS, pulling the page past
+   its top or bottom rubber-banded the whole document and dragged the fixed
+   bar with it (seen on Inventory). The document no longer scrolls: #app is
+   the scroll container, the root never bounces, and the bar is fixed to the
+   viewport with the home-indicator inset. ── */
+html, body { height: 100%; overscroll-behavior: none; }
+body { box-sizing: border-box; overflow: hidden; }
+#app { box-sizing: border-box; height: 100%; overflow-x: hidden; overflow-y: auto; overscroll-behavior-y: contain; }
+
+/* ── B-797 (v2.0.9): eight EQUAL columns. Each tab used to be as wide as its
+   label, so Dashboard and Inventory pushed their neighbours together. Below
+   400px the two long labels use their short names (data-short). ── */
+#mainView > .tabs { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); justify-content: stretch; }
+#mainView > .tabs .tab { min-width: 0; padding: 6px 0; overflow: hidden; }
+#mainView > .tabs .tab-label { display: block; max-width: 100%; overflow: hidden; white-space: nowrap; font-size: 10px; letter-spacing: -0.01em; }
+@media (max-width: 400px) {
+  #mainView > .tabs .tab-label[data-short] { font-size: 0; }
+  #mainView > .tabs .tab-label[data-short]::after { content: attr(data-short); font-size: 10px; }
+}
+
+/* ── B-774 (v2.0.9): Right now, the step tracker, the money band and the
+   outcome chips on the Run tab. Tokens only. ── */
+.run-hero { background: var(--s-surface); border: 1px solid var(--s-line); border-left: 4px solid var(--s-accent); border-radius: var(--s-r); padding: 12px; margin: 10px 0; min-width: 0; }
+.run-hero[data-state="waiting"] { border-left-color: var(--s-yellow); }
+.run-hero[data-state="finished"] { border-left-color: var(--s-green); }
+.rh-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.rh-eyebrow { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--s-accent); }
+.rh-order { font-size: 12px; font-weight: 700; color: var(--s-violet-ink); background: var(--s-accent-bg); border-radius: var(--s-r-pill); padding: 2px 10px; white-space: nowrap; }
+.rh-title { margin-top: 4px; font-size: 16px; font-weight: 800; color: var(--s-text); overflow-wrap: anywhere; }
+.rh-meta { font-size: 12px; color: var(--s-text-muted); overflow-wrap: anywhere; }
+.rh-stage { margin: 10px 0 4px; font-size: 14px; font-weight: 700; color: var(--s-text-2); overflow-wrap: anywhere; }
+.rh-stage:empty { display: none; }
+.rh-engine { margin: 4px 0 0; font-size: 12px; color: var(--s-text-muted); overflow-wrap: anywhere; }
+.rh-tracker { list-style: none; display: flex; margin: 8px 0 2px; padding: 0; min-width: 0; }
+.rh-step { flex: 1 1 0; min-width: 0; position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.rh-step::before { content: ""; position: absolute; top: 10px; left: -50%; right: 50%; height: 2px; background: var(--s-line); }
+.rh-step:first-child::before { display: none; }
+.rh-step.is-done::before, .rh-step.is-now::before, .rh-step.is-waiting::before { background: var(--s-accent); }
+.rh-dot { position: relative; z-index: 1; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; line-height: 1; background: var(--s-surface); border: 2px solid var(--s-line); color: var(--s-text-faint); }
+.rh-step.is-done .rh-dot { background: var(--s-accent); border-color: var(--s-accent); color: var(--s-on-accent); }
+.rh-step.is-now .rh-dot { background: var(--s-accent-bg); border-color: var(--s-accent); color: var(--s-accent); animation: rh-pulse 1.6s ease-in-out infinite; }
+.rh-step.is-waiting .rh-dot { background: var(--s-yellow-bg); border-color: var(--s-yellow); color: var(--s-yellow-ink); }
+.rh-step.is-idle .rh-dot { opacity: .55; }
+.rh-label { display: none; font-size: 10px; font-weight: 600; color: var(--s-text-muted); white-space: nowrap; }
+.rh-step.is-now .rh-label, .rh-step.is-waiting .rh-label { color: var(--s-text); font-weight: 800; }
+@media (min-width: 560px) { .rh-label { display: block; } }
+@keyframes rh-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--s-accent) 45%, transparent); }
+  50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--s-accent) 0%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) { .rh-step.is-now .rh-dot { animation: none; } }
+
+.money-band { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.money-band .total { min-width: 0; }
+.t-sub { display: block; font-size: 11px; color: var(--s-text-muted); overflow-wrap: anywhere; }
+.t-left { background: var(--s-accent-bg); border-color: color-mix(in srgb, var(--s-accent) 30%, transparent); }
+.t-left .t-value { color: var(--s-violet-ink); font-size: 18px; }
+.t-left.is-met { background: var(--s-green-bg); border-color: color-mix(in srgb, var(--s-green) 35%, transparent); }
+.t-left.is-met .t-value { color: var(--s-green-ink); }
+
+.run-outcomes { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 10px; }
+.oc-chip { display: inline-flex; align-items: baseline; gap: 4px; padding: 3px 9px; border-radius: var(--s-r-pill); font-size: 12px; border: 1px solid var(--s-line); background: var(--s-surface); color: var(--s-text-2); white-space: nowrap; }
+.oc-chip b { font-size: 14px; }
+.oc-chip.tone-good { background: var(--s-green-bg); color: var(--s-green-ink); }
+.oc-chip.tone-partial { background: var(--s-yellow-bg); color: var(--s-yellow-ink); }
+.oc-chip.tone-oos { background: var(--s-orange-bg); color: var(--s-orange-ink); }
+.oc-chip.tone-bad { background: var(--s-red-bg); color: var(--s-red-ink); }
+.oc-chip.tone-you { background: var(--s-blue-bg); color: var(--s-blue-ink); }
+.oc-chip.tone-live { background: var(--s-cyan-bg); color: var(--s-cyan-ink); }
+.oc-chip.tone-plan { background: var(--s-violet-bg); color: var(--s-violet-ink); }
+
+/* A line's outcome, one colour each: out of stock (orange) is never the
+   same as failed (red). */
+.line.oc-outOfStock { border-color: color-mix(in srgb, var(--s-orange) 55%, transparent); opacity: 1; }
+.line.oc-outOfStock .l-status { color: var(--s-orange-ink); font-weight: 700; }
+.line.oc-failed { border-color: color-mix(in srgb, var(--s-red) 50%, transparent); }
+.line.oc-failed .l-status { color: var(--s-red-ink); font-weight: 700; }
+.line.oc-success .l-status { color: var(--s-green-ink); font-weight: 700; }
+.line.oc-partial .l-status { color: var(--s-yellow-ink); font-weight: 700; }
+.line.oc-needsYou .l-status { color: var(--s-blue-ink); font-weight: 700; }
+.line.oc-inProgress { box-shadow: inset 3px 0 0 var(--s-accent); }
+.l-group { margin: 12px 2px 4px; font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--s-text-muted); }
+.l-group-now { color: var(--s-accent); }
+.l-move { min-width: 40px; }
+
+/* B-776 (v2.0.9): the report sheet. */
+.report-sheet { position: fixed; inset: 0; z-index: 80; display: flex; align-items: flex-end; justify-content: center; background: color-mix(in srgb, var(--s-shadow) 45%, transparent); padding: 12px 8px calc(12px + env(safe-area-inset-bottom)); }
+.report-sheet-box { width: 100%; max-width: 640px; max-height: calc(100% - 24px); overflow-y: auto; overscroll-behavior: contain; background: var(--s-surface); color: var(--s-text); border-radius: var(--s-r-lg) var(--s-r-lg) var(--s-r) var(--s-r); padding: 16px; box-shadow: var(--s-elev-2); box-sizing: border-box; }
+.report-sheet-title { margin: 0 0 4px; font-size: 20px; }
+.report-sheet-summary { margin: 0 0 10px; font-size: 14px; color: var(--s-text-2); overflow-wrap: anywhere; }
+.report-sheet-box .primary-btn { width: 100%; margin-top: 12px; }
+#dashLastRun.dash-tap .dash-head::after { content: " \203A"; color: var(--s-accent); }
+
+/* B-794 (v2.0.9): the Min tab's Keepa stock button and column. */
+.bmm-stock-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 4px 0 6px; }
+.bmm-stockn { font-variant-numeric: tabular-nums; font-weight: 700; }
 
 [hidden] { display: none !important; }
