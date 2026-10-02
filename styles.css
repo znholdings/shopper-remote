@@ -101,6 +101,13 @@
   }
 }
 
+/* B-801 (v2.0.10): destination tokens (rules at the end of this file). */
+:root { --s-dest-prep: #00ffff; --s-dest-house: #ffff00; --s-dest-prep-bg: var(--s-dest-prep); --s-dest-house-bg: var(--s-dest-house); --s-dest-ink: #1a1d2b; --s-dest-ink-2: #3a3f55; }
+:root[data-theme="dark"] { --s-dest-prep-bg: color-mix(in srgb, var(--s-dest-prep) 16%, var(--s-surface)); --s-dest-house-bg: color-mix(in srgb, var(--s-dest-house) 14%, var(--s-surface)); --s-dest-ink: var(--s-text); --s-dest-ink-2: var(--s-text-muted); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --s-dest-prep-bg: color-mix(in srgb, var(--s-dest-prep) 16%, var(--s-surface)); --s-dest-house-bg: color-mix(in srgb, var(--s-dest-house) 14%, var(--s-surface)); --s-dest-ink: var(--s-text); --s-dest-ink-2: var(--s-text-muted); }
+}
+
 /* Shopper Remote (P-15, v2.92) - phone-first.
    Shopper 2 (v2.00, B-732): the SAME tokens as the laptop's
    lib/shopper-ui.css (copied - the phone app is its own site), light and
@@ -851,9 +858,13 @@ body { background: var(--s-bg); color: var(--s-text); font-family: var(--s-font)
    bar with it (seen on Inventory). The document no longer scrolls: #app is
    the scroll container, the root never bounces, and the bar is fixed to the
    viewport with the home-indicator inset. ── */
-html, body { height: 100%; overscroll-behavior: none; }
-body { box-sizing: border-box; overflow: hidden; }
-#app { box-sizing: border-box; height: 100%; overflow-x: hidden; overflow-y: auto; overscroll-behavior-y: contain; }
+/* B-798 (v2.0.10): that lock-down (html/body 100% high, body overflow
+   hidden, #app the scroller) left the bar floating about one status-bar
+   height above the bottom on Zach's iPhone (2026-10-02, Min + Inventory):
+   iOS sized the non-scrolling page short. The page scrolls again, as before
+   v2.0.9; the root still never rubber-bands, so the fixed bar is not
+   dragged with it. */
+html, body { overscroll-behavior: none; }
 
 /* ── B-797 (v2.0.9): eight EQUAL columns. Each tab used to be as wide as its
    label, so Dashboard and Inventory pushed their neighbours together. Below
@@ -861,7 +872,9 @@ body { box-sizing: border-box; overflow: hidden; }
 #mainView > .tabs { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); justify-content: stretch; }
 #mainView > .tabs .tab { min-width: 0; padding: 6px 0; overflow: hidden; }
 #mainView > .tabs .tab-label { display: block; max-width: 100%; overflow: hidden; white-space: nowrap; font-size: 10px; letter-spacing: -0.01em; }
-@media (max-width: 400px) {
+/* B-799 (v2.0.10): 8 columns on a 430px phone are ~53px - "Dashboard" was
+   clipped there. The short names now apply up to 520px. */
+@media (max-width: 520px) {
   #mainView > .tabs .tab-label[data-short] { font-size: 0; }
   #mainView > .tabs .tab-label[data-short]::after { content: attr(data-short); font-size: 10px; }
 }
@@ -942,5 +955,16 @@ body { box-sizing: border-box; overflow: hidden; }
 /* B-794 (v2.0.9): the Min tab's Keepa stock button and column. */
 .bmm-stock-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 4px 0 6px; }
 .bmm-stockn { font-variant-numeric: tabular-nums; font-weight: 700; }
+
+/* ── B-801 (v2.0.10): Arrivals cards coloured by destination - the All
+   Orders sheet's own conditional formats: Prep Center (AF) cyan, Delivered
+   (AC) yellow (exact values in the --s-dest-* tokens). Light: the sheet colour itself. Dark: a tint of it with a
+   full-colour edge, so the text stays readable. ── */
+.line.inv-arrival.dest-prep { background: var(--s-dest-prep-bg); border-color: var(--s-dest-prep); border-left: 4px solid var(--s-dest-prep); color: var(--s-dest-ink); }
+.line.inv-arrival.dest-house { background: var(--s-dest-house-bg); border-color: var(--s-dest-house); border-left: 4px solid var(--s-dest-house); color: var(--s-dest-ink); }
+.line.inv-arrival.dest-prep .inv-title, .line.inv-arrival.dest-prep .inv-units,
+.line.inv-arrival.dest-house .inv-title, .line.inv-arrival.dest-house .inv-units { color: var(--s-dest-ink); }
+.line.inv-arrival.dest-prep .l-meta, .line.inv-arrival.dest-prep .muted,
+.line.inv-arrival.dest-house .l-meta, .line.inv-arrival.dest-house .muted { color: var(--s-dest-ink-2); }
 
 [hidden] { display: none !important; }

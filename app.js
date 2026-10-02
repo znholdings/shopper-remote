@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.9";
+const APP_BUILD = "v2.0.10";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -1865,7 +1865,7 @@ function invArrivalBox(title, box, tone, kind) {
     return wrap;
   }
   for (const r of box.rows) {
-    const row = invNode("div", "line inv-arrival");
+    const row = invNode("div", "line inv-arrival" + (r.destination === "prep" ? " dest-prep" : r.destination === "house" ? " dest-house" : "")); // B-801 (v2.0.10)
     const top = invNode("div", "inv-row-top");
     top.appendChild(invNode("span", "inv-title", r.title || r.asin));
     top.appendChild(invNode("b", "inv-units", invUnits(r.units) + "u"));
@@ -2202,9 +2202,8 @@ function dashTileGo(tile, bucket, anchor) {
   return tile;
 }
 
-// B-796 (v2.0.9): #app is the scroll container (the page itself no longer
-// scrolls, so iOS cannot drag the fixed tab bar with it) - "scroll to top"
-// means both.
+// B-796 (v2.0.9) / B-798 (v2.0.10): the page scrolls again (B-798 undid
+// B-796's #app scroller); resetting both stays harmless.
 function scrollAppTop() {
   window.scrollTo(0, 0);
   if (els.app) els.app.scrollTop = 0;

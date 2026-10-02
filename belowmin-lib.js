@@ -212,6 +212,15 @@ function extent(points) {
   return [lo, hi];
 }
 
+// B-800 (v2.0.10): the drawn range runs a little past the data (8% of the
+// span each side) so a line never sits on the frame; never below 0.
+const KC_Y_PAD = 0.08;
+function padExtent(ext, frac = KC_Y_PAD) {
+  if (!ext) return null;
+  const span = ext[1] - ext[0] || Math.abs(ext[1]) * 0.1 || 1;
+  return [Math.max(0, ext[0] - span * frac), ext[1] + span * frac];
+}
+
 // A step line (Keepa series hold their value until the next point), with
 // gaps where the value is null, held to the right edge. `from` (days) is the
 // left edge of the window; a value set before it is drawn from the edge.
@@ -300,13 +309,19 @@ function drawPanels(doc, chart, from) {
     svg.append(el(doc, "text", { x: x0, y: 9, class: "kc-title" }, panel.title));
     svg.append(el(doc, "rect", { x: x0, y: y0, width: x1 - x0, height: y1 - y0, class: "kc-frame" }));
     const vis = (pts) => visiblePoints(pts, from, days);
-    const addLine = (pts, cls, ext) => { const d = stepPath(pts, days, x0, x1, y0, y1, ext, from); if (d) svg.append(el(doc, "path", { d, class: cls })); };
+    // B-800: lines are drawn on the padded range; the axis labels still name
+    // the real high and low, placed level with them.
+    const addLine = (pts, cls, ext) => { const d = stepPath(pts, days, x0, x1, y0, y1, padExtent(ext), from); if (d) svg.append(el(doc, "path", { d, class: cls })); };
     const axis = (ext, side, fmt, cls) => {
       if (!ext) return;
+      const pe = padExtent(ext);
+      const yOf = (v) => y1 - ((v - pe[0]) / (pe[1] - pe[0])) * (y1 - y0);
       const x = side === "l" ? x0 - 3 : x1 + 3;
       const anchor = side === "l" ? "end" : "start";
-      svg.append(el(doc, "text", { x, y: y0 + 7, "text-anchor": anchor, class: "kc-axis " + cls }, fmt(ext[1])));
-      svg.append(el(doc, "text", { x, y: y1, "text-anchor": anchor, class: "kc-axis " + cls }, fmt(ext[0])));
+      const yHi = Math.max(y0 + 7, Math.min(y1, yOf(ext[1]) + 3.5));
+      const yLo = Math.max(yHi + 8, Math.min(y1, yOf(ext[0]) + 3.5));
+      svg.append(el(doc, "text", { x, y: +yHi.toFixed(1), "text-anchor": anchor, class: "kc-axis " + cls }, fmt(ext[1])));
+      svg.append(el(doc, "text", { x, y: +yLo.toFixed(1), "text-anchor": anchor, class: "kc-axis " + cls }, fmt(ext[0])));
     };
     if (panel.key === "bb") {
       const e = extent(vis(chart.bb));
@@ -405,7 +420,7 @@ function drawKeepaCharts(doc, chart, { asOf = null, range = null } = {}) {
   wrap.append(bar, readout, panels, note);
   return wrap;
 }
-__m["keepa-chart-svg.js"] = { KC_W, KC_PAD_L, KC_PAD_R, KC_PANELS, KC_RANGES, KC_DEFAULT_RANGE, visiblePoints, extent, stepPath, valueAt, rangesFor, pickRange, readoutText, drawKeepaCharts };
+__m["keepa-chart-svg.js"] = { KC_W, KC_PAD_L, KC_PAD_R, KC_PANELS, KC_RANGES, KC_DEFAULT_RANGE, visiblePoints, extent, KC_Y_PAD, padExtent, stepPath, valueAt, rangesFor, pickRange, readoutText, drawKeepaCharts };
 })();
 root.ShopperPrice = Object.freeze(Object.assign({}, ...Object.values(__m)));
 })(self);
