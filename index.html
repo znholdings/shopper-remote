@@ -11,11 +11,12 @@
   <link rel="apple-touch-icon" href="icon-180.png" />
   <link rel="icon" type="image/png" href="shoppy-64.png" />
   <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="retro.css" />
   <!-- Shopper 2 (v2.00, B-732): light / dark before first paint. The phone
        follows its own setting unless the top-bar button picked one. -->
   <script>
     (function () {
-      try { var t = localStorage.getItem("shopperTheme"); if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t); } catch (e) {}
+      try { var t = localStorage.getItem("shopperTheme"); if (t === "light" || t === "dark" || t === "retro") document.documentElement.setAttribute("data-theme", t); } catch (e) {}
     })();
   </script>
 </head>
@@ -28,7 +29,7 @@
     <header class="topbar">
       <div class="brand"><img src="shoppy-64.png" alt="" class="brand-logo" /><span class="brand-word">Shopper</span></div>
       <div id="deviceName" class="device-name"></div>
-      <button id="themeBtn" class="ghost-btn theme-btn" type="button" aria-label="Switch light / dark"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg></button>
+      <button id="themeBtn" class="ghost-btn theme-btn" type="button" aria-label="Switch light / dark / retro"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg></button>
       <button id="signOutBtn" class="ghost-btn" hidden>Sign out</button>
     </header>
 
@@ -471,17 +472,34 @@
   <script src="boxes.js"></script>
   <script>
     // Shopper 2 (v2.00, B-732): the top-bar theme button - system -> light -> dark.
+    // B-802 (v2.0.11): light -> dark -> retro -> light; the icon shows the NEXT one.
     (function () {
       var b = document.getElementById("themeBtn");
       if (!b) return;
-      b.addEventListener("click", function () {
+      var ORDER = ["light", "dark", "retro"];
+      var ICON = {
+        dark: '<path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/>',
+        retro: '<rect x="2" y="7" width="20" height="11" rx="2"/><path d="M6.5 12.5h4M8.5 10.5v4"/><circle cx="15.5" cy="13.5" r="1"/><circle cx="18" cy="11" r="1"/>',
+        light: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'
+      };
+      function shown() {
         var cur = document.documentElement.getAttribute("data-theme");
         var sysDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
-        var shown = cur || (sysDark ? "dark" : "light");
-        var next = shown === "dark" ? "light" : "dark";
+        return ORDER.indexOf(cur) >= 0 ? cur : (sysDark ? "dark" : "light");
+      }
+      function nextOf(t) { return ORDER[(ORDER.indexOf(t) + 1) % ORDER.length]; }
+      function draw() {
+        var svg = b.querySelector("svg");
+        if (svg) svg.innerHTML = ICON[nextOf(shown())];
+        b.setAttribute("title", "Switch to " + nextOf(shown()));
+      }
+      b.addEventListener("click", function () {
+        var next = nextOf(shown());
         document.documentElement.setAttribute("data-theme", next);
         try { localStorage.setItem("shopperTheme", next); } catch (e) {}
+        draw();
       });
+      draw();
     })();
   </script>
 </body>

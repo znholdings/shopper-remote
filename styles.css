@@ -77,7 +77,7 @@
   --s-magenta-bg: #3a1333; --s-magenta-soft: #7a2a6c; --s-magenta: #ff5ad8; --s-magenta-ink: #ffc6f0;
 }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
+  :root:not([data-theme="light"]):not([data-theme="retro"]) {
     color-scheme: dark;
     --s-on-accent: #12141e;
     --s-n0: #1a1d2b;
@@ -105,7 +105,7 @@
 :root { --s-dest-prep: #00ffff; --s-dest-house: #ffff00; --s-dest-prep-bg: var(--s-dest-prep); --s-dest-house-bg: var(--s-dest-house); --s-dest-ink: #1a1d2b; --s-dest-ink-2: #3a3f55; }
 :root[data-theme="dark"] { --s-dest-prep-bg: color-mix(in srgb, var(--s-dest-prep) 16%, var(--s-surface)); --s-dest-house-bg: color-mix(in srgb, var(--s-dest-house) 14%, var(--s-surface)); --s-dest-ink: var(--s-text); --s-dest-ink-2: var(--s-text-muted); }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) { --s-dest-prep-bg: color-mix(in srgb, var(--s-dest-prep) 16%, var(--s-surface)); --s-dest-house-bg: color-mix(in srgb, var(--s-dest-house) 14%, var(--s-surface)); --s-dest-ink: var(--s-text); --s-dest-ink-2: var(--s-text-muted); }
+  :root:not([data-theme="light"]):not([data-theme="retro"]) { --s-dest-prep-bg: color-mix(in srgb, var(--s-dest-prep) 16%, var(--s-surface)); --s-dest-house-bg: color-mix(in srgb, var(--s-dest-house) 14%, var(--s-surface)); --s-dest-ink: var(--s-text); --s-dest-ink-2: var(--s-text-muted); }
 }
 
 /* Shopper Remote (P-15, v2.92) - phone-first.

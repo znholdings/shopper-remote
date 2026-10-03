@@ -1,0 +1,86 @@
+@import url("retro-font.css");
+/* ============================================================
+   B-802 (v2.0.11): the phone app's "Retro" theme (Console Gray NES look).
+   On when <html data-theme="retro"> - the top-bar theme button goes
+   light -> dark -> retro -> light. The token block is the laptop's
+   lib/theme-retro.css block, verbatim (test v2011). Zach D1 2026-10-03:
+   pixel font on headings, the brand, the tab bar and buttons only.
+   ============================================================ */
+/* -- Retro tokens (B-802; the phone's remote/retro.css carries this block verbatim - test v2011) -- */
+:root[data-theme="retro"] {
+  color-scheme: light;
+  --s-n0: #fcfcfc;
+  --s-n1: #e4e4e4;
+  --s-n2: #d0d0d0;
+  --s-n3: #a8a8a8;
+  --s-n4: #7c7c7c;
+  --s-n5: #4c4c4c;
+  --s-n6: #242424;
+  --s-n7: #000000;
+  --s-shadow: #000000;
+
+  --s-red-bg: #fcd8d8;   --s-red-soft: #f87878;   --s-red: #d82800;   --s-red-ink: #881400;
+  --s-orange-bg: #fce0c0; --s-orange-soft: #fca044; --s-orange: #e45c10; --s-orange-ink: #7c2800;
+  --s-yellow-bg: #fcf0b0; --s-yellow-soft: #f8d878; --s-yellow: #c89000; --s-yellow-ink: #5c4000;
+  --s-green-bg: #d8f8b8; --s-green-soft: #94e05c; --s-green: #00a800; --s-green-ink: #005800;
+  --s-cyan-bg: #c8f0fc;  --s-cyan-soft: #7cd8f8;  --s-cyan: #0088b8;  --s-cyan-ink: #004058;
+  --s-blue-bg: #d0e0fc;  --s-blue-soft: #a4c4fc;  --s-blue: #0058f8;  --s-blue-ink: #0000bc;
+  --s-violet-bg: #e0d8fc; --s-violet-soft: #b8b0f8; --s-violet: #6844fc; --s-violet-ink: #2c1890;
+  --s-magenta-bg: #fcd8e4; --s-magenta-soft: #f888b0; --s-magenta: #e40058; --s-magenta-ink: #800030;
+
+  --s-bg: #bcbcbc;
+  --s-surface: var(--s-n0);
+  --s-surface-2: var(--s-n1);
+  --s-line: var(--s-n7);
+  --s-line-soft: var(--s-n4);
+  --s-text: var(--s-n7);
+  --s-text-2: var(--s-n6);
+  --s-text-muted: var(--s-n5);
+  --s-text-faint: var(--s-n4);
+  --s-accent: var(--s-magenta);
+  --s-accent-bg: var(--s-magenta-bg);
+  --s-on-accent: #fcfcfc;
+  --s-brand: linear-gradient(90deg, var(--s-magenta), var(--s-magenta));
+  --s-r-sm: 0px; --s-r: 0px; --s-r-lg: 0px; --s-r-pill: 0px;
+  --s-elev-1: 3px 3px 0 #000000;
+  --s-elev-2: 5px 5px 0 #000000;
+  --s-pixel: "Shopper Pixel", var(--s-mono);
+  --s-console: #3c3c3c;
+  --s-console-2: #545454;
+  --s-console-ink: #fcfcfc;
+  --s-console-muted: #bcbcbc;
+}
+/* -- end Retro tokens -- */
+
+:root[data-theme="retro"] body { background: var(--s-bg); }
+:root[data-theme="retro"] .topbar { border-bottom: 3px solid var(--s-n7); }
+:root[data-theme="retro"] .brand-word { background: none; -webkit-background-clip: border-box; background-clip: border-box; color: var(--s-accent); -webkit-text-fill-color: currentColor; font-family: var(--s-pixel); font-weight: 400; font-size: 12px; }
+:root[data-theme="retro"] :is(h1, h2) { font-family: var(--s-pixel); font-weight: 400; letter-spacing: 0; text-transform: uppercase; line-height: 1.6; }
+:root[data-theme="retro"] h1 { font-size: 14px; }
+:root[data-theme="retro"] h2 { font-size: 10px; }
+
+/* Buttons: black outline, hard shadow, pixel label. */
+:root[data-theme="retro"] :is(.primary-btn, .secondary-btn, .danger-btn, .mini-btn, .wz-btn) {
+  font-family: var(--s-pixel); font-weight: 400; font-size: 9px; letter-spacing: 0; text-transform: uppercase; line-height: 1.4;
+  border: 2px solid var(--s-n7); border-radius: 0; box-shadow: 2px 2px 0 var(--s-n7);
+}
+:root[data-theme="retro"] :is(.primary-btn, .secondary-btn, .danger-btn, .mini-btn, .wz-btn):active:not(:disabled) { transform: translate(2px, 2px); box-shadow: none; }
+:root[data-theme="retro"] .primary-btn { color: var(--s-on-accent); }
+:root[data-theme="retro"] .ghost-btn { border-radius: 0; }
+
+/* Cards and tiles: square, outlined, hard shadow. */
+:root[data-theme="retro"] :is(.dash-card, .dash-tile, .run-hero, .section, .toast) { border: 2px solid var(--s-n7); border-radius: 0; box-shadow: var(--s-elev-1); }
+:root[data-theme="retro"] .line { border-radius: 0; }
+:root[data-theme="retro"] th { background: var(--s-n7); color: var(--s-n0); }
+
+/* The bottom tab bar: the console strip. */
+:root[data-theme="retro"] #mainView > .tabs { background: var(--s-console); border-top: 3px solid var(--s-n7); }
+:root[data-theme="retro"] #mainView > .tabs .tab { color: var(--s-console-muted); border-radius: 0; }
+:root[data-theme="retro"] #mainView > .tabs .tab.active { color: var(--s-on-accent); background: var(--s-accent); }
+:root[data-theme="retro"] #mainView > .tabs .tab-label { font-family: var(--s-pixel); font-weight: 400; font-size: 8px; letter-spacing: 0; line-height: 1.6; }
+@media (max-width: 520px) {
+  :root[data-theme="retro"] #mainView > .tabs .tab-label[data-short] { font-size: 0; }
+  :root[data-theme="retro"] #mainView > .tabs .tab-label[data-short]::after { font-size: 8px; }
+}
+
+[hidden] { display: none !important; }
