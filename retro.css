@@ -1,10 +1,13 @@
 @import url("retro-font.css");
+@import url("retro-core.css");
 /* ============================================================
    B-802 (v2.0.11): the phone app's "Retro" theme (Console Gray NES look).
    On when <html data-theme="retro"> - the top-bar theme button goes
    light -> dark -> retro -> light. The token block is the laptop's
-   lib/theme-retro.css block, verbatim (test v2011). Zach D1 2026-10-03:
-   pixel font on headings, the brand, the tab bar and buttons only.
+   lib/theme-retro.css block, verbatim (test v2011).
+   B-803 (v2.0.12): type, sizes and spacing come from retro-core.css - the
+   SAME file the laptop uses - so phone and laptop match. Only the
+   phone-only parts (top bar, bottom tab bar, buylist sections) live here.
    ============================================================ */
 /* -- Retro tokens (B-802; the phone's remote/retro.css carries this block verbatim - test v2011) -- */
 :root[data-theme="retro"] {
@@ -45,42 +48,39 @@
   --s-elev-1: 3px 3px 0 #000000;
   --s-elev-2: 5px 5px 0 #000000;
   --s-pixel: "Shopper Pixel", var(--s-mono);
+  --s-term: "Shopper Terminal", var(--s-mono);
   --s-console: #3c3c3c;
   --s-console-2: #545454;
   --s-console-ink: #fcfcfc;
   --s-console-muted: #bcbcbc;
 }
 /* -- end Retro tokens -- */
-
 :root[data-theme="retro"] body { background: var(--s-bg); }
-:root[data-theme="retro"] .topbar { border-bottom: 3px solid var(--s-n7); }
-:root[data-theme="retro"] .brand-word { background: none; -webkit-background-clip: border-box; background-clip: border-box; color: var(--s-accent); -webkit-text-fill-color: currentColor; font-family: var(--s-pixel); font-weight: 400; font-size: 12px; }
-:root[data-theme="retro"] :is(h1, h2) { font-family: var(--s-pixel); font-weight: 400; letter-spacing: 0; text-transform: uppercase; line-height: 1.6; }
-:root[data-theme="retro"] h1 { font-size: 14px; }
-:root[data-theme="retro"] h2 { font-size: 10px; }
+:root[data-theme="retro"] .topbar { border-bottom: 3px solid var(--s-n7); padding-bottom: var(--rt-2); }
+:root[data-theme="retro"] .brand-word { background: none; -webkit-background-clip: border-box; background-clip: border-box; color: var(--s-accent); -webkit-text-fill-color: currentColor; font-family: var(--s-pixel) !important; font-weight: 400; font-size: var(--rt-h3); }
+:root[data-theme="retro"] #deviceName { font-family: var(--s-pixel) !important; font-size: var(--rt-cap); text-transform: uppercase; }
+:root[data-theme="retro"] .live-banner { border: var(--rt-line); box-shadow: var(--rt-raise); font-family: var(--s-pixel) !important; font-size: var(--rt-label); text-transform: uppercase; padding: var(--rt-3); }
 
-/* Buttons: black outline, hard shadow, pixel label. */
-:root[data-theme="retro"] :is(.primary-btn, .secondary-btn, .danger-btn, .mini-btn, .wz-btn) {
-  font-family: var(--s-pixel); font-weight: 400; font-size: 9px; letter-spacing: 0; text-transform: uppercase; line-height: 1.4;
-  border: 2px solid var(--s-n7); border-radius: 0; box-shadow: 2px 2px 0 var(--s-n7);
-}
-:root[data-theme="retro"] :is(.primary-btn, .secondary-btn, .danger-btn, .mini-btn, .wz-btn):active:not(:disabled) { transform: translate(2px, 2px); box-shadow: none; }
-:root[data-theme="retro"] .primary-btn { color: var(--s-on-accent); }
-:root[data-theme="retro"] .ghost-btn { border-radius: 0; }
+/* Buylist: the section frame Zach asked for (P-48) stays, squared. */
+:root[data-theme="retro"] .bl-section { border: 3px solid var(--s-yellow) !important; padding: var(--rt-3) !important; box-shadow: var(--rt-raise); }
+:root[data-theme="retro"] .bl-section-head .count { margin-left: var(--rt-2); }
+:root[data-theme="retro"] .bl-stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--rt-2); margin: var(--rt-3) 0; }
+:root[data-theme="retro"] .bl-stat { display: flex; flex-direction: column; align-items: center; gap: var(--rt-1); min-width: 0; }
+:root[data-theme="retro"] .bs-label { color: var(--s-blue) !important; font-size: var(--rt-cap) !important; text-align: center; }
+:root[data-theme="retro"] .line.bl-approved { border-left: 6px solid var(--s-green) !important; }
 
-/* Cards and tiles: square, outlined, hard shadow. */
-:root[data-theme="retro"] :is(.dash-card, .dash-tile, .run-hero, .section, .toast) { border: 2px solid var(--s-n7); border-radius: 0; box-shadow: var(--s-elev-1); }
-:root[data-theme="retro"] .line { border-radius: 0; }
-:root[data-theme="retro"] th { background: var(--s-n7); color: var(--s-n0); }
+/* Stock: the three totals. */
+:root[data-theme="retro"] .inv-total b { display: block; margin-top: var(--rt-1); }
+:root[data-theme="retro"] .inv-nums { display: flex; flex-wrap: wrap; gap: var(--rt-2); margin: var(--rt-1) 0; }
 
 /* The bottom tab bar: the console strip. */
-:root[data-theme="retro"] #mainView > .tabs { background: var(--s-console); border-top: 3px solid var(--s-n7); }
-:root[data-theme="retro"] #mainView > .tabs .tab { color: var(--s-console-muted); border-radius: 0; }
+:root[data-theme="retro"] #mainView > .tabs { background: var(--s-console); border-top: 3px solid var(--s-n7); backdrop-filter: none; -webkit-backdrop-filter: none; }
+:root[data-theme="retro"] #mainView > .tabs .tab { color: var(--s-console-muted); box-shadow: none !important; border: 0 !important; }
 :root[data-theme="retro"] #mainView > .tabs .tab.active { color: var(--s-on-accent); background: var(--s-accent); }
-:root[data-theme="retro"] #mainView > .tabs .tab-label { font-family: var(--s-pixel); font-weight: 400; font-size: 8px; letter-spacing: 0; line-height: 1.6; }
+:root[data-theme="retro"] #mainView > .tabs .tab-label { font-family: var(--s-pixel) !important; font-weight: 400; font-size: var(--rt-cap); letter-spacing: -1px !important; line-height: 1.6; }
 @media (max-width: 520px) {
   :root[data-theme="retro"] #mainView > .tabs .tab-label[data-short] { font-size: 0; }
-  :root[data-theme="retro"] #mainView > .tabs .tab-label[data-short]::after { font-size: 8px; }
+  :root[data-theme="retro"] #mainView > .tabs .tab-label[data-short]::after { font-size: var(--rt-cap); }
 }
 
 [hidden] { display: none !important; }

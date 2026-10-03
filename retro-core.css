@@ -1,0 +1,160 @@
+/* ============================================================
+   B-803 (v2.0.12): Retro pass 2 - ONE type, size and spacing system for
+   every laptop page AND the phone app (Zach 2026-10-03: "unify spacing,
+   sizes, and fonts ... lean more into" the pixel font).
+   lib/retro-core.css and remote/retro-core.css are the same file (test
+   v2012), imported by lib/theme-retro.css and remote/retro.css. Every
+   rule is scoped to :root[data-theme="retro"]; Light and Dark never see it.
+
+   Two fonts, two jobs (Zach D2 2026-10-03, replaces D1):
+     --s-pixel  "Shopper Pixel" (Press Start 2P): every button, heading,
+                tab, label, caption, count and big figure.
+     --s-term   "Shopper Terminal" (VT323): sentences, table cells,
+                inputs - everything else.
+   Sizes - pixel: 8 caption · 9 label · 10 button/tab · 11 small head ·
+   12 section head · 14 page head (phone) · 16 figure / page head (laptop).
+   Terminal: 18 body · 15 small (VT323 drawn at 115%, so they read like 21 / 17). Spacing: 4 / 8 / 12 / 16. Every corner
+   square, every outline black, every raised thing a hard shadow.
+   ============================================================ */
+:root[data-theme="retro"] {
+  --rt-cap: 8px; --rt-label: 9px; --rt-btn: 10px; --rt-h4: 11px; --rt-h3: 12px; --rt-h2: 14px; --rt-fig: 16px;
+  --rt-body: 18px; --rt-small: 15px;
+  --rt-1: 4px; --rt-2: 8px; --rt-3: 12px; --rt-4: 16px;
+  --rt-line: 2px solid var(--s-n7);
+  --rt-raise: 3px 3px 0 var(--s-n7);
+  --rt-raise-sm: 2px 2px 0 var(--s-n7);
+  --rt-ctl-h: 36px;
+}
+
+/* ── 1. Terminal font everywhere, then pixel on top ── */
+:root[data-theme="retro"] body,
+:root[data-theme="retro"] body * { font-family: var(--s-term) !important; letter-spacing: 0 !important; }
+:root[data-theme="retro"] body { font-size: var(--rt-body); line-height: 1.2; }
+:root[data-theme="retro"] * { border-radius: 0 !important; }
+
+/* Body copy sizes: two only. */
+:root[data-theme="retro"] :is(p, li, dd, .l-title, .inv-title, .line-title, .need-body, .step-text, .prompt-reason) { font-size: var(--rt-body) !important; line-height: 1.2; }
+:root[data-theme="retro"] :is(.muted, .small, .subtle, .hint, .note, .s-note, .s-page-sub, .l-meta, .t-sub, .bs-sub, .pp-card-sub, .pp-card-money, .bq-tile-sub, .s-stat-sub, .s-nav-version, small, .warn-text, .status-line, .statline, [class*="hint"], [class*="-note"], .last-run-body) { font-size: var(--rt-small) !important; line-height: 1.2; }
+:root[data-theme="retro"] td { font-size: var(--rt-small); }
+
+/* ── 2. Headings (pixel, uppercase) ── */
+:root[data-theme="retro"] :is(h1, h2, h3, h4, h5, h6, summary, legend,
+.s-page-title, .s-h2, .s-h3, .section-head, .bl-section-head, .dash-section-head, .section-title, .score-section-title,
+.pp-title, .ai-title, .ai-h2, .dash-title, .setup-title, .kc-title, .bm-title, .wz-title, .outcome-title, .rh-title,
+.spend-group-title, .run-review-head, .report-history-head, .recent-orders-head, .line-group-head, .scanpower-title,
+.report-sheet-title, .cf-card-head, .bq-card-head, .cfm-head, .fba-head, .inv-box-head) {
+  font-family: var(--s-pixel) !important; font-weight: 400 !important; text-transform: uppercase;
+  line-height: 1.5 !important; -webkit-text-fill-color: currentColor; background-image: none;
+}
+:root[data-theme="retro"] :is(h1, .s-page-title, .pp-title, .ai-title, .dash-title, .setup-title, h1.page-title) { font-size: var(--rt-fig) !important; margin: 0 0 var(--rt-3); }
+:root[data-theme="retro"] :is(h2, .s-h2, .report-sheet-title) { font-size: var(--rt-h2) !important; margin: 0 0 var(--rt-3); }
+:root[data-theme="retro"] :is(h3, .s-h3, .section-head, .bl-section-head, .dash-section-head, .section-title, .score-section-title, .ai-h2,
+.kc-title, .bm-title, .wz-title, .outcome-title, .rh-title, .spend-group-title, .run-review-head, .report-history-head, .recent-orders-head,
+.scanpower-title, .cf-card-head, .bq-card-head, .cfm-head, .fba-head, .inv-box-head) { font-size: var(--rt-h3) !important; margin: 0 0 var(--rt-3); }
+:root[data-theme="retro"] :is(h4, h5, h6, summary, legend, .line-group-head) { font-size: var(--rt-h4) !important; }
+:root[data-theme="retro"] summary { cursor: pointer; padding: var(--rt-1) 0; }
+
+/* ── 3. Labels, captions, counts, chips (pixel, small) ── */
+:root[data-theme="retro"] :is(label:not(.s-switch):not(.bm-choice), th, .t-label, .bs-label, .s-stat-label, .pp-card-label, .bq-tile-label,
+.total-label, .status-label, .spend-label, .snapshot-label, .progress-label, .tube-label, .score-row-label, .score-field-label,
+.spending-goal-label, .spending-goal-progress-label, .eyebrow, .rh-eyebrow, .checkbox-label, .radio-label) {
+  font-family: var(--s-pixel) !important; font-weight: 400 !important; font-size: var(--rt-label) !important;
+  line-height: 1.6 !important; text-transform: uppercase;
+}
+:root[data-theme="retro"] :is(.count, .s-pill, .pill, .pc-badge, .l-asin, .l-status, .pp-tab-count, .inv-n, .d-state, .oc-chip) {
+  font-family: var(--s-pixel) !important; font-weight: 400 !important; font-size: var(--rt-cap) !important; line-height: 1.6 !important; text-transform: uppercase;
+}
+:root[data-theme="retro"] :is(.s-pill, .pill, .pc-badge, .oc-chip) { border: 1px solid currentColor; padding: 2px 6px; }
+
+/* ── 4. Big figures (pixel) ── */
+:root[data-theme="retro"] :is(.t-value, .bs-value, .s-stat-value, .pp-card-figure, .total-value, .status-value, .spend-value,
+.bank-balance-value, .inv-total b, .bq-tile-value) {
+  font-family: var(--s-pixel) !important; font-weight: 400 !important; font-size: var(--rt-fig) !important; line-height: 1.5 !important;
+}
+/* Five figures across a phone card: the small size (beats the :is() list above). */
+:root[data-theme="retro"] .bl-stat .bs-value { font-size: var(--rt-btn) !important; }
+
+/* ── 5. Buttons: one size, one outline, one shadow ── */
+/* :where() keeps this rule weak (0,2,0) so the primary / danger colours below win. */
+:root[data-theme="retro"] :where(button, .pc-toggle, a.s-btn, a.primary-btn, a.secondary-btn):not(:where(.tab, .s-nav-link, .s-nav-sublink, .s-nav-toggle, .s-nav-burger, .theme-btn, .icon-btn, .s-tab, .ai-seg-btn, .density-btn, .cfm-tab, .pp-tab, .link-btn, .nav-link-btn, .s-btn-icon, .s-stat, th button, .s-menu-list > *)) {
+  font-weight: 400 !important; font-size: var(--rt-btn) !important;
+  line-height: 1.3 !important; text-transform: uppercase;
+  min-height: var(--rt-ctl-h); padding: 6px 14px !important;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; vertical-align: middle;
+  background: var(--s-surface) !important; background-image: none !important; color: var(--s-text) !important;
+  border: var(--rt-line) !important; box-shadow: var(--rt-raise-sm) !important; transition: none !important; filter: none;
+}
+/* The pixel family needs "body" to outrank section 1's "body *" (same weight, later wins). */
+:root[data-theme="retro"] body :where(button, .pc-toggle, a.s-btn, a.primary-btn, a.secondary-btn, .lets-buy-btn):not(:where(.tab, .s-nav-link, .s-nav-sublink, .s-nav-toggle, .s-nav-burger, .theme-btn, .icon-btn, .link-btn, .nav-link-btn, .s-btn-icon, .s-stat)) { font-family: var(--s-pixel) !important; }
+:root[data-theme="retro"] :where(button, .pc-toggle):not(:where(.tab, .s-nav-link, .s-nav-sublink, .s-tab, .ai-seg-btn, .density-btn, .cfm-tab, .pp-tab, .link-btn, .nav-link-btn, th button, .s-menu-list > *)):hover:not(:disabled) { background: var(--s-accent-bg) !important; }
+:root[data-theme="retro"] :where(button, .pc-toggle):not(:where(.tab, .s-nav-link, .s-nav-sublink, .s-tab, .ai-seg-btn, .density-btn, .cfm-tab, .pp-tab, .link-btn, .nav-link-btn, th button, .s-menu-list > *)):active:not(:disabled) { transform: translate(2px, 2px); box-shadow: none !important; }
+:root[data-theme="retro"] :is(.s-btn-primary, .primary-btn, .start-btn, .success-btn, .pp-btn-primary, .ai-btn-primary, .lets-buy-btn) {
+  background: var(--s-accent) !important; color: var(--s-on-accent) !important;
+}
+:root[data-theme="retro"] :is(.s-btn-primary, .primary-btn, .start-btn, .success-btn, .pp-btn-primary, .ai-btn-primary, .lets-buy-btn):hover:not(:disabled) { background: var(--s-red) !important; }
+:root[data-theme="retro"] :is(.danger-btn, .abort-btn, .s-btn-danger) { color: var(--s-red) !important; }
+:root[data-theme="retro"] :is(.primary-btn.big, .start-btn, .lets-buy-btn) { font-size: var(--rt-h3) !important; min-height: 48px; padding: 8px 18px !important; box-shadow: var(--rt-raise) !important; }
+:root[data-theme="retro"] .lets-buy-btn::after { display: none; }
+:root[data-theme="retro"] button:disabled { opacity: .45; box-shadow: none !important; }
+:root[data-theme="retro"] .pc-toggle input { margin: 0; }
+/* Icon-only buttons: a square of the same height. */
+:root[data-theme="retro"] :is(.theme-btn, .icon-btn, .s-btn-icon) { width: var(--rt-ctl-h); height: var(--rt-ctl-h); padding: 0 !important; display: inline-flex; align-items: center; justify-content: center; border: var(--rt-line) !important; box-shadow: var(--rt-raise-sm) !important; background: var(--s-surface) !important; color: var(--s-text) !important; }
+/* Text links stay text. */
+:root[data-theme="retro"] :is(.link-btn, .nav-link-btn) { background: none !important; border: 0 !important; box-shadow: none !important; padding: 0 !important; min-height: 0; color: var(--s-accent) !important; text-decoration: underline; font-size: var(--rt-body) !important; }
+
+/* ── 6. Segmented choices (in-page tabs, Compact/Normal/Extended ...) ── */
+:root[data-theme="retro"] :is(.s-tab, .ai-seg-btn, .density-btn, .cfm-tab, .pp-tab) {
+  font-family: var(--s-pixel) !important; font-weight: 400 !important; font-size: var(--rt-label) !important; line-height: 1.3 !important;
+  text-transform: uppercase; min-height: 30px; padding: 4px 10px !important;
+  background: var(--s-surface) !important; color: var(--s-text) !important; border: var(--rt-line) !important; box-shadow: none !important;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+}
+:root[data-theme="retro"] :is(.s-tab[aria-pressed="true"], .s-tab.is-active, .ai-seg-btn[aria-pressed="true"], .ai-seg-btn.is-active,
+.density-btn.active, .density-btn[aria-pressed="true"], .cfm-tab.active, .cfm-tab[aria-selected="true"], .pp-tab[aria-selected="true"]) {
+  background: var(--s-accent) !important; color: var(--s-on-accent) !important;
+}
+:root[data-theme="retro"] :is(.s-tabs, .ai-seg, .pp-tabs) { display: flex; flex-wrap: wrap; gap: 6px; background: none !important; border: 0 !important; padding: 0 !important; box-shadow: none !important; }
+
+/* ── 7. Inputs: one height, one outline, terminal text ── */
+:root[data-theme="retro"] :is(input[type="text"], input[type="number"], input[type="search"], input[type="email"], input[type="password"], input[type="tel"], input[type="url"],
+input[type="date"], input[type="time"], input[type="datetime-local"], input:not([type]), select, .s-input, .s-select) {
+  font-size: var(--rt-body) !important; min-height: var(--rt-ctl-h); padding: 0 10px !important; line-height: 1.1;
+  background: var(--s-surface) !important; color: var(--s-text) !important; border: var(--rt-line) !important; box-shadow: none !important;
+}
+:root[data-theme="retro"] textarea { font-size: var(--rt-body) !important; padding: var(--rt-2) 10px !important; background: var(--s-surface) !important; color: var(--s-text) !important; border: var(--rt-line) !important; box-shadow: none !important; }
+:root[data-theme="retro"] input[type="checkbox"], :root[data-theme="retro"] input[type="radio"] { accent-color: var(--s-accent); width: 18px; height: 18px; }
+:root[data-theme="retro"] input[type="range"] { accent-color: var(--s-accent); }
+
+/* ── 8. Cards: square, black outline, hard shadow, one padding ── */
+:root[data-theme="retro"] :is(.s-card, .s-stat, .panel, .card, .pp-card, .ai-card, .dash-card, .setup-section, .status-card, .rr-card, .bank-card, .bl-card,
+.total-box, .spend-card, .status-box, .bq-tile, .report-card, .prompt-card, .fba-card, .gen-card, .safety-box, .modal-box, .keepa-warning-box,
+.preview-section, .log-section, .pp-subpanel, .section, .line, .run-hero, .need-card, .dash-tile, .total, .inv-total, .report-sheet-box) {
+  border: var(--rt-line) !important; box-shadow: var(--rt-raise) !important; background-image: none !important;
+}
+:root[data-theme="retro"] :is(.s-card, .panel, .card, .ai-card, .dash-card, .setup-section, .status-card, .rr-card, .bank-card, .bl-card,
+.report-card, .prompt-card, .fba-card, .gen-card, .modal-box, .section, .run-hero, .need-card, .preview-section, .log-section) { padding: var(--rt-4) !important; }
+:root[data-theme="retro"] :is(.s-stat, .pp-card, .dash-tile, .total, .inv-total, .bq-tile, .total-box, .spend-card, .status-box, .line) { padding: var(--rt-3) !important; }
+/* A card inside a card: outline only, no second shadow. */
+:root[data-theme="retro"] :is(.section, .panel, .s-card, .card) :is(.line, .need-card, .s-stat, .total, .inv-total, .dash-tile) { box-shadow: none !important; }
+:root[data-theme="retro"] details { border: var(--rt-line); box-shadow: var(--rt-raise); padding: var(--rt-2) var(--rt-3); background: var(--s-surface); }
+:root[data-theme="retro"] details[open] > summary { margin-bottom: var(--rt-2); }
+
+/* ── 9. Rows of controls: one gap ── */
+:root[data-theme="retro"] :is(.controls, .l-actions, .need-actions, .add-row, .push-row, .mode-row, .fba-ctl-row, .prompt-actions, .s-page-actions, .pp-actions, .dash-actions, .generate-switches) {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--rt-2) !important;
+}
+:root[data-theme="retro"] :is(.controls, .l-actions, .need-actions, .add-row, .push-row, .mode-row, .fba-ctl-row, .prompt-actions, .s-page-actions, .pp-actions, .dash-actions) > * { margin: 0 !important; }
+
+/* ── 10. Tables: black header bar ── */
+:root[data-theme="retro"] th { background: var(--s-n7) !important; color: var(--s-n0) !important; }
+:root[data-theme="retro"] th :is(a, button, span) { color: inherit !important; font: inherit !important; background: none !important; border: 0 !important; box-shadow: none !important; }
+:root[data-theme="retro"] :is(td, th) { padding: 6px 8px; }
+:root[data-theme="retro"] .density-row { display: inline-flex; flex-wrap: wrap; gap: 6px; max-width: 100%; }
+
+/* ── 11. Text inside a pixel thing stays pixel (a count in a tab, the
+      label inside a sidebar link, a <b> inside a heading). ── */
+:root[data-theme="retro"] body :is(button, h1, h2, h3, h4, h5, h6, summary, legend, label:not(.s-switch):not(.bm-choice), th,
+.s-nav-link, .s-nav-sublink, .s-tab, .pp-tab, .density-btn, .ai-seg-btn, .cfm-tab, .section-head, .s-page-title, .pp-title) *:not(input):not(select):not(textarea) {
+  font-family: inherit !important;
+}
+:root[data-theme="retro"] :is(p, li) { line-height: 1.25 !important; }
