@@ -1,24 +1,24 @@
 /* ============================================================
-   B-803 (v2.0.12): Retro pass 2 - ONE type, size and spacing system for
-   every laptop page AND the phone app (Zach 2026-10-03: "unify spacing,
-   sizes, and fonts ... lean more into" the pixel font).
-   lib/retro-core.css and remote/retro-core.css are the same file (test
-   v2012), imported by lib/theme-retro.css and remote/retro.css. Every
-   rule is scoped to :root[data-theme="retro"]; Light and Dark never see it.
+   B-803 (v2.0.12): Retro pass 2 - ONE size and spacing system for every
+   laptop page AND the phone app (Zach 2026-10-03: "unify spacing, sizes,
+   and fonts"). lib/retro-core.css and remote/retro-core.css are the same
+   file (test v2012), imported by lib/theme-retro.css and remote/retro.css.
+   Every rule is scoped to :root[data-theme="retro"]; Light and Dark never
+   see it.
 
-   Two fonts, two jobs (Zach D2 2026-10-03, replaces D1):
-     --s-pixel  "Shopper Pixel" (Press Start 2P): every button, heading,
-                tab, label, caption, count and big figure.
-     --s-term   "Shopper Terminal" (VT323): sentences, table cells,
-                inputs - everything else.
+   B-804 (v2.0.13), Zach 2026-10-03 (replaces D2): "everything pixel is hard
+   to read". The VT323 body font is gone. Normal font (--s-font) for
+   sentences, tables, inputs and numbers; pixel font (--s-pixel) only on
+   headings, buttons, tabs, small labels and counts (+ the sidebar and the
+   phone tab bar). Every B-803 size / spacing / outline fix stays.
    Sizes - pixel: 8 caption · 9 label · 10 button/tab · 11 small head ·
-   12 section head · 14 page head (phone) · 16 figure / page head (laptop).
-   Terminal: 18 body · 15 small (VT323 drawn at 115%, so they read like 21 / 17). Spacing: 4 / 8 / 12 / 16. Every corner
-   square, every outline black, every raised thing a hard shadow.
+   12 section head · 14 / 16 page head. Normal font: 14 body · 12 small ·
+   20 bold figure. Spacing: 4 / 8 / 12 / 16. Every corner square, every
+   outline black, every raised thing a hard shadow.
    ============================================================ */
 :root[data-theme="retro"] {
   --rt-cap: 8px; --rt-label: 9px; --rt-btn: 10px; --rt-h4: 11px; --rt-h3: 12px; --rt-h2: 14px; --rt-fig: 16px;
-  --rt-body: 18px; --rt-small: 15px;
+  --rt-body: 14px; --rt-small: 12px; --rt-num: 20px;
   --rt-1: 4px; --rt-2: 8px; --rt-3: 12px; --rt-4: 16px;
   --rt-line: 2px solid var(--s-n7);
   --rt-raise: 3px 3px 0 var(--s-n7);
@@ -26,16 +26,14 @@
   --rt-ctl-h: 36px;
 }
 
-/* ── 1. Terminal font everywhere, then pixel on top ── */
-:root[data-theme="retro"] body,
-:root[data-theme="retro"] body * { font-family: var(--s-term) !important; letter-spacing: 0 !important; }
-:root[data-theme="retro"] body { font-size: var(--rt-body); line-height: 1.2; }
+/* ── 1. Normal font for text (B-804), square corners everywhere ── */
+:root[data-theme="retro"] body { font-family: var(--s-font); font-size: var(--rt-body); line-height: 1.4; }
 :root[data-theme="retro"] * { border-radius: 0 !important; }
 
 /* Body copy sizes: two only. */
-:root[data-theme="retro"] :is(p, li, dd, .l-title, .inv-title, .line-title, .need-body, .step-text, .prompt-reason) { font-size: var(--rt-body) !important; line-height: 1.2; }
+:root[data-theme="retro"] :is(p, li, dd, .l-title, .inv-title, .line-title, .need-body, .step-text, .prompt-reason) { font-size: var(--rt-body) !important; line-height: 1.4; }
 :root[data-theme="retro"] :is(.muted, .small, .subtle, .hint, .note, .s-note, .s-page-sub, .l-meta, .t-sub, .bs-sub, .pp-card-sub, .pp-card-money, .bq-tile-sub, .s-stat-sub, .s-nav-version, small, .warn-text, .status-line, .statline, [class*="hint"], [class*="-note"], .last-run-body) { font-size: var(--rt-small) !important; line-height: 1.2; }
-:root[data-theme="retro"] td { font-size: var(--rt-small); }
+:root[data-theme="retro"] td { font-size: var(--rt-body); }
 
 /* ── 2. Headings (pixel, uppercase) ── */
 :root[data-theme="retro"] :is(h1, h2, h3, h4, h5, h6, summary, legend,
@@ -61,18 +59,19 @@
   font-family: var(--s-pixel) !important; font-weight: 400 !important; font-size: var(--rt-label) !important;
   line-height: 1.6 !important; text-transform: uppercase;
 }
-:root[data-theme="retro"] :is(.count, .s-pill, .pill, .pc-badge, .l-asin, .l-status, .pp-tab-count, .inv-n, .d-state, .oc-chip) {
+:root[data-theme="retro"] :is(.count, .s-pill, .pill, .pc-badge, .l-status, .pp-tab-count, .d-state, .oc-chip) {
   font-family: var(--s-pixel) !important; font-weight: 400 !important; font-size: var(--rt-cap) !important; line-height: 1.6 !important; text-transform: uppercase;
 }
 :root[data-theme="retro"] :is(.s-pill, .pill, .pc-badge, .oc-chip) { border: 1px solid currentColor; padding: 2px 6px; }
 
-/* ── 4. Big figures (pixel) ── */
+/* ── 4. Big figures: normal font, bold, one size (B-804) ── */
 :root[data-theme="retro"] :is(.t-value, .bs-value, .s-stat-value, .pp-card-figure, .total-value, .status-value, .spend-value,
 .bank-balance-value, .inv-total b, .bq-tile-value) {
-  font-family: var(--s-pixel) !important; font-weight: 400 !important; font-size: var(--rt-fig) !important; line-height: 1.5 !important;
+  font-family: var(--s-font) !important; font-weight: 800 !important; font-size: var(--rt-num) !important; line-height: 1.2 !important;
+  font-variant-numeric: tabular-nums;
 }
 /* Five figures across a phone card: the small size (beats the :is() list above). */
-:root[data-theme="retro"] .bl-stat .bs-value { font-size: var(--rt-btn) !important; }
+:root[data-theme="retro"] .bl-stat .bs-value { font-size: var(--rt-body) !important; }
 
 /* ── 5. Buttons: one size, one outline, one shadow ── */
 /* :where() keeps this rule weak (0,2,0) so the primary / danger colours below win. */
@@ -84,7 +83,7 @@
   background: var(--s-surface) !important; background-image: none !important; color: var(--s-text) !important;
   border: var(--rt-line) !important; box-shadow: var(--rt-raise-sm) !important; transition: none !important; filter: none;
 }
-/* The pixel family needs "body" to outrank section 1's "body *" (same weight, later wins). */
+/* The pixel family in its own rule with "body" in it, so it outranks the old button families' font rules. */
 :root[data-theme="retro"] body :where(button, .pc-toggle, a.s-btn, a.primary-btn, a.secondary-btn, .lets-buy-btn):not(:where(.tab, .s-nav-link, .s-nav-sublink, .s-nav-toggle, .s-nav-burger, .theme-btn, .icon-btn, .link-btn, .nav-link-btn, .s-btn-icon, .s-stat)) { font-family: var(--s-pixel) !important; }
 :root[data-theme="retro"] :where(button, .pc-toggle):not(:where(.tab, .s-nav-link, .s-nav-sublink, .s-tab, .ai-seg-btn, .density-btn, .cfm-tab, .pp-tab, .link-btn, .nav-link-btn, th button, .s-menu-list > *)):hover:not(:disabled) { background: var(--s-accent-bg) !important; }
 :root[data-theme="retro"] :where(button, .pc-toggle):not(:where(.tab, .s-nav-link, .s-nav-sublink, .s-tab, .ai-seg-btn, .density-btn, .cfm-tab, .pp-tab, .link-btn, .nav-link-btn, th button, .s-menu-list > *)):active:not(:disabled) { transform: translate(2px, 2px); box-shadow: none !important; }
@@ -115,13 +114,13 @@
 }
 :root[data-theme="retro"] :is(.s-tabs, .ai-seg, .pp-tabs) { display: flex; flex-wrap: wrap; gap: 6px; background: none !important; border: 0 !important; padding: 0 !important; box-shadow: none !important; }
 
-/* ── 7. Inputs: one height, one outline, terminal text ── */
+/* ── 7. Inputs: one height, one outline, normal text ── */
 :root[data-theme="retro"] :is(input[type="text"], input[type="number"], input[type="search"], input[type="email"], input[type="password"], input[type="tel"], input[type="url"],
 input[type="date"], input[type="time"], input[type="datetime-local"], input:not([type]), select, .s-input, .s-select) {
-  font-size: var(--rt-body) !important; min-height: var(--rt-ctl-h); padding: 0 10px !important; line-height: 1.1;
+  font-family: var(--s-font) !important; font-size: var(--rt-body) !important; min-height: var(--rt-ctl-h); padding: 0 10px !important; line-height: 1.1;
   background: var(--s-surface) !important; color: var(--s-text) !important; border: var(--rt-line) !important; box-shadow: none !important;
 }
-:root[data-theme="retro"] textarea { font-size: var(--rt-body) !important; padding: var(--rt-2) 10px !important; background: var(--s-surface) !important; color: var(--s-text) !important; border: var(--rt-line) !important; box-shadow: none !important; }
+:root[data-theme="retro"] textarea { font-family: var(--s-font) !important; font-size: var(--rt-body) !important; padding: var(--rt-2) 10px !important; background: var(--s-surface) !important; color: var(--s-text) !important; border: var(--rt-line) !important; box-shadow: none !important; }
 :root[data-theme="retro"] input[type="checkbox"], :root[data-theme="retro"] input[type="radio"] { accent-color: var(--s-accent); width: 18px; height: 18px; }
 :root[data-theme="retro"] input[type="range"] { accent-color: var(--s-accent); }
 
