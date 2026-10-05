@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.20";
+const APP_BUILD = "v2.0.21";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -1962,6 +1962,60 @@ function invBucketRows(rows, bucket) {
     .sort((x, y) => Number(y[b.field]) - Number(x[b.field]));
 }
 
+// B-840 (v2.0.21): "Receive" - count a delivery a chunk at a time (remote/receive-count.js).
+// The tally lives on this phone only. Nothing is sent until Zach answers "Yes, set it";
+// then it goes as the SAME setCount command the pencil uses (the laptop owns the rule).
+function invReceiveError(status) {
+  if (status === "not sent") return "The command did not reach the laptop, so nothing was saved.";
+  if (status === "timeout") return "The laptop did not answer, so nothing is confirmed. Check the Pipeline page before you try again.";
+  if (status === "rejected") return "The laptop refused it, so nothing was saved.";
+  if (status === "error") return "The laptop could not save it.";
+  return "The laptop answered \"" + status + "\", so nothing was saved.";
+}
+
+// The row buttons show the tally in progress ("Receive · 36"). The count rides in a no-wrap span so a
+// narrow button breaks between "Receive" and "· 36", never after the dot.
+function invSetReceiveLabel(b, asin) {
+  const label = self.ShopperReceive.buttonLabel(asin);
+  const at = label.indexOf(" ");
+  b.textContent = at < 0 ? label : label.slice(0, at + 1);
+  if (at >= 0) b.appendChild(invNode("span", "rc-tally", label.slice(at + 1)));
+}
+
+// The pop-up calls this on every change of a tally.
+function invRefreshReceiveButtons() {
+  if (!self.ShopperReceive) return;
+  for (const b of els.invBucketTable.querySelectorAll(".rc-row-btn")) invSetReceiveLabel(b, b.dataset.asin);
+}
+
+function invOpenReceive(r) {
+  if (!self.ShopperReceive) return;
+  self.ShopperReceive.open({
+    asin: r.asin,
+    title: r.title || r.asin,
+    expected: r.house,
+    expectedText: invUnits(r.house),
+    format: invUnits,
+    where: "House",
+    onChange: invRefreshReceiveButtons,
+    onConfirm: async (units) => {
+      const id = await sendCommand("setCount", { asin: r.asin, destination: "house", units, note: "Receive count from the phone" });
+      const status = id ? await waitFor(id) : "not sent";
+      return { ok: status === "done", error: status === "done" ? "" : invReceiveError(status) };
+    },
+  });
+}
+
+function invReceiveButton(r) {
+  const b = invNode("button", "rc-row-btn");
+  invSetReceiveLabel(b, r.asin);
+  b.type = "button";
+  b.dataset.asin = r.asin;
+  b.setAttribute("aria-label", "Receive count for " + (r.title || r.asin));
+  b.addEventListener("click", () => invOpenReceive(r));
+  return b;
+}
+
 function renderInvBucket(inv) {
   for (const t of document.querySelectorAll(".inv-total[data-bucket]")) {
     const on = !!(inv && inv.available) && t.dataset.bucket === invBucket;
@@ -1989,10 +2043,14 @@ function renderInvBucket(inv) {
   const thead = invNode("thead");
   thead.appendChild(head);
   const tbody = invNode("tbody");
+  // B-840: only the House list gets a Receive button, under each product's ASIN.
+  const withReceive = invBucket === "house" && !!self.ShopperReceive;
   for (const r of rows) {
     const tr = invNode("tr");
     tr.appendChild(invNode("td", "inv-title", r.title || r.asin));
-    tr.appendChild(invNode("td", "inv-asin", r.asin));
+    const asinCell = invNode("td", "inv-asin", r.asin);
+    if (withReceive) asinCell.appendChild(invReceiveButton(r));
+    tr.appendChild(asinCell);
     tr.appendChild(invNode("td", "inv-num" + (Number(r[b.field]) < 0 ? " inv-neg" : ""), invUnits(r[b.field])));
     tbody.appendChild(tr);
   }

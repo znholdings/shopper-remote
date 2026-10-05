@@ -446,16 +446,34 @@ button { font: inherit; cursor: pointer; }
 /* B-465 (v4.50): the tiles are buttons; the open one is outlined. */
 .inv-total[data-bucket] { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .inv-total.inv-total-on { outline: 2px solid var(--text); outline-offset: -1px; }
-.inv-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 13px; }
-.inv-table th { text-align: left; color: var(--muted); font-weight: 600; padding: 4px 6px; border-bottom: 1px solid var(--line); }
-.inv-table td { padding: 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+/* B-839 (v2.0.21): smaller table text and the ASIN always on ONE line (Zach, from his iPhone:
+   "having the ASIN all squished like that looks pretty dumb ... make the text smaller here").
+   The columns are fixed in px (ASIN 82, Units 70), not 7.5em / 4.5em: in Retro the header is an 8px
+   pixel font, so 7.5em came to 60px and the 10-character ASIN broke over three lines. An 11px
+   monospace ASIN is 66px wide. */
+.inv-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 12px; }
+.inv-table th { text-align: left; color: var(--muted); font-weight: 600; padding: 4px; border-bottom: 1px solid var(--line); }
+.inv-table td { padding: 6px 4px; border-bottom: 1px solid var(--line); vertical-align: top; }
 .inv-table th:nth-child(1) { width: auto; }
-.inv-table th:nth-child(2) { width: 7.5em; }
-.inv-table th:nth-child(3) { width: 4.5em; }
+.inv-table th:nth-child(2) { width: 82px; }
+.inv-table th:nth-child(3) { width: 70px; }
 .inv-table .inv-title { overflow-wrap: anywhere; }
-.inv-table .inv-asin { font-size: 11px; color: var(--muted); overflow-wrap: anywhere; }
+.inv-table td.inv-title { font-size: 12px; line-height: 1.3; }
+.inv-table td.inv-asin { font-family: var(--s-mono); font-size: 11px; line-height: 1.3; color: var(--muted); white-space: nowrap; }
 .inv-table .inv-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.inv-table td.inv-num { font-size: 13px; }
 .inv-table .inv-neg { color: var(--bad); font-weight: 700; }
+/* B-840 (v2.0.21): the House list's Receive button sits under each ASIN (the column is as wide as the
+   button; a tally in progress adds its total to the label and may wrap to two lines). */
+.inv-table .rc-row-btn { display: block; width: 100%; margin-top: 6px; min-height: 28px; padding: 4px 2px; font: inherit; font-size: 12px; font-weight: 700; line-height: 1.2; text-align: center; white-space: normal; color: var(--s-accent); background: var(--s-accent-bg); border: 1px solid var(--s-accent); border-radius: var(--s-r-sm); }
+.inv-table .rc-tally { white-space: nowrap; }
+/* Retro forces 14px on every cell (!important) and pads cells 8px: say the same things again with more weight. */
+:root[data-theme="retro"] .inv-table :is(td, th) { padding: 6px 4px; }
+:root[data-theme="retro"] .inv-table th { padding: 4px; }
+:root[data-theme="retro"] .inv-table td.inv-title { font-size: 12px !important; line-height: 1.3 !important; }
+:root[data-theme="retro"] .inv-table td.inv-asin { font-size: 11px !important; line-height: 1.3 !important; white-space: nowrap; }
+:root[data-theme="retro"] .inv-table td.inv-num { font-size: 13px !important; line-height: 1.3 !important; }
+:root[data-theme="retro"] .inv-table .rc-row-btn { display: block; width: 100%; min-height: 28px; padding: 9px 2px !important; font-size: 8px !important; line-height: 1.3 !important; }
 
 /* ------------------------------------------------------ v4.56 */
 /* B-494: Shoppy in the top bar. */

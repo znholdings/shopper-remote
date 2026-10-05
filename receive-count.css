@@ -1,0 +1,139 @@
+/* lib/receive-count.css - B-840 (v2.0.21): the Receive counter pop-up.
+   lib/receive-count.css and remote/receive-count.css are the same file (test v2021).
+   Tokens only (--s-*): both lib/shopper-ui.css and the phone's token block define
+   every one used here. The pop-up is a fixed overlay appended to <body>, so a
+   table redraw never destroys it. Retro (retro-core.css forces a 14px body size
+   and its own button / input look with !important) gets explicit rules at the end. */
+
+.rc-overlay {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1100;
+  display: flex; align-items: center; justify-content: center; box-sizing: border-box;
+  padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  background: color-mix(in srgb, var(--s-shadow) 55%, transparent);
+  touch-action: none;
+}
+.rc-card {
+  box-sizing: border-box; width: 100%; max-width: 440px; max-height: 100%;
+  overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; -webkit-overflow-scrolling: touch;
+  display: flex; flex-direction: column; gap: 10px; padding: 16px; outline: none;
+  background: var(--s-surface); color: var(--s-text); border: 1px solid var(--s-line);
+  border-radius: var(--s-r-lg); box-shadow: var(--s-elev-2);
+  font-family: var(--s-font); font-size: 14px; line-height: 1.4;
+}
+.rc-card * { box-sizing: border-box; }
+/* A short screen (or the keyboard) makes the card scroll; it must never squash a box. */
+.rc-card > * { flex-shrink: 0; }
+
+.rc-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.rc-heads { min-width: 0; flex: 1 1 auto; }
+.rc-title { font-size: 16px; font-weight: 700; line-height: 1.25; overflow-wrap: anywhere; }
+.rc-asin { margin-top: 2px; font-family: var(--s-mono); font-size: 12px; color: var(--s-text-muted); overflow-wrap: anywhere; }
+.rc-x {
+  flex: none; width: 36px; height: 36px; padding: 0; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  font: inherit; font-size: 16px; line-height: 1;
+  background: var(--s-surface); color: var(--s-text); border: 1px solid var(--s-line); border-radius: var(--s-r-sm);
+}
+
+.rc-totalbox { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+.rc-total { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 8px; }
+.rc-total-n { font-size: 44px; font-weight: 800; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.rc-total-of { font-size: 20px; font-weight: 600; color: var(--s-text-muted); font-variant-numeric: tabular-nums; }
+.rc-gap { padding: 2px 10px; font-size: 14px; font-weight: 700; border-radius: var(--s-r-sm); background: var(--s-surface-2); color: var(--s-text-2); font-variant-numeric: tabular-nums; }
+.rc-gap-match { background: var(--s-green-bg); color: var(--s-green-ink); }
+.rc-gap-over { background: var(--s-red-bg); color: var(--s-red-ink); }
+.rc-gap-none { background: transparent; padding-left: 0; color: var(--s-text-muted); font-weight: 600; }
+
+.rc-entries {
+  max-height: 4.8em; overflow-y: auto; padding: 8px 10px;
+  font-size: 15px; line-height: 1.4; color: var(--s-text-2); overflow-wrap: anywhere; font-variant-numeric: tabular-nums;
+  background: var(--s-surface-2); border: 1px solid var(--s-line); border-radius: var(--s-r-sm);
+}
+.rc-entries-empty { color: var(--s-text-muted); }
+
+.rc-btn {
+  font: inherit; font-size: 14px; font-weight: 600; line-height: 1.2; cursor: pointer;
+  min-height: 40px; padding: 8px 14px; border-radius: var(--s-r-sm);
+  background: var(--s-surface); color: var(--s-text); border: 1px solid var(--s-line);
+  -webkit-tap-highlight-color: transparent;
+}
+.rc-btn:disabled { opacity: .45; cursor: default; }
+.rc-plus {
+  width: 100%; min-height: 64px; font-size: 30px; font-weight: 800; border-radius: var(--s-r);
+  background: var(--s-accent); color: var(--s-on-accent); border-color: var(--s-accent);
+}
+.rc-plus:active:not(:disabled) { transform: scale(.98); }
+.rc-custom { display: flex; gap: 8px; align-items: stretch; }
+.rc-input {
+  flex: 1 1 auto; min-width: 0; width: 100%; min-height: 48px; padding: 8px 12px;
+  font-family: var(--s-font); font-size: 18px; font-variant-numeric: tabular-nums;
+  background: var(--s-surface); color: var(--s-text); border: 1px solid var(--s-line); border-radius: var(--s-r-sm);
+}
+.rc-add { flex: none; min-height: 48px; padding: 8px 18px; font-size: 16px; font-weight: 700; background: var(--s-accent-bg); color: var(--s-accent); border-color: var(--s-accent); }
+.rc-tools { display: flex; flex-wrap: wrap; gap: 8px; }
+.rc-tools .rc-btn { flex: 1 1 auto; }
+.rc-quiet { background: transparent; }
+.rc-danger { color: var(--s-red); border-color: var(--s-red-soft); }
+.rc-on { background: var(--s-accent-bg); color: var(--s-accent); border-color: var(--s-accent); }
+
+.rc-ask { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; background: var(--s-surface-2); border: 1px solid var(--s-line); border-radius: var(--s-r-sm); }
+.rc-ask-text { font-size: 14px; font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
+.rc-ask-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.rc-ask-btns .rc-btn { flex: 1 1 100px; }
+
+.rc-voice { display: flex; flex-direction: column; gap: 8px; padding: 10px; background: var(--s-surface-2); border: 1px dashed var(--s-line); border-radius: var(--s-r-sm); }
+.rc-voice-text {
+  width: 100%; min-height: 76px; padding: 8px 10px; resize: vertical;
+  font-family: var(--s-font); font-size: 16px; line-height: 1.35;
+  background: var(--s-surface); color: var(--s-text); border: 1px solid var(--s-line); border-radius: var(--s-r-sm);
+}
+.rc-voice-live { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.rc-voice-bad { padding: 6px 8px; font-size: 13px; font-weight: 600; overflow-wrap: anywhere; background: var(--s-red-bg); color: var(--s-red-ink); border-radius: var(--s-r-sm); }
+.rc-voice-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.rc-voice-btns .rc-btn { flex: 1 1 auto; }
+
+.rc-msg { font-size: 14px; font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
+.rc-msg:empty { display: none; }
+.rc-msg-bad { padding: 8px 10px; background: var(--s-red-bg); color: var(--s-red-ink); border-radius: var(--s-r-sm); }
+.rc-msg-ok { padding: 8px 10px; background: var(--s-green-bg); color: var(--s-green-ink); border-radius: var(--s-r-sm); }
+
+.rc-foot { display: flex; flex-wrap: wrap; gap: 8px; }
+.rc-done { flex: 1 1 96px; }
+.rc-make { flex: 2 1 170px; }
+.rc-primary { background: var(--s-accent); color: var(--s-on-accent); border-color: var(--s-accent); }
+.rc-btn:focus-visible, .rc-x:focus-visible, .rc-input:focus-visible, .rc-voice-text:focus-visible { outline: 2px solid var(--s-accent); outline-offset: 2px; }
+
+/* ---- Retro: retro-core.css sets every element to 14px, every button to the
+   10px pixel look and every input to 14px, all !important, so each size here is
+   restated with more weight. Colours come from the tokens (the Retro block
+   redefines them), corners are already square. ---- */
+:root[data-theme="retro"] .rc-overlay { background: color-mix(in srgb, var(--s-n7) 55%, transparent); }
+:root[data-theme="retro"] .rc-card { border: 2px solid var(--s-n7); box-shadow: 5px 5px 0 var(--s-n7); }
+:root[data-theme="retro"] .rc-card .rc-title { font-size: 14px !important; font-weight: 700; line-height: 1.3 !important; }
+:root[data-theme="retro"] .rc-card .rc-asin { font-size: 12px !important; font-family: var(--s-mono); line-height: 1.3 !important; }
+:root[data-theme="retro"] .rc-card .rc-total-n { font-size: 44px !important; font-weight: 800; line-height: 1.05 !important; }
+:root[data-theme="retro"] .rc-card .rc-total-of { font-size: 20px !important; font-weight: 700; line-height: 1.2 !important; }
+:root[data-theme="retro"] .rc-card .rc-gap { font-size: 14px !important; line-height: 1.3 !important; border: 2px solid var(--s-n7); }
+:root[data-theme="retro"] .rc-card .rc-gap-none { border-color: transparent; }
+:root[data-theme="retro"] .rc-card .rc-entries { font-size: 15px !important; line-height: 1.35 !important; border: 2px solid var(--s-n7); }
+:root[data-theme="retro"] .rc-card .rc-ask { border: 2px solid var(--s-n7); }
+:root[data-theme="retro"] .rc-card .rc-ask-text { font-size: 14px !important; line-height: 1.35 !important; }
+:root[data-theme="retro"] .rc-card .rc-voice { border: 2px dashed var(--s-n7); }
+:root[data-theme="retro"] .rc-card .rc-voice-live { font-size: 15px !important; line-height: 1.3 !important; }
+:root[data-theme="retro"] .rc-card .rc-voice-bad { font-size: 13px !important; line-height: 1.3 !important; }
+:root[data-theme="retro"] .rc-card .rc-msg { font-size: 14px !important; line-height: 1.35 !important; }
+:root[data-theme="retro"] .rc-card .rc-input { font-size: 18px !important; min-height: 48px; padding: 8px 12px !important; line-height: 1.2; }
+:root[data-theme="retro"] .rc-card .rc-voice-text { font-size: 16px !important; min-height: 76px; padding: 8px 10px !important; line-height: 1.35 !important; }
+:root[data-theme="retro"] .rc-card .rc-btn { min-height: 40px; padding: 6px 10px !important; font-size: 10px !important; line-height: 1.35 !important; text-align: center; }
+:root[data-theme="retro"] .rc-card .rc-plus { min-height: 64px; font-size: 26px !important; background: var(--s-accent) !important; color: var(--s-on-accent) !important; box-shadow: 3px 3px 0 var(--s-n7) !important; }
+:root[data-theme="retro"] .rc-card .rc-add { min-height: 48px; font-size: 12px !important; padding: 6px 16px !important; background: var(--s-accent-bg) !important; color: var(--s-accent) !important; }
+:root[data-theme="retro"] .rc-card .rc-primary { background: var(--s-accent) !important; color: var(--s-on-accent) !important; }
+:root[data-theme="retro"] .rc-card .rc-quiet { background: var(--s-surface) !important; box-shadow: none !important; }
+:root[data-theme="retro"] .rc-card .rc-danger { color: var(--s-red) !important; }
+:root[data-theme="retro"] .rc-card .rc-on { background: var(--s-accent) !important; color: var(--s-on-accent) !important; }
+:root[data-theme="retro"] .rc-card .rc-x { width: 36px; height: 36px; min-height: 0; padding: 0 !important; font-size: 16px !important; font-family: var(--s-font) !important; }
+:root[data-theme="retro"] .rc-card .rc-ask-btns .rc-btn,
+:root[data-theme="retro"] .rc-card .rc-foot .rc-btn,
+:root[data-theme="retro"] .rc-card .rc-voice-btns .rc-btn { min-height: 40px; }
+
+[hidden] { display: none !important; }
