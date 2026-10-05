@@ -114,7 +114,17 @@
 /* Icon-only buttons: a square of the same height. */
 :root[data-theme="retro"] :is(.theme-btn, .icon-btn, .s-btn-icon) { width: var(--rt-ctl-h); height: var(--rt-ctl-h); padding: 0 !important; display: inline-flex; align-items: center; justify-content: center; border: var(--rt-line) !important; box-shadow: var(--rt-raise-sm) !important; background: var(--s-surface) !important; color: var(--s-text) !important; }
 /* Text links stay text. */
-:root[data-theme="retro"] :is(.link-btn, .nav-link-btn) { background: none !important; border: 0 !important; box-shadow: none !important; padding: 0 !important; min-height: 0; color: var(--s-accent) !important; text-decoration: underline; font-size: var(--rt-body) !important; }
+:root[data-theme="retro"] .link-btn { background: none !important; border: 0 !important; box-shadow: none !important; padding: 0 !important; min-height: 0; color: var(--s-accent) !important; text-decoration: underline; font-size: var(--rt-body) !important; }
+
+/* B-808 (v2.0.15): the popup nav grid is BUTTONS in Retro too - square,
+   black outline, hard shadow, pixel label; Dashboard filled with the accent. */
+:root[data-theme="retro"] .nav-links .nav-link-btn { background: var(--s-surface) !important; color: var(--s-text) !important; border: var(--rt-line) !important; box-shadow: var(--rt-raise-sm) !important; padding: var(--rt-2) var(--rt-1) !important; min-height: var(--rt-ctl-h); text-decoration: none !important; font-family: var(--s-pixel) !important; font-weight: 400 !important; font-size: var(--rt-btn) !important; text-transform: uppercase; line-height: 1.4 !important; }
+:root[data-theme="retro"] .nav-links .nav-link-btn .nav-link-label { font-family: inherit !important; font-size: inherit !important; font-weight: inherit !important; }
+:root[data-theme="retro"] .nav-links .nav-link-btn.nav-link-primary { background: var(--s-accent) !important; color: var(--s-n0) !important; font-size: var(--rt-h3) !important; box-shadow: var(--rt-raise) !important; }
+:root[data-theme="retro"] .nav-links .nav-link-btn:hover:not(:disabled) { background: var(--s-accent-bg) !important; }
+:root[data-theme="retro"] .nav-links .nav-link-btn.nav-link-primary:hover:not(:disabled) { background: var(--s-accent) !important; filter: brightness(1.08); }
+:root[data-theme="retro"] .nav-links .nav-link-btn:active:not(:disabled) { transform: translate(2px, 2px); box-shadow: none !important; }
+:root[data-theme="retro"] .nav-links .nav-link-btn::after { display: none; }
 
 /* ── 6. Segmented choices (in-page tabs, Compact/Normal/Extended ...) ── */
 :root[data-theme="retro"] :is(.s-tab, .ai-seg-btn, .density-btn, .cfm-tab, .pp-tab) {
