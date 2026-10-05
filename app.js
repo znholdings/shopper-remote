@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.17";
+const APP_BUILD = "v2.0.18";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -46,12 +46,10 @@ for (const id of [
   // B-465 (v4.50): tap a House / Prep / In transit tile for its products.
   "invBucketPanel","invBucketTitle","invBucketNote","invBucketTable",
   // B-490 (v4.56): the read-only Dashboard tab.
-  "tabDashboard","dashboardPane","dashAsOf","dashNotifCount","dashNotifs",
-  "dashNextRun","dashNextHead","dashNextSub","dashLastRun","dashLastHead","dashLastSub",
-  "dashSpend","dashPipeAsOf","dashArrivals","dashNeedsYou","dashFlow",
-  "dashRrCount","dashRrSummary","dashRrList",
+  "tabDashboard","dashboardPane","dashAsOf","dashTiles","dashDoNext","dashDoCount",
+  "dashLastRun","dashLastHead","dashLastSub","dashNightly",
   // B-510/B-511 (v4.61): the read-only FBA tab (remote/fba-view.js draws it).
-  "tabFba","fbaPane","dashFbaSec",
+  "tabFba","fbaPane",
   // B-741 (v2.01): the Min tab (remote/belowmin-view.js draws it).
   "tabBelowMin","belowMinPane",
   // B-742 (v2.0.7): the Ship tab (remote/wizard-view.js draws it).
@@ -494,10 +492,11 @@ function renderPayload() {
   renderBuylistGen(p.buylistGen);
   if (!isBeingEdited(els.buylistItems)) renderBuylist(p.buylist);
   renderInventory(p.inventory);
-  renderDashboard(p.dashboard);
-  // B-510/B-511 (v4.61): the FBA tab and the Dashboard's FBA card.
+  // B-510/B-511 (v4.61): the FBA tab.
   if (self.ShopperFbaView) self.ShopperFbaView.render(p.fba);
   if (self.ShopperBelowMinView) self.ShopperBelowMinView.render(p.belowMin);
+  // B-833 (v2.0.18): Home reads the FBA alerts and the Below Min count, so it is drawn after them.
+  renderDashboard(p.dashboard, p);
   // B-742 (v2.0.7): the Ship tab - every tap goes to the laptop as wizardAction.
   if (self.ShopperWizardView) {
     self.ShopperWizardView.render(els.wizardHost, p.wizard ? p.wizard.screen : null, {
@@ -1482,26 +1481,11 @@ els.tabWizard.addEventListener("click", () => switchTab("wizard"));
 els.tabCashFlow.addEventListener("click", () => switchTab("cashflow"));
 if (self.ShopperBelowMinView) self.ShopperBelowMinView.wire();
 if (self.ShopperCashFlowView) self.ShopperCashFlowView.wire();
-// B-511 (v4.61): the Dashboard's FBA card opens the FBA tab.
-els.dashFbaSec.addEventListener("click", () => switchTab("fba"));
-els.dashFbaSec.addEventListener("keydown", (e) => {
-  if (e.key === "Enter" || e.key === " ") {
-    e.preventDefault();
-    switchTab("fba");
-  }
-});
 // B-663 (v4.85): the arrivals line opens the Arrivals boxes on the Inventory tab.
 function openArrivals() {
   switchTab("inventory");
   if (els.invArrivals && els.invArrivals.scrollIntoView) els.invArrivals.scrollIntoView({ block: "start" });
 }
-els.dashArrivals.addEventListener("click", openArrivals);
-els.dashArrivals.addEventListener("keydown", (e) => {
-  if (e.key === "Enter" || e.key === " ") {
-    e.preventDefault();
-    openArrivals();
-  }
-});
 // B-662 (v4.85): the Bank view's way back.
 els.bankBack.addEventListener("click", () => switchTab("dashboard"));
 els.invFilter.addEventListener("input", () => renderInventory(lastPayload && lastPayload.inventory));
@@ -1764,7 +1748,26 @@ function maybePlaySounds(p) {
   if (next.totalSpent > prev.totalSpent) playSound("order-placed");
 }
 
+// B-834 (v2.0.18): the Min tab's Send bar sits right above the bottom tab bar;
+// the bar's real height (it changes with the theme and the home-indicator
+// inset) is measured into --tabbar-h.
+function syncTabBarHeight() {
+  try {
+    const bar = document.querySelector("#mainView > .tabs");
+    const h = bar ? bar.offsetHeight : 0;
+    if (h > 0) document.documentElement.style.setProperty("--tabbar-h", h + "px");
+  } catch (e) { /* the CSS fallback is a good guess */ }
+}
+window.addEventListener("resize", syncTabBarHeight);
+try {
+  if (typeof ResizeObserver === "function") {
+    const barEl = document.querySelector("#mainView > .tabs");
+    if (barEl) new ResizeObserver(syncTabBarHeight).observe(barEl);
+  }
+} catch (e) { /* resize + switchTab cover it */ }
+
 function switchTab(which) {
+  syncTabBarHeight();
   els.runPane.hidden = which !== "run";
   els.buylistPane.hidden = which !== "buylist";
   els.inventoryPane.hidden = which !== "inventory";
@@ -2167,14 +2170,6 @@ function dashAgoMs(ms) {
   return h < 48 ? h + " h ago" : Math.round(h / 24) + " days ago";
 }
 
-function dashTile(label, value, extra, cls) {
-  const t = invNode("div", "dash-tile" + (cls ? " " + cls : ""));
-  t.appendChild(invNode("span", "t-label", label));
-  t.appendChild(invNode("b", null, value));
-  if (extra) t.appendChild(invNode("span", "dash-money", extra));
-  return t;
-}
-
 // B-795 (v2.0.9): a Dashboard pipeline tile opens the matching view on the
 // Inventory tab - House / Prep / In transit open that tile's product table,
 // On hand the totals, Products the product list.
@@ -2185,21 +2180,6 @@ function openInventoryView(bucket, anchor) {
   const target = anchor === "products" ? els.invFilter : bucket ? els.invBucketPanel : els.inventoryPane;
   if (target && !target.hidden && target.scrollIntoView) target.scrollIntoView({ block: "start" });
   else scrollAppTop();
-}
-
-function dashTileGo(tile, bucket, anchor) {
-  tile.classList.add("dash-tap");
-  tile.setAttribute("role", "button");
-  tile.setAttribute("tabindex", "0");
-  const go = () => openInventoryView(bucket, anchor);
-  tile.addEventListener("click", go);
-  tile.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      go();
-    }
-  });
-  return tile;
 }
 
 // B-796 (v2.0.9) / B-798 (v2.0.10): the page scrolls again (B-798 undid
@@ -2236,60 +2216,170 @@ function renderBank(sp) {
   }
 }
 
-function renderDashboard(d) {
-  const key = JSON.stringify(d || null);
-  if (key === lastDashboardKey) return;
-  lastDashboardKey = key;
-  for (const k of ["dashNotifs", "dashSpend", "dashFlow", "dashRrList"]) els[k].textContent = "";
-  els.dashNextRun.classList.remove("owed", "caught-up");
-  if (!d) {
+// B-833 (v2.0.18): Home = "Glance + To-do" - the laptop Dashboard's layout. The
+// tiles and the Do next list come from self.ShopperGlance (remote/dash-lib.js =
+// lib/dashboard-todo.js, the SAME code the laptop runs); every button jumps to
+// this app's own tabs. Nothing here works out a figure.
+let glOpen = new Set(); // Do next rows opened in place (read-only on the phone)
+
+function glGo(target) {
+  const go = {
+    buylist: () => switchTab("buylist"),
+    buyqueue: () => switchTab("run"),
+    pipeline: () => openInventoryView(null),
+    arrivals: () => openArrivals(),
+    belowmin: () => switchTab("belowmin"),
+    runreviews: () => switchTab("run"),
+    fba: () => switchTab("fba"),
+    wizard: () => switchTab("wizard"),
+    cashflow: () => switchTab("cashflow"),
+    bank: () => switchTab("bank"),
+  }[target];
+  if (go) go();
+}
+
+function glTap(node, fn) {
+  node.classList.add("dash-tap");
+  node.setAttribute("role", "button");
+  node.setAttribute("tabindex", "0");
+  node.addEventListener("click", fn);
+  node.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      fn();
+    }
+  });
+  return node;
+}
+
+function glTile(t) {
+  const n = invNode("div", "dash-tile gl-tile gl-tone-" + (t.tone || "flat") + (t.id === "stock" ? " wide" : ""));
+  n.dataset.tile = t.id;
+  n.appendChild(invNode("span", "t-label", t.label));
+  n.appendChild(invNode("b", "gl-num", t.value));
+  if (t.sub) n.appendChild(invNode("span", "dash-money gl-sub", t.sub));
+  if (t.split) {
+    const row = invNode("div", "gl-split");
+    for (const s of t.split) {
+      const item = invNode("span", "gl-split-item");
+      item.appendChild(invNode("span", "gl-split-label", s.label));
+      item.appendChild(invNode("span", "gl-split-value", s.value));
+      row.appendChild(item);
+    }
+    n.appendChild(row);
+  }
+  return glTap(n, () => glGo(t.target));
+}
+
+function glRow(r) {
+  const row = invNode("div", "line gl-row gl-sev-" + r.severity);
+  row.dataset.row = r.id;
+  const top = invNode("div", "gl-row-top");
+  top.appendChild(invNode("span", "gl-rank", r.rank));
+  const main = invNode("div", "gl-main");
+  main.appendChild(invNode("b", "gl-title", r.title));
+  if (r.detail) main.appendChild(invNode("div", "l-meta", r.detail));
+  top.appendChild(main);
+  row.appendChild(top);
+  const body = invNode("div", "gl-expand");
+  body.hidden = !glOpen.has(r.id);
+  const fill = () => {
+    body.textContent = "";
+    for (const n of r.notifs || []) {
+      const c = invNode("div", "line dash-notif sev-" + n.severity);
+      const t = invNode("div", "inv-row-top");
+      t.appendChild(invNode("span", "dash-sev", n.severity));
+      t.appendChild(invNode("span", "inv-title", n.title));
+      c.appendChild(t);
+      if (n.detail) c.appendChild(invNode("div", "l-meta", n.detail));
+      if (n.examples && n.examples.length) {
+        const ul = invNode("ul", "dash-ex");
+        for (const e of n.examples) ul.appendChild(invNode("li", null, e));
+        if (n.count > n.examples.length) ul.appendChild(invNode("li", null, "+" + (n.count - n.examples.length) + " more"));
+        c.appendChild(ul);
+      }
+      body.appendChild(c);
+    }
+    if (r.notifs && r.notifs.length) body.appendChild(invNode("div", "muted small", "Mark done / Dismiss are on the laptop."));
+  };
+  if (!body.hidden) fill();
+  const btn = invNode("button", "primary-btn gl-go", r.go.target === "runreviews" ? "Run tab" : r.go.label);
+  btn.type = "button";
+  if (r.go.target === "expand") {
+    btn.setAttribute("aria-expanded", String(!body.hidden));
+    btn.addEventListener("click", () => {
+      if (glOpen.has(r.id)) glOpen.delete(r.id); else glOpen.add(r.id);
+      body.hidden = !glOpen.has(r.id);
+      if (!body.hidden) fill();
+      btn.setAttribute("aria-expanded", String(!body.hidden));
+    });
+  } else {
+    btn.addEventListener("click", () => glGo(r.go.target));
+  }
+  row.appendChild(btn);
+  row.appendChild(body);
+  return row;
+}
+
+function renderDashboard(d, p) {
+  const G = self.ShopperGlance;
+  if (!d || !G) {
+    lastDashboardKey = "";
+    for (const k of ["dashTiles", "dashDoNext"]) els[k].textContent = "";
     els.dashAsOf.textContent = "Waiting for the laptop to send its Dashboard (needs Shopper v4.56 on the laptop, and the Dashboard opened there once).";
-    els.dashNotifCount.textContent = els.dashPipeAsOf.textContent = els.dashRrCount.textContent = "";
-    els.dashNextHead.textContent = els.dashLastHead.textContent = "-";
-    els.dashNextSub.textContent = els.dashLastSub.textContent = els.dashRrSummary.textContent = "";
-    els.dashArrivals.hidden = els.dashNeedsYou.hidden = true;
+    els.dashDoCount.textContent = els.dashNightly.textContent = "";
+    els.dashLastHead.textContent = "-";
+    els.dashLastSub.textContent = "";
     return;
   }
+  const fba = self.ShopperFbaView && self.ShopperFbaView.glance ? self.ShopperFbaView.glance() : { ok: false, empty: true, alerts: [], tiles: [] };
+  const arrCounts = p && p.inventory && p.inventory.arrivals ? p.inventory.arrivals.counts : null;
+  const bm = p && p.belowMin && p.belowMin.count != null ? Number(p.belowMin.count) : null;
+  const ex = d.extra || {};
+  const money = d.pipeline.money || null;
+  const tiles = G.buildTiles({
+    spend: d.spend,
+    bank: d.spend.bankBalance,
+    cash: ex.cash || null,
+    stock: {
+      house: money ? money.house : null,
+      prep: money ? money.prep : null,
+      inTransit: money ? money.inTransit : null,
+      fba: fba.ok && !fba.empty ? G.fbaStockValue(fba.tiles) : null,
+    },
+  });
+  const rows = G.buildDoNext({
+    loaded: true,
+    notifications: d.notifications,
+    notificationCount: d.openCount,
+    nextRun: d.nextRun,
+    nightlyReady: !!(ex.nightly && ex.nightly.readyAt),
+    needsYou: d.pipeline.available ? d.pipeline.needsYou : 0,
+    arrivalsToday: d.pipeline.available ? d.pipeline.arrivalsToday : 0,
+    overdue: arrCounts ? arrCounts.overdue : 0,
+    belowMin: Number.isFinite(bm) ? bm : null,
+    runReviews: d.runReviews,
+    fbaAlerts: fba.alerts,
+  });
+  const key = JSON.stringify([tiles, rows.map((r) => [r.id, r.title, r.detail, r.severity, r.go.label, (r.notifs || []).map((n) => n.key)]), d.lastRun, ex.nightly, d.remoteBuiltAt, d.stale, d.spend.bankRecent]);
+  if (key === lastDashboardKey) return;
+  lastDashboardKey = key;
+  for (const k of ["dashTiles", "dashDoNext"]) els[k].textContent = "";
   els.dashAsOf.textContent =
-    "Money figures from the laptop's last Dashboard refresh, " + dashAgoMs(d.remoteBuiltAt) + "." +
+    "Figures from the laptop's last Dashboard refresh, " + dashAgoMs(d.remoteBuiltAt) + "." +
     (d.stale ? " Refresh on the laptop for live figures." : "") + " Read-only.";
 
-  // notifications
-  els.dashNotifCount.textContent = "(" + d.openCount + ")";
-  if (!d.notifications.length) els.dashNotifs.appendChild(invNode("div", "muted", "Nothing needs attention right now."));
-  for (const n of d.notifications) {
-    const row = invNode("div", "line dash-notif sev-" + n.severity);
-    const top = invNode("div", "inv-row-top");
-    top.appendChild(invNode("span", "dash-sev", n.severity));
-    top.appendChild(invNode("span", "inv-title", n.title));
-    row.appendChild(top);
-    if (n.detail) row.appendChild(invNode("div", "l-meta", n.detail));
-    if (n.examples.length) {
-      const ul = invNode("ul", "dash-ex");
-      for (const e of n.examples) ul.appendChild(invNode("li", null, e));
-      if (n.count > n.examples.length) ul.appendChild(invNode("li", null, "+" + (n.count - n.examples.length) + " more"));
-      row.appendChild(ul);
-    }
-    els.dashNotifs.appendChild(row);
-  }
-  if (d.openCount > d.notifications.length) els.dashNotifs.appendChild(invNode("div", "muted", "+" + (d.openCount - d.notifications.length) + " more on the laptop"));
+  for (const t of tiles) els.dashTiles.appendChild(glTile(t));
+  renderBank(d.spend);
 
-  // next run - the same three states the desktop uses
-  const next = d.nextRun;
-  if (next.state === "owed") {
-    els.dashNextRun.classList.add("owed");
-    els.dashNextHead.textContent = dashMoney(next.neededToday) + " still needed today";
-    els.dashNextSub.textContent = next.spentToday != null ? dashMoney(next.spentToday) + " spent so far today." : "";
-  } else if (next.state === "caughtUp") {
-    els.dashNextRun.classList.add("caught-up");
-    els.dashNextHead.textContent = "You're all caught up";
-    els.dashNextSub.textContent = next.spentToday != null ? dashMoney(next.spentToday) + " spent today." : "";
-  } else {
-    els.dashNextHead.textContent = "Spend figures not loaded";
-    els.dashNextSub.textContent = "Refresh the Dashboard on the laptop.";
+  els.dashDoCount.textContent = "(" + rows.length + ")";
+  if (!rows.length) {
+    const unknown = !d.nextRun || d.nextRun.state === "unknown";
+    els.dashDoNext.appendChild(invNode("div", "muted", unknown ? "Nothing flagged - but today's spend figures are not loaded (refresh the Dashboard on the laptop)." : "All caught up. Nothing needs you right now."));
   }
+  for (const r of rows) els.dashDoNext.appendChild(glRow(r));
 
-  // last run
+  // status: last run (tap = its report) + the nightly buy list
   const last = d.lastRun;
   if (!last.available) {
     els.dashLastHead.textContent = "No run yet";
@@ -2297,73 +2387,9 @@ function renderDashboard(d) {
   } else {
     els.dashLastHead.textContent = last.status + (last.totalSpent != null ? " · " + dashMoneyShort(last.totalSpent) : "");
     els.dashLastSub.textContent =
-      last.bought + " bought · " + last.partial + " partial · " + last.failed + " failed" +
-      // B-774 (v2.0.9): out of stock is its own count, never folded into failed.
-      (last.outOfStock ? " · " + last.outOfStock + " out of stock" : "") +
-      " · " + last.skipped + " skipped" +
-      (last.needsConfirmation ? " · " + last.needsConfirmation + " to confirm" : "") +
+      last.bought + " bought · " + last.failed + " failed" +
       (last.finishedAt ? " · " + centralText(last.finishedAt) : "");
   }
-
-  // spend & bank
-  const sp = d.spend;
-  // B-662 (v4.85): the Bank balance tile opens the Bank view.
-  const bankTile = dashTile("Bank balance", dashMoney(sp.bankBalance), "Tap for transactions", "wide dash-tap");
-  bankTile.setAttribute("role", "button");
-  bankTile.setAttribute("tabindex", "0");
-  bankTile.addEventListener("click", () => switchTab("bank"));
-  bankTile.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      switchTab("bank");
-    }
-  });
-  els.dashSpend.appendChild(bankTile);
-  renderBank(sp);
-  els.dashSpend.appendChild(dashTile("Spent today", dashMoney(sp.spentToday)));
-  els.dashSpend.appendChild(dashTile("Needed today", dashMoney(sp.neededToday)));
-  els.dashSpend.appendChild(dashTile("Minimum (month)", dashMoney(sp.monthMinimum)));
-  els.dashSpend.appendChild(dashTile("Month", dashMoney(sp.month)));
-  els.dashSpend.appendChild(dashTile("Cushion", dashMoney(sp.cushion)));
-  els.dashSpend.appendChild(dashTile("Cushion target", dashMoney(sp.cushionTarget)));
-
-  // pipeline
-  const p = d.pipeline;
-  if (!p.available) {
-    els.dashPipeAsOf.textContent = "";
-    els.dashArrivals.hidden = els.dashNeedsYou.hidden = true;
-    els.dashFlow.appendChild(invNode("div", "muted", "Nothing on file yet - run a refresh on the laptop's Pipeline page."));
-  } else {
-    els.dashPipeAsOf.textContent = p.generatedAt ? "(refreshed " + invAgo(p.generatedAt) + ")" : "";
-    els.dashArrivals.hidden = false;
-    els.dashArrivals.textContent = p.arrivalsToday
-      ? p.arrivalsToday + " order" + (p.arrivalsToday === 1 ? "" : "s") + " arriving today" +
-        (p.arrivalsTomorrow ? ", " + p.arrivalsTomorrow + " tomorrow" : "") +
-        (p.arrivalsGuessed ? " - " + p.arrivalsGuessed + " estimated" : "")
-      : p.arrivalsTomorrow
-        ? "Nothing arriving today. " + p.arrivalsTomorrow + " due tomorrow."
-        : "Nothing arriving today or tomorrow.";
-    els.dashNeedsYou.hidden = !(p.needsYou > 0);
-    els.dashNeedsYou.textContent = p.needsYou + " thing" + (p.needsYou === 1 ? "" : "s") + " waiting on your answer (on the laptop).";
-    const m = p.money || {};
-    // B-795 (v2.0.9): every pipeline tile opens its view on the Inventory tab.
-    els.dashFlow.appendChild(dashTileGo(dashTile("House", invUnits(p.house), dashMoneyShort(m.house), "dash-house"), "house"));
-    els.dashFlow.appendChild(dashTileGo(dashTile("Prep", invUnits(p.prep), dashMoneyShort(m.prep), "dash-prep"), "prep"));
-    els.dashFlow.appendChild(dashTileGo(dashTile("In transit", invUnits(p.inTransit), dashMoneyShort(m.inTransit), "dash-transit"), "transit"));
-    els.dashFlow.appendChild(dashTileGo(dashTile("On hand", invUnits(p.onHand), dashMoneyShort(m.onHand)), null, "totals"));
-    els.dashFlow.appendChild(dashTileGo(dashTile("Products", invUnits(p.asinCount), p.negative ? p.negative + " reading negative" : "", "wide"), null, "products"));
-  }
-
-  // run reviews
-  const rr = d.runReviews;
-  els.dashRrCount.textContent = "(" + rr.total + ")";
-  els.dashRrSummary.textContent = rr.total
-    ? rr.severe + " severe · " + rr.high + " high · " + rr.medium + " medium (" + rr.latestRunSevere + " severe on the latest reviewed run)"
-    : "No run reviews recorded yet.";
-  for (const r of rr.newest) {
-    const row = invNode("div", "line dash-notif sev-" + (r.severity === "severe" ? "critical" : r.severity));
-    row.appendChild(invNode("span", "dash-sev", r.severity));
-    row.appendChild(invNode("div", "l-meta", r.what || "No anomalies found on this run."));
-    els.dashRrList.appendChild(row);
-  }
+  const nt = ex.nightly;
+  els.dashNightly.textContent = !nt ? "" : nt.enabled && nt.nextAt ? "Next nightly buy list: " + centralText(nt.nextAt) : "Nightly buy list: off";
 }

@@ -287,75 +287,17 @@
   }
 
   // ------------------------------------------------------ Dashboard card
-  function drawSpark(host, spark) {
-    host.textContent = "";
-    if (spark.length < 2) { host.append(node("p", "muted small", "7-day trend shows once two days of history exist.")); return; }
-    const p = F.sparkPaths(spark, { width: SPARK_W, height: SPARK_H });
-    const svgEl = document.createElementNS(NS, "svg");
-    svgEl.setAttribute("viewBox", "0 0 " + SPARK_W + " " + SPARK_H);
-    svgEl.setAttribute("class", "fba-spark-svg");
-    svgEl.setAttribute("role", "img");
-    const last = spark[spark.length - 1];
-    svgEl.setAttribute("aria-label", "Last 7 days, $ at cost: Available now " + F.fmt(last.available, "value") + ", Inbound now " + F.fmt(last.inbound, "value"));
-    for (const [d, color] of [[p.inbound, F.SLOT.orange], [p.available, F.SLOT.blue]]) {
-      const path = document.createElementNS(NS, "path");
-      path.setAttribute("d", d);
-      path.setAttribute("stroke", color);
-      path.setAttribute("class", "fba-spark-line");
-      svgEl.append(path);
-    }
-    const legend = node("div", "fba-spark-legend");
-    for (const [label, color] of [["Available $", F.SLOT.blue], ["Inbound $", F.SLOT.orange]]) {
-      const item = node("span", "fba-spark-key");
-      const sw = node("span", "ai-swatch");
-      sw.style.background = color;
-      item.append(sw, document.createTextNode(label));
-      legend.append(item);
-    }
-    legend.append(node("span", "muted small", "last 7 days"));
-    host.append(svgEl, legend);
-  }
-
-  function drawDashCard() {
-    const tiles = $("dashFbaTiles"), bannersEl = $("dashFbaBanners"), empty = $("dashFbaEmpty"), asOf = $("dashFbaAsOf"), spark = $("dashFbaSpark");
-    tiles.textContent = "";
-    bannersEl.textContent = "";
-    spark.textContent = "";
-    asOf.textContent = "";
-    if (!data || !data.available) {
-      empty.hidden = false;
-      empty.textContent = !data
-        ? "Waiting for the laptop to send its FBA history (needs Shopper v4.61 there)."
-        : "Could not read the FBA history on the laptop: " + (data.loadError || "unknown error");
-      return;
-    }
-    // The laptop's settings for the alerts - the card and the FBA tab say the same thing.
+  // B-833 (v2.0.18): the Home tab no longer draws the FBA tiles and trend (they
+  // are on this tab); it reads two things off the same model - the FBA alerts
+  // (a Do next row) and the tiles ($ at Amazon for the Stock tile).
+  // -> { ok, empty, alerts: [{ kind, text }], tiles }
+  function glance() {
+    if (!data || !data.available) return { ok: false, empty: true, alerts: [], tiles: [] };
     const model = F.fbaCardModel({ points, pulledAt: data.pulledAt, settings: data.settings, ordered: data.ordered || null });
-    if (data.error) bannersEl.append(node("div", "dash-banner dash-banner-warn", "⚠ Last Amazon pull failed: " + data.error + " The figures below are from the last good pull."));
-    if (model.empty) {
-      empty.hidden = false;
-      empty.textContent = data.connected === false
-        ? "Amazon is not connected - paste the SP-API keys on the laptop's Settings page."
-        : "No FBA history on file yet - the first row is written by the laptop's next Amazon pull.";
-      return;
-    }
-    empty.hidden = true;
-    asOf.textContent = "(as of " + F.fmtCT(model.asOf) + ")";
-    for (const a of model.alerts) bannersEl.append(node("div", "dash-banner dash-banner-warn", "⚠ " + a.text));
-    for (const t of model.tiles) {
-      const tile = node("div", "dash-tile fba-" + t.key);
-      tile.append(node("span", "t-label", t.label), node("b", null, F.fmt(t.units, "units")), node("span", "dash-money", F.fmt(t.value, "value")));
-      tiles.append(tile);
-    }
-    // B-547 (v4.68): Shopper's Ordered (in transit + house + prep), after Amazon's four.
-    if (model.ordered) {
-      const o = model.ordered;
-      const tile = node("div", "dash-tile fba-ordered");
-      tile.title = o.hover;
-      tile.append(node("span", "t-label", "Ordered (Shopper)"), node("b", null, F.fmt(o.units, "units")), node("span", "dash-money", F.fmt(o.value, "value") + (o.unpricedUnits > 0 ? " · " + o.unpricedUnits + " not in $" : "")));
-      tiles.append(tile);
-    }
-    drawSpark(spark, model.spark);
+    const alerts = [];
+    if (data.error) alerts.push({ kind: "pull", text: "Last Amazon pull failed: " + data.error + " The figures are from the last good pull." });
+    if (model.empty) return { ok: true, empty: true, alerts, tiles: [] };
+    return { ok: true, empty: false, alerts: alerts.concat(model.alerts), tiles: model.tiles };
   }
 
   // ------------------------------------------------------------ wiring
@@ -402,7 +344,6 @@
     if (key === lastKey) return;
     lastKey = key;
     setData(fba);
-    drawDashCard();
     draw();
   }
 
@@ -411,10 +352,10 @@
   function shown() { draw(); }
 
   if (!F) {
-    self.ShopperFbaView = { render() {}, shown() {}, missing: true };
+    self.ShopperFbaView = { render() {}, shown() {}, glance: () => ({ ok: false, empty: true, alerts: [], tiles: [] }), missing: true };
     return;
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", wire);
   else wire();
-  self.ShopperFbaView = { render, shown };
+  self.ShopperFbaView = { render, shown, glance };
 })();

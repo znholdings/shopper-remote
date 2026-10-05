@@ -45,12 +45,22 @@
   function pickedCount() {
     return Object.values(choices).filter((c) => c && c.action).length;
   }
+  // B-834 (v2.0.18): the Send bar is pinned above the tab bar whenever there
+  // is a choice (it used to sit at the top of the list and scroll away).
   function renderSend() {
-    const n = pickedCount();
+    const picked = Object.values(choices).filter((c) => c && c.action);
+    const n = picked.length;
+    const changes = picked.filter((c) => c.action !== "keep").length;
     const btn = $("bmmSend");
     if (!btn) return;
     btn.disabled = !n;
     btn.textContent = n ? `Send ${n} to Seller Snap` : "Send to Seller Snap";
+    const bar = $("bmmSendBar");
+    if (bar) bar.hidden = !n;
+    const sum = $("bmmSendSummary");
+    if (sum) sum.textContent = n ? `${changes} price change${changes === 1 ? "" : "s"}${n - changes ? `, ${n - changes} Don't change` : ""}` : "";
+    const pane = $("belowMinPane");
+    if (pane) pane.classList.toggle("has-sendbar", n > 0);
   }
 
   function choice(r, action, label, sub, disabled) {
@@ -126,7 +136,11 @@
     for (const o of show) {
       const at = P ? P.profitAt(o.price, rowFor(r)) : null;
       const tr = el("tr", o.you ? "bmm-you" : "");
-      tr.append(el("td", "bmm-seller", o.you ? "You" : o.seller), el("td", "bmm-stockn", typeof o.stock === "number" ? String(o.stock) : "-"), el("td", null, o.channel), el("td", null, money(o.price)),
+      // B-831 (v2.0.18): the seller's total rating count in parentheses after the name.
+      const nameTd = el("td", "bmm-seller", o.you ? "You" : o.seller);
+      const rc = !o.you && P && P.formatRatingCount ? P.formatRatingCount(o.ratingCount) : "";
+      if (rc) nameTd.append(el("span", "bmm-rc", ` (${rc})`));
+      tr.append(nameTd, el("td", "bmm-stockn", typeof o.stock === "number" ? String(o.stock) : "-"), el("td", null, o.channel), el("td", null, money(o.price)),
         el("td", bad(at && at.roi) ? "warn-text" : "", pct(at && at.roi)), el("td", bad(at && at.margin) ? "warn-text" : "", pct(at && at.margin)));
       t.append(tr);
     }

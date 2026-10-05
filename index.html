@@ -255,48 +255,24 @@
            on this tab changes anything - Mark done / Dismiss stay on the
            laptop. -->
       <div id="dashboardPane" hidden>
+        <!-- B-833 (v2.0.18): Home = "Glance + To-do", the laptop Dashboard's layout:
+             five tiles, a ranked Do next list (one button each, jumping to this
+             app's own tabs), one status line. remote/dash-lib.js is GENERATED
+             from lib/dashboard-todo.js (test/_dash-bundle.mjs). -->
         <p id="dashAsOf" class="muted"></p>
+        <div id="dashTiles" class="gl-tiles"></div>
         <div class="section dash-sec">
-          <h3>Urgent notifications <span id="dashNotifCount" class="count"></span></h3>
-          <div id="dashNotifs" class="lines"></div>
+          <h3>Do next <span id="dashDoCount" class="count"></span></h3>
+          <div id="dashDoNext" class="lines"></div>
         </div>
-        <div class="dash-two">
-          <div class="dash-card" id="dashNextRun">
-            <span class="t-label">Next run</span>
-            <b id="dashNextHead" class="dash-head">-</b>
-            <span id="dashNextSub" class="muted small"></span>
-          </div>
+        <div class="section dash-sec gl-status">
           <!-- B-776 (v2.0.9): tap for the last run's report. -->
           <div class="dash-card dash-tap" id="dashLastRun" role="button" tabindex="0" aria-label="Last run - open its report">
             <span class="t-label">Last run</span>
             <b id="dashLastHead" class="dash-head">-</b>
             <span id="dashLastSub" class="muted small"></span>
           </div>
-        </div>
-        <div class="section dash-sec">
-          <h3>Spend &amp; bank</h3>
-          <div id="dashSpend" class="dash-grid"></div>
-        </div>
-        <div class="section dash-sec">
-          <h3>Inventory pipeline <span id="dashPipeAsOf" class="count"></span></h3>
-          <!-- B-663 (v4.85): tap for the Arrivals boxes on the Inventory tab. -->
-          <div id="dashArrivals" class="dash-banner dash-tap" role="button" tabindex="0" aria-label="Arrivals - open the Arrivals list" hidden></div>
-          <div id="dashNeedsYou" class="dash-banner dash-banner-warn" hidden></div>
-          <div id="dashFlow" class="dash-grid dash-flow"></div>
-        </div>
-        <div class="section dash-sec">
-          <h3>Run reviews <span id="dashRrCount" class="count"></span></h3>
-          <p id="dashRrSummary" class="muted small"></p>
-          <div id="dashRrList" class="lines"></div>
-        </div>
-        <!-- B-511 (v4.61): the desktop Dashboard's FBA card - tap for the FBA tab. -->
-        <div class="section dash-sec dash-fba-sec" id="dashFbaSec" role="button" tabindex="0" aria-label="FBA inventory - open the FBA tab">
-          <h3>FBA inventory <span id="dashFbaAsOf" class="count"></span></h3>
-          <div id="dashFbaBanners"></div>
-          <p id="dashFbaEmpty" class="muted" hidden></p>
-          <div id="dashFbaTiles" class="dash-grid dash-fba"></div>
-          <div id="dashFbaSpark" class="fba-spark"></div>
-          <p class="muted small">Tap for the full FBA view.</p>
+          <p id="dashNightly" class="muted small"></p>
         </div>
       </div>
 
@@ -367,11 +343,16 @@
         <div id="cfmBody"></div>
       </div>
       <div id="belowMinPane" hidden>
-        <div class="bmm-head"><button type="button" class="secondary-btn" id="bmmCheck">Check now</button><button type="button" class="primary-btn" id="bmmSend" disabled>Send to Seller Snap</button></div>
+        <div class="bmm-head"><button type="button" class="secondary-btn" id="bmmCheck">Check now</button></div>
         <p id="bmmAsOf" class="muted"></p>
         <div id="bmmBanner" class="ai-banner ai-banner-warn" hidden></div>
         <p class="muted small">Sending a price lowers your Seller Snap min to it; Seller Snap can then go that low to win the Buy Box. Don't change hides a listing until its Buy Box or min changes.</p>
         <div id="bmmBody"></div>
+        <!-- B-834 (v2.0.18): pinned above the tab bar while there is a choice. -->
+        <div class="bmm-sendbar" id="bmmSendBar" hidden>
+          <span class="bmm-sendsum" id="bmmSendSummary"></span>
+          <button type="button" class="primary-btn" id="bmmSend" disabled>Send to Seller Snap</button>
+        </div>
       </div>
 
       <div id="fbaPane" hidden>
@@ -456,6 +437,8 @@
   <!-- B-510 (v4.61): fba-lib.js is GENERATED from lib/ (test/_fba-bundle.mjs). -->
   <script src="fba-lib.js"></script>
   <script src="fba-view.js"></script>
+  <!-- B-833 (v2.0.18): dash-lib.js is GENERATED from lib/dashboard-todo.js (test/_dash-bundle.mjs). -->
+  <script src="dash-lib.js"></script>
   <script src="belowmin-lib.js"></script>
   <script src="belowmin-view.js"></script>
   <script src="wizard-view.js"></script>
