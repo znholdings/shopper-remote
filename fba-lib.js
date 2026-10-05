@@ -69,7 +69,19 @@ const SERIES = [
   ["ordHouse", "House (Shopper)", "#a67c47", "", "ordHouse"],
   ["ordPrep", "Prep (Shopper)", "#d0ab78", "", "ordPrep"],
   ["allInventory", "All inventory", "#3d2b1f", "", "allInventory"],
+  // B-836 (v2.0.20): Available split by days of cover - the stock that SELLS
+  // (under 30 days at its last 30 days' sales) and the rest. Parts of
+  // Available, so lines only (never stacked on top of Available); blue like
+  // Available, told apart by the dash.
+  ["availSelling", "Available · selling (under 30 days)", SLOT.blue, "5 2", "available"],
+  ["availSlow", "Available · slow (30+ days)", SLOT.blue, "1 3", "available"],
 ];
+// ⚠ Same labels as lib/available-split.js AVAILABLE_SPLIT_HEADER (a test holds them equal).
+const AVAILABLE_SPLIT_COLS = Object.freeze([
+  ["availSelling", "Available Selling Units", "Available Selling $"],
+  ["availSlow", "Available Slow Units", "Available Slow $"],
+]);
+const AVAILABLE_SPLIT_HOVER = "Available split by days of cover: selling = would sell out in under 30 days at the last 30 days' sales (Amazon's orders report); slow = the rest, incl. no sales. Rows before v2.0.20 have no split.";
 // B-566: the Shopper segments, in stack order (after Amazon's + Other).
 const SHOPPER_PARTS = Object.freeze(["ordInTransit", "ordHouse", "ordPrep"]);
 // ⚠ Same labels as lib/ordered-inventory.js ORDERED_PARTS_HISTORY_HEADER (a test holds them equal).
@@ -82,8 +94,12 @@ const ALL_INVENTORY_HOVER = "All inventory = Amazon's Total + Shopper's in trans
 // B-547: series that are NOT part of Amazon's Total - drawn as a line only,
 // never stacked into a column or an area band.
 // B-566: + All inventory (a total line over the stack, like Amazon's Total).
-const SEPARATE_SERIES = Object.freeze(["ordered", "allInventory"]);
+const SEPARATE_SERIES = Object.freeze(["ordered", "allInventory", "availSelling", "availSlow"]);
 const ORDERED_SERIES_HOVER = "Shopper's figure, not Amazon's: bought but not at Amazon yet = in transit + house + prep.";
+// B-836 (v2.0.20): the hover for each separate series (Ordered's by default).
+function separateHover(k) {
+  return k === "availSelling" || k === "availSlow" ? AVAILABLE_SPLIT_HOVER : ORDERED_SERIES_HOVER;
+}
 // ⚠ Same labels as lib/ordered-inventory.js ORDERED_HISTORY_HEADER (this file
 // is bundled for the phone and cannot import that one; a test holds them equal).
 const ORDERED_COLS = Object.freeze({ units: "Ordered Units", value: "Ordered $", unpriced: "Ordered Unpriced Units" });
@@ -105,7 +121,8 @@ const AMZINV_DEFAULTS = Object.freeze({
   // B-605 (v4.78): Zach - only series that never overlap are on by default:
   // Amazon's headline statuses + Shopper's Ordered as ONE stacked segment
   // (B-604). Totals, subtotals and Shopper's three parts start off.
-  trendSeries: ["available", "inboundAll", "fcTransfer", "fcProcessing", "customerOrders", "unfulfillable", "researching", "ordered"],
+  // B-836 (v2.0.20): + the "selling" part of Available, as a line.
+  trendSeries: ["available", "inboundAll", "fcTransfer", "fcProcessing", "customerOrders", "unfulfillable", "researching", "ordered", "availSelling"],
   splitInboundInBars: false,
   showMarkers: true,
   showCompare: false,
@@ -153,6 +170,9 @@ function normalizeSettings(raw) {
     if (Array.isArray(r.trendSeries)) trendSeries.splice(0, trendSeries.length, ...d.trendSeries);
     if (presets.includes(30)) defaultRange = 30;
   }
+  // B-836 (v2.0.20, seriesVersion 5): a list saved before this release gets
+  // the "selling" line once; after that, turning it off sticks.
+  if (Array.isArray(r.trendSeries) && !(Number(r.seriesVersion) >= 5) && !trendSeries.includes("availSelling")) trendSeries.push("availSelling");
   const ra = r.alerts || {};
   const jump = (x, dd) => ({ enabled: bool(x && x.enabled, dd.enabled), pct: clampInt(x && x.pct, 1, 1000, dd.pct), minUnits: clampInt(x && x.minUnits, 0, 100000, dd.minUnits) });
   const rs = ra.receivingStuck || {};
@@ -166,7 +186,7 @@ function normalizeSettings(raw) {
     showMarkers: bool(r.showMarkers, d.showMarkers),
     showCompare: bool(r.showCompare, d.showCompare),
     showTrendlines: bool(r.showTrendlines, d.showTrendlines),
-    seriesVersion: 4,
+    seriesVersion: 5,
     dip: {
       enabled: bool(r.dip && r.dip.enabled, d.dip.enabled),
       windowDays: clampInt(r.dip && r.dip.windowDays, 3, 90, d.dip.windowDays),
@@ -212,6 +232,7 @@ function parseHistory(values) {
   // B-547: blank / missing -> null (an older row has no Ordered figure).
   const oU = col(ORDERED_COLS.units), oV = col(ORDERED_COLS.value), oP = col(ORDERED_COLS.unpriced);
   const partCols = ORDERED_PART_COLS.map(([k, u, v]) => [k, { i: col(u) }, { i: col(v) }]);
+  const splitCols = AVAILABLE_SPLIT_COLS.map(([k, u, v]) => [k, col(u), col(v)]);
   const out = [];
   for (const r of rows.slice(1)) {
     const t = Date.parse(r[tCol]);
@@ -237,6 +258,12 @@ function parseHistory(values) {
     else if (units.ordered == null) {
       units.ordered = SHOPPER_PARTS.reduce((a, k) => a + units[k], 0);
       value.ordered = SHOPPER_PARTS.reduce((a, k) => a + value[k], 0);
+    }
+    // B-836 (v2.0.20): blank / missing -> null (rows before the split, Script rows).
+    for (const [k, ui, vi] of splitCols) {
+      const u = ui >= 0 ? num(r[ui]) : null;
+      units[k] = u;
+      value[k] = u != null && vi >= 0 ? num(r[vi]) ?? 0 : null;
     }
     units.allInventory = units.ordered != null ? units.total + units.ordered : null;
     value.allInventory = value.ordered != null ? value.total + value.ordered : null;
@@ -503,7 +530,7 @@ function fmt(v, measure) {
   if (measure === "units") return Math.round(v).toLocaleString("en-US");
   return "$" + v.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 }
-__m["amzinv.js"] = { AMZINV_SETTINGS_KEY, DAY_MS, SLOT, SERIES, SHOPPER_PARTS, ORDERED_PART_COLS, ALL_INVENTORY_HOVER, SEPARATE_SERIES, ORDERED_SERIES_HOVER, ORDERED_COLS, SERIES_BY_KEY, OTHER, BAR_BASE, BAR_SPLIT, AMZINV_DEFAULTS, normalizeSettings, rangeLabel, parseHistory, CT_ZONE, centralParts, centralDayKey, localDayKey, fmtCT, centralDayStart, centralDayEnd, dailyPoints, sliceRange, previousPeriod, dipSignal, extraAlerts, parseScanpowerTime, shipmentMarkers, barSegments, withLiveParts, ORDERED_BAR_PARTS, orderedSegments, orderedNote, fmt };
+__m["amzinv.js"] = { AMZINV_SETTINGS_KEY, DAY_MS, SLOT, SERIES, AVAILABLE_SPLIT_COLS, AVAILABLE_SPLIT_HOVER, SHOPPER_PARTS, ORDERED_PART_COLS, ALL_INVENTORY_HOVER, SEPARATE_SERIES, ORDERED_SERIES_HOVER, separateHover, ORDERED_COLS, SERIES_BY_KEY, OTHER, BAR_BASE, BAR_SPLIT, AMZINV_DEFAULTS, normalizeSettings, rangeLabel, parseHistory, CT_ZONE, centralParts, centralDayKey, localDayKey, fmtCT, centralDayStart, centralDayEnd, dailyPoints, sliceRange, previousPeriod, dipSignal, extraAlerts, parseScanpowerTime, shipmentMarkers, barSegments, withLiveParts, ORDERED_BAR_PARTS, orderedSegments, orderedNote, fmt };
 })();
 // ---- lib/amzinv-chart.js ----
 (function () {
@@ -516,7 +543,7 @@ __m["amzinv.js"] = { AMZINV_SETTINGS_KEY, DAY_MS, SLOT, SERIES, SHOPPER_PARTS, O
 // Marks (dataviz): 2px lines, 2px surface gaps between stacked segments,
 // recessive grid, legend always shown for >= 2 series, values in ink (never
 // the series colour), a crosshair + tooltip on hover, a table view.
-const { ALL_INVENTORY_HOVER, BAR_BASE, BAR_SPLIT, DAY_MS, ORDERED_SERIES_HOVER, SEPARATE_SERIES, SERIES_BY_KEY, SHOPPER_PARTS, centralParts, fmt, fmtCT } = __m["amzinv.js"];
+const { ALL_INVENTORY_HOVER, BAR_BASE, BAR_SPLIT, DAY_MS, ORDERED_SERIES_HOVER, SEPARATE_SERIES, SERIES_BY_KEY, SHOPPER_PARTS, centralParts, fmt, fmtCT, separateHover } = __m["amzinv.js"];
 
 const NS = "http://www.w3.org/2000/svg";
 function svg(doc, tag, attrs = {}, kids = []) {
@@ -836,7 +863,7 @@ function drawTrend(doc, { points, keys, measure, style, compare = null, markers 
     sw.style.background = s.color;
     if (s.dash) sw.classList.add("ai-swatch-sub");
     item.append(sw, el(doc, "span", "ai-legend-label", s.label));
-    if (SEPARATE_SERIES.includes(k)) item.title = ORDERED_SERIES_HOVER;
+    if (SEPARATE_SERIES.includes(k)) item.title = separateHover(k);
     legend.append(item);
   }
   if (compare && compare.length && !area) legend.append(el(doc, "span", "ai-legend-note", "Dashed = previous period"));
@@ -880,7 +907,7 @@ __m["amzinv-chart.js"] = { svg, el, drawStackedBar, drawOrderedBar, gapPath, sta
 // top of the columns.
 //
 // No innerHTML; takes `doc` so tests hand in a fake document.
-const { ALL_INVENTORY_HOVER, BAR_BASE, DAY_MS, centralDayKey, centralDayStart, ORDERED_SERIES_HOVER, OTHER, SEPARATE_SERIES, SERIES_BY_KEY, SHOPPER_PARTS, barSegments, fmt, fmtCT } = __m["amzinv.js"];
+const { ALL_INVENTORY_HOVER, BAR_BASE, DAY_MS, centralDayKey, centralDayStart, ORDERED_SERIES_HOVER, OTHER, SEPARATE_SERIES, SERIES_BY_KEY, SHOPPER_PARTS, barSegments, fmt, fmtCT, separateHover } = __m["amzinv.js"];
 const { el, fmtAxis, gapPath, niceMax, stackPlan, stackStyle, svg, tickLabel, xTickIndexes } = __m["amzinv-chart.js"];
 
 // The columns for a list of points: [{ t, segments:[{key,label,color,dash,v,y0,y1}], total, top }].
@@ -1036,7 +1063,7 @@ function drawColumnsTrend(doc, { points, keys = [], measure, splitInbound = fals
       const row = el(doc, "div", "ai-tip-row ai-tip-separate");
       const sw = el(doc, "span", "ai-swatch");
       sw.style.background = SERIES_BY_KEY[k].color;
-      if (SEPARATE_SERIES.includes(k)) row.title = ORDERED_SERIES_HOVER;
+      if (SEPARATE_SERIES.includes(k)) row.title = separateHover(k);
       row.append(sw, el(doc, "span", "ai-tip-label", `${SERIES_BY_KEY[k].label} (line)`), el(doc, "span", "ai-tip-val", fmt(pt[m][k], m)));
       tip.append(row);
     }

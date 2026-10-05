@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.19";
+const APP_BUILD = "v2.0.20";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -2234,6 +2234,7 @@ function glGo(target) {
     wizard: () => switchTab("wizard"),
     cashflow: () => switchTab("cashflow"),
     bank: () => switchTab("bank"),
+    plaid: () => switchTab("bank"),
   }[target];
   if (go) go();
 }
@@ -2253,7 +2254,7 @@ function glTap(node, fn) {
 }
 
 function glTile(t) {
-  const n = invNode("div", "dash-tile gl-tile gl-tone-" + (t.tone || "flat") + (t.id === "stock" ? " wide" : ""));
+  const n = invNode("div", "dash-tile gl-tile gl-tone-" + (t.tone || "flat") + (t.id === "stock" || t.id === "plaid" ? " wide" : ""));
   n.dataset.tile = t.id;
   n.appendChild(invNode("span", "t-label", t.label));
   n.appendChild(invNode("b", "gl-num", t.value));
@@ -2340,6 +2341,9 @@ function renderDashboard(d, p) {
   const tiles = G.buildTiles({
     spend: d.spend,
     bank: d.spend.bankBalance,
+    plaid: ex.plaid || null,
+    now: Date.now(),
+    stranded: ex.stranded || null,
     cash: ex.cash || null,
     stock: {
       house: money ? money.house : null,
@@ -2360,6 +2364,7 @@ function renderDashboard(d, p) {
     belowMin: Number.isFinite(bm) ? bm : null,
     runReviews: d.runReviews,
     fbaAlerts: fba.alerts,
+    stranded: ex.stranded || null,
   });
   const key = JSON.stringify([tiles, rows.map((r) => [r.id, r.title, r.detail, r.severity, r.go.label, (r.notifs || []).map((n) => n.key)]), d.lastRun, ex.nightly, d.remoteBuiltAt, d.stale, d.spend.bankRecent]);
   if (key === lastDashboardKey) return;

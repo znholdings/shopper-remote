@@ -1023,7 +1023,7 @@ html, body { overscroll-behavior: none; }
 .bmm-seller .bmm-rc { color: var(--s-text-muted); font-variant-numeric: tabular-nums; }
 
 /* B-833 (v2.0.18): Home = "Glance + To-do" - five tiles, the Do next list, the status. Tokens only. */
-.gl-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 10px 0 12px; }
+.gl-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-flow: row dense; gap: 8px; margin: 10px 0 12px; }
 .gl-tile { display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; }
 .gl-tile .gl-num { font-size: 24px; line-height: 1.1; overflow-wrap: anywhere; }
 .gl-sub { font-size: 12px; line-height: 1.3; }

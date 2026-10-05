@@ -24,12 +24,15 @@ const __m = {};
 // Targets are names, not messages: the laptop maps them to
 // SHOPPER_OPEN_*_TAB, the phone maps them to its own tabs.
 //   buylist buyqueue pipeline arrivals belowmin runreviews fba wizard
-//   cashflow bank expand
+//   cashflow bank expand plaid
+// B-838 (v2.0.20): "plaid" = the Plaid balances tile. The laptop opens
+// Settings -> Accounts (where the Plaid card is); the phone opens Bank.
 
-const TARGETS = Object.freeze(["buylist", "buyqueue", "pipeline", "arrivals", "belowmin", "runreviews", "fba", "wizard", "cashflow", "bank", "expand"]);
+const TARGETS = Object.freeze(["buylist", "buyqueue", "pipeline", "arrivals", "belowmin", "runreviews", "fba", "wizard", "cashflow", "bank", "expand", "plaid"]);
 
 // Order = priority (Zach's list). Rows with nothing to do are not built.
-const DO_NEXT_ORDER = Object.freeze(["urgent", "owed", "needsYou", "belowMin", "arrivals", "runReviews", "fba", "shipment"]);
+// B-837 (v2.0.20): "stranded" - units Amazon holds but cannot sell.
+const DO_NEXT_ORDER = Object.freeze(["urgent", "owed", "needsYou", "belowMin", "arrivals", "runReviews", "fba", "stranded", "shipment"]);
 const SHIPMENT_NOTIFICATION_TYPE = "shipment_prompt";
 
 const num = (v) => {
@@ -76,6 +79,7 @@ function topSeverity(list) {
 //   belowMin          listings with the Buy Box under the min
 //   runReviews        { latestRunSevere }
 //   fbaAlerts         [{ text }]
+//   stranded          strandedGlance() (lib/stranded.js) - { known, units, skus }
 // -> [{ id, rank, severity, title, detail, go: { label, target }, notifs?: [...], count }]
 function buildDoNext(input = {}) {
   const rows = [];
@@ -179,6 +183,20 @@ function buildDoNext(input = {}) {
     });
   }
 
+  const sg = input.stranded || null;
+  const strandedUnits = sg && sg.known ? num(sg.units) || 0 : 0;
+  if (strandedUnits > 0) {
+    const skus = num(sg.skus) || 0;
+    add({
+      id: "stranded",
+      severity: "medium",
+      title: `${plural(strandedUnits, "unit")} stranded at Amazon`,
+      detail: `${plural(skus, "SKU")} with no active listing - Amazon holds them but cannot sell them. Fix the listing or send a removal.`,
+      go: { label: "FBA Inventory", target: "fba" },
+      count: strandedUnits,
+    });
+  }
+
   if (shipment.length) {
     add({
       id: "shipment",
@@ -194,8 +212,10 @@ function buildDoNext(input = {}) {
   return rows;
 }
 
-// The five tiles. input:
+// The tiles (six since v2.0.20). input:
 //   spend { spentToday, neededToday }   bank (number)
+//   plaid plaidGlance() (lib/plaid-client.js) - B-838; now (ms) for its age
+//   stranded strandedGlance() - B-837, a line under the Stock tile
 //   cash  the Cash Flow summary (sales7, salesPrev7, through, payoutNext30?, next30?)
 //   stock { house, prep, inTransit, fba }  dollars at cost, null = unknown
 // -> [{ id, label, value, sub, tone, target, split? }]
@@ -235,6 +255,8 @@ function buildTiles(input = {}) {
     target: "bank",
   });
 
+  out.push(plaidTile(i.plaid || null, num(i.now) || null));
+
   // Cash in the next 30 days: the payout forecast; until the Cash Flow
   // summary carries it (one built before v2.0.18 does not), the sales
   // forecast - and the tile says which it is.
@@ -253,16 +275,53 @@ function buildTiles(input = {}) {
   const st = i.stock || {};
   const parts = [["House", num(st.house)], ["Prep", num(st.prep)], ["In transit", num(st.inTransit)], ["FBA", num(st.fba)]];
   const known = parts.filter(([, v]) => v != null);
+  const sg = i.stranded || null;
+  const strandedUnits = sg && sg.known ? num(sg.units) : null;
+  const notRead = known.length && known.length < parts.length ? `${parts.filter(([, v]) => v == null).map(([n]) => n).join(", ")} not read yet` : "";
+  const strandedText = strandedUnits == null ? "" : `${strandedUnits.toLocaleString("en-US")} stranded at Amazon`;
   out.push({
     id: "stock",
     label: "Stock at cost",
     value: known.length ? money0(known.reduce((s, [, v]) => s + v, 0)) : "-",
-    sub: known.length && known.length < parts.length ? `${parts.filter(([, v]) => v == null).map(([n]) => n).join(", ")} not read yet` : "",
-    tone: "flat",
+    sub: [notRead, strandedText].filter(Boolean).join(" · "),
+    tone: strandedUnits ? "warn" : "flat",
     target: "pipeline",
     split: parts.map(([label, v]) => ({ label, value: v == null ? "-" : money0(v) })),
   });
   return out;
+}
+
+// "2h ago" from two ms stamps (no clock read here - pure).
+function ageText(at, now) {
+  const a = num(at), n = num(now);
+  if (a == null || n == null) return "";
+  const m = Math.max(0, Math.floor((n - a) / 60000));
+  if (m < 1) return "just now";
+  if (m < 60) return `${m} min ago`;
+  const h = Math.floor(m / 60);
+  return h < 48 ? `${h}h ago` : `${Math.floor(h / 24)}d ago`;
+}
+
+// B-838 (v2.0.20): checking balance from Plaid; the card(s) owed and the age
+// under it. g = plaidGlance(); null / not connected -> a "connect" tile.
+function plaidTile(g, now) {
+  const base = { id: "plaid", label: "Checking (Plaid)", target: "plaid" };
+  if (!g || !g.connected) return { ...base, value: "-", sub: "Not connected - Settings → Plaid", tone: "flat" };
+  const cur = g.checking ? num(g.checking.current) : null;
+  const cards = Array.isArray(g.cards) ? g.cards : [];
+  const owed = cards.map((c) => num(c && c.owed)).filter((v) => v != null);
+  const bits = [];
+  if (owed.length) bits.push(`${cards.length === 1 ? "Card" : "Cards"} owed ${money2(owed.reduce((s, v) => s + v, 0))}`);
+  const age = ageText(g.at, now);
+  if (age) bits.push(age);
+  if (g.env === "sandbox") bits.push("Sandbox (test data)");
+  if (g.error) bits.push(`Last read failed: ${String(g.error).slice(0, 80)}`);
+  return {
+    ...base,
+    value: money2(cur),
+    sub: bits.join(" · "),
+    tone: g.error ? "warn" : cur != null && cur < 0 ? "down" : "flat",
+  };
 }
 
 // FBA stage $ = what is at Amazon, at cost: Available + Inbound + Reserved
@@ -279,7 +338,7 @@ function fbaStockValue(tiles) {
   }
   return any ? Math.round(total * 100) / 100 : null;
 }
-__m["dashboard-todo.js"] = { TARGETS, DO_NEXT_ORDER, SHIPMENT_NOTIFICATION_TYPE, money0, money2, changeLine, topSeverity, buildDoNext, buildTiles, fbaStockValue };
+__m["dashboard-todo.js"] = { TARGETS, DO_NEXT_ORDER, SHIPMENT_NOTIFICATION_TYPE, money0, money2, changeLine, topSeverity, buildDoNext, buildTiles, ageText, plaidTile, fbaStockValue };
 })();
 root.ShopperGlance = Object.freeze(Object.assign({}, ...Object.values(__m)));
 })(self);
