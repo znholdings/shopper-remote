@@ -186,3 +186,20 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input:not(
 :root[data-theme="retro"] :is(label, th, button, h1, h2, h3, h4, .section-head, .dash-section-head) :is([class*="note"], [class*="hint"], .muted, .subtle, small) { font-family: var(--s-font) !important; font-size: var(--rt-small) !important; text-transform: none; font-weight: 400 !important; line-height: 1.35 !important; }
 /* Chart text drawn in SVG keeps the chart's own sizes (B-805: Keepa titles blew up). */
 :root[data-theme="retro"] svg text { font-family: var(--s-font) !important; text-transform: none; }
+
+/* ── B-810 (v2.0.16): spending-goal stop buttons (Buylist / Buy Queue).
+      The default star is a plain glyph in the corner - no box, no shadow -
+      and the button keeps room for it, so the label and amount fit. ── */
+:root[data-theme="retro"] .spending-goal-snap-stops .spending-goal-snap-btn { flex-direction: column; gap: 2px; padding: 6px 28px 6px 12px !important; white-space: nowrap; min-width: max-content; overflow: visible; }
+:root[data-theme="retro"] .spending-goal-snap-btn :is(.snap-label, .snap-value) { white-space: nowrap; }
+:root[data-theme="retro"] .spending-goal-snap-btn .snap-default-pin,
+:root[data-theme="retro"] .spending-goal-snap-btn .snap-default-pin:hover:not(:disabled),
+:root[data-theme="retro"] .spending-goal-snap-btn .snap-default-pin:active:not(:disabled) {
+  position: absolute; top: 2px; right: 2px; width: 22px; height: 22px; min-height: 0; min-width: 0;
+  padding: 0 !important; margin: 0; background: none !important; border: 0 !important; box-shadow: none !important;
+  transform: none; font-size: 16px !important; line-height: 1 !important; color: var(--s-text-muted) !important;
+}
+:root[data-theme="retro"] .spending-goal-snap-btn .snap-default-pin.is-default { color: var(--s-orange, var(--s-accent)) !important; }
+/* The star glyph in the normal font at 18 px (the pixel font's star is tiny). ":not(#no-id)" adds ID weight so this
+   beats the section-11 "text inside a pixel thing stays pixel" rule (0,10,6) without a pile of repeated classes. */
+:root[data-theme="retro"] .spending-goal-snap-btn .snap-default-pin:not(#no-id) { font-family: var(--s-font) !important; font-size: 18px !important; }
