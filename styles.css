@@ -755,6 +755,24 @@ body { background: var(--s-bg); color: var(--s-text); font-family: var(--s-font)
 .kc-range { padding: 2px 8px; border: 1px solid var(--s-line); border-radius: var(--s-r-pill); background: var(--s-surface); color: var(--s-text-muted); font: inherit; font-size: 11px; cursor: pointer; }
 .kc-range-on { background: var(--s-violet-bg); border-color: var(--s-violet); color: var(--s-violet-ink); font-weight: 700; }
 .kc-readout { min-height: 1.4em; font-size: 11px; color: var(--s-text); overflow-wrap: anywhere; }
+/* B-820 (v2.0.17): the hover / touch readout stays on one line (it wrapped
+   in Retro and pushed the panels down as the finger moved). */
+.bmm-card .kc-readout { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* B-821 (v2.0.17): the "Sold per day" box (the laptop's B-813 chart). */
+.bmm-sold { background: var(--s-bg); border-radius: var(--s-r-sm); padding: 6px 8px; min-width: 0; display: grid; gap: 4px; }
+.bmm-sold .sold-chart { display: grid; gap: 2px; }
+.bmm-sold .sold-svg { width: 100%; height: 96px; display: block; }
+.bmm-sold .sold-bar { fill: var(--s-accent); }
+.bmm-sold .sold-bar.sold-zero { fill: var(--s-text-muted); opacity: .45; }
+.bmm-sold .sold-bar.sold-nodata { fill: var(--s-text-muted); opacity: .2; }
+.bmm-sold .sold-base { stroke: var(--s-line); stroke-width: 1; }
+.bmm-sold .sold-axis { display: flex; justify-content: space-between; font-size: 10px; color: var(--s-text-muted); font-variant-numeric: tabular-nums; }
+.bmm-sold .sold-foot { font-size: 11px; color: var(--s-text-muted); font-variant-numeric: tabular-nums; }
+.bmm-sold .sold-empty { font-size: 11px; color: var(--s-text-muted); }
+/* B-820: a wide offers table scrolls inside its box, never the page (Retro, 320 px). */
+.bmm-offers { overflow-x: auto; }
+/* B-820: the inline price inside a box label. */
+.t-label-num { font-variant-numeric: tabular-nums; }
 .kc-panels { display: grid; gap: 2px; touch-action: pan-y; }
 .kc-cursor { stroke: var(--s-text-muted); stroke-width: 1; stroke-dasharray: 2 2; pointer-events: none; }
 
@@ -966,5 +984,20 @@ html, body { overscroll-behavior: none; }
 .line.inv-arrival.dest-house .inv-title, .line.inv-arrival.dest-house .inv-units { color: var(--s-dest-ink); }
 .line.inv-arrival.dest-prep .l-meta, .line.inv-arrival.dest-prep .muted,
 .line.inv-arrival.dest-house .l-meta, .line.inv-arrival.dest-house .muted { color: var(--s-dest-ink-2); }
+
+/* ── B-818 (v2.0.17): the tab bar rode up the screen during a fast scroll on
+   Zach's iPhone (10/4 22:16 recording, v2.0.15) and snapped back when the
+   scroll stopped. That is iOS drawing a fixed bar that has no layer of its
+   own as part of the scrolling page until the momentum ends - and a
+   backdrop blur behind a fixed bar is the known trigger. The bar gets its
+   own compositing layer and a solid background (no blur). Checked in
+   Chromium only - iOS can't be reproduced off the phone. ── */
+#mainView > .tabs {
+  background: var(--s-surface);
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+  transform: translate3d(0, 0, 0); -webkit-transform: translate3d(0, 0, 0);
+  will-change: transform;
+  -webkit-backface-visibility: hidden; backface-visibility: hidden;
+}
 
 [hidden] { display: none !important; }

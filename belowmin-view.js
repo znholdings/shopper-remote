@@ -18,6 +18,9 @@
   let offerView = "all";
   try { offerView = localStorage.getItem("shopperBelowMinOfferView") === "prime" ? "prime" : "all"; } catch (e) { /* default */ }
   const openOffers = new Set();
+  // B-821 (v2.0.17): Units / Dollars for the sold-per-day chart (same key as the laptop page).
+  let soldView = "units";
+  try { soldView = localStorage.getItem("shopperBelowMinSoldView") === "dollars" ? "dollars" : "units"; } catch (e) { /* default */ }
 
   const money = (v) => (v == null || !Number.isFinite(Number(v)) ? "-" : (Number(v) < 0 ? "-$" : "$") + Math.abs(Number(v)).toFixed(2));
   const pct = (v) => (v == null || !Number.isFinite(Number(v)) ? "-" : Number(v).toFixed(1) + "%");
@@ -73,9 +76,13 @@
     if (sub) d.append(el("div", "muted small", sub));
     return d;
   }
-  function pair(label, at) {
+  // B-820 (v2.0.17): a price in a label is its own span (normal font in
+  // Retro - pixel caps made "$18.99" hard to read).
+  function pair(label, at, labelNum) {
     const d = el("div", "bmm-num");
-    d.append(el("div", "t-label", label));
+    const lab = el("div", "t-label", label);
+    if (labelNum) lab.append(" ", el("span", "t-label-num", labelNum));
+    d.append(lab);
     const g = el("div", "bmm-pair");
     for (const [n, v] of [["ROI", at && at.roi], ["Margin", at && at.margin]]) {
       const x = el("div");
@@ -133,6 +140,30 @@
     return box;
   }
 
+  // B-821 (v2.0.17): the laptop's B-813 chart - same code (belowmin-lib.js =
+  // lib/sold-per-day.js), same data (data.sold from the laptop).
+  function soldBox(r) {
+    if (!P || !P.soldSeries || !P.drawSoldChart) return null;
+    const box = el("div", "bmm-sold");
+    const head = el("div", "bmm-offers-head");
+    head.append(el("h4", "ai-h2", "Sold per day · last 30 days"));
+    const tabs = el("div", "bmm-seg");
+    for (const [k, label] of [["units", "Units"], ["dollars", "Dollars"]]) {
+      const b = el("button", "mini-btn" + (soldView === k ? " bmm-seg-on" : ""), label);
+      b.type = "button";
+      b.dataset.soldView = k;
+      b.setAttribute("aria-pressed", String(soldView === k));
+      b.addEventListener("click", () => { soldView = k; try { localStorage.setItem("shopperBelowMinSoldView", k); } catch (e) { /* fine */ } draw(); });
+      tabs.append(b);
+    }
+    head.append(tabs);
+    box.append(head);
+    const s = (data && data.sold) || {};
+    const key = String(r.asin || "").trim().toUpperCase();
+    box.append(P.drawSoldChart(document, P.soldSeries((s.byAsin || {})[key], s.cover, s.today), soldView));
+    return box;
+  }
+
   function card(r) {
     const c = el("div", "bmm-card");
     const top = el("div", "bmm-top");
@@ -155,10 +186,12 @@
     grid.append(
       pair("Seller Snap 7 days", { roi: r.ssRoi, margin: r.ssMargin }),
       cell("Sold 7 days", r.units7 == null ? "-" : String(r.units7), `week before ${r.unitsPrev7 == null ? "-" : r.unitsPrev7} · ${r.v7 == null ? "-" : Number(r.v7).toFixed(2) + "/day"} · ${t.label || ""}`, t.dir === "down" ? "warn-text" : ""),
-      pair(`At Buy Box ${money(r.bb)}`, r.atBb),
-      pair(`At listed ${money(r.listed)}`, r.atListed),
+      pair("At Buy Box", r.atBb, money(r.bb)),
+      pair("At listed", r.atListed, money(r.listed)),
     );
     c.append(grid);
+    const sold = soldBox(r);
+    if (sold) c.append(sold);
     if (P && P.drawKeepaCharts) c.append(P.drawKeepaCharts(document, r.chart || null, { asOf: r.chartAt || null }));
     c.append(offers(r));
     c.append(choice(r, "keep", el("span", null, "Don't change")));

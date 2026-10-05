@@ -123,7 +123,7 @@
     const p = m.proj && m.proj[view.proj];
     if (!p || !p.ok) { c.append(empty((p && p.text) || "No Sellerboard days yet.")); return { c }; }
     const box = chartBox("cfmProj");
-    c.append(box, legend([["k1", "7-day average (actual)"], ["k2", "forecast (trend + weekly rhythm)"], ["kband", "80% range"], ["k4", "from stock already at Amazon"]]));
+    c.append(box, legend([["k1", "7-day average (actual)"], ["k2", "forecast"], ["kband", "80% range"], ["k4", "from stock already at Amazon"]]));
     const grid = el("div", "cfm-proj-grid");
     for (const k of p.cards || []) {
       const d = el("div", "cfm-stat");
