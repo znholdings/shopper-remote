@@ -1,0 +1,106 @@
+@import url("heading-font.css");
+/* ============================================================
+   B-874 (v2.0.24): the phone's top bar - the laptop's bar (lib/topbar.css)
+   scaled to a phone: Shoppy ~56 px on the floor line, "SHOPPER <em>Tab</em>",
+   the status line, and while a job runs a fill along the floor with a small
+   Shoppy riding it. Same skylines (remote/skyline-*), same tokens, same
+   theme rules; the phone also follows its own system dark when no theme
+   was picked. Light/Dark headings in "Shopper Heading" (Fredoka 600).
+   Tokens only (--s-*); motion is transform + steps(), paused under
+   prefers-reduced-motion.
+   ============================================================ */
+.s-topbar {
+  --s-tb-sky: #f6f3fe;
+  --s-tb-ink: var(--s-text);
+  --s-tb-em: var(--s-accent);
+  --s-tb-dim: var(--s-text-muted);
+  --s-tb-ready: var(--s-green-ink);
+  --s-tb-warn: var(--s-orange-ink);
+  --s-tb-fill: var(--s-accent);
+  --s-tb-track: var(--s-n3);
+  --s-tb-line: var(--s-line-soft);
+  --s-tb-shadow: none;
+  --s-tb-font: "Shopper Heading", var(--s-font);
+  --s-tb-title: 18px;
+  --s-tb-p: 0;
+}
+:root[data-theme="dark"] .s-topbar {
+  --s-tb-sky: #0d0f1a; --s-tb-em: var(--s-violet); --s-tb-ready: var(--s-green); --s-tb-warn: var(--s-orange); --s-tb-fill: var(--s-violet);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-theme="retro"]) .s-topbar {
+    --s-tb-sky: #0d0f1a; --s-tb-em: var(--s-violet); --s-tb-ready: var(--s-green); --s-tb-warn: var(--s-orange); --s-tb-fill: var(--s-violet);
+  }
+}
+:root[data-theme="retro"] .s-topbar {
+  --s-tb-sky: #0a145d; --s-tb-ink: var(--s-n0); --s-tb-em: var(--s-magenta-soft); --s-tb-dim: var(--s-n2);
+  --s-tb-ready: var(--s-green-soft); --s-tb-warn: var(--s-orange-soft); --s-tb-fill: var(--s-yellow-soft); --s-tb-track: #0d3767;
+  --s-tb-line: var(--s-n7); --s-tb-shadow: 2px 2px 0 var(--s-n7); --s-tb-font: var(--s-pixel); --s-tb-title: 12px;
+}
+
+:root body .topbar.s-topbar {
+  position: relative; display: flex; flex-wrap: nowrap; align-items: center; gap: 8px;
+  min-height: 76px; margin: 0 0 8px; padding: 10px 10px 16px 70px;
+  border: 1px solid var(--s-tb-line); border-radius: var(--s-r);
+  box-shadow: var(--s-elev-1);
+  background: url("skyline-light.svg") left bottom / auto 80px repeat-x, var(--s-tb-sky);
+  color: var(--s-tb-ink);
+}
+:root[data-theme="dark"] body .topbar.s-topbar { background: url("skyline-dark.svg") left bottom / auto 80px repeat-x, var(--s-tb-sky); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-theme="retro"]) body .topbar.s-topbar { background: url("skyline-dark.svg") left bottom / auto 80px repeat-x, var(--s-tb-sky); }
+}
+:root[data-theme="retro"] body .topbar.s-topbar {
+  background: url("skyline-retro.png") left bottom / auto 80px repeat-x, var(--s-tb-sky);
+  border: 3px solid var(--s-n7); border-radius: 0; box-shadow: 3px 3px 0 var(--s-n7);
+}
+:root body .s-topbar .s-tb-shoppy {
+  position: absolute; left: 8px; bottom: 6px; width: 56px; height: 56px;
+  image-rendering: pixelated; pointer-events: none;
+  animation: s-tb-hop 1.2s steps(1, end) infinite;
+}
+@keyframes s-tb-hop { 0% { transform: translateY(0); } 50% { transform: translateY(-3px); } 100% { transform: translateY(0); } }
+:root body .s-topbar .s-tb-main { flex: 1 1 auto; min-width: 0; }
+:root body .s-topbar .s-tb-title {
+  margin: 0; padding: 0; font-family: var(--s-tb-font) !important; font-weight: 600 !important; font-size: var(--s-tb-title) !important;
+  line-height: 1.25 !important; color: var(--s-tb-ink); text-shadow: var(--s-tb-shadow); overflow-wrap: anywhere;
+}
+:root body .s-topbar .s-tb-title em { font: inherit; font-style: normal; color: var(--s-tb-em); }
+:root[data-theme="retro"] body .s-topbar .s-tb-title { font-weight: 400 !important; text-transform: uppercase; line-height: 1.6 !important; }
+:root body .s-topbar .s-tb-line { margin: 3px 0 0; font: 600 11px/1.35 var(--s-font) !important; color: var(--s-tb-dim); text-shadow: var(--s-tb-shadow); overflow-wrap: anywhere; }
+:root body .s-topbar .s-tb-line > * { font: inherit !important; }
+:root body .s-topbar .s-tb-state { color: var(--s-tb-ready); font-weight: 800 !important; letter-spacing: .04em; }
+:root body .s-topbar:is([data-state="run"], [data-state="stalled"]) .s-tb-state { color: var(--s-tb-fill); }
+:root body .s-topbar .s-tb-warn { color: var(--s-tb-warn); }
+:root[data-theme="retro"] body .s-topbar .s-tb-line { font-family: var(--s-pixel) !important; font-weight: 400 !important; font-size: 8px !important; line-height: 1.7 !important; text-transform: uppercase; }
+:root[data-theme="retro"] body .s-topbar .s-tb-state { font-weight: 400 !important; }
+:root body .s-topbar .device-name { flex: none; margin: 2px 0 0; font-size: 11px !important; color: var(--s-tb-dim); text-shadow: var(--s-tb-shadow); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:root body .s-topbar .device-name:empty { display: none; }
+:root body .s-topbar .s-tb-actions { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; align-self: flex-start; }
+
+/* progress lane */
+:root body .s-topbar .s-tb-lane { display: none; position: absolute; left: 70px; right: 10px; bottom: 4px; height: 34px; pointer-events: none; overflow: hidden; }
+:root body .topbar.s-topbar:is([data-state="run"], [data-state="stalled"]) { padding-bottom: 44px; }
+:root body .s-topbar:is([data-state="run"], [data-state="stalled"]) .s-tb-lane { display: block; }
+:root body .s-topbar .s-tb-track { position: absolute; left: 0; right: 0; bottom: 0; height: 5px; background: var(--s-tb-track); border-radius: var(--s-r-pill); overflow: hidden; }
+:root body .s-topbar .s-tb-fill { position: absolute; inset: 0; background: var(--s-tb-fill); transform-origin: left center; transform: scaleX(var(--s-tb-p)); transition: transform .4s ease-out; }
+:root body .s-topbar .s-tb-ride { position: absolute; left: 0; bottom: 3px; width: 100%; height: 28px; transform: translateX(calc((100% - 28px) * var(--s-tb-p))); transition: transform .4s ease-out; }
+:root body .s-topbar .s-tb-rider { display: block; width: 28px; height: 28px; image-rendering: pixelated; animation: s-tb-hop .6s steps(1, end) infinite; }
+:root[data-theme="retro"] body .s-topbar .s-tb-track { border-radius: 0; height: 6px; }
+:root body .s-topbar[data-indeterminate="1"] .s-tb-fill { transform: none; right: auto; width: 30%; animation: s-tb-seg 1.6s steps(16, end) infinite; transition: none; }
+:root body .s-topbar[data-indeterminate="1"] .s-tb-ride { animation: s-tb-roll 3.2s steps(32, end) infinite alternate; transition: none; }
+@keyframes s-tb-seg { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
+@keyframes s-tb-roll { from { transform: translateX(0); } to { transform: translateX(calc(100% - 28px)); } }
+:root body .s-topbar[data-state="stalled"] .s-tb-fill { opacity: .55; }
+:root body .s-topbar[data-state="stalled"] .s-tb-rider { animation: none; }
+
+/* Light/Dark headings in Fredoka (Retro keeps pixel). Not the tab bar. */
+:root:not([data-theme="retro"]) :is(h1, h2, h3, .cfm-h, .fba-head h2, .dash-sec h3) {
+  font-family: "Shopper Heading", var(--s-font) !important; font-weight: 600 !important; letter-spacing: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .s-tb-shoppy, .s-tb-rider, .s-tb-ride, .s-tb-fill { animation: none !important; transition: none !important; }
+}
+
+[hidden] { display: none !important; }

@@ -12,6 +12,8 @@
   <link rel="icon" type="image/png" href="shoppy-64.png" />
   <link rel="stylesheet" href="styles.css" />
   <link rel="stylesheet" href="retro.css" />
+  <!-- B-874 (v2.0.24): the shared top bar + Light/Dark heading font. -->
+  <link rel="stylesheet" href="topbar.css" />
   <!-- B-840 (v2.0.21): the Receive counter pop-up (same file as lib/receive-count.css). -->
   <link rel="stylesheet" href="receive-count.css" />
   <!-- Shopper 2 (v2.00, B-732): light / dark before first paint. The phone
@@ -28,11 +30,21 @@
        Zach taps. It contains no buy logic, and it never answers a prompt
        on his behalf. -->
   <div id="app">
-    <header class="topbar">
-      <div class="brand"><img src="shoppy-64.png" alt="" class="brand-logo" /><span class="brand-word">Shopper</span></div>
-      <div id="deviceName" class="device-name"></div>
-      <button id="themeBtn" class="ghost-btn theme-btn" type="button" aria-label="Switch light / dark / retro"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg></button>
-      <button id="signOutBtn" class="ghost-btn" hidden>Sign out</button>
+    <!-- B-874 (v2.0.24): the shared top bar (same as the laptop's): skyline,
+         Shoppy, "SHOPPER <tab>", the status line from payload.activity and,
+         while a job runs, the floor lane (remote/topbar.css, topbar-view.js). -->
+    <header id="topBar" class="topbar s-topbar" data-state="idle">
+      <img src="shoppy-64.png" alt="" class="s-tb-shoppy" aria-hidden="true" />
+      <div class="s-tb-main">
+        <h1 class="s-tb-title">Shopper <em id="tbPage">Run</em></h1>
+        <div class="s-tb-line" role="status" aria-live="polite"><b class="s-tb-state">READY</b><span class="s-tb-text"></span><span class="s-tb-warn"></span></div>
+        <div id="deviceName" class="device-name"></div>
+      </div>
+      <div class="s-tb-actions">
+        <button id="themeBtn" class="ghost-btn theme-btn" type="button" aria-label="Switch light / dark / retro"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg></button>
+        <button id="signOutBtn" class="ghost-btn" hidden>Sign out</button>
+      </div>
+      <div class="s-tb-lane" aria-hidden="true"><div class="s-tb-track"><div class="s-tb-fill"></div></div><div class="s-tb-ride"><img src="shoppy-64.png" alt="" class="s-tb-rider" /></div></div>
     </header>
 
     <!-- The liveness banner is the first thing on screen on purpose:
@@ -451,6 +463,9 @@
   <script src="run-lib.js"></script>
   <!-- B-840 (v2.0.21): the Receive counter (same file as lib/receive-count.js); app.js opens it from a House row. -->
   <script src="receive-count.js"></script>
+  <!-- B-874 (v2.0.24): the top bar's wording (generated from lib/activity-view.js) and the bar. -->
+  <script src="activity-view.js"></script>
+  <script src="topbar-view.js"></script>
   <script src="app.js"></script>
   <script src="run-view.js"></script>
   <!-- B-683 (v4.93): typed MM/DD/YYYY date box, used by parity.js. -->

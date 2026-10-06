@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.23";
+const APP_BUILD = "v2.0.24";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -433,6 +433,8 @@ function renderPayload() {
   const p = lastPayload;
   if (!p) return;
   renderLiveness(p.liveness);
+  // B-874 (v2.0.24): the top bar's status line / progress lane (payload.activity).
+  if (self.ShopperTopbar) self.ShopperTopbar.update(p.activity);
 
   const run = p.run || null;
   const status = run ? run.status : "";
@@ -1773,6 +1775,8 @@ try {
 
 function switchTab(which) {
   syncTabBarHeight();
+  // B-874 (v2.0.24): the top bar names the tab ("SHOPPER Run").
+  if (self.ShopperTopbar) self.ShopperTopbar.tab(which);
   els.runPane.hidden = which !== "run";
   els.buylistPane.hidden = which !== "buylist";
   els.inventoryPane.hidden = which !== "inventory";
