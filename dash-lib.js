@@ -212,11 +212,109 @@ function buildDoNext(input = {}) {
   return rows;
 }
 
-// The tiles (six since v2.0.20). input:
+// ---- B-858 (v2.0.22): the Sellerboard "Yesterday" / "This Month" cards ----
+// Zach 10/5: replace the 7-day sales tile with two cards copied from his
+// Sellerboard dashboard. "Yesterday" = the day before the CURRENT BUYING DAY,
+// which rolls over at 4 AM America/Chicago (not midnight): at 2 AM on 10/6
+// the card still shows 10/4; from 4 AM it shows 10/5. "This Month" = the 1st
+// of yesterday's month through yesterday - so on the 1st (no full day of the
+// new month yet) it is the whole previous month, headed "Last Month".
+// Days come from the Cash Flow summary's `days` (compact SB Daily rows). A
+// day that is not in it says "not read yet" - never $0.
+const SB_DAY_ROLLOVER_HOUR = 4;
+
+function chicagoClock(nowMs) {
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: "America/Chicago", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hourCycle: "h23" }).formatToParts(new Date(nowMs));
+  const g = (t) => Number((parts.find((x) => x.type === t) || {}).value);
+  return { day: `${g("year")}-${String(g("month")).padStart(2, "0")}-${String(g("day")).padStart(2, "0")}`, hour: g("hour") % 24 };
+}
+
+function dayKeyAdd(key, n) {
+  const [y, m, d] = String(key).split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
+}
+
+// "2026-10-04" -> "10/4/2026" (Sellerboard's own date style).
+function usDate(key) {
+  const [y, m, d] = String(key).split("-").map(Number);
+  return `${m}/${d}/${y}`;
+}
+
+function sbCardRange(nowMs) {
+  const t = num(nowMs);
+  if (t == null) return null;
+  const c = chicagoClock(t);
+  const buyingDay = c.hour < SB_DAY_ROLLOVER_HOUR ? dayKeyAdd(c.day, -1) : c.day;
+  const yesterday = dayKeyAdd(buyingDay, -1);
+  const monthStart = yesterday.slice(0, 8) + "01";
+  const sameMonth = yesterday.slice(0, 7) === buyingDay.slice(0, 7);
+  return { buyingDay, yesterday, monthStart, monthEnd: yesterday, monthHeader: sameMonth ? "This Month" : "Last Month" };
+}
+
+// Sums the days from..to (inclusive). read = days found, want = days in range.
+function sumSbDays(days, from, to) {
+  const out = { read: 0, want: 0, sales: 0, orders: 0, units: 0, refunds: 0, ads: 0, payout: 0, netProfit: 0, cogs: 0 };
+  const byDay = new Map();
+  for (const d of Array.isArray(days) ? days : []) if (d && typeof d.day === "string") byDay.set(d.day, d);
+  for (let k = from, guard = 0; k <= to && guard < 400; k = dayKeyAdd(k, 1), guard++) {
+    out.want++;
+    const d = byDay.get(k);
+    if (!d) continue;
+    out.read++;
+    for (const f of ["sales", "orders", "units", "refunds", "ads", "payout", "netProfit", "cogs"]) out[f] += num(d[f]) || 0;
+  }
+  for (const f of ["sales", "ads", "payout", "netProfit", "cogs"]) out[f] = Math.round(out[f] * 100) / 100;
+  return out;
+}
+
+function pctText(n, d) {
+  const a = num(n), b = num(d);
+  if (a == null || b == null || !(Math.abs(b) > 0)) return "-";
+  return `${Math.round((a / Math.abs(b)) * 100)}%`;
+}
+
+function sbCard(id, header, agg, note) {
+  const has = agg && agg.read > 0;
+  const missing = agg ? agg.want - agg.read : 0;
+  const v = (f) => (has ? f() : "-");
+  return {
+    id,
+    label: header,
+    value: has ? money2(agg.sales) : "not read yet",
+    sub: note || (has && missing > 0 ? `Sales · ${plural(missing, "day")} not read yet` : "Sales"),
+    tone: "flat",
+    target: "cashflow",
+    split: [
+      { label: "Orders / Items", value: v(() => `${agg.orders.toLocaleString("en-US")} / ${agg.units.toLocaleString("en-US")}`) },
+      { label: "Returns", value: v(() => agg.refunds.toLocaleString("en-US")) },
+      { label: "Ad cost", value: v(() => money2(agg.ads)) },
+      { label: "Est payout", value: v(() => money2(agg.payout)) },
+      // ROI = net profit / cost of goods; margin = net profit / sales.
+      { label: "ROI / Margin", value: v(() => `${pctText(agg.netProfit, agg.cogs)} / ${pctText(agg.netProfit, agg.sales)}`) },
+      { label: "Net profit", value: v(() => money2(agg.netProfit)) },
+    ],
+  };
+}
+
+// cash = the Cash Flow summary (its `days`), now = ms. -> the two cards.
+function buildSbCards(cash, now) {
+  const r = sbCardRange(now);
+  const days = cash && Array.isArray(cash.days) ? cash.days : null;
+  const yHead = r ? `Yesterday · ${usDate(r.yesterday)}` : "Yesterday";
+  const mHead = r ? `${r.monthHeader} · ${usDate(r.monthStart)} to ${usDate(r.monthEnd)}` : "This Month";
+  const note = !cash ? "Cash Flow not read yet" : !days || !r ? "Sales · not read yet" : "";
+  return [
+    sbCard("sbYesterday", yHead, days && r ? sumSbDays(days, r.yesterday, r.yesterday) : null, note),
+    sbCard("sbMonth", mHead, days && r ? sumSbDays(days, r.monthStart, r.monthEnd) : null, note),
+  ];
+}
+
+// The tiles (six since v2.0.20; v2.0.22 B-858: the 7-day sales tile became
+// the two Sellerboard cards, so seven). input:
 //   spend { spentToday, neededToday }   bank (number)
 //   plaid plaidGlance() (lib/plaid-client.js) - B-838; now (ms) for its age
 //   stranded strandedGlance() - B-837, a line under the Stock tile
-//   cash  the Cash Flow summary (sales7, salesPrev7, through, payoutNext30?, next30?)
+//   cash  the Cash Flow summary (days [B-858], payoutNext30?, next30?); now (ms) also picks the cards' days
 //   stock { house, prep, inTransit, fba }  dollars at cost, null = unknown
 // -> [{ id, label, value, sub, tone, target, split? }]
 function buildTiles(input = {}) {
@@ -225,15 +323,7 @@ function buildTiles(input = {}) {
   const cash = i.cash || null;
   const out = [];
 
-  const ch = cash ? changeLine(cash.sales7, cash.salesPrev7) : { text: "", dir: "flat" };
-  out.push({
-    id: "sales",
-    label: "7-day sales",
-    value: cash ? money0(cash.sales7) : "-",
-    sub: cash ? ch.text || `7 days to ${cash.through || "-"}` : "Cash Flow not read yet",
-    tone: cash ? ch.dir : "flat",
-    target: "cashflow",
-  });
+  out.push(...buildSbCards(cash, i.now));
 
   const spent = num(spend.spentToday), needed = num(spend.neededToday);
   out.push({
@@ -338,7 +428,7 @@ function fbaStockValue(tiles) {
   }
   return any ? Math.round(total * 100) / 100 : null;
 }
-__m["dashboard-todo.js"] = { TARGETS, DO_NEXT_ORDER, SHIPMENT_NOTIFICATION_TYPE, money0, money2, changeLine, topSeverity, buildDoNext, buildTiles, ageText, plaidTile, fbaStockValue };
+__m["dashboard-todo.js"] = { TARGETS, DO_NEXT_ORDER, SHIPMENT_NOTIFICATION_TYPE, money0, money2, changeLine, topSeverity, buildDoNext, SB_DAY_ROLLOVER_HOUR, chicagoClock, dayKeyAdd, usDate, sbCardRange, sumSbDays, buildSbCards, buildTiles, ageText, plaidTile, fbaStockValue };
 })();
 root.ShopperGlance = Object.freeze(Object.assign({}, ...Object.values(__m)));
 })(self);

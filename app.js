@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.21";
+const APP_BUILD = "v2.0.22";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -148,8 +148,11 @@ async function sb(path, { method = "GET", body, prefer } = {}) {
 // `signature` is sent as null and `role` as "active" because protocol v1
 // reserves both. They exist so device-key signing can be added later
 // without a schema migration - see the backlog's forward-compat notes.
-async function sendCommand(name, payload = {}) {
+async function sendCommand(name, payload = {}, opts = {}) {
   if (!deviceId) return;
+  // B-843 (v2.0.22): `quiet` = a background sync (Receive counts) - no "Sent" toast, no progress pill,
+  // no error toast; the caller retries on its own.
+  const quiet = !!(opts && opts.quiet);
   const res = await sb("commands", {
     // ⚠ P-28 (v2.93): was `return=minimal`, which threw away the row id -
     // and with it any way to ever find out what happened to the command.
@@ -166,8 +169,9 @@ async function sendCommand(name, payload = {}) {
       role: "active",
     }],
   });
-  if (!res.ok) { toast(`Could not send: ${res.reason}`, true); return null; }
+  if (!res.ok) { if (!quiet) toast(`Could not send: ${res.reason}`, true); return null; }
   const row = Array.isArray(res.json) ? res.json[0] : null;
+  if (quiet) return row && row.id ? row.id : null;
   if (row && row.id) {
     inFlight.set(row.id, { name, at: Date.now() });
     renderInFlight();
@@ -491,6 +495,7 @@ function renderPayload() {
   maybePlaySounds(p);
   renderBuylistGen(p.buylistGen);
   if (!isBeingEdited(els.buylistItems)) renderBuylist(p.buylist);
+  rcSyncApply(p.inventory);
   renderInventory(p.inventory);
   // B-510/B-511 (v4.61): the FBA tab.
   if (self.ShopperFbaView) self.ShopperFbaView.render(p.fba);
@@ -1973,6 +1978,42 @@ function invReceiveError(status) {
   return "The laptop answered \"" + status + "\", so nothing was saved.";
 }
 
+// B-843 (v2.0.22): the tally follows Zach between the phone and the laptop. A tally edited here is sent
+// to the laptop (the quiet command receiveTallySet, newest edit per product wins); what the laptop holds
+// arrives in every inventory payload (inventory.receiveTallies) and is merged in. Without the laptop the
+// tally still works on its own, as before.
+const rcSync = { started: false, timers: new Map(), lastSent: new Map() };
+function rcSyncSend(e) {
+  const asin = e.asin;
+  clearTimeout(rcSync.timers.get(asin));
+  rcSync.timers.set(asin, setTimeout(() => {
+    rcSync.timers.delete(asin);
+    rcSync.lastSent.set(asin, { at: Date.now(), updatedAt: e.updatedAt });
+    sendCommand("receiveTallySet", { asin, chunks: e.chunks, updatedAt: e.updatedAt }, { quiet: true }).catch(() => {});
+  }, 600));
+}
+function rcSyncStart() {
+  if (rcSync.started || !self.ShopperReceive || !self.ShopperReceive.onStoreChange) return;
+  rcSync.started = true;
+  self.ShopperReceive.onStoreChange(rcSyncSend);
+}
+function rcSyncApply(inv) {
+  const RC = self.ShopperReceive;
+  if (!RC || !RC.applyRemote) return;
+  rcSyncStart();
+  if (!inv || !inv.receiveTallies) return;
+  const changed = RC.applyRemote(inv.receiveTallies);
+  if (changed.length) invRefreshReceiveButtons();
+  // Anything counted here that the laptop does not have yet (a command that never arrived) goes again,
+  // at most every 30 s per product.
+  for (const e of RC.diffNewer(inv.receiveTallies)) {
+    if (rcSync.timers.has(e.asin)) continue;
+    const s = rcSync.lastSent.get(e.asin);
+    if (s && s.updatedAt === e.updatedAt && Date.now() - s.at < 30000) continue;
+    rcSyncSend(e);
+  }
+}
+
 // The row buttons show the tally in progress ("Receive · 36"). The count rides in a no-wrap span so a
 // narrow button breaks between "Receive" and "· 36", never after the dot.
 function invSetReceiveLabel(b, asin) {
@@ -1986,10 +2027,12 @@ function invSetReceiveLabel(b, asin) {
 function invRefreshReceiveButtons() {
   if (!self.ShopperReceive) return;
   for (const b of els.invBucketTable.querySelectorAll(".rc-row-btn")) invSetReceiveLabel(b, b.dataset.asin);
+  self.ShopperReceive.paintBadges(els.invBucketTable);
 }
 
 function invOpenReceive(r) {
   if (!self.ShopperReceive) return;
+  rcSyncStart();
   self.ShopperReceive.open({
     asin: r.asin,
     title: r.title || r.asin,
@@ -2047,7 +2090,16 @@ function renderInvBucket(inv) {
   const withReceive = invBucket === "house" && !!self.ShopperReceive;
   for (const r of rows) {
     const tr = invNode("tr");
-    tr.appendChild(invNode("td", "inv-title", r.title || r.asin));
+    const titleCell = invNode("td", "inv-title", r.title || r.asin);
+    // B-844 (v2.0.22): a count in progress shows as a clear pill on the product's own line.
+    if (withReceive) {
+      const badge = invNode("span", "rc-badge");
+      badge.dataset.asin = r.asin;
+      badge.hidden = true;
+      titleCell.appendChild(badge);
+      self.ShopperReceive.paintBadges(badge);
+    }
+    tr.appendChild(titleCell);
     const asinCell = invNode("td", "inv-asin", r.asin);
     if (withReceive) asinCell.appendChild(invReceiveButton(r));
     tr.appendChild(asinCell);

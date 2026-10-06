@@ -30,6 +30,9 @@
   // A runaway guard for the stored list (1000 boxes of 12 is 12,000 units).
   var MAX_CHUNKS = 1000;
   var STORE_KEY = "shopperReceiveTallies";
+  // B-843 (v2.0.22): when each tally was last CLEARED (or confirmed), per ASIN, so a clear on one
+  // device beats an older tally on the other. { "<ASIN>": <ms> }
+  var CLEARS_KEY = "shopperReceiveTallyClears";
   var MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
   var MAX_ENTRIES = 200;
 
@@ -325,15 +328,174 @@
     return e ? e.chunks.slice() : [];
   }
 
-  function setChunks(asin, chunks, now) {
+  // ---- B-843 (v2.0.22): the clears (tombstones) and the sync with the other device.
+  //
+  // This file still sends nothing itself. A host (Pipeline page / phone app) registers
+  // onStoreChange(fn) to hear every LOCAL edit, and hands what the other device holds to
+  // applyRemote(). NEWEST EDIT WINS PER ASIN; a clear / confirm is an edit too, so it wins over
+  // an older tally. Storage failures fall back to memory exactly like the tallies do.
+  var memoryClears = {};
+  var clearsDegraded = false;
+  var storeListeners = [];
+  var openWatchers = [];
+
+  function pruneClears(map, now) {
+    var t = typeof now === "number" ? now : Date.now();
+    var out = {};
+    if (map && typeof map === "object" && !Array.isArray(map)) {
+      for (var key in map) {
+        if (!has(map, key)) continue;
+        var at = Number(map[key]);
+        if (!isFinite(at) || at <= 0 || t - at > MAX_AGE_MS) continue;
+        out[key] = at;
+      }
+    }
+    return out;
+  }
+
+  function readClears(now) {
+    var map = null;
+    if (!clearsDegraded) {
+      try {
+        var s = self.localStorage;
+        var raw = s ? s.getItem(CLEARS_KEY) : null;
+        map = raw ? JSON.parse(raw) : {};
+      } catch (e) {
+        clearsDegraded = true;
+        map = null;
+      }
+    }
+    if (map == null) map = memoryClears;
+    var clean = pruneClears(map, now);
+    memoryClears = clean;
+    return clean;
+  }
+
+  function writeClears(map) {
+    memoryClears = map;
+    if (clearsDegraded) return;
+    try {
+      self.localStorage.setItem(CLEARS_KEY, JSON.stringify(map));
+    } catch (e) {
+      clearsDegraded = true;
+    }
+  }
+
+  function emitStoreChange(asin, chunks, at) {
+    for (var i = 0; i < storeListeners.length; i++) {
+      try { storeListeners[i]({ asin: asin, chunks: chunks.slice(), updatedAt: at, cleared: chunks.length === 0 }); } catch (e) { /* a host must never break counting */ }
+    }
+  }
+
+  // fn({asin, chunks, updatedAt, cleared}) after every edit made on THIS device.
+  function onStoreChange(fn) {
+    if (typeof fn !== "function") return function () {};
+    storeListeners.push(fn);
+    return function () { var k = storeListeners.indexOf(fn); if (k >= 0) storeListeners.splice(k, 1); };
+  }
+
+  function setChunks(asin, chunks, now, quiet) {
     var key = normAsin(asin);
     if (!key) return;
+    var at = typeof now === "number" ? now : Date.now();
     var map = readMap(now);
+    var had = has(map, key);
     var clean = [];
     for (var i = 0; i < (chunks || []).length; i++) if (isChunk(chunks[i])) clean.push(chunks[i]);
-    if (clean.length) map[key] = { chunks: clean, updatedAt: typeof now === "number" ? now : Date.now() };
+    if (clean.length) map[key] = { chunks: clean, updatedAt: at };
     else delete map[key];
     writeMap(prune(map, now));
+    if (!clean.length && had) {
+      var clears = readClears(now);
+      clears[key] = at;
+      writeClears(clears);
+    }
+    if (!quiet && (clean.length || had)) emitStoreChange(key, clean, at);
+  }
+
+  // What this device holds, in the shape the sync channel carries.
+  function exportSync(now) {
+    return { tallies: readMap(now), clears: readClears(now) };
+  }
+
+  function sameChunks(a, b) {
+    if (!a || !b || a.length !== b.length) return false;
+    for (var i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+    return true;
+  }
+
+  // Merge two {tallies, clears} (pure). Per ASIN the newest edit wins; a tie keeps the tally.
+  function mergeSync(a, b, now) {
+    var ta = prune(a && a.tallies, now), tb = prune(b && b.tallies, now);
+    var ca = pruneClears(a && a.clears, now), cb = pruneClears(b && b.clears, now);
+    var keys = {}, k;
+    for (k in ta) if (has(ta, k)) keys[k] = 1;
+    for (k in tb) if (has(tb, k)) keys[k] = 1;
+    for (k in ca) if (has(ca, k)) keys[k] = 1;
+    for (k in cb) if (has(cb, k)) keys[k] = 1;
+    var tallies = {}, clears = {};
+    for (k in keys) {
+      if (!has(keys, k)) continue;
+      var best = null;
+      if (ta[k]) best = ta[k];
+      if (tb[k] && (!best || tb[k].updatedAt > best.updatedAt)) best = tb[k];
+      var clearAt = Math.max(ca[k] || 0, cb[k] || 0);
+      if (clearAt) clears[k] = clearAt;
+      if (best && best.updatedAt >= clearAt) tallies[k] = { chunks: best.chunks.slice(), updatedAt: best.updatedAt };
+    }
+    return { tallies: prune(tallies, now), clears: pruneClears(clears, now) };
+  }
+
+  // Take what the other device holds. Returns the ASINs whose tally changed here; host redraws.
+  function applyRemote(remote, now) {
+    if (!remote || typeof remote !== "object") return [];
+    var local = exportSync(now);
+    var merged = mergeSync(local, remote, now);
+    var changed = [], k;
+    for (k in merged.tallies) if (has(merged.tallies, k) && (!has(local.tallies, k) || !sameChunks(local.tallies[k].chunks, merged.tallies[k].chunks))) changed.push(k);
+    for (k in local.tallies) if (has(local.tallies, k) && !has(merged.tallies, k)) changed.push(k);
+    writeMap(merged.tallies);
+    writeClears(merged.clears);
+    for (var i = 0; i < changed.length; i++) {
+      for (var j = 0; j < openWatchers.length; j++) {
+        try { openWatchers[j](changed[i]); } catch (e) { /* never break counting */ }
+      }
+    }
+    return changed;
+  }
+
+  // The local edits the other device does not have yet (newer than what it reported):
+  // [{asin, chunks, updatedAt, cleared}] - the host resends these.
+  function diffNewer(remote, now) {
+    var local = exportSync(now);
+    var rt = prune(remote && remote.tallies, now);
+    var rc = pruneClears(remote && remote.clears, now);
+    var out = [], k;
+    for (k in local.tallies) {
+      if (!has(local.tallies, k)) continue;
+      var e = local.tallies[k];
+      var theirs = Math.max(rt[k] ? rt[k].updatedAt : 0, rc[k] || 0);
+      if (e.updatedAt > theirs) out.push({ asin: k, chunks: e.chunks.slice(), updatedAt: e.updatedAt, cleared: false });
+    }
+    for (k in local.clears) {
+      if (!has(local.clears, k) || has(local.tallies, k)) continue;
+      var theirsAt = Math.max(rt[k] ? rt[k].updatedAt : 0, rc[k] || 0);
+      if (local.clears[k] > theirsAt) out.push({ asin: k, chunks: [], updatedAt: local.clears[k], cleared: true });
+    }
+    return out;
+  }
+
+  // B-844 (v2.0.22): every <span class="rc-badge" data-asin="..."> under `root` shows "Counted N"
+  // while a count is in progress for that ASIN, and is hidden otherwise.
+  function paintBadges(root) {
+    if (typeof document === "undefined") return;
+    var r0 = root || document;
+    var nodes = r0.classList && r0.classList.contains("rc-badge") ? [r0] : r0.querySelectorAll(".rc-badge");
+    for (var i = 0; i < nodes.length; i++) {
+      var t = totalFor(nodes[i].getAttribute("data-asin"));
+      if (t == null) { nodes[i].hidden = true; nodes[i].textContent = ""; }
+      else { nodes[i].hidden = false; nodes[i].textContent = "Counted " + fmtNum(t); nodes[i].title = "A count of " + fmtNum(t) + " is in progress for this product"; }
+    }
   }
 
   function clearFor(asin, now) { setChunks(asin, [], now); }
@@ -391,6 +553,16 @@
     var canConfirm = typeof opts.onConfirm === "function";
     var tally = createTally(getChunks(asin));
     var sending = false;
+    // B-843: the other device changed THIS product's tally while the pop-up is open - show it.
+    var watcher = function (changedAsin) {
+      if (closed || sending || changedAsin !== asin) return;
+      tally.clear();
+      var fresh = getChunks(asin);
+      for (var q = 0; q < fresh.length; q++) tally.add(fresh[q]);
+      closeAsks();
+      render();
+    };
+    openWatchers.push(watcher);
     var closed = false;
     var downOnBackdrop = false;
     var opener = document.activeElement;
@@ -742,6 +914,8 @@
     function dismiss() {
       if (closed) return;
       closed = true;
+      var wi = openWatchers.indexOf(watcher);
+      if (wi >= 0) openWatchers.splice(wi, 1);
       document.removeEventListener("keydown", onKey);
       if (self.visualViewport && self.visualViewport.removeEventListener) {
         self.visualViewport.removeEventListener("resize", syncViewport);
@@ -790,7 +964,7 @@
   function isOpen() { return !!current; }
 
   // Test hook: forget what the memory fallback holds and re-try real storage.
-  function _reset() { memory = {}; degraded = false; }
+  function _reset() { memory = {}; degraded = false; memoryClears = {}; clearsDegraded = false; storeListeners = []; openWatchers = []; }
 
   self.ShopperReceive = Object.freeze({
     QUICK: QUICK,
@@ -800,6 +974,13 @@
     MAX_AGE_MS: MAX_AGE_MS,
     MAX_ENTRIES: MAX_ENTRIES,
     STORE_KEY: STORE_KEY,
+    CLEARS_KEY: CLEARS_KEY,
+    onStoreChange: onStoreChange,
+    exportSync: exportSync,
+    mergeSync: mergeSync,
+    applyRemote: applyRemote,
+    diffNewer: diffNewer,
+    paintBadges: paintBadges,
     isChunk: isChunk,
     parseTyped: parseTyped,
     createTally: createTally,

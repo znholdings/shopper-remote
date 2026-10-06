@@ -136,4 +136,14 @@
 :root[data-theme="retro"] .rc-card .rc-foot .rc-btn,
 :root[data-theme="retro"] .rc-card .rc-voice-btns .rc-btn { min-height: 40px; }
 
+/* B-844 (v2.0.22): "Counted N" on the product's own line (Pipeline table, phone House list). Tokens only. */
+.rc-badge {
+  display: block; width: fit-content; max-width: 100%; margin-top: 4px; padding: 3px 10px;
+  font-family: var(--s-font); font-size: 13px; font-weight: 800; line-height: 1.25; white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  background: var(--s-green-bg); color: var(--s-green-ink); border: 1px solid var(--s-green); border-radius: var(--s-r-pill);
+}
+.rc-badge[hidden] { display: none; }
+:root[data-theme="retro"] .rc-badge { font-size: 10px !important; line-height: 1.4 !important; padding: 4px 8px; border: 2px solid var(--s-n7); border-radius: 0; font-weight: 400; }
+
 [hidden] { display: none !important; }

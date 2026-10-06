@@ -1064,4 +1064,16 @@ html, body { overscroll-behavior: none; }
 .gl-expand { display: grid; gap: 6px; }
 .gl-status { display: grid; gap: 6px; }
 
+/* B-858 (v2.0.22): the Sellerboard "Yesterday" / "This Month" cards - full
+   width, stacked; coloured header band; "Sales" above the big figure; the
+   six figures in a two-column grid, label over value. */
+.gl-tile[data-tile^="sb"] { grid-column: 1 / -1; }
+.gl-tile[data-tile^="sb"] .t-label { align-self: stretch; padding: 5px 10px; border-radius: var(--s-r-sm, 6px); color: var(--s-on-accent); font-weight: 800; }
+.gl-tile[data-tile="sbYesterday"] .t-label { background: var(--s-blue); }
+.gl-tile[data-tile="sbMonth"] .t-label { background: var(--s-cyan-ink); }
+.gl-tile[data-tile^="sb"] .gl-sub { order: 1; margin-top: 2px; font-weight: 700; color: var(--s-text-muted); }
+.gl-tile[data-tile^="sb"] .gl-num { order: 2; }
+.gl-tile[data-tile^="sb"] .gl-split { order: 3; gap: 6px 14px; }
+.gl-tile[data-tile^="sb"] .gl-split-item { flex-direction: column; justify-content: flex-start; gap: 0; }
+
 [hidden] { display: none !important; }
