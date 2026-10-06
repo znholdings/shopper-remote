@@ -32,7 +32,9 @@ const TARGETS = Object.freeze(["buylist", "buyqueue", "pipeline", "arrivals", "b
 
 // Order = priority (Zach's list). Rows with nothing to do are not built.
 // B-837 (v2.0.20): "stranded" - units Amazon holds but cannot sell.
-const DO_NEXT_ORDER = Object.freeze(["urgent", "owed", "needsYou", "belowMin", "arrivals", "runReviews", "fba", "stranded", "shipment"]);
+// B-862 (v2.0.23): "pricingErrors" - listings Amazon deactivated for a
+// suspected pricing error (lib/pricing-errors.js), right after Below Min.
+const DO_NEXT_ORDER = Object.freeze(["urgent", "owed", "needsYou", "belowMin", "pricingErrors", "arrivals", "runReviews", "fba", "stranded", "shipment"]);
 const SHIPMENT_NOTIFICATION_TYPE = "shipment_prompt";
 
 const num = (v) => {
@@ -41,6 +43,43 @@ const num = (v) => {
   return Number.isFinite(x) ? x : null;
 };
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many || one + "s"}`;
+
+// B-861 / B-862 (v2.0.23): product lines inside a Do next row.
+const DO_NEXT_LINE_MAX = 10;
+function shortTitle(t, max = 60) {
+  const s = String(t || "").replace(/\s+/g, " ").trim();
+  return s.length > max ? s.slice(0, max - 1).replace(/\s+\S*$/, "") + "…" : s;
+}
+// A stranded product: "B0XXXXXXXX Title (25 units)".
+function strandedLineText(it) {
+  const id = String((it && (it.asin || it.sku)) || "");
+  const t = shortTitle(it && it.title);
+  return `${id}${t ? " " + t : " (title not on file)"} (${plural(num(it && it.units) || 0, "unit")})`;
+}
+// Words for a stored offer reading (lib/pricing-errors.js pricingGlance
+// item.offer): "$40.10 3G SUPPLIER (Seller Snap, 2h ago)" /
+// "none from another seller" / "not read yet". Never a guess.
+function pricingOfferText(offer, now = null) {
+  if (!offer) return "not read yet";
+  const when = now != null && offer.at ? ageText(offer.at, now) : "";
+  const src = [offer.via, when].filter(Boolean).join(", ");
+  if (offer.error) return `not read yet (${offer.error})`;
+  const p = num(offer.price);
+  if (p == null) return offer.none ? `none from another seller${src ? ` (${src})` : ""}` : "not read yet";
+  return `${money2(p)}${offer.seller ? ` ${offer.seller}` : ""}${src ? ` (${src})` : ""}`;
+}
+// A pricing-error listing: "B0XXXXXXXX Title - ours $35.27, highest other offer $40.10 … ".
+function pricingLineText(it, now = null) {
+  const id = String((it && (it.asin || it.sku)) || "");
+  const t = shortTitle(it && it.title);
+  const ours = num(it && it.price);
+  return `${id}${t ? " " + t : ""} - ours ${ours == null ? "not on file" : money2(ours)}, highest other offer ${pricingOfferText(it && it.offer, now)}`;
+}
+function linesDetail(texts, total, moreWhere) {
+  const shown = texts.slice(0, DO_NEXT_LINE_MAX);
+  const more = total - shown.length;
+  return shown.join(" · ") + (more > 0 ? ` · +${more} more on the ${moreWhere} page` : "");
+}
 
 function money0(v) {
   const x = num(v);
@@ -79,7 +118,9 @@ function topSeverity(list) {
 //   belowMin          listings with the Buy Box under the min
 //   runReviews        { latestRunSevere }
 //   fbaAlerts         [{ text }]
-//   stranded          strandedGlance() (lib/stranded.js) - { known, units, skus }
+//   stranded          strandedGlance() (lib/stranded.js) - { known, units, skus, items? }
+//   pricingErrors     pricingGlance() (lib/pricing-errors.js) - { known, count, items } - B-862
+//   now               ms, for "2h ago" on an offer reading (optional)
 // -> [{ id, rank, severity, title, detail, go: { label, target }, notifs?: [...], count }]
 function buildDoNext(input = {}) {
   const rows = [];
@@ -137,8 +178,25 @@ function buildDoNext(input = {}) {
       severity: "medium",
       title: `${plural(below, "listing")} below your Seller Snap min`,
       detail: "The Buy Box is under your min price.",
-      go: { label: "Below Min", target: "belowmin" },
+      go: { label: "Pricing", target: "belowmin" },
       count: below,
+    });
+  }
+
+  // B-862 (v2.0.23): listings deactivated for a suspected pricing error.
+  const pe = input.pricingErrors || null;
+  const peItems = pe && Array.isArray(pe.items) ? pe.items.filter(Boolean) : [];
+  const peCount = pe && pe.known ? Math.max(num(pe.count) || 0, peItems.length) : 0;
+  if (peCount > 0) {
+    const now = num(input.now);
+    add({
+      id: "pricingErrors",
+      severity: "high",
+      title: `${plural(peCount, "listing")} deactivated for a pricing error`,
+      detail: linesDetail(peItems.map((it) => pricingLineText(it, now)), peCount, "Pricing") + ". Fix the price, then mark it fixed on the Pricing page.",
+      lines: peItems.map((it) => ({ asin: String(it.asin || ""), sku: String(it.sku || ""), title: String(it.title || ""), price: num(it.price), offer: pricingOfferText(it.offer, now), text: pricingLineText(it, now) })),
+      go: { label: "Pricing", target: "belowmin" },
+      count: peCount,
     });
   }
 
@@ -187,11 +245,16 @@ function buildDoNext(input = {}) {
   const strandedUnits = sg && sg.known ? num(sg.units) || 0 : 0;
   if (strandedUnits > 0) {
     const skus = num(sg.skus) || 0;
+    // B-861 (v2.0.23): every stranded product - ASIN, title, stranded units.
+    const items = Array.isArray(sg.items) ? sg.items.filter(Boolean) : [];
     add({
       id: "stranded",
       severity: "medium",
       title: `${plural(strandedUnits, "unit")} stranded at Amazon`,
-      detail: `${plural(skus, "SKU")} with no active listing - Amazon holds them but cannot sell them. Fix the listing or send a removal.`,
+      detail: items.length
+        ? `${linesDetail(items.map(strandedLineText), Math.max(skus, items.length), "FBA Inventory")}. No active listing - Amazon holds them but cannot sell them. Fix the listing or send a removal.`
+        : `${plural(skus, "SKU")} with no active listing - Amazon holds them but cannot sell them. Fix the listing or send a removal.`,
+      lines: items.map((it) => ({ asin: String(it.asin || ""), sku: String(it.sku || ""), title: String(it.title || ""), units: num(it.units) || 0, text: strandedLineText(it) })),
       go: { label: "FBA Inventory", target: "fba" },
       count: strandedUnits,
     });
@@ -428,7 +491,7 @@ function fbaStockValue(tiles) {
   }
   return any ? Math.round(total * 100) / 100 : null;
 }
-__m["dashboard-todo.js"] = { TARGETS, DO_NEXT_ORDER, SHIPMENT_NOTIFICATION_TYPE, money0, money2, changeLine, topSeverity, buildDoNext, SB_DAY_ROLLOVER_HOUR, chicagoClock, dayKeyAdd, usDate, sbCardRange, sumSbDays, buildSbCards, buildTiles, ageText, plaidTile, fbaStockValue };
+__m["dashboard-todo.js"] = { TARGETS, DO_NEXT_ORDER, SHIPMENT_NOTIFICATION_TYPE, DO_NEXT_LINE_MAX, shortTitle, strandedLineText, pricingOfferText, pricingLineText, money0, money2, changeLine, topSeverity, buildDoNext, SB_DAY_ROLLOVER_HOUR, chicagoClock, dayKeyAdd, usDate, sbCardRange, sumSbDays, buildSbCards, buildTiles, ageText, plaidTile, fbaStockValue };
 })();
 root.ShopperGlance = Object.freeze(Object.assign({}, ...Object.values(__m)));
 })(self);

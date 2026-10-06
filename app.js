@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.22";
+const APP_BUILD = "v2.0.23";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -2475,6 +2475,9 @@ function renderDashboard(d, p) {
     runReviews: d.runReviews,
     fbaAlerts: fba.alerts,
     stranded: ex.stranded || null,
+    // B-862 (v2.0.23): listings deactivated for a pricing error.
+    pricingErrors: ex.pricingErrors || null,
+    now: Date.now(),
   });
   const key = JSON.stringify([tiles, rows.map((r) => [r.id, r.title, r.detail, r.severity, r.go.label, (r.notifs || []).map((n) => n.key)]), d.lastRun, ex.nightly, d.remoteBuiltAt, d.stale, d.spend.bankRecent]);
   if (key === lastDashboardKey) return;
