@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.27";
+const APP_BUILD = "v2.0.28";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -1090,7 +1090,7 @@ function renderPrompt(prompt) {
 
   for (const name of prompt.answers || []) {
     const b = document.createElement("button");
-    const destructive = name === "abort" || name === "skipSourceUrl" || name === "fillerSkip" || name === "multipackCancel" || name === "declineOrder";
+    const destructive = name === "abort" || name === "skipSourceUrl" || name === "fillerSkip" || name === "multipackCancel" || name === "declineOrder" || name === "skipLine";
     b.className = destructive ? "secondary-btn" : "primary-btn";
     // B-774 (v2.0.9): a prompt may name its own answers ("Resume anyway",
     // "Skip failed buy") - the same words the laptop's buttons use.
@@ -1125,6 +1125,8 @@ const ANSWER_LABELS = {
   approveOrder: "Place order",
   // B-774 (v2.0.9): the laptop's decline, and the failure pause's retry.
   declineOrder: "Skip this order",
+  // B-904 (v2.0.28): the safety-cap prompt's skip (its own label wins).
+  skipLine: "Skip this line",
   retryFailed: "Retry failed buy",
   multipackOk: "Yes, proceed",
   multipackCancel: "No, skip this buy",

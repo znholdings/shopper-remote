@@ -1010,6 +1010,7 @@
     var byAsin = {};
     var list = Array.isArray(rows) ? rows : [];
     var changes = [];
+    var same = []; // B-885 (v2.0.28): tally already equals the figure - nothing to set
     for (var i = 0; i < list.length; i++) {
       var r = list[i] || {};
       var a = normAsin(r.asin);
@@ -1020,6 +1021,10 @@
       var t = 0;
       for (var j = 0; j < e.chunks.length; j++) t += e.chunks[j];
       var h = Number(r.house);
+      if (r.house != null && r.house !== "" && isFinite(h) && Math.round(h * 1000) === Math.round(t * 1000)) {
+        same.push({ asin: a, title: String(r.title || a), houseNow: h, counted: t });
+        continue;
+      }
       changes.push({ asin: a, title: String(r.title || a), houseNow: isFinite(h) ? h : null, counted: t });
     }
     var notListed = [];
@@ -1030,7 +1035,7 @@
       notListed.push({ asin: k, counted: tt });
     }
     notListed.sort(function (x, y) { return x.asin < y.asin ? -1 : x.asin > y.asin ? 1 : 0; });
-    return { changes: changes, notListed: notListed };
+    return { changes: changes, same: same, notListed: notListed };
   }
 
   // What the list on screen says, so "Yes" only sends what Zach read (a tally edited on the other
@@ -1076,6 +1081,7 @@
     var intro = h("div", "rc-all-intro", "");
     var listEl = h("ul", "rc-all-list");
     var restEl = h("div", "rc-all-rest", "");
+    var sameEl = h("div", "rc-all-rest rc-all-same", ""); // B-885: muted, like the line above
     var msg = h("div", "rc-msg", "");
     msg.setAttribute("role", "status");
     msg.setAttribute("aria-live", "polite");
@@ -1090,6 +1096,7 @@
     card.appendChild(intro);
     card.appendChild(listEl);
     card.appendChild(restEl);
+    card.appendChild(sameEl);
     card.appendChild(msg);
     card.appendChild(foot);
     overlay.appendChild(card);
@@ -1107,7 +1114,9 @@
       var n = plan.changes.length;
       intro.textContent = n
         ? "Each product below gets the same change as \"Make this the " + where + " count\" -> \"Yes, set it\": " + where + " on hand becomes the counted number. Arrivals are not changed. Products with no Receive count are not touched."
-        : "No product on this list has a Receive count in progress, so there is nothing to set.";
+        : (plan.same && plan.same.length
+          ? "Every counted product on this list already matches its " + where + " count, so there is nothing to set."
+          : "No product on this list has a Receive count in progress, so there is nothing to set.");
       for (var i = 0; i < n; i++) {
         var c = plan.changes[i];
         var li = h("li", "rc-all-row");
@@ -1131,6 +1140,11 @@
       for (var k = 0; k < plan.notListed.length; k++) rest.push(plan.notListed[k].asin + " (" + fmtNum(plan.notListed[k].counted) + ")");
       restEl.textContent = rest.length ? "Counted but not on this list, so left alone: " + rest.join(", ") + "." : "";
       restEl.hidden = !rest.length;
+      var same = plan.same || [];
+      var sameNames = [];
+      for (var s = 0; s < same.length; s++) sameNames.push(same[s].asin + " (" + fmtNum(same[s].counted) + ")");
+      sameEl.textContent = same.length ? same.length + " already match their " + where + " count, so they are left out: " + sameNames.join(", ") + "." : "";
+      sameEl.hidden = !same.length;
       yesBtn.textContent = "Yes - set " + n + " " + where + " count" + (n === 1 ? "" : "s");
       yesBtn.hidden = finished || !n;
       yesBtn.disabled = sending || !n;

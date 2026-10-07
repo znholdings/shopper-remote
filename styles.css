@@ -691,6 +691,13 @@ body::before { content: ""; position: fixed; top: 0; left: 0; right: 0; height: 
 .bx-ok { color: var(--good); font-weight: 700; }
 .bx-working { color: var(--warn); }
 .bx-status p { overflow-wrap: anywhere; }
+/* B-895 / B-896 (v2.0.28) */
+.bx-prior { margin: 6px 0; }
+.bx-prior-list { margin: 4px 0 8px; font-size: 14px; }
+.bx-prior-list summary { cursor: pointer; color: var(--text); }
+.bx-mode { margin: 4px 0 8px; padding: 6px 12px; font-size: 14px; }
+.bx-group { font-weight: 700; }
+.bx-group-line { padding-left: 12px; }
 
 /* B-683 (v4.93): typed MM/DD/YYYY expiry box. */
 .date-typed { width: 8.5em; font-variant-numeric: tabular-nums; }
