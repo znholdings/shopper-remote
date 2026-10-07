@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.28";
+const APP_BUILD = "v2.0.29";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -47,6 +47,8 @@ for (const id of [
   "invBucketPanel","invBucketTitle","invBucketNote","invBucketTable",
   // B-875 (v2.0.25): set every House count from its Receive tally.
   "invReceiveAllBtn",
+  // B-912 (v2.0.29): print the open batch's labels from the phone.
+  "invPrintLabelsBtn","invPrintLabelsNote",
   // B-490 (v4.56): the read-only Dashboard tab.
   "tabDashboard","dashboardPane","dashAsOf","dashTiles","dashDoNext","dashDoCount",
   "dashLastRun","dashLastHead","dashLastSub","dashNightly",
@@ -1419,6 +1421,35 @@ els.soundBtn.addEventListener("click", () => {
 els.finishNowBtn.addEventListener("click", () => sendCommand("finishNow"));
 // B-875 (v2.0.25): set every House count from its Receive tally.
 els.invReceiveAllBtn.addEventListener("click", invOpenReceiveAll);
+// B-912 (v2.0.29): "Print FNSKU labels" - the laptop runs its follow-the-batch print and this
+// waits for its answer (the command row's result) so the phone can say what printed.
+async function invPrintLabels() {
+  const b = els.invPrintLabelsBtn, note = els.invPrintLabelsNote;
+  if (!b || b.disabled) return;
+  b.disabled = true; note.hidden = false; note.textContent = "Asking the laptop to print\u2026";
+  try {
+    const id = await sendCommand("printLabels", {});
+    const status = await waitFor(id);
+    let text = status === "done" ? "Printed." : `Not printed (${status}).`;
+    if (id) {
+      const row = await sb(`commands?id=eq.${encodeURIComponent(id)}&select=result,reason`);
+      const r = row.ok && Array.isArray(row.json) && row.json[0] ? row.json[0] : null;
+      const res = r && r.result;
+      const where = res && res.batches && res.batches.length ? " - " + res.batches.map((x) => x.name || x.batchId).join(", ") : "";
+      if (res && res.printed && res.printed.length) text = `Printed ${res.printed.reduce((t, p) => t + (p.total || 0), 0)} label(s) for ${res.printed.length} product(s)${where}.`;
+      else if (res && res.nothing) text = "Nothing to print - everything in the open batch is printed already.";
+      else if (res && res.error) text = `Not printed: ${res.error}`;
+      else if (r && r.reason) text = `Not printed: ${r.reason}`;
+      if (res && res.held && res.held.length) text += " Held (over the cap - print from the laptop): " + res.held.map((h) => (h.title || h.fnsku) + " x" + h.total).join(", ") + ".";
+    }
+    note.textContent = text;
+  } catch (err) {
+    note.textContent = `Not printed: ${err.message}`;
+  } finally {
+    b.disabled = false;
+  }
+}
+if (els.invPrintLabelsBtn) els.invPrintLabelsBtn.addEventListener("click", invPrintLabels);
 els.abortBtn.addEventListener("click", () => {
   if (confirm("Abort the run? Whatever is mid-purchase is interrupted.")) sendCommand("abort");
 });
