@@ -92,6 +92,20 @@
     return d > 0 ? { kind: "short", text: f(d) + " to go" } : { kind: "over", text: f(-d) + " over" };
   }
 
+  // B-868 (v2.0.25): the "Full count (N)" button. N = what is still to go (expected - counted) when
+  // that is a whole number of 1..9999; null otherwise (nothing left, over, no expected, or a
+  // fractional remainder such as "1 1/3" - a chunk is always whole, so the button is hidden).
+  function fullCountChunk(expected, total) {
+    if (expected == null || expected === "") return null;
+    var e = Number(expected);
+    var t = Number(total) || 0;
+    if (!isFinite(e) || !isFinite(t)) return null;
+    var d = e - t;
+    var r = Math.round(d);
+    if (Math.abs(d - r) > 0.0005) return null;
+    return isChunk(r) ? r : null;
+  }
+
   // ---------------------------------------------------------- speech / dictation
   //
   // Wispr Flow types text into the focused box. This turns that text into
@@ -604,6 +618,11 @@
     var plusBtn = h("button", "rc-btn rc-plus", "+" + QUICK);
     plusBtn.type = "button";
 
+    // B-868: one tap = everything still to go, as ONE chunk (Undo last takes it back).
+    var fullBtn = h("button", "rc-btn rc-full", "Full count");
+    fullBtn.type = "button";
+    fullBtn.hidden = true;
+
     var customRow = h("div", "rc-custom");
     var input = h("input", "rc-input", null);
     input.type = "text";
@@ -699,6 +718,7 @@
     card.appendChild(totalBox);
     card.appendChild(entriesEl);
     card.appendChild(plusBtn);
+    card.appendChild(fullBtn);
     card.appendChild(customRow);
     card.appendChild(tools);
     card.appendChild(clearAsk);
@@ -708,7 +728,7 @@
     card.appendChild(makeAsk);
     overlay.appendChild(card);
 
-    var focusables = [xBtn, plusBtn, input, addBtn, undoBtn, clearBtn, voiceBtn, clearYes, clearNo,
+    var focusables = [xBtn, plusBtn, fullBtn, input, addBtn, undoBtn, clearBtn, voiceBtn, clearYes, clearNo,
       voiceText, voiceAdd, voiceClose, doneBtn, makeBtn, makeYes, makeNo];
 
     // ---- state -> screen
@@ -730,6 +750,10 @@
       entriesEl.textContent = list.length ? list.join(" + ") : "Nothing counted yet. Count a box, then tap +" + QUICK + ".";
       entriesEl.className = "rc-entries" + (list.length ? "" : " rc-entries-empty");
       plusBtn.disabled = sending;
+      var full = fullCountChunk(expected, total);
+      fullBtn.hidden = full == null;
+      fullBtn.disabled = sending || full == null;
+      fullBtn.textContent = full == null ? "Full count" : "Full count (" + fmtNum(full) + ")";
       addBtn.disabled = sending;
       input.disabled = sending;
       undoBtn.disabled = sending || n === 0;
@@ -769,6 +793,15 @@
     function addQuick() {
       if (sending) return;
       if (!tally.add(QUICK)) { say("That is more entries than this counter keeps.", "bad"); return; }
+      say("");
+      changed();
+    }
+
+    function addFull() {
+      if (sending) return;
+      var n = fullCountChunk(expected, tally.total());
+      if (n == null) return;
+      if (!tally.add(n)) { say("That is more entries than this counter keeps.", "bad"); return; }
       say("");
       changed();
     }
@@ -932,6 +965,7 @@
     overlay.addEventListener("pointerdown", function (e) { downOnBackdrop = e.target === overlay; });
     overlay.addEventListener("click", function (e) { if (e.target === overlay && downOnBackdrop) dismiss(); downOnBackdrop = false; });
     plusBtn.addEventListener("click", addQuick);
+    fullBtn.addEventListener("click", addFull);
     addBtn.addEventListener("click", addTyped);
     input.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); addTyped(); } });
     undoBtn.addEventListener("click", undo);
@@ -956,6 +990,248 @@
     syncViewport();
     render();
     focusEl(card);
+    current = { overlay: overlay, close: dismiss };
+    return { close: dismiss, isOpen: function () { return !closed; } };
+  }
+
+  // ------------------------------------------------------------ B-875 (v2.0.25)
+  //
+  // Zach, 2026-10-06: one button that sets EVERY House count to its Receive tally - "same as
+  // pressing 'Make this the House count' -> 'Yes, set it' for every product that has a Receive
+  // tally" (House on hand = the counted number; arrivals untouched). Products with no tally are not
+  // touched. This file still sends nothing: the host's write(asin, units) does, one product at a
+  // time, with the SAME message / command the single confirm uses. A tally is cleared only after
+  // the host said { ok: true } for it (the single confirm's own rule); a failure keeps its tally.
+
+  // rows: [{ asin, title, house }] (the host's list). -> { changes: [{asin, title, houseNow, counted}],
+  // notListed: [{asin, counted}] } - a tally whose product is not on the host's list is left alone.
+  function planSetAll(rows, now) {
+    var map = readMap(now);
+    var byAsin = {};
+    var list = Array.isArray(rows) ? rows : [];
+    var changes = [];
+    for (var i = 0; i < list.length; i++) {
+      var r = list[i] || {};
+      var a = normAsin(r.asin);
+      if (!a || has(byAsin, a)) continue;
+      byAsin[a] = 1;
+      var e = map[a];
+      if (!e || !e.chunks.length) continue;
+      var t = 0;
+      for (var j = 0; j < e.chunks.length; j++) t += e.chunks[j];
+      var h = Number(r.house);
+      changes.push({ asin: a, title: String(r.title || a), houseNow: isFinite(h) ? h : null, counted: t });
+    }
+    var notListed = [];
+    for (var k in map) {
+      if (!has(map, k) || has(byAsin, k)) continue;
+      var c = map[k].chunks, tt = 0;
+      for (var q = 0; q < c.length; q++) tt += c[q];
+      notListed.push({ asin: k, counted: tt });
+    }
+    notListed.sort(function (x, y) { return x.asin < y.asin ? -1 : x.asin > y.asin ? 1 : 0; });
+    return { changes: changes, notListed: notListed };
+  }
+
+  // What the list on screen says, so "Yes" only sends what Zach read (a tally edited on the other
+  // device while the list is open redraws it instead).
+  function setAllKey(plan) {
+    var parts = [];
+    for (var i = 0; i < plan.changes.length; i++) parts.push(plan.changes[i].asin + ":" + plan.changes[i].counted);
+    return parts.join(",");
+  }
+
+  // opts: { rows, write(asin, units) -> Promise<{ok, error}>, format?, where? ("House"), onDone? }
+  function openSetAll(opts) {
+    opts = opts || {};
+    if (typeof document === "undefined" || !document.body || typeof opts.write !== "function") return null;
+    closeCurrent();
+    var where = String(opts.where || "House");
+    var format = typeof opts.format === "function" ? opts.format : fmtNum;
+    var plan = planSetAll(opts.rows);
+    var shownKey = setAllKey(plan);
+    var sending = false;
+    var finished = false;
+    var closed = false;
+    var downOnBackdrop = false;
+    var opener = document.activeElement;
+    var uid = "rc-" + (++seq);
+
+    var overlay = h("div", "rc-overlay");
+    var card = h("div", "rc-card rc-all");
+    card.setAttribute("role", "dialog");
+    card.setAttribute("aria-modal", "true");
+    card.setAttribute("aria-labelledby", uid + "-title");
+    card.setAttribute("tabindex", "-1");
+    var head = h("div", "rc-head");
+    var heads = h("div", "rc-heads");
+    var titleEl = h("div", "rc-title", "Set every " + where + " count from Receive");
+    titleEl.setAttribute("id", uid + "-title");
+    heads.appendChild(titleEl);
+    var xBtn = h("button", "rc-x", "\u2715");
+    xBtn.type = "button";
+    xBtn.setAttribute("aria-label", "Close");
+    head.appendChild(heads);
+    head.appendChild(xBtn);
+    var intro = h("div", "rc-all-intro", "");
+    var listEl = h("ul", "rc-all-list");
+    var restEl = h("div", "rc-all-rest", "");
+    var msg = h("div", "rc-msg", "");
+    msg.setAttribute("role", "status");
+    msg.setAttribute("aria-live", "polite");
+    var foot = h("div", "rc-foot");
+    var yesBtn = h("button", "rc-btn rc-primary rc-all-yes", "");
+    yesBtn.type = "button";
+    var cancelBtn = h("button", "rc-btn rc-quiet rc-all-cancel", "Cancel");
+    cancelBtn.type = "button";
+    foot.appendChild(yesBtn);
+    foot.appendChild(cancelBtn);
+    card.appendChild(head);
+    card.appendChild(intro);
+    card.appendChild(listEl);
+    card.appendChild(restEl);
+    card.appendChild(msg);
+    card.appendChild(foot);
+    overlay.appendChild(card);
+    var statusEls = {};
+    var results = {}; // asin -> { text, good } - kept across redraws so every line keeps its answer
+
+    function say(text, kind) {
+      msg.textContent = text || "";
+      msg.className = "rc-msg" + (kind ? " rc-msg-" + kind : "");
+    }
+
+    function draw() {
+      listEl.textContent = "";
+      statusEls = {};
+      var n = plan.changes.length;
+      intro.textContent = n
+        ? "Each product below gets the same change as \"Make this the " + where + " count\" -> \"Yes, set it\": " + where + " on hand becomes the counted number. Arrivals are not changed. Products with no Receive count are not touched."
+        : "No product on this list has a Receive count in progress, so there is nothing to set.";
+      for (var i = 0; i < n; i++) {
+        var c = plan.changes[i];
+        var li = h("li", "rc-all-row");
+        li.setAttribute("data-asin", c.asin);
+        li.appendChild(h("div", "rc-all-name", c.asin + " \u00b7 " + c.title));
+        var line = h("div", "rc-all-change", where + " " + (c.houseNow == null ? "?" : format(c.houseNow)) + " \u2192 " + fmtNum(c.counted));
+        var st = h("span", "rc-all-status", "");
+        st.hidden = true;
+        if (has(results, c.asin)) {
+          st.hidden = false;
+          st.textContent = results[c.asin].text;
+          st.className = "rc-all-status " + (results[c.asin].good ? "rc-all-ok" : "rc-all-bad");
+        }
+        line.appendChild(st);
+        li.appendChild(line);
+        listEl.appendChild(li);
+        statusEls[c.asin] = st;
+      }
+      listEl.hidden = !n;
+      var rest = [];
+      for (var k = 0; k < plan.notListed.length; k++) rest.push(plan.notListed[k].asin + " (" + fmtNum(plan.notListed[k].counted) + ")");
+      restEl.textContent = rest.length ? "Counted but not on this list, so left alone: " + rest.join(", ") + "." : "";
+      restEl.hidden = !rest.length;
+      yesBtn.textContent = "Yes - set " + n + " " + where + " count" + (n === 1 ? "" : "s");
+      yesBtn.hidden = finished || !n;
+      yesBtn.disabled = sending || !n;
+      cancelBtn.textContent = finished || !n ? "Done" : "Cancel";
+      cancelBtn.disabled = sending;
+      xBtn.disabled = sending;
+    }
+
+    function mark(asin, text, good) {
+      results[asin] = { text: text, good: good };
+      var st = statusEls[asin];
+      if (!st) return;
+      st.hidden = false;
+      st.textContent = text;
+      st.className = "rc-all-status " + (good ? "rc-all-ok" : "rc-all-bad");
+    }
+
+    function run() {
+      if (sending || finished) return;
+      var fresh = planSetAll(opts.rows);
+      if (setAllKey(fresh) !== shownKey) {
+        plan = fresh;
+        shownKey = setAllKey(fresh);
+        draw();
+        say("A count changed while this was open. Check the list again, then press Yes.", "bad");
+        return;
+      }
+      var list = plan.changes.slice();
+      if (!list.length) return;
+      sending = true;
+      draw();
+      var okCount = 0;
+      var bad = [];
+      var i = 0;
+      var next = function () {
+        if (i >= list.length) {
+          sending = false;
+          finished = true;
+          draw();
+          if (!bad.length) say("Set " + okCount + " of " + list.length + ". Each counted product's tally is cleared.", "ok");
+          else say("Set " + okCount + " of " + list.length + ". Not set: " + bad.join("; ") + ". Those counts are kept.", "bad");
+          if (typeof opts.onDone === "function") { try { opts.onDone({ set: okCount, failed: bad.length }); } catch (e) { /* the host redraw must never break this */ } }
+          if (!closed) focusEl(cancelBtn);
+          return;
+        }
+        var c = list[i++];
+        say("Setting " + i + " of " + list.length + ": " + c.asin + " ...");
+        var settled = function (res) {
+          if (res && res.ok) {
+            okCount++;
+            clearFor(c.asin);
+            mark(c.asin, "set", true);
+          } else {
+            var why = res && res.error ? String(res.error) : "It was not saved.";
+            bad.push(c.asin + " (" + why + ")");
+            mark(c.asin, "not set - " + why, false);
+          }
+          next();
+        };
+        var p;
+        try { p = Promise.resolve(opts.write(c.asin, c.counted)); } catch (e) { p = Promise.reject(e); }
+        p.then(settled, function (e) { settled({ ok: false, error: e && e.message ? e.message : "Something went wrong." }); });
+      };
+      next();
+    }
+
+    function focusEl(el) {
+      try { el.focus({ preventScroll: true }); } catch (e) { try { el.focus(); } catch (e2) { /* nothing to focus */ } }
+    }
+
+    function onKey(e) {
+      if (e.key === "Escape") { dismiss(); return; }
+      if (e.key !== "Tab") return;
+      var all = [xBtn, yesBtn, cancelBtn];
+      var list = [];
+      for (var i = 0; i < all.length; i++) if (!all[i].disabled && !hiddenWithin(all[i], card)) list.push(all[i]);
+      if (!list.length) { e.preventDefault(); return; }
+      var at = list.indexOf(document.activeElement);
+      if (e.shiftKey && at <= 0) { e.preventDefault(); focusEl(list[list.length - 1]); }
+      else if (!e.shiftKey && (at === list.length - 1 || at < 0)) { e.preventDefault(); focusEl(list[0]); }
+    }
+
+    // Never closed while it is writing: every product gets its answer on screen.
+    function dismiss() {
+      if (closed || sending) return;
+      closed = true;
+      document.removeEventListener("keydown", onKey);
+      if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+      if (current && current.overlay === overlay) current = null;
+      if (opener && typeof opener.focus === "function" && opener !== document.body && opener.isConnected !== false) focusEl(opener);
+    }
+
+    xBtn.addEventListener("click", dismiss);
+    cancelBtn.addEventListener("click", dismiss);
+    yesBtn.addEventListener("click", run);
+    overlay.addEventListener("pointerdown", function (e) { downOnBackdrop = e.target === overlay; });
+    overlay.addEventListener("click", function (e) { if (e.target === overlay && downOnBackdrop) dismiss(); downOnBackdrop = false; });
+    document.addEventListener("keydown", onKey);
+    document.body.appendChild(overlay);
+    draw();
+    focusEl(plan.changes.length ? cancelBtn : card);
     current = { overlay: overlay, close: dismiss };
     return { close: dismiss, isOpen: function () { return !closed; } };
   }
@@ -985,6 +1261,9 @@
     parseTyped: parseTyped,
     createTally: createTally,
     gapInfo: gapInfo,
+    fullCountChunk: fullCountChunk,
+    planSetAll: planSetAll,
+    openSetAll: openSetAll,
     parseSpoken: parseSpoken,
     prune: prune,
     getChunks: getChunks,

@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.24";
+const APP_BUILD = "v2.0.25";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -45,6 +45,8 @@ for (const id of [
   "invArrivalsCount","invArrivals","invProductCount","invFilter","invRows",
   // B-465 (v4.50): tap a House / Prep / In transit tile for its products.
   "invBucketPanel","invBucketTitle","invBucketNote","invBucketTable",
+  // B-875 (v2.0.25): set every House count from its Receive tally.
+  "invReceiveAllBtn",
   // B-490 (v4.56): the read-only Dashboard tab.
   "tabDashboard","dashboardPane","dashAsOf","dashTiles","dashDoNext","dashDoCount",
   "dashLastRun","dashLastHead","dashLastSub","dashNightly",
@@ -1413,6 +1415,8 @@ els.soundBtn.addEventListener("click", () => {
   }
 });
 els.finishNowBtn.addEventListener("click", () => sendCommand("finishNow"));
+// B-875 (v2.0.25): set every House count from its Receive tally.
+els.invReceiveAllBtn.addEventListener("click", invOpenReceiveAll);
 els.abortBtn.addEventListener("click", () => {
   if (confirm("Abort the run? Whatever is mid-purchase is interrupted.")) sendCommand("abort");
 });
@@ -2008,6 +2012,7 @@ function rcSyncApply(inv) {
   if (!inv || !inv.receiveTallies) return;
   const changed = RC.applyRemote(inv.receiveTallies);
   if (changed.length) invRefreshReceiveButtons();
+  invPaintReceiveAll(inv);
   // Anything counted here that the laptop does not have yet (a command that never arrived) goes again,
   // at most every 30 s per product.
   for (const e of RC.diffNewer(inv.receiveTallies)) {
@@ -2032,6 +2037,7 @@ function invRefreshReceiveButtons() {
   if (!self.ShopperReceive) return;
   for (const b of els.invBucketTable.querySelectorAll(".rc-row-btn")) invSetReceiveLabel(b, b.dataset.asin);
   self.ShopperReceive.paintBadges(els.invBucketTable);
+  invPaintReceiveAll(lastPayload && lastPayload.inventory);
 }
 
 function invOpenReceive(r) {
@@ -2070,6 +2076,7 @@ function renderInvBucket(inv) {
     t.setAttribute("aria-pressed", on ? "true" : "false");
   }
   els.invBucketTable.textContent = "";
+  invPaintReceiveAll(inv);
   const b = INV_BUCKETS[invBucket];
   if (!b || !inv || !inv.available) { els.invBucketPanel.hidden = true; return; }
   els.invBucketPanel.hidden = false;
@@ -2112,6 +2119,45 @@ function renderInvBucket(inv) {
   }
   els.invBucketTable.appendChild(thead);
   els.invBucketTable.appendChild(tbody);
+}
+
+// B-875 (v2.0.25): every product on the House list with a Receive tally -> its House count, in one
+// go. Zach: the same as "Make this the House count" -> "Yes, set it" for each - the SAME setCount
+// command the single confirm sends, one product at a time; the pop-up (receive-count.js openSetAll)
+// shows the list first and clears each tally only after the laptop said done.
+function invReceiveAllRows(inv) {
+  return invBucketRows(inv && inv.rows, "house").map((r) => ({ asin: r.asin, title: r.title || r.asin, house: r.house }));
+}
+
+function invPaintReceiveAll(inv) {
+  const b = els.invReceiveAllBtn;
+  if (!b) return;
+  const RC = self.ShopperReceive;
+  const on = invBucket === "house" && !!(inv && inv.available) && !!(RC && RC.planSetAll && RC.openSetAll);
+  const count = on ? RC.planSetAll(invReceiveAllRows(inv)).changes.length : 0;
+  b.hidden = !count;
+  b.textContent = "Set " + count + " House count" + (count === 1 ? "" : "s") + " from Receive";
+}
+
+function invOpenReceiveAll() {
+  const RC = self.ShopperReceive;
+  const inv = lastPayload && lastPayload.inventory;
+  if (!RC || !RC.openSetAll || !inv) return;
+  rcSyncStart();
+  RC.openSetAll({
+    rows: invReceiveAllRows(inv),
+    format: invUnits,
+    where: "House",
+    write: async (asin, units) => {
+      const id = await sendCommand("setCount", { asin, destination: "house", units, note: "Receive count from the phone" });
+      const status = id ? await waitFor(id) : "not sent";
+      return { ok: status === "done", error: status === "done" ? "" : invReceiveError(status) };
+    },
+    onDone: () => {
+      invRefreshReceiveButtons();
+      invPaintReceiveAll(lastPayload && lastPayload.inventory);
+    },
+  });
 }
 
 // ------------------------------------------------------------ push (iOS)
