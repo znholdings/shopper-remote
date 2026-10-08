@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.33";
+const APP_BUILD = "v2.0.34";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -1088,6 +1088,18 @@ function renderPrompt(prompt) {
     // background.js. A near-miss here (`size`) is a button that appears to
     // work and silently confirms nothing.
     getPayload = () => ({ asin: prompt.asin, lineId: prompt.lineId, confirmedSize: Number(size.value) || 1 });
+  }
+
+  // B-911 (v2.0.34): the pack choice (B-906) - one button per pack option, as
+  // on the laptop's Buy Queue; each sends approveOrder with choice = the
+  // option id. An option that cannot be bought is shown disabled.
+  for (const c of Array.isArray(prompt.choices) ? prompt.choices : []) {
+    const b = document.createElement("button");
+    b.className = c.recommended ? "primary-btn" : "secondary-btn";
+    b.textContent = c.label;
+    b.disabled = c.enabled !== true;
+    b.addEventListener("click", () => sendCommand("approveOrder", { ...getPayload(), approved: true, choice: c.id }));
+    els.promptActions.appendChild(b);
   }
 
   for (const name of prompt.answers || []) {
