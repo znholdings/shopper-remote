@@ -41,6 +41,8 @@
   --s-house: var(--s-green);
   --s-prep: var(--s-violet);
   --s-transit: var(--s-cyan);
+  /* B-961 (v2.0.38): the "Counted N" chip - full colours, the same in every theme (not redefined by dark or retro). */
+  --s-count-match: #00bfff; --s-count-match-ink: #000000; --s-count-off: #ffff00; --s-count-off-ink: #000000;
   --s-brand: linear-gradient(100deg, var(--s-magenta), var(--s-violet) 55%, var(--s-cyan));
 
   /* Type scale (6 steps), spacing (4px grid), radii, shadow. */
