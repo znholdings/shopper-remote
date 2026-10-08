@@ -168,4 +168,20 @@
 .rc-badge[hidden] { display: none; }
 :root[data-theme="retro"] .rc-badge { font-size: 10px !important; line-height: 1.4 !important; padding: 4px 8px; border: 2px solid var(--s-n7); border-radius: 0; font-weight: 400; }
 
+/* B-933 (v2.0.35): the x that clears a "Counted N" tally. Tokens only. */
+.rc-badge { display: flex; align-items: center; gap: 6px; }
+.rc-badge .rc-badge-n { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.rc-badge .rc-badge-x {
+  display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center;
+  width: 20px; height: 20px; min-height: 0; padding: 0; margin: 0 -4px 0 0;
+  font-family: var(--s-font); font-size: 14px; font-weight: 700; line-height: 1;
+  background: transparent; color: var(--s-green-ink); border: 1px solid transparent; border-radius: var(--s-r-pill); cursor: pointer;
+}
+.rc-badge .rc-badge-x:hover, .rc-badge .rc-badge-x:focus-visible { border-color: var(--s-green); background: var(--s-surface); }
+:root[data-theme="retro"] .rc-badge .rc-badge-x:not(#no-id) {
+  width: 20px; height: 20px; min-height: 0; padding: 0 !important; margin: 0;
+  font-family: var(--s-font) !important; font-size: 14px !important; line-height: 1 !important;
+  background: var(--s-surface) !important; color: var(--s-text) !important; border: 2px solid var(--s-n7) !important; box-shadow: none !important; text-transform: none;
+}
+
 [hidden] { display: none !important; }

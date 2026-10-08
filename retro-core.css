@@ -42,6 +42,9 @@
 .muted, .small, .subtle, .hint, .note, .s-note, [class*="-label"], [class*="-note"], [class*="hint"], [class*="-meta"],
 .count, .s-pill, .pill, .pc-badge, .t-value, .bs-value, .s-stat-value, [class*="-value"], [class*="-figure"], .section-head, .dash-section-head, .inv-box-head) :where(*:not(svg, svg *, input, select, textarea, button, label, .count, [class*="-value"], [class*="-figure"], .s-nav *, #mainView > .tabs *)) { font-size: inherit !important; }
 
+/* B-940 / B-937 / B-938 (v2.0.35): the Labels status line and the "Print N labels for ...?" questions are sentences. */
+:root[data-theme="retro"] :is(.labels-statusline, .labels-ask-row > span, .lbl-ask-q, .pp-manual-title) { font-family: var(--s-font) !important; text-transform: none; }
+
 /* Body copy sizes: two only. */
 :root[data-theme="retro"] :is(p, li, dd, .l-title, .inv-title, .line-title, .need-body, .step-text, .prompt-reason) { font-size: var(--rt-body) !important; line-height: 1.4; }
 :root[data-theme="retro"] :is(.muted, .small, .subtle, .hint, .note, .s-note, .s-page-sub, .l-meta, .t-sub, .bs-sub, .pp-card-sub, .pp-card-money, .bq-tile-sub, .s-stat-sub, .s-nav-version, small, .warn-text, .status-line, .statline, [class*="hint"], [class*="-note"], .last-run-body,
@@ -152,11 +155,11 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input:not(
 /* ── 8. Cards: square, black outline, hard shadow, one padding ── */
 :root[data-theme="retro"] :is(.s-card, .s-stat, .panel, .card, .pp-card, .ai-card, .dash-card, .setup-section, .status-card, .rr-card, .bank-card, .bl-card,
 .total-box, .spend-card, .status-box, .bq-tile, .report-card, .prompt-card, .fba-card, .gen-card, .safety-box, .modal-box, .keepa-warning-box,
-.preview-section, .log-section, .pp-subpanel, .section, .line, .run-hero, .need-card, .dash-tile, .total, .inv-total, .report-sheet-box, .dt-tile, .dn-row, .bmm-sendbar, .ask-plan) {
+.preview-section, .log-section, .pp-subpanel, .section, .line, .run-hero, .need-card, .dash-tile, .total, .inv-total, .report-sheet-box, .dt-tile, .dn-row, .bmm-sendbar, .ask-plan, .labels-card, .labels-unsaved) {
   border: var(--rt-line) !important; box-shadow: var(--rt-raise) !important; background-image: none !important;
 }
 :root[data-theme="retro"] :is(.s-card, .panel, .card, .ai-card, .dash-card, .setup-section, .status-card, .rr-card, .bank-card, .bl-card,
-.report-card, .prompt-card, .fba-card, .gen-card, .modal-box, .section, .run-hero, .need-card, .preview-section, .log-section) { padding: var(--rt-4) !important; }
+.report-card, .prompt-card, .fba-card, .gen-card, .modal-box, .section, .run-hero, .need-card, .preview-section, .log-section, .labels-card) { padding: var(--rt-4) !important; }
 :root[data-theme="retro"] :is(.s-stat, .pp-card, .dash-tile, .total, .inv-total, .bq-tile, .total-box, .spend-card, .status-box, .line, .dt-tile, .dn-row, .ask-plan) { padding: var(--rt-3) !important; }
 /* A card inside a card: outline only, no second shadow. */
 :root[data-theme="retro"] :is(.section, .panel, .s-card, .card) :is(.line, .need-card, .s-stat, .total, .inv-total, .dash-tile, .dn-row, .ask-plan) { box-shadow: none !important; }

@@ -1083,4 +1083,11 @@ html, body { overscroll-behavior: none; }
 .gl-tile[data-tile^="sb"] .gl-split { order: 3; gap: 6px 14px; }
 .gl-tile[data-tile^="sb"] .gl-split-item { flex-direction: column; justify-content: flex-start; gap: 0; }
 
+/* B-937 (v2.0.35): "Print N labels for <title>? Yes / Skip" under the Print FNSKU labels button. Tokens only. */
+.lbl-ask { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.lbl-ask-row { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; border: 1px solid var(--s-line); border-radius: var(--s-r-sm); background: var(--s-surface); }
+.lbl-ask-q { font-weight: 600; color: var(--s-text); overflow-wrap: anywhere; }
+.lbl-ask-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.lbl-ask-btns button { flex: 1 1 120px; min-width: 0; }
+
 [hidden] { display: none !important; }

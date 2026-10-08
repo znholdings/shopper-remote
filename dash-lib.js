@@ -28,13 +28,17 @@ const __m = {};
 // B-838 (v2.0.20): "plaid" = the Plaid balances tile. The laptop opens
 // Settings -> Accounts (where the Plaid card is); the phone opens Bank.
 
-const TARGETS = Object.freeze(["buylist", "buyqueue", "pipeline", "arrivals", "belowmin", "runreviews", "fba", "wizard", "cashflow", "bank", "expand", "plaid"]);
+// B-941 (v2.0.35): "voc" = Seller Central's Voice of the Customer page (the
+// laptop opens it in a tab, the phone in the browser).
+const TARGETS = Object.freeze(["buylist", "buyqueue", "pipeline", "arrivals", "belowmin", "runreviews", "fba", "wizard", "cashflow", "bank", "expand", "plaid", "voc"]);
 
 // Order = priority (Zach's list). Rows with nothing to do are not built.
 // B-837 (v2.0.20): "stranded" - units Amazon holds but cannot sell.
 // B-862 (v2.0.23): "pricingErrors" - listings Amazon deactivated for a
 // suspected pricing error (lib/pricing-errors.js), right after Below Min.
-const DO_NEXT_ORDER = Object.freeze(["urgent", "owed", "needsYou", "belowMin", "pricingErrors", "arrivals", "runReviews", "fba", "stranded", "shipment"]);
+// B-941 (v2.0.35): "voc" - listings at Poor / Very poor CX Health (Voice of the
+// Customer), right after pricing errors: a listing Amazon may suppress.
+const DO_NEXT_ORDER = Object.freeze(["urgent", "owed", "needsYou", "belowMin", "pricingErrors", "voc", "arrivals", "runReviews", "fba", "stranded", "shipment"]);
 const SHIPMENT_NOTIFICATION_TYPE = "shipment_prompt";
 
 const num = (v) => {
@@ -120,6 +124,7 @@ function topSeverity(list) {
 //   fbaAlerts         [{ text }]
 //   stranded          strandedGlance() (lib/stranded.js) - { known, units, skus, items? }
 //   pricingErrors     pricingGlance() (lib/pricing-errors.js) - { known, count, items } - B-862
+//   voc               vocGlance() (lib/voc-health.js) - { known, bad, atRisk, badCount, atRiskCount, pcxBadCount, changes } - B-941
 //   now               ms, for "2h ago" on an offer reading (optional)
 // -> [{ id, rank, severity, title, detail, go: { label, target }, notifs?: [...], count }]
 function buildDoNext(input = {}) {
@@ -197,6 +202,35 @@ function buildDoNext(input = {}) {
       lines: peItems.map((it) => ({ asin: String(it.asin || ""), sku: String(it.sku || ""), title: String(it.title || ""), price: num(it.price), offer: pricingOfferText(it.offer, now), text: pricingLineText(it, now) })),
       go: { label: "Pricing", target: "belowmin" },
       count: peCount,
+    });
+  }
+
+  // B-941 (v2.0.35): Voice of the Customer - every listing at Poor / Very poor
+  // CX Health (the standing list) and every listing at risk of the high-return-
+  // rate flag; what changed on the last read leads the detail.
+  const vg = input.voc || null;
+  const vBad = vg && vg.known && Array.isArray(vg.bad) ? vg.bad.filter(Boolean) : [];
+  const vRisk = vg && vg.known && Array.isArray(vg.atRisk) ? vg.atRisk.filter((x) => x && !vBad.some((b) => b.asin === x.asin)) : [];
+  const vBadCount = vg && vg.known ? Math.max(num(vg.badCount) || 0, vBad.length) : 0;
+  const vRiskCount = vg && vg.known ? Math.max((num(vg.atRiskCount) || 0) - (vg.atRisk || []).filter((x) => x && vBad.some((b) => b.asin === x.asin)).length, vRisk.length) : 0;
+  if (vBadCount + vRiskCount > 0) {
+    const veryPoor = vBad.some((x) => x.grade === "VERY_POOR");
+    const changed = Array.isArray(vg.changes) ? vg.changes.filter(Boolean) : [];
+    const items = [...vBad, ...vRisk];
+    const bits = [];
+    if (vBadCount) bits.push(`${plural(vBadCount, "listing")} at Poor / Very poor CX Health`);
+    if (vRiskCount) bits.push(`${vRiskCount} at risk of the return-rate flag`);
+    const pcx = num(vg.pcxBadCount);
+    add({
+      id: "voc",
+      severity: veryPoor || vRiskCount > 0 || changed.length ? "high" : "medium",
+      title: bits.join(" · "),
+      detail: (changed.length ? `Changed on the last read: ${changed.slice(0, 3).map((c) => String(c.text || c.asin)).join("; ")}${changed.length > 3 ? ` (+${changed.length - 3} more)` : ""}. ` : "")
+        + linesDetail(items.map((x) => String(x.text || x.asin)), vBadCount + vRiskCount, "Voice of the Customer")
+        + `. Voice of the Customer in Seller Central${pcx ? ` (its PCX grade puts ${pcx} at Poor / Very poor - not alerted on)` : ""}.`,
+      lines: items.map((x) => ({ asin: String(x.asin || ""), title: String(x.title || ""), grade: String(x.grade || ""), text: String(x.text || x.asin || "") })),
+      go: { label: "Voice of the Customer", target: "voc" },
+      count: vBadCount + vRiskCount,
     });
   }
 

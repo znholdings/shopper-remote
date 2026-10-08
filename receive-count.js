@@ -501,6 +501,53 @@
 
   // B-844 (v2.0.22): every <span class="rc-badge" data-asin="..."> under `root` shows "Counted N"
   // while a count is in progress for that ASIN, and is hidden otherwise.
+  // B-933 (v2.0.35): with a small x that clears that product's tally at once - no confirm, nothing
+  // written anywhere but this tally store (Zach 10/8: 7 rows still showed yesterday's counts). The
+  // clear is clearFor(), the same call "Make this the House count" makes after its write, so the
+  // host's onStoreChange sync carries it to the other device (newest edit wins, B-843); the host's
+  // onBadgeClear(fn) redraws its Receive button labels.
+  var badgeClearWatchers = [];
+  function onBadgeClear(fn) {
+    if (typeof fn !== "function") return function () {};
+    badgeClearWatchers.push(fn);
+    return function () { var k = badgeClearWatchers.indexOf(fn); if (k >= 0) badgeClearWatchers.splice(k, 1); };
+  }
+  function clearFromBadge(asin) {
+    var key = normAsin(asin);
+    if (!key) return;
+    clearFor(key);
+    if (typeof document !== "undefined") paintBadges(document);
+    for (var i = 0; i < badgeClearWatchers.length; i++) {
+      try { badgeClearWatchers[i](key); } catch (e) { /* a host redraw must never stop the clear */ }
+    }
+  }
+  function badgeParts(node) {
+    // a host without a real DOM (the tests' small fakes) keeps the plain "Counted N" text
+    if (typeof document === "undefined" || typeof document.createElement !== "function" || typeof node.appendChild !== "function") return null;
+    var text = null, x = null;
+    for (var c = node.firstChild; c; c = c.nextSibling) {
+      if (c.nodeType !== 1) continue;
+      if (c.classList && c.classList.contains("rc-badge-n")) text = c;
+      if (c.classList && c.classList.contains("rc-badge-x")) x = c;
+    }
+    if (!text || !x) {
+      node.textContent = "";
+      text = document.createElement("span");
+      text.className = "rc-badge-n";
+      x = document.createElement("button");
+      x.type = "button";
+      x.className = "rc-badge-x";
+      x.textContent = "\u00d7";
+      x.addEventListener("click", function (e) {
+        if (e && e.preventDefault) e.preventDefault();
+        if (e && e.stopPropagation) e.stopPropagation();
+        clearFromBadge(node.getAttribute("data-asin"));
+      });
+      node.appendChild(text);
+      node.appendChild(x);
+    }
+    return { text: text, x: x };
+  }
   function paintBadges(root) {
     if (typeof document === "undefined") return;
     var r0 = root || document;
@@ -508,7 +555,16 @@
     for (var i = 0; i < nodes.length; i++) {
       var t = totalFor(nodes[i].getAttribute("data-asin"));
       if (t == null) { nodes[i].hidden = true; nodes[i].textContent = ""; }
-      else { nodes[i].hidden = false; nodes[i].textContent = "Counted " + fmtNum(t); nodes[i].title = "A count of " + fmtNum(t) + " is in progress for this product"; }
+      else {
+        var parts = badgeParts(nodes[i]);
+        nodes[i].hidden = false;
+        if (parts) {
+          parts.text.textContent = "Counted " + fmtNum(t);
+          parts.x.title = "Clear this count (" + fmtNum(t) + ") - nothing is saved";
+          parts.x.setAttribute("aria-label", "Clear the count of " + fmtNum(t));
+        } else nodes[i].textContent = "Counted " + fmtNum(t);
+        nodes[i].title = "A count of " + fmtNum(t) + " is in progress for this product";
+      }
     }
   }
 
@@ -1254,7 +1310,7 @@
   function isOpen() { return !!current; }
 
   // Test hook: forget what the memory fallback holds and re-try real storage.
-  function _reset() { memory = {}; degraded = false; memoryClears = {}; clearsDegraded = false; storeListeners = []; openWatchers = []; }
+  function _reset() { memory = {}; degraded = false; memoryClears = {}; clearsDegraded = false; storeListeners = []; openWatchers = []; badgeClearWatchers = []; }
 
   self.ShopperReceive = Object.freeze({
     QUICK: QUICK,
@@ -1271,6 +1327,8 @@
     applyRemote: applyRemote,
     diffNewer: diffNewer,
     paintBadges: paintBadges,
+    onBadgeClear: onBadgeClear,
+    clearFromBadge: clearFromBadge,
     isChunk: isChunk,
     parseTyped: parseTyped,
     createTally: createTally,

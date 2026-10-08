@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.34";
+const APP_BUILD = "v2.0.35";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -1435,33 +1435,83 @@ els.finishNowBtn.addEventListener("click", () => sendCommand("finishNow"));
 els.invReceiveAllBtn.addEventListener("click", invOpenReceiveAll);
 // B-912 (v2.0.29): "Print FNSKU labels" - the laptop runs its follow-the-batch print and this
 // waits for its answer (the command row's result) so the phone can say what printed.
-async function invPrintLabels() {
+// B-937 (v2.0.35): a product over the label cap is ASKED about before anything prints - the
+// laptop answers with `askPrompt` (lib/remote-protocol.js labelCapPrompt): one "Print N labels
+// for <title>?" per product with Yes / Skip; once each has an answer the same command goes again
+// with approved / declined. Nothing is answered for Zach.
+function invLabelCapAsk(note, prompt, onAnswered) {
+  const picks = {};
+  const box = invNode("div", "lbl-ask");
+  box.appendChild(invNode("div", "muted", (prompt.title || "Over the label cap") + " - " + (prompt.detail || "nothing has printed yet.")));
+  for (const it of prompt.items || []) {
+    const row = invNode("div", "lbl-ask-row");
+    row.appendChild(invNode("div", "lbl-ask-q", it.question || ("Print " + it.total + " labels?")));
+    const btns = invNode("div", "lbl-ask-btns");
+    const mk = (answer, cls) => {
+      const x = invNode("button", cls, (prompt.labels && prompt.labels[answer]) || (answer === "yes" ? "Yes" : "Skip"));
+      x.type = "button";
+      x.dataset.fnsku = it.fnsku;
+      x.dataset.answer = answer;
+      x.addEventListener("click", () => {
+        picks[it.fnsku] = answer;
+        for (const y of btns.querySelectorAll("button")) y.disabled = true;
+        row.appendChild(invNode("div", "muted", answer === "yes" ? "Will print." : "Skipped."));
+        if ((prompt.items || []).every((z) => picks[z.fnsku])) {
+          onAnswered({
+            approved: prompt.items.filter((z) => picks[z.fnsku] === "yes").map((z) => z.fnsku),
+            declined: prompt.items.filter((z) => picks[z.fnsku] === "skip").map((z) => z.fnsku),
+          });
+        }
+      });
+      btns.appendChild(x);
+    };
+    mk("yes", "primary-btn");
+    mk("skip", "secondary-btn");
+    row.appendChild(btns);
+    box.appendChild(row);
+  }
+  note.appendChild(box);
+}
+function invLabelsText(status, r, res) {
+  let text = status === "done" ? "Printed." : `Not printed (${status}).`;
+  const where = res && res.batches && res.batches.length ? " - " + res.batches.map((x) => x.name || x.batchId).join(", ") : "";
+  const labels = res && Number.isFinite(Number(res.printedLabels)) ? Number(res.printedLabels) : res && res.printed && res.printed.length ? res.printed.reduce((t, p) => t + (p.total || 0), 0) : 0;
+  const products = res && Number.isFinite(Number(res.printedProducts)) ? Number(res.printedProducts) : res && res.printed ? res.printed.length : 0;
+  if (res && res.truncated) text = "The laptop answered, but its answer was too long to show - check the laptop's Last prints.";
+  else if (labels > 0) text = `Printed ${labels} label(s) for ${products} product(s)${where}.`;
+  else if (res && res.askPrompt) text = "Nothing printed yet:";
+  else if (res && res.nothing) text = "Nothing to print - everything in the open batch is printed already.";
+  else if (res && res.error) text = `Not printed: ${res.error}`;
+  else if (r && r.reason) text = `Not printed: ${r.reason}`;
+  if (res && Number(res.declined) > 0) text += ` Skipped on your answer: ${res.declined}.`;
+  if (res && res.held && res.held.length) text += " Held (over the cap - print from the laptop): " + res.held.map((h) => (h.title || h.fnsku) + " x" + h.total).join(", ") + ".";
+  return text;
+}
+async function invPrintLabels(answers = null) {
   const b = els.invPrintLabelsBtn, note = els.invPrintLabelsNote;
-  if (!b || b.disabled) return;
+  if (!b || (b.disabled && !answers)) return;
   b.disabled = true; note.hidden = false; note.textContent = "Asking the laptop to print\u2026";
   try {
-    const id = await sendCommand("printLabels", {});
+    const id = await sendCommand("printLabels", answers ? { approved: answers.approved, declined: answers.declined } : {});
     const status = await waitFor(id);
     let text = status === "done" ? "Printed." : `Not printed (${status}).`;
+    let ask = null;
     if (id) {
       const row = await sb(`commands?id=eq.${encodeURIComponent(id)}&select=result,reason`);
       const r = row.ok && Array.isArray(row.json) && row.json[0] ? row.json[0] : null;
       const res = r && r.result;
-      const where = res && res.batches && res.batches.length ? " - " + res.batches.map((x) => x.name || x.batchId).join(", ") : "";
-      if (res && res.printed && res.printed.length) text = `Printed ${res.printed.reduce((t, p) => t + (p.total || 0), 0)} label(s) for ${res.printed.length} product(s)${where}.`;
-      else if (res && res.nothing) text = "Nothing to print - everything in the open batch is printed already.";
-      else if (res && res.error) text = `Not printed: ${res.error}`;
-      else if (r && r.reason) text = `Not printed: ${r.reason}`;
-      if (res && res.held && res.held.length) text += " Held (over the cap - print from the laptop): " + res.held.map((h) => (h.title || h.fnsku) + " x" + h.total).join(", ") + ".";
+      text = invLabelsText(status, r, res);
+      ask = res && res.askPrompt && Array.isArray(res.askPrompt.items) && res.askPrompt.items.length ? res.askPrompt : null;
     }
     note.textContent = text;
+    if (ask) invLabelCapAsk(note, ask, (a) => invPrintLabels(a));
   } catch (err) {
     note.textContent = `Not printed: ${err.message}`;
   } finally {
     b.disabled = false;
   }
 }
-if (els.invPrintLabelsBtn) els.invPrintLabelsBtn.addEventListener("click", invPrintLabels);
+if (els.invPrintLabelsBtn) els.invPrintLabelsBtn.addEventListener("click", () => invPrintLabels());
 els.abortBtn.addEventListener("click", () => {
   if (confirm("Abort the run? Whatever is mid-purchase is interrupted.")) sendCommand("abort");
 });
@@ -2049,6 +2099,8 @@ function rcSyncStart() {
   if (rcSync.started || !self.ShopperReceive || !self.ShopperReceive.onStoreChange) return;
   rcSync.started = true;
   self.ShopperReceive.onStoreChange(rcSyncSend);
+  // B-933 (v2.0.35): the x on a "Counted N" chip clears that tally - the Receive labels follow.
+  if (self.ShopperReceive.onBadgeClear) self.ShopperReceive.onBadgeClear(() => invRefreshReceiveButtons());
 }
 function rcSyncApply(inv) {
   const RC = self.ShopperReceive;
@@ -2440,6 +2492,8 @@ function glGo(target) {
     cashflow: () => switchTab("cashflow"),
     bank: () => switchTab("bank"),
     plaid: () => switchTab("bank"),
+    // B-941 (v2.0.35): Seller Central's Voice of the Customer page.
+    voc: () => window.open("https://sellercentral.amazon.com/voice-of-the-customer", "_blank", "noopener"),
   }[target];
   if (go) go();
 }
@@ -2570,6 +2624,8 @@ function renderDashboard(d, p) {
     runReviews: d.runReviews,
     fbaAlerts: fba.alerts,
     stranded: ex.stranded || null,
+    // B-941 (v2.0.35): listings at Poor / Very poor CX Health.
+    voc: ex.voc || null,
     // B-862 (v2.0.23): listings deactivated for a pricing error.
     pricingErrors: ex.pricingErrors || null,
     now: Date.now(),
