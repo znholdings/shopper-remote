@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.35";
+const APP_BUILD = "v2.0.36";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -2516,7 +2516,19 @@ function glTile(t) {
   const n = invNode("div", "dash-tile gl-tile gl-tone-" + (t.tone || "flat") + (t.id === "stock" || t.id === "plaid" ? " wide" : ""));
   n.dataset.tile = t.id;
   n.appendChild(invNode("span", "t-label", t.label));
-  n.appendChild(invNode("b", "gl-num", t.value));
+  // B-944 (v2.0.36): the Bank Balances box - its three rows instead of one big number.
+  if (!(Array.isArray(t.rows) && t.value === "")) n.appendChild(invNode("b", "gl-num", t.value));
+  if (Array.isArray(t.rows)) {
+    const list = invNode("div", "gl-bank-rows");
+    for (const r of t.rows) {
+      const row = invNode("div", r.connected ? "gl-bank-row" : "gl-bank-row gl-bank-off");
+      row.dataset.bank = r.key;
+      row.appendChild(invNode("span", "gl-bank-label", r.label));
+      row.appendChild(invNode("span", "gl-bank-value", r.value));
+      list.appendChild(row);
+    }
+    n.appendChild(list);
+  }
   if (t.sub) n.appendChild(invNode("span", "dash-money gl-sub", t.sub));
   if (t.split) {
     const row = invNode("div", "gl-split");

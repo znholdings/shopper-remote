@@ -46,7 +46,7 @@
 :root[data-theme="retro"] :is(.labels-statusline, .labels-ask-row > span, .lbl-ask-q, .pp-manual-title) { font-family: var(--s-font) !important; text-transform: none; }
 
 /* Body copy sizes: two only. */
-:root[data-theme="retro"] :is(p, li, dd, .l-title, .inv-title, .line-title, .need-body, .step-text, .prompt-reason) { font-size: var(--rt-body) !important; line-height: 1.4; }
+:root[data-theme="retro"] :is(p, li, dd, .l-title, .inv-title, .line-title, .need-body, .step-text, .prompt-reason, .dt-bank-row, .gl-bank-row) { font-size: var(--rt-body) !important; line-height: 1.4; }
 :root[data-theme="retro"] :is(.muted, .small, .subtle, .hint, .note, .s-note, .s-page-sub, .l-meta, .t-sub, .bs-sub, .pp-card-sub, .pp-card-money, .bq-tile-sub, .s-stat-sub, .s-nav-version, small, .warn-text, .status-line, .statline, [class*="hint"], [class*="-note"], .last-run-body,
 [class*="-meta"], [class$="-sub"], [class*="-sub "], [class*="blurb"], [class*="caption"], .dn-detail, .dt-split-item, .gl-split-item, .gl-sub, .sold-ytick, .sold-axis, .sold-foot, .dash-status-line, .bmm-sendsum, .co-flag, .pp-guess, [class*="log-line"], [class*="log-lines"], pre, code):not(button, input, select, textarea, label) { font-size: var(--rt-small) !important; line-height: 1.2; }
 /* Text-link buttons (order numbers, "+N more") stay small links. */

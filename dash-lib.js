@@ -433,9 +433,11 @@ function buildTiles(input = {}) {
   });
 
   const bank = num(i.bank);
+  // B-945 (v2.0.36): the sheet's Bank B1 is the VIRTUAL bank (actual buy cost vs
+  // posted buy cost) - kept apart from the real-bank "Bank Balances" box (B-944).
   out.push({
     id: "bank",
-    label: "Bank balance",
+    label: "Virtual Bank",
     value: money2(bank),
     sub: "",
     tone: bank != null && bank < 0 ? "down" : "flat",
@@ -489,25 +491,53 @@ function ageText(at, now) {
   return h < 48 ? `${h}h ago` : `${Math.floor(h / 24)}d ago`;
 }
 
-// B-838 (v2.0.20): checking balance from Plaid; the card(s) owed and the age
-// under it. g = plaidGlance(); null / not connected -> a "connect" tile.
+// B-944 (v2.0.36, Zach 10/8 - Plaid live in Production): ONE "Bank Balances"
+// box with three rows, in this order, each matched to its Plaid account by the
+// account's last four (mask), or by its name when Plaid gives no mask - never
+// by the order the banks were read in. A row whose account is not among the
+// connected ones says "not connected". `kind` "owed" = a card's current balance
+// (what is owed); "balance" = the account's current balance.
+const BANK_BALANCE_ROWS = Object.freeze([
+  Object.freeze({ key: "business", label: "Chase Business Complete", mask: "6768", kind: "balance", type: "depository", nameRe: /\bbus(iness)?\b.*\bcomplete\b/i }),
+  Object.freeze({ key: "amex", label: "American Express", mask: "3008", kind: "owed", type: "credit", nameRe: /blue business cash|american express|\bamex\b/i }),
+  Object.freeze({ key: "personal", label: "Personal Checking", mask: "0034", kind: "balance", type: "depository", nameRe: /\btotal checking\b/i }),
+]);
+// accounts = plaidGlance().accounts ([{name, mask, type, institution, current, available}]).
+function matchBankAccount(spec, accounts) {
+  const list = Array.isArray(accounts) ? accounts.filter((a) => a && typeof a === "object") : [];
+  const byMask = list.filter((a) => String(a.mask || "") === spec.mask);
+  if (byMask.length) return byMask.find((a) => spec.nameRe.test(String(a.name || ""))) || byMask[0];
+  // No mask on file for it: the name decides, and only for an account of the right kind.
+  return list.find((a) => !a.mask && (!a.type || a.type === spec.type) && spec.nameRe.test(`${a.institution || ""} ${a.name || ""}`)) || null;
+}
+function bankBalanceRows(g) {
+  const accounts = g && g.connected && Array.isArray(g.accounts) ? g.accounts : [];
+  return BANK_BALANCE_ROWS.map((spec) => {
+    const a = matchBankAccount(spec, accounts);
+    const v = a ? num(a.current) : null;
+    if (!a) return { key: spec.key, label: spec.label, value: "not connected", amount: null, connected: false };
+    return { key: spec.key, label: spec.label, value: v == null ? "not read" : `${money2(v)}${spec.kind === "owed" ? " owed" : ""}`, amount: v, connected: true, kind: spec.kind };
+  });
+}
+
+// B-838 (v2.0.20) -> B-944 (v2.0.36): the Plaid tile is the "Bank Balances" box
+// (id stays "plaid": same place, same tap target). g = plaidGlance(); the
+// "read ... ago" line, the Sandbox flag and a failed read stay under the rows.
 function plaidTile(g, now) {
-  const base = { id: "plaid", label: "Checking (Plaid)", target: "plaid" };
-  if (!g || !g.connected) return { ...base, value: "-", sub: "Not connected - Settings → Plaid", tone: "flat" };
-  const cur = g.checking ? num(g.checking.current) : null;
-  const cards = Array.isArray(g.cards) ? g.cards : [];
-  const owed = cards.map((c) => num(c && c.owed)).filter((v) => v != null);
+  const base = { id: "plaid", label: "Bank Balances", target: "plaid", value: "" };
+  const rows = bankBalanceRows(g);
+  if (!g || !g.connected) return { ...base, rows, sub: "Not connected - Settings → Plaid", tone: "flat" };
   const bits = [];
-  if (owed.length) bits.push(`${cards.length === 1 ? "Card" : "Cards"} owed ${money2(owed.reduce((s, v) => s + v, 0))}`);
   const age = ageText(g.at, now);
-  if (age) bits.push(age);
+  if (age) bits.push(`read ${age}`);
   if (g.env === "sandbox") bits.push("Sandbox (test data)");
   if (g.error) bits.push(`Last read failed: ${String(g.error).slice(0, 80)}`);
+  const overdrawn = rows.some((r) => r.kind === "balance" && r.amount != null && r.amount < 0);
   return {
     ...base,
-    value: money2(cur),
+    rows,
     sub: bits.join(" · "),
-    tone: g.error ? "warn" : cur != null && cur < 0 ? "down" : "flat",
+    tone: g.error ? "warn" : overdrawn ? "down" : "flat",
   };
 }
 
@@ -525,7 +555,7 @@ function fbaStockValue(tiles) {
   }
   return any ? Math.round(total * 100) / 100 : null;
 }
-__m["dashboard-todo.js"] = { TARGETS, DO_NEXT_ORDER, SHIPMENT_NOTIFICATION_TYPE, DO_NEXT_LINE_MAX, shortTitle, strandedLineText, pricingOfferText, pricingLineText, money0, money2, changeLine, topSeverity, buildDoNext, SB_DAY_ROLLOVER_HOUR, chicagoClock, dayKeyAdd, usDate, sbCardRange, sumSbDays, buildSbCards, buildTiles, ageText, plaidTile, fbaStockValue };
+__m["dashboard-todo.js"] = { TARGETS, DO_NEXT_ORDER, SHIPMENT_NOTIFICATION_TYPE, DO_NEXT_LINE_MAX, shortTitle, strandedLineText, pricingOfferText, pricingLineText, money0, money2, changeLine, topSeverity, buildDoNext, SB_DAY_ROLLOVER_HOUR, chicagoClock, dayKeyAdd, usDate, sbCardRange, sumSbDays, buildSbCards, buildTiles, ageText, BANK_BALANCE_ROWS, matchBankAccount, bankBalanceRows, plaidTile, fbaStockValue };
 })();
 root.ShopperGlance = Object.freeze(Object.assign({}, ...Object.values(__m)));
 })(self);

@@ -1059,6 +1059,13 @@ html, body { overscroll-behavior: none; }
 .gl-split-item { display: flex; justify-content: space-between; gap: 6px; min-width: 0; font-size: 12px; }
 .gl-split-label { color: var(--muted); }
 .gl-split-value { font-weight: 700; font-variant-numeric: tabular-nums; }
+/* B-944 (v2.0.36): the Bank Balances box - three rows (name | amount), tokens only. */
+.gl-bank-rows { display: flex; flex-direction: column; gap: 2px; margin-top: 2px; }
+.gl-bank-row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; min-width: 0; padding: 3px 0; border-bottom: 1px solid var(--s-line); font-size: 14px; }
+.gl-bank-row:last-child { border-bottom: 0; }
+.gl-bank-label { min-width: 0; overflow-wrap: anywhere; color: var(--s-text); }
+.gl-bank-value { flex: 0 0 auto; font-weight: 800; color: var(--s-text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.gl-bank-off .gl-bank-value { font-weight: 600; color: var(--s-text-muted); }
 .gl-row { display: grid; gap: 8px; border-left: 4px solid var(--line); }
 .gl-sev-critical { border-left-color: var(--bad); }
 .gl-sev-high { border-left-color: var(--warn); }

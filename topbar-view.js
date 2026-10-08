@@ -8,7 +8,7 @@
 // while a job is running (for "no new step for ..."), none when idle.
 (function (root) {
   "use strict";
-  var TAB_NAMES = { dashboard: "Dashboard", bank: "Bank", run: "Run", buylist: "Buylist", inventory: "Inventory",
+  var TAB_NAMES = { dashboard: "Dashboard", bank: "Virtual Bank", run: "Run", buylist: "Buylist", inventory: "Inventory",
     fba: "FBA", wizard: "Ship", belowmin: "Pricing", cashflow: "Cash" };
   var state = null;
   var timer = 0;

@@ -213,6 +213,8 @@
     for (const k of needs.checks) {
       const c = needCard(k.title, "", k.body);
       const a = actions();
+      // B-942 (v2.0.36): B-935's "did these arrive?" - the laptop books them and the card drops off.
+      if (k.arrived) a.append(btn("It arrived", "primary-btn", (e) => run("onTheWayArrived", k.arrived, e.target)));
       a.append(btn(k.button || "Dismiss", "secondary-btn", (e) => run("dismissCheck", { id: k.id }, e.target)));
       c.append(a);
       host.append(c);
