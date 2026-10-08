@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.38";
+const APP_BUILD = "v2.0.39";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -51,7 +51,7 @@ for (const id of [
   "invPrintLabelsBtn","invPrintLabelsNote",
   // B-490 (v4.56): the read-only Dashboard tab.
   "tabDashboard","dashboardPane","dashAsOf","dashTiles","dashDoNext","dashDoCount",
-  "dashLastRun","dashLastHead","dashLastSub","dashNightly",
+  "dashLastRun","dashLastHead","dashLastSub","dashNightly","dashChecks",
   // B-510/B-511 (v4.61): the read-only FBA tab (remote/fba-view.js draws it).
   "tabFba","fbaPane",
   // B-741 (v2.01): the Min tab (remote/belowmin-view.js draws it).
@@ -2640,11 +2640,13 @@ function renderDashboard(d, p) {
     stranded: ex.stranded || null,
     // B-941 (v2.0.35): listings at Poor / Very poor CX Health.
     voc: ex.voc || null,
+    // B-971 (v2.0.39): a background check that failed or went quiet.
+    bgChecks: ex.bgChecks || null,
     // B-862 (v2.0.23): listings deactivated for a pricing error.
     pricingErrors: ex.pricingErrors || null,
     now: Date.now(),
   });
-  const key = JSON.stringify([tiles, rows.map((r) => [r.id, r.title, r.detail, r.severity, r.go.label, (r.notifs || []).map((n) => n.key)]), d.lastRun, ex.nightly, d.remoteBuiltAt, d.stale, d.spend.bankRecent]);
+  const key = JSON.stringify([tiles, rows.map((r) => [r.id, r.title, r.detail, r.severity, r.go.label, (r.notifs || []).map((n) => n.key)]), d.lastRun, ex.nightly, d.remoteBuiltAt, d.stale, d.spend.bankRecent, ex.bgChecks || null]);
   if (key === lastDashboardKey) return;
   lastDashboardKey = key;
   for (const k of ["dashTiles", "dashDoNext"]) els[k].textContent = "";
@@ -2675,4 +2677,11 @@ function renderDashboard(d, p) {
   }
   const nt = ex.nightly;
   els.dashNightly.textContent = !nt ? "" : nt.enabled && nt.nextAt ? "Next nightly buy list: " + centralText(nt.nextAt) : "Nightly buy list: off";
+  // B-971 (v2.0.39): "Voice of the Customer: read 2h ago - 0 Poor / 1 Fair".
+  if (els.dashChecks) {
+    els.dashChecks.textContent = "";
+    if (ex.bgChecks && G.bgCheckLines) {
+      for (const c of G.bgCheckLines(ex.bgChecks, Date.now())) els.dashChecks.appendChild(invNode("div", c.failed || c.stale ? "warn-text" : "", c.line));
+    }
+  }
 }

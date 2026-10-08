@@ -282,18 +282,30 @@
   }
 
   // ---- B-569: Latest arrivals ------------------------------------------------
-  let latestHours = 24;
+  // B-968 (v2.0.39, Zach): opens at 2 hours, like the laptop's Pipeline (B-750);
+  // a pick is remembered on this phone under the laptop page's key name.
+  const LATEST_HOURS_KEY = "shopperArrivalsLatestHours";
+  const LATEST_HOURS_CHOICES = [2, 8, 12, 24, 48];
+  let latestHours = 2;
+  try {
+    const saved = Number(localStorage.getItem(LATEST_HOURS_KEY));
+    if (LATEST_HOURS_CHOICES.includes(saved)) latestHours = saved;
+  } catch (e) { /* storage off: 2 hours */ }
   function renderLatest(host, inv) {
     host.textContent = "";
     const head = node("h3", null, "Latest arrivals ");
     const sel = node("select", "need-input");
-    for (const h of [2, 8, 12, 24, 48]) {
+    for (const h of LATEST_HOURS_CHOICES) {
       const o = node("option", null, `${h} hours`);
       o.value = String(h);
       if (h === latestHours) o.selected = true;
       sel.append(o);
     }
-    sel.addEventListener("change", () => { latestHours = Number(sel.value) || 24; renderLatest(host, inv); });
+    sel.addEventListener("change", () => {
+      latestHours = Number(sel.value) || 2;
+      try { localStorage.setItem(LATEST_HOURS_KEY, String(latestHours)); } catch (e) { /* per-phone nicety */ }
+      renderLatest(host, inv);
+    });
     head.append(sel);
     host.append(head);
     const all = (inv && inv.arrivals && inv.arrivals.latest) || [];

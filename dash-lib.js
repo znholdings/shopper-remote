@@ -38,7 +38,9 @@ const TARGETS = Object.freeze(["buylist", "buyqueue", "pipeline", "arrivals", "b
 // suspected pricing error (lib/pricing-errors.js), right after Below Min.
 // B-941 (v2.0.35): "voc" - listings at Poor / Very poor CX Health (Voice of the
 // Customer), right after pricing errors: a listing Amazon may suppress.
-const DO_NEXT_ORDER = Object.freeze(["urgent", "owed", "needsYou", "belowMin", "pricingErrors", "voc", "arrivals", "runReviews", "fba", "stranded", "shipment"]);
+// B-971 (v2.0.39): "checks" - a background check (Voice of the Customer,
+// stranded inventory) failed, or has not finished a read in 12 h.
+const DO_NEXT_ORDER = Object.freeze(["urgent", "owed", "needsYou", "belowMin", "pricingErrors", "voc", "arrivals", "runReviews", "fba", "stranded", "checks", "shipment"]);
 const SHIPMENT_NOTIFICATION_TYPE = "shipment_prompt";
 
 const num = (v) => {
@@ -294,6 +296,22 @@ function buildDoNext(input = {}) {
     });
   }
 
+  // B-971 (v2.0.39): a background check that failed or has gone quiet.
+  const checkRows = bgCheckLines(input.bgChecks, num(input.now)).filter((c) => c.failed || c.stale);
+  if (input.bgChecks && checkRows.length) {
+    add({
+      id: "checks",
+      severity: checkRows.some((c) => c.failed) ? "high" : "medium",
+      title: checkRows.length === 1
+        ? `${checkRows[0].label}: ${checkRows[0].failed ? "the last read failed" : "no read in 12 h"}`
+        : `${checkRows.length} background checks need a look`,
+      detail: checkRows.map((c) => c.line).join(" · ") + ". Every line is on the Pipeline page's Activity tab and in Drive (Shopper run logs).",
+      lines: checkRows.map((c) => ({ id: c.id, text: c.line })),
+      go: { label: "Activity", target: "pipeline" },
+      count: checkRows.length,
+    });
+  }
+
   if (shipment.length) {
     add({
       id: "shipment",
@@ -480,6 +498,38 @@ function buildTiles(input = {}) {
   return out;
 }
 
+// ---- B-971 (v2.0.39): the background checks' status lines -----------------
+// checks = the stored record (lib/bg-checks.js BG_CHECKS_KEY, seeded from the
+// checks' own stores): { voc: { at, readAt, ok, pending, summary, error,
+// lastSummary }, stranded: {...} }. One line per check, always both, e.g.
+// "Voice of the Customer: read 2h ago - 0 Poor / 1 Fair".
+const BG_CHECK_STALE_MS = 12 * 3600 * 1000;
+const BG_CHECK_LABELS = Object.freeze({ voc: "Voice of the Customer", stranded: "Stranded inventory" });
+function bgCheckStatusWords(c, now) {
+  const n = num(now);
+  if (!c || typeof c !== "object" || !num(c.at)) return "not run yet";
+  const ago = (t) => ageText(t, n) || "time not known";
+  const last = c.readAt ? `; last read ${ago(c.readAt)}${c.lastSummary ? ` - ${c.lastSummary}` : ""}` : "";
+  if (!c.ok) return `not read - ${c.error || "failed"} (tried ${ago(c.at)})${last}`;
+  if (c.pending) return `${c.summary || "waiting"} (asked ${ago(c.at)})${last}`;
+  return `read ${ago(c.readAt || c.at)} - ${c.summary || "done"}`;
+}
+// -> [{ id, label, text, line, failed, stale }]
+function bgCheckLines(checks, now) {
+  const rec = checks && typeof checks === "object" ? checks : null;
+  if (!rec) return [];
+  const n = num(now);
+  return Object.keys(BG_CHECK_LABELS).map((id) => {
+    const c = rec[id] && typeof rec[id] === "object" ? rec[id] : null;
+    const label = BG_CHECK_LABELS[id];
+    const text = bgCheckStatusWords(c, n);
+    const readAt = c ? num(c.readAt) : null;
+    const failed = !!(c && num(c.at) && !c.ok);
+    const stale = !failed && n != null && (readAt == null || n - readAt > BG_CHECK_STALE_MS);
+    return { id, label, text, line: `${label}: ${text}`, failed, stale };
+  });
+}
+
 // "2h ago" from two ms stamps (no clock read here - pure).
 function ageText(at, now) {
   const a = num(at), n = num(now);
@@ -555,7 +605,7 @@ function fbaStockValue(tiles) {
   }
   return any ? Math.round(total * 100) / 100 : null;
 }
-__m["dashboard-todo.js"] = { TARGETS, DO_NEXT_ORDER, SHIPMENT_NOTIFICATION_TYPE, DO_NEXT_LINE_MAX, shortTitle, strandedLineText, pricingOfferText, pricingLineText, money0, money2, changeLine, topSeverity, buildDoNext, SB_DAY_ROLLOVER_HOUR, chicagoClock, dayKeyAdd, usDate, sbCardRange, sumSbDays, buildSbCards, buildTiles, ageText, BANK_BALANCE_ROWS, matchBankAccount, bankBalanceRows, plaidTile, fbaStockValue };
+__m["dashboard-todo.js"] = { TARGETS, DO_NEXT_ORDER, SHIPMENT_NOTIFICATION_TYPE, DO_NEXT_LINE_MAX, shortTitle, strandedLineText, pricingOfferText, pricingLineText, money0, money2, changeLine, topSeverity, buildDoNext, SB_DAY_ROLLOVER_HOUR, chicagoClock, dayKeyAdd, usDate, sbCardRange, sumSbDays, buildSbCards, buildTiles, BG_CHECK_STALE_MS, BG_CHECK_LABELS, bgCheckStatusWords, bgCheckLines, ageText, BANK_BALANCE_ROWS, matchBankAccount, bankBalanceRows, plaidTile, fbaStockValue };
 })();
 root.ShopperGlance = Object.freeze(Object.assign({}, ...Object.values(__m)));
 })(self);
