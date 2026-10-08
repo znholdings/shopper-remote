@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.36";
+const APP_BUILD = "v2.0.37";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -2203,6 +2203,8 @@ function renderInvBucket(inv) {
     if (withReceive) {
       const badge = invNode("span", "rc-badge");
       badge.dataset.asin = r.asin;
+      // B-950 (v2.0.37): green when the count equals House, yellow when it doesn't.
+      if (r.house != null && r.house !== "") { badge.dataset.house = String(r.house); badge.dataset.houseText = invUnits(r.house); }
       badge.hidden = true;
       titleCell.appendChild(badge);
       self.ShopperReceive.paintBadges(badge);

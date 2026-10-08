@@ -184,4 +184,11 @@
   background: var(--s-surface) !important; color: var(--s-text) !important; border: 2px solid var(--s-n7) !important; box-shadow: none !important; text-transform: none;
 }
 
+/* B-950 (v2.0.37): green ("Count matches the house") when the count equals the row's House figure,
+   yellow ("Counted 36 of 84 at the house") when it doesn't. Tokens only - every theme has its own
+   --s-yellow-* set; retro keeps its black 2 px edge. */
+.rc-badge.rc-badge-off { background: var(--s-yellow-bg); color: var(--s-yellow-ink); border-color: var(--s-yellow); }
+.rc-badge.rc-badge-off .rc-badge-x { color: var(--s-yellow-ink); }
+.rc-badge.rc-badge-off .rc-badge-x:hover, .rc-badge.rc-badge-off .rc-badge-x:focus-visible { border-color: var(--s-yellow); }
+
 [hidden] { display: none !important; }

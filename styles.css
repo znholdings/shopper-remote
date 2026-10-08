@@ -667,6 +667,10 @@ body::before { content: ""; position: fixed; top: 0; left: 0; right: 0; height: 
 .need-actions { flex-wrap: wrap; gap: 6px; margin-top: 4px; }
 .need-input { font: inherit; font-size: 14px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line, var(--s-n1)); background: var(--panel); color: var(--text); min-width: 0; max-width: 100%; }
 .need-num { width: 112px; }
+/* B-951 (v2.0.37): "It arrived" quantity box. */
+.need-qty { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; max-width: 100%; }
+.need-qty .need-qty-input { width: 84px; appearance: textfield; -moz-appearance: textfield; }
+.need-qty .need-qty-input::-webkit-inner-spin-button, .need-qty .need-qty-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 .need-split-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .parity-edit, .parity-ding { flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .parity-why summary { cursor: pointer; font-size: 13px; }

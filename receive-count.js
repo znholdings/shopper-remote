@@ -564,8 +564,27 @@
           parts.x.setAttribute("aria-label", "Clear the count of " + fmtNum(t));
         } else nodes[i].textContent = "Counted " + fmtNum(t);
         nodes[i].title = "A count of " + fmtNum(t) + " is in progress for this product";
+        // B-950 (v2.0.37): green when the count equals the row's House figure, yellow when it
+        // doesn't (the host puts House on data-house - and may put its own wording of it on
+        // data-house-text; no data-house = the plain green chip).
+        var vs = badgeVsHouse(t, nodes[i].getAttribute("data-house"));
+        if (nodes[i].classList && typeof nodes[i].classList.toggle === "function") {
+          nodes[i].classList.toggle("rc-badge-match", vs === "match");
+          nodes[i].classList.toggle("rc-badge-off", vs === "off");
+        }
+        if (vs === "match") nodes[i].title = "Count matches the house";
+        else if (vs === "off") nodes[i].title = "Counted " + fmtNum(t) + " of " + (nodes[i].getAttribute("data-house-text") || fmtNum(Number(nodes[i].getAttribute("data-house")))) + " at the house";
       }
     }
+  }
+  // "match" | "off" | null (no House figure). Same thousandth-of-a-unit test as openSetAll's
+  // "already the House count" check.
+  function badgeVsHouse(total, house) {
+    if (house == null || house === "") return null;
+    var h = Number(house);
+    var t = Number(total);
+    if (!isFinite(h) || !isFinite(t)) return null;
+    return Math.round(h * 1000) === Math.round(t * 1000) ? "match" : "off";
   }
 
   function clearFor(asin, now) { setChunks(asin, [], now); }
@@ -1327,6 +1346,7 @@
     applyRemote: applyRemote,
     diffNewer: diffNewer,
     paintBadges: paintBadges,
+    badgeVsHouse: badgeVsHouse,
     onBadgeClear: onBadgeClear,
     clearFromBadge: clearFromBadge,
     isChunk: isChunk,

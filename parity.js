@@ -118,6 +118,55 @@
   }
   function actions() { return node("div", "controls need-actions"); }
 
+  // ---- B-951 (v2.0.37): "It arrived" takes a quantity ----------------------
+  // The laptop's own rule (lib/arrived-quantity.js readArrivedQuantity, kept
+  // identical - test v2037-a): blank / not a number / 0 / negative refused;
+  // the open units or more = all of it (null - nothing extra is sent, the
+  // laptop books every order as before); a fraction below that refused; else
+  // whole units. The laptop checks it again and spills it oldest order first.
+  function r3(v) { return Math.round((Number(v) || 0) * 1000) / 1000; }
+  function readQty(raw, open) {
+    const total = r3(open);
+    if (raw === null || raw === undefined) return { ok: true, quantity: null, capped: false };
+    const range = total >= 1 ? "1 to " + r3(total) : String(r3(total));
+    if (typeof raw !== "number" && typeof raw !== "string") return { ok: false, error: "Type how many arrived (" + range + ")." };
+    const text = String(raw).trim();
+    if (text === "") return { ok: false, error: "Type how many arrived (" + range + ")." };
+    const q = Number(text);
+    if (!Number.isFinite(q)) return { ok: false, error: "\"" + text.slice(0, 20) + "\" is not a number - type how many arrived (" + range + ")." };
+    if (q <= 0) return { ok: false, error: r3(q) + " books nothing - type how many arrived (" + range + ")." };
+    if (q >= total - 0.0005) return { ok: true, quantity: null, capped: q > total + 0.0005 };
+    if (Math.abs(q - Math.round(q)) > 1e-9) return { ok: false, error: "Whole units only - type 1 to " + Math.floor(total) + ", or " + r3(total) + " for all of it." };
+    return { ok: true, quantity: Math.round(q), capped: false };
+  }
+  function sumUnits(orders) { return r3((orders || []).reduce((t, o) => t + (Number(o && o.units) || 0), 0)); }
+  // The box: prefilled with the open units, "of N" beside it, a refusal line under the buttons.
+  function qtyBox(open) {
+    const wrap = node("span", "need-qty");
+    const input = node("input", "need-input need-num need-qty-input");
+    input.type = "number";
+    input.min = "1";
+    input.max = String(r3(open));
+    input.step = "any";
+    input.inputMode = "numeric";
+    input.value = String(r3(open));
+    input.title = "Units that arrived - leave " + r3(open) + " for all of it";
+    wrap.append(input, node("span", "muted small", "of " + units(open)));
+    const bad = node("div", "error-text small", "");
+    bad.hidden = true;
+    input.addEventListener("input", () => { bad.hidden = true; });
+    // -> { ok, quantity } or shows why and returns null
+    function pick() {
+      const p = readQty(input.value, open);
+      if (p.ok) return p;
+      bad.textContent = p.error;
+      bad.hidden = false;
+      input.focus && input.focus();
+      return null;
+    }
+    return { wrap, input, bad, pick };
+  }
+
   function renderNeeds(host, needs) {
     host.textContent = "";
     const head = node("h3", null, "Needs you ");
@@ -151,13 +200,20 @@
       const day = node("input", "need-input");
       day.type = "date";
       day.value = todayFor(o.destination);
+      // B-951 (v2.0.37): how many arrived (default the open units = all of it).
+      const qb = qtyBox(o.open);
       a.append(
-        btn("It arrived", "primary-btn", (e) => run("orderArrived", { orderNumber: o.orderNumber, asin: o.asin, units: o.open, at: noonIso(day.value, o.destination) || new Date().toISOString(), section: "Phone › Needs you" }, e.target)),
+        qb.wrap,
+        btn("It arrived", "primary-btn", (e) => {
+          const p = qb.pick();
+          if (!p) return;
+          run("arrivedQty", { asin: o.asin, destination: o.destination === "prep" ? "prep" : "house", orders: [{ orderNumber: o.orderNumber, units: o.open }], ...(p.quantity == null ? {} : { quantity: p.quantity }), at: noonIso(day.value, o.destination) || new Date().toISOString(), section: "Phone › Needs you" }, e.target);
+        }),
         day,
         btn("It never arrived", "danger-btn", (e) => { if (confirm(`Mark ${units(o.open)} units of order ${o.orderNumber} as never arrived?`)) run("orderNeverArrived", { orderNumber: o.orderNumber, asin: o.asin, units: o.open }, e.target); }),
         btn("Keep waiting", "secondary-btn", (e) => run("orderKeepWaiting", { key: o.key }, e.target))
       );
-      c.append(a);
+      c.append(a, qb.bad);
       host.append(c);
     }
 
@@ -214,9 +270,12 @@
       const c = needCard(k.title, "", k.body);
       const a = actions();
       // B-942 (v2.0.36): B-935's "did these arrive?" - the laptop books them and the card drops off.
-      if (k.arrived) a.append(btn("It arrived", "primary-btn", (e) => run("onTheWayArrived", k.arrived, e.target)));
+      // B-951 (v2.0.37): how many arrived; all of it sends the card's answer as before.
+      const kq = k.arrived ? qtyBox(sumUnits(k.arrived.orders)) : null;
+      if (k.arrived) a.append(kq.wrap, btn("It arrived", "primary-btn", (e) => { const p = kq.pick(); if (p) run("onTheWayArrived", p.quantity == null ? k.arrived : { ...k.arrived, quantity: p.quantity }, e.target); }));
       a.append(btn(k.button || "Dismiss", "secondary-btn", (e) => run("dismissCheck", { id: k.id }, e.target)));
       c.append(a);
+      if (kq) c.append(kq.bad);
       host.append(c);
     }
     if (needs.shipmentsOnLaptop) host.append(node("p", "muted small", `${needs.shipmentsOnLaptop} shipment question(s) - answer those on the laptop.`));
@@ -270,15 +329,19 @@
     const day = node("input", "need-input");
     day.type = "date";
     day.value = todayFor(dest);
+    // B-951 (v2.0.37): how many arrived (default the row's open units = all of
+    // it). ONE arrivedQty command for every order behind the row - the laptop
+    // books a part quantity oldest order first and the row keeps the rest.
+    const qb = qtyBox(sumUnits(r.closeOrders));
     const b = btn("It arrived", "primary-btn", async () => {
       if (!day.value) return;
-      for (const o of r.closeOrders) {
-        const st = await run("orderArrived", { orderNumber: o.orderNumber, asin: r.asin, units: o.units, at: noonIso(day.value, dest), note: "Marked arrived from the phone's Arrivals › " + (kind === "overdue" ? "Overdue" : "Upcoming"), section: "Phone › " + (kind === "overdue" ? "Overdue" : "Upcoming") }, b);
-        if (st !== "done") break;
-      }
+      const p = qb.pick();
+      if (!p) return;
+      const where = kind === "overdue" ? "Overdue" : "Upcoming";
+      await run("arrivedQty", { asin: r.asin, destination: dest, orders: r.closeOrders.map((o) => ({ orderNumber: o.orderNumber, units: o.units })), ...(p.quantity == null ? {} : { quantity: p.quantity }), at: noonIso(day.value, dest), note: "Marked arrived from the phone's Arrivals › " + where, section: "Phone › " + where }, b);
     });
-    a.append(b, day);
-    rowEl.append(a);
+    a.append(qb.wrap, b, day);
+    rowEl.append(a, qb.bad);
   }
 
   // ---- B-570 / B-571: product row pencil + expiry ------------------------------
@@ -414,5 +477,5 @@
     }
   }
 
-  self.ShopperParity = Object.freeze({ render, decorateArrival, decorateProduct, decorateBuylistCard, noonIso, todayFor });
+  self.ShopperParity = Object.freeze({ render, decorateArrival, decorateProduct, decorateBuylistCard, noonIso, todayFor, arrivedQuantity: readQty });
 })();
