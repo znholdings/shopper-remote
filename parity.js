@@ -310,7 +310,8 @@
     host.append(head);
     const all = (inv && inv.arrivals && inv.arrivals.latest) || [];
     const floor = Date.now() - latestHours * 3600000;
-    const rows = all.filter((r) => Number(r.occurredAtMs) >= floor);
+    // B-976 (v2.0.40): a delivery booked late is listed by when it was booked.
+    const rows = all.filter((r) => Number(r.listedAtMs || r.occurredAtMs) >= floor);
     if (!rows.length) { host.append(node("p", "muted", all.length ? `Nothing in the last ${latestHours} hour(s).` : "Nothing.")); return; }
     const total = rows.reduce((t, r) => t + (Number(r.units) || 0), 0);
     host.append(node("p", "muted small", `${units(total)} units · ${rows.length} delivery event(s) in the last ${latestHours} hour(s)`));
@@ -319,7 +320,8 @@
       const top = node("div", "inv-row-top");
       top.append(node("span", "inv-title", r.title || r.asin), node("b", "inv-units", r.units == null ? "-" : units(r.units) + "u"));
       row.append(top);
-      row.append(node("div", "l-meta", [r.asin, r.retailer, r.destination, r.carrier || "carrier not read yet", ctText(r.occurredAtMs)].filter(Boolean).join(" · ")));
+      const late = Number(r.bookedAtMs) - Number(r.occurredAtMs) > 3600000 ? `booked ${ctText(r.bookedAtMs)}` : "";
+      row.append(node("div", "l-meta", [r.asin, r.retailer, r.destination, r.carrier || "carrier not read yet", ctText(r.occurredAtMs), late].filter(Boolean).join(" · ")));
       host.append(row);
     }
   }
