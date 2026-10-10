@@ -919,7 +919,8 @@ html, body { overscroll-behavior: none; }
 /* ── B-797 (v2.0.9): eight EQUAL columns. Each tab used to be as wide as its
    label, so Dashboard and Inventory pushed their neighbours together. Below
    400px the two long labels use their short names (data-short). ── */
-#mainView > .tabs { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); justify-content: stretch; }
+#mainView > .tabs { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); justify-content: stretch; }
+/* B-1023 (v2.0.49): nine tabs with Catalog. */
 #mainView > .tabs .tab { min-width: 0; padding: 6px 0; overflow: hidden; }
 #mainView > .tabs .tab-label { display: block; max-width: 100%; overflow: hidden; white-space: nowrap; font-size: 10px; letter-spacing: -0.01em; }
 /* B-799 (v2.0.10): 8 columns on a 430px phone are ~53px - "Dashboard" was
@@ -1102,5 +1103,30 @@ html, body { overscroll-behavior: none; }
 .lbl-ask-q { font-weight: 600; color: var(--s-text); overflow-wrap: anywhere; }
 .lbl-ask-btns { display: flex; flex-wrap: wrap; gap: 8px; }
 .lbl-ask-btns button { flex: 1 1 120px; min-width: 0; }
+
+/* ── B-1023 (v2.0.49): the Catalog tab - one compact card per product with
+   stock: picture + name, then the stock figures and the sales line. Tokens only. ── */
+#ctmBanner { display: grid; gap: 4px; }
+.ctm-head { display: flex; justify-content: flex-end; gap: 8px; margin: 6px 0; }
+.ctm-search { width: 100%; box-sizing: border-box; min-height: 40px; padding: 8px 10px; border: 1px solid var(--s-line); border-radius: var(--s-r-sm); background: var(--s-surface); color: var(--s-text); font: 16px var(--s-font); margin: 4px 0; }
+.ctm-filter { margin: 6px 0 2px; }
+.ctm-count { margin: 4px 0 8px; font-variant-numeric: tabular-nums; }
+.ctm-list { display: grid; gap: 8px; min-width: 0; }
+.ctm-row { background: var(--s-surface); border: 1px solid var(--s-line); border-radius: var(--s-r-sm); padding: 8px 10px; min-width: 0; display: grid; gap: 6px; }
+.ctm-top { display: flex; gap: 8px; align-items: center; min-width: 0; }
+.ctm-img { width: 40px; height: 40px; flex: none; object-fit: contain; border-radius: 4px; background: var(--s-n0); }
+.ctm-img-none { display: inline-block; background: var(--s-n2); }
+.ctm-name { min-width: 0; flex: 1; }
+.ctm-title { color: var(--s-text); font-weight: 600; font-size: 14px; line-height: 1.3; text-decoration: none; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.ctm-ids { font-size: 11px; color: var(--s-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ctm-figs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px 8px; }
+.ctm-figs + .ctm-figs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.ctm-fig { display: flex; flex-direction: column; min-width: 0; }
+.ctm-fig-l { font-size: 11px; color: var(--s-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ctm-fig-v { font-size: 15px; color: var(--s-text); font-variant-numeric: tabular-nums; }
+.ctm-blank { color: var(--s-text-faint); font-weight: 400; }
+.ctm-neg { color: var(--s-red-ink); }
+.ctm-empty { padding: 16px; text-align: center; color: var(--s-text-muted); }
+.ctm-more { width: 100%; margin: 8px 0 16px; }
 
 [hidden] { display: none !important; }

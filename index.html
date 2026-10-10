@@ -95,6 +95,8 @@
         <!-- B-742 (v2.0.7): the Shipment Wizard. -->
         <button id="tabWizard" class="tab"><svg class="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h11v9H3z"/><path d="M14 10h4l3 3v3h-7"/><circle cx="7" cy="18" r="1.6"/><circle cx="17" cy="18" r="1.6"/></svg><span class="tab-label">Ship</span></button>
         <button id="tabBelowMin" class="tab"><svg class="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12l-8 8-9-9V3h8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg><span class="tab-label">Pricing</span></button>
+        <!-- B-1023 (v2.0.49): the laptop's Catalog (products with stock). -->
+        <button id="tabCatalog" class="tab"><svg class="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="5" height="5" rx="1"/><rect x="3" y="15" width="5" height="5" rx="1"/><path d="M11 5.5h10M11 8h6M11 16.5h10M11 19h6"/></svg><span class="tab-label">Catalog</span></button>
         <!-- B-765 (v2.0.8): the laptop's Cash Flow page. -->
         <button id="tabCashFlow" class="tab"><svg class="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l5-5 4 4 8-8"/><path d="M15 8h5v5"/></svg><span class="tab-label">Cash</span></button>
       </nav>
@@ -376,6 +378,19 @@
         </div>
       </div>
 
+      <!-- B-1023 (v2.0.49): the laptop's Catalog - products with stock, built on
+           the laptop on each refresh (remote/catalog-view.js draws it). -->
+      <div id="catalogPane" hidden>
+        <div class="ctm-head"><button type="button" class="secondary-btn" id="ctmRefresh">Quick refresh</button></div>
+        <p id="ctmStatus" class="muted small"></p>
+        <div id="ctmBanner" class="ai-banner ai-banner-warn" hidden></div>
+        <input type="search" id="ctmSearch" class="ctm-search" placeholder="Search name, ASIN or SKU" autocomplete="off" spellcheck="false" aria-label="Search the catalog" />
+        <div class="cfm-tabs ctm-filter" role="group" aria-label="Which products" id="ctmFilter"><button type="button" class="cfm-tab" data-filter="stock">With stock</button><button type="button" class="cfm-tab" data-filter="available">Available</button><button type="button" class="cfm-tab" data-filter="coming">On the way</button></div>
+        <p id="ctmCount" class="muted small ctm-count"></p>
+        <div id="ctmList" class="ctm-list"></div>
+        <button type="button" class="secondary-btn ctm-more" id="ctmMore" hidden>Show more</button>
+      </div>
+
       <div id="fbaPane" hidden>
         <!-- v4.74 (B-574 / B-576): the one Quick / Full refresh. -->
         <div id="fbaRefresh"></div>
@@ -466,6 +481,9 @@
   <!-- B-765 (v2.0.8): cashflow-lib.js is GENERATED from lib/s-chart.js (test/_cashflow-bundle.mjs). -->
   <script src="cashflow-lib.js"></script>
   <script src="cashflow-view.js"></script>
+  <!-- B-1023 (v2.0.49): catalog-lib.js is GENERATED from lib/table-sort.js + lib/catalog-view.js (test/_catalog-bundle.mjs). -->
+  <script src="catalog-lib.js"></script>
+  <script src="catalog-view.js"></script>
   <!-- B-774 (v2.0.9): run-lib.js is GENERATED from lib/ (test/_run-bundle.mjs). -->
   <script src="run-lib.js"></script>
   <!-- B-840 (v2.0.21): the Receive counter (same file as lib/receive-count.js); app.js opens it from a House row. -->

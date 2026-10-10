@@ -93,7 +93,7 @@
 
 /* ── 5. Buttons: one size, one outline, one shadow ── */
 /* :where() keeps this rule weak (0,2,0) so the primary / danger colours below win. */
-:root[data-theme="retro"] :where(button, .pc-toggle, a.s-btn, a.primary-btn, a.secondary-btn):not(:where(.tab, .s-nav-link, .s-nav-sublink, .s-nav-toggle, .s-nav-burger, .theme-btn, .icon-btn, .s-tab, .ai-seg-btn, .density-btn, .cfm-tab, .pp-tab, .link-btn, .nav-link-btn, [class*="link"], .pp-order-more, .s-btn-icon, .s-stat, th button, .s-menu-list > *)) {
+:root[data-theme="retro"] :where(button, .pc-toggle, a.s-btn, a.primary-btn, a.secondary-btn):not(:where(.tab, .s-nav-link, .s-nav-sublink, .s-nav-toggle, .s-nav-burger, .theme-btn, .icon-btn, .s-tab, .ai-seg-btn, .density-btn, .cfm-tab, .pp-tab, .link-btn, .nav-link-btn, [class*="link"], .pp-order-more, .s-btn-icon, .s-stat, th button, .cat-sort, .s-menu-list > *)) {
   font-weight: 400 !important; font-size: var(--rt-btn) !important;
   line-height: 1.3 !important; text-transform: uppercase;
   min-height: var(--rt-ctl-h); padding: 6px 14px !important;
@@ -102,9 +102,9 @@
   border: var(--rt-line) !important; box-shadow: var(--rt-raise-sm) !important; transition: none !important; filter: none;
 }
 /* The pixel family in its own rule with "body" in it, so it outranks the old button families' font rules. */
-:root[data-theme="retro"] body :where(button, .pc-toggle, a.s-btn, a.primary-btn, a.secondary-btn, .lets-buy-btn):not(:where(.tab, .s-nav-link, .s-nav-sublink, .s-nav-toggle, .s-nav-burger, .theme-btn, .icon-btn, .link-btn, .nav-link-btn, [class*="link"], .pp-order-more, .s-btn-icon, .s-stat)) { font-family: var(--s-pixel) !important; }
-:root[data-theme="retro"] :where(button, .pc-toggle):not(:where(.tab, .s-nav-link, .s-nav-sublink, .s-tab, .ai-seg-btn, .density-btn, .cfm-tab, .pp-tab, .link-btn, .nav-link-btn, [class*="link"], .pp-order-more, th button, .s-menu-list > *)):hover:not(:disabled) { background: var(--s-accent-bg) !important; }
-:root[data-theme="retro"] :where(button, .pc-toggle):not(:where(.tab, .s-nav-link, .s-nav-sublink, .s-tab, .ai-seg-btn, .density-btn, .cfm-tab, .pp-tab, .link-btn, .nav-link-btn, [class*="link"], .pp-order-more, th button, .s-menu-list > *)):active:not(:disabled) { transform: translate(2px, 2px); box-shadow: none !important; }
+:root[data-theme="retro"] body :where(button, .pc-toggle, a.s-btn, a.primary-btn, a.secondary-btn, .lets-buy-btn):not(:where(.tab, .s-nav-link, .s-nav-sublink, .s-nav-toggle, .s-nav-burger, .theme-btn, .icon-btn, .link-btn, .nav-link-btn, [class*="link"], .pp-order-more, .s-btn-icon, .s-stat, .cat-sort)) { font-family: var(--s-pixel) !important; }
+:root[data-theme="retro"] :where(button, .pc-toggle):not(:where(.tab, .s-nav-link, .s-nav-sublink, .s-tab, .ai-seg-btn, .density-btn, .cfm-tab, .pp-tab, .link-btn, .nav-link-btn, [class*="link"], .pp-order-more, th button, .cat-sort, .s-menu-list > *)):hover:not(:disabled) { background: var(--s-accent-bg) !important; }
+:root[data-theme="retro"] :where(button, .pc-toggle):not(:where(.tab, .s-nav-link, .s-nav-sublink, .s-tab, .ai-seg-btn, .density-btn, .cfm-tab, .pp-tab, .link-btn, .nav-link-btn, [class*="link"], .pp-order-more, th button, .cat-sort, .s-menu-list > *)):active:not(:disabled) { transform: translate(2px, 2px); box-shadow: none !important; }
 :root[data-theme="retro"] :is(.s-btn-primary, .primary-btn, .start-btn, .success-btn, .pp-btn-primary, .ai-btn-primary, .lets-buy-btn) {
   background: var(--s-accent) !important; color: var(--s-on-accent) !important;
 }

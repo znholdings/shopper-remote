@@ -9,7 +9,7 @@
 (function (root) {
   "use strict";
   var TAB_NAMES = { dashboard: "Dashboard", bank: "Virtual Bank", run: "Run", buylist: "Buylist", inventory: "Inventory",
-    fba: "FBA", wizard: "Ship", belowmin: "Pricing", cashflow: "Cash" };
+    fba: "FBA", wizard: "Ship", belowmin: "Pricing", cashflow: "Cash", catalog: "Catalog" };
   var state = null;
   var timer = 0;
 

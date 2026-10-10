@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.48";
+const APP_BUILD = "v2.0.49";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -60,6 +60,8 @@ for (const id of [
   "tabWizard","wizardPane","wizardHost",
   // B-765 (v2.0.8): the Cash tab (remote/cashflow-view.js draws it).
   "tabCashFlow","cashFlowPane",
+  // B-1023 (v2.0.49): the Catalog tab (remote/catalog-view.js draws it).
+  "tabCatalog","catalogPane",
   // B-662 (v4.85): the Bank view, opened from the Bank balance tile.
   "bankPane","bankBack","bankBal","bankAsOf","bankCount","bankRows",
   // B-776 (v2.0.9): the report card's heading (it also shows the LAST run's report).
@@ -516,6 +518,8 @@ function renderPayload() {
   }
   // B-765 (v2.0.8): the Cash tab.
   if (self.ShopperCashFlowView) self.ShopperCashFlowView.render(p.cashFlow);
+  // B-1023 (v2.0.49): the Catalog tab.
+  if (self.ShopperCatalogView) self.ShopperCatalogView.render(p.catalog);
   // v4.74 (B-567 - B-574): refresh, Needs you, latest arrivals, goal.
   if (self.ShopperParity) self.ShopperParity.render(p);
   // B-579 (v4.75): Box contents -> ScanPower (remote/boxes.js).
@@ -1585,8 +1589,10 @@ els.tabFba.addEventListener("click", () => switchTab("fba"));
 els.tabBelowMin.addEventListener("click", () => switchTab("belowmin"));
 els.tabWizard.addEventListener("click", () => switchTab("wizard"));
 els.tabCashFlow.addEventListener("click", () => switchTab("cashflow"));
+els.tabCatalog.addEventListener("click", () => switchTab("catalog"));
 if (self.ShopperBelowMinView) self.ShopperBelowMinView.wire();
 if (self.ShopperCashFlowView) self.ShopperCashFlowView.wire();
+if (self.ShopperCatalogView) self.ShopperCatalogView.wire();
 // B-663 (v4.85): the arrivals line opens the Arrivals boxes on the Inventory tab.
 function openArrivals() {
   switchTab("inventory");
@@ -1888,6 +1894,9 @@ function switchTab(which) {
   els.cashFlowPane.hidden = which !== "cashflow";
   els.tabCashFlow.classList.toggle("active", which === "cashflow");
   if (which === "cashflow" && self.ShopperCashFlowView) self.ShopperCashFlowView.shown();
+  // B-1023 (v2.0.49): the Catalog tab.
+  els.catalogPane.hidden = which !== "catalog";
+  els.tabCatalog.classList.toggle("active", which === "catalog");
   // B-662 (v4.85): the Bank view is part of the Dashboard (no tab button of its own).
   els.bankPane.hidden = which !== "bank";
   if (which === "bank") scrollAppTop();
@@ -2492,6 +2501,7 @@ function glGo(target) {
     fba: () => switchTab("fba"),
     wizard: () => switchTab("wizard"),
     cashflow: () => switchTab("cashflow"),
+    catalog: () => switchTab("catalog"),
     bank: () => switchTab("bank"),
     plaid: () => switchTab("bank"),
     // B-941 (v2.0.35): Seller Central's Voice of the Customer page.
