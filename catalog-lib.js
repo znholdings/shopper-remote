@@ -95,6 +95,9 @@ const CATALOG_FILTER_COMING = "coming";
 
 // The columns, in the order the laptop table shows them. `type` "text" sorts
 // A-Z first; every other column sorts biggest first on its first click.
+// `tip` is the heading's hover text; the snapshot's `tips` (lib/catalog.js
+// mergeCatalog) replaces it with the read's own window and source for Sold
+// 7d (B-1032) and 30d margin (B-1035) - columnTip() below.
 const CATALOG_COLUMNS = Object.freeze([
   Object.freeze({ key: "title", label: "Product", type: "text", tip: "Name, ASIN and SKU - the name opens the Amazon page" }),
   Object.freeze({ key: "avail", label: "Available", type: "num", fmt: "int", tip: "Qty Available (Replen Pulse)" }),
@@ -102,7 +105,7 @@ const CATALOG_COLUMNS = Object.freeze([
   Object.freeze({ key: "inbound", label: "Inbound", type: "num", fmt: "int", tip: "Qty Inbound (Replen Pulse)" }),
   Object.freeze({ key: "ordered", label: "Ordered", type: "num", fmt: "int", tip: "Qty Already Ordered (Replen Pulse)" }),
   Object.freeze({ key: "units30", label: "Sold 30d", type: "num", fmt: "int", tip: "Units sold in the last 30 days (Replen Pulse)" }),
-  Object.freeze({ key: "units7", label: "Sold 7d", type: "num", fmt: "int", tip: "Units sold in the last 7 days (Replen Pulse)" }),
+  Object.freeze({ key: "units7", label: "Sold 7d", type: "num", fmt: "int", tip: "Units sold in the last 7 whole days, Central time (Amazon's orders report)" }),
   Object.freeze({ key: "velocity", label: "Velocity", type: "num", fmt: "dec", tip: "Units a day (Replen Pulse)" }),
   Object.freeze({ key: "bbMargin", label: "BB margin", type: "num", fmt: "pct", tip: "Margin at the Buy Box (Replen Pulse's own figure)" }),
   Object.freeze({ key: "sbMargin30", label: "30d margin", type: "num", fmt: "pct", tip: "Last 30 days: net profit / sales (Sellerboard)" }),
@@ -173,6 +176,12 @@ function selectCatalogRows(rows, { filter = CATALOG_FILTER_STOCK, query = "", so
     out.push(r);
   }
   return sort && sort.key ? sortRowsBy(out, sort, catalogValueOf) : out;
+}
+
+// The heading's hover text: the snapshot's own (window + source) when it has one.
+function columnTip(col, tips) {
+  const t = tips && col && typeof tips[col.key] === "string" && tips[col.key] ? tips[col.key] : null;
+  return t || (col && (col.tip || col.label)) || "";
 }
 
 // A heading click: the same column flips; a new number column starts
@@ -263,7 +272,7 @@ function unpackCatalogRow(cols, arr) {
   o.skus = o.sku ? [o.sku] : [];
   return o;
 }
-__m["catalog-view.js"] = { PAGE_CATALOG_KEY, CATALOG_VIEW_KEY, CATALOG_FILTER_STOCK, CATALOG_FILTER_ALL, CATALOG_FILTER_AVAILABLE, CATALOG_FILTER_COMING, CATALOG_COLUMNS, hasStock, stockFieldsMissing, searchText, queryTerms, matchesTerms, catalogValueOf, selectCatalogRows, catalogNextSort, DEFAULT_CATALOG_SORT, normalizeCatalogView, NO_VALUE, fmtCatalog, fmtCount, catalogCountLine, agoText, sourceLines, AMAZON_IMAGE_PREFIX, thumbFromPayload, unpackCatalogRow };
+__m["catalog-view.js"] = { PAGE_CATALOG_KEY, CATALOG_VIEW_KEY, CATALOG_FILTER_STOCK, CATALOG_FILTER_ALL, CATALOG_FILTER_AVAILABLE, CATALOG_FILTER_COMING, CATALOG_COLUMNS, hasStock, stockFieldsMissing, searchText, queryTerms, matchesTerms, catalogValueOf, selectCatalogRows, columnTip, catalogNextSort, DEFAULT_CATALOG_SORT, normalizeCatalogView, NO_VALUE, fmtCatalog, fmtCount, catalogCountLine, agoText, sourceLines, AMAZON_IMAGE_PREFIX, thumbFromPayload, unpackCatalogRow };
 })();
 root.ShopperCatalog = Object.freeze(Object.assign({}, ...Object.values(__m)));
 })(typeof self !== "undefined" ? self : globalThis);
