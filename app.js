@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.50";
+const APP_BUILD = "v2.0.51";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -841,6 +841,16 @@ function renderLines(lines, total, truncated, progress) {
       boughtBtn.addEventListener("click", () => openBoughtForm(row, l));
       actions.appendChild(boughtBtn);
       actions.appendChild(lineBtn("Not bought", "markNotBought", { lineId: l.lineId, asin: l.asin }));
+    } else if (PHONE_MARKABLE_STATUSES.has(l.status)) {
+      // B-1038 (v2.0.51): a stopped line Zach finished by hand (the laptop's
+      // "Mark as bought" - e.g. a Walmart line that placed 2 of 3 orders, or a
+      // confirmation whose sheet write failed) - the same form, starting with
+      // the units still to buy.
+      const markBtn = document.createElement("button");
+      markBtn.className = "mini-btn";
+      markBtn.textContent = "Mark as bought...";
+      markBtn.addEventListener("click", () => openBoughtForm(row, l));
+      actions.appendChild(markBtn);
     }
     if (l.status === "pending" || l.status === "pool") {
       actions.appendChild(lineBtn("Skip", "skipPlannedLine", { lineId: l.lineId, asin: l.asin }));
@@ -885,14 +895,34 @@ function renderLines(lines, total, truncated, progress) {
 
 // The three fields SHOPPER_BUY_QUEUE_MARK_BOUGHT actually needs. Rendered
 // inline under the line rather than as a modal - one hand, one thumb.
+// B-1038 (v2.0.51): stopped lines that get "Mark as bought..." (the laptop
+// shows it on every run line not already bought; a line still buying or not
+// started yet is left to the laptop, which stops it first).
+const PHONE_MARKABLE_STATUSES = new Set(["failed", "partial", "skipped_by_user", "out_of_stock", "not_attempted", "skipped_no_url", "needs_approval", "needs_cap_approval"]);
+// B-1038 (v2.0.51): it starts with the same numbers and title as the laptop's
+// Mark as bought form (B-1025) - the units still to buy and a pro-rata amount
+// when earlier orders exist (remote/mark-bought-lib.js = lib/mark-bought-prior.js).
+function boughtFormStart(l) {
+  const MBL = self.ShopperMarkBought || null;
+  const d = MBL ? MBL.markBoughtDefaults(l) : null;
+  const qty = d && Number(d.qty) > 0 ? Number(d.qty) : Number(l.qty) || 1;
+  const amount = d ? d.amount : l.expectedCost;
+  return {
+    qty,
+    amount: amount != null && Number.isFinite(Number(amount)) && Number(amount) > 0 ? Number(amount).toFixed(2) : "",
+    title: MBL ? MBL.markBoughtTitle(l, d) : `Mark ${l.asin} as Bought`,
+  };
+}
 function openBoughtForm(row, l) {
   if (row.querySelector(".bought-form")) return;
+  const start = boughtFormStart(l);
   const form = document.createElement("div");
   form.className = "bought-form";
   form.innerHTML =
+    `<div class="bf-title">${escapeHtml(start.title)}</div>` +
     `<input class="bf-order" placeholder="Order number" />` +
-    `<input class="bf-qty" type="number" min="1" placeholder="Qty" value="${l.qty || 1}" />` +
-    `<input class="bf-amt" type="number" min="0" step="0.01" placeholder="Total $" />`;
+    `<input class="bf-qty" type="number" min="1" placeholder="Qty" value="${start.qty}" />` +
+    `<input class="bf-amt" type="number" min="0" step="0.01" placeholder="Total $" value="${start.amount}" />`;
   const confirm = document.createElement("button");
   confirm.className = "primary-btn mini-btn";
   confirm.textContent = "Confirm bought";

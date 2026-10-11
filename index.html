@@ -385,8 +385,18 @@
         <p id="ctmStatus" class="muted small"></p>
         <div id="ctmBanner" class="ai-banner ai-banner-warn" hidden></div>
         <input type="search" id="ctmSearch" class="ctm-search" placeholder="Search name, ASIN or SKU" autocomplete="off" spellcheck="false" aria-label="Search the catalog" />
-        <div class="cfm-tabs ctm-filter" role="group" aria-label="Which products" id="ctmFilter"><button type="button" class="cfm-tab" data-filter="stock">With stock</button><button type="button" class="cfm-tab" data-filter="available">Available</button><button type="button" class="cfm-tab" data-filter="coming">On the way</button></div>
+        <!-- B-1042 (v2.0.51): one chip at a time, the one on is filled (aria-pressed). -->
+        <div class="ctm-chipset ctm-filter" role="group" aria-label="Which products" id="ctmFilter"><button type="button" class="ctm-seg s-plain-btn" data-filter="stock" aria-pressed="true">With stock</button><button type="button" class="ctm-seg s-plain-btn" data-filter="available" aria-pressed="false">Available</button><button type="button" class="ctm-seg s-plain-btn" data-filter="coming" aria-pressed="false">On the way</button></div>
+        <!-- B-1041 / B-1043 (v2.0.51): Table / Cards, the Cards sort, the column filters. -->
+        <div class="ctm-tools">
+          <div class="ctm-chipset" role="group" aria-label="Show as" id="ctmMode"><button type="button" class="ctm-seg s-plain-btn" data-mode="table" aria-pressed="true">Table</button><button type="button" class="ctm-seg s-plain-btn" data-mode="cards" aria-pressed="false">Cards</button></div>
+          <label class="ctm-sort-wrap" id="ctmSortWrap" hidden><span class="ctm-sort-l">Sort</span><select id="ctmSort" class="ctm-sort-sel" aria-label="Sort the cards"></select></label>
+          <button type="button" class="secondary-btn ctm-filter-btn" id="ctmFilterBtn" aria-expanded="false" aria-controls="ctmPanel">Filter</button>
+        </div>
+        <div id="ctmPanel" class="ctm-panel" role="group" aria-label="Column filters" hidden></div>
+        <div id="ctmChips" class="ctm-chips" role="group" aria-label="Column filters in use" hidden></div>
         <p id="ctmCount" class="muted small ctm-count"></p>
+        <div id="ctmTableWrap" class="ctm-table-wrap" hidden></div>
         <div id="ctmList" class="ctm-list"></div>
         <button type="button" class="secondary-btn ctm-more" id="ctmMore" hidden>Show more</button>
       </div>
@@ -481,11 +491,14 @@
   <!-- B-765 (v2.0.8): cashflow-lib.js is GENERATED from lib/s-chart.js (test/_cashflow-bundle.mjs). -->
   <script src="cashflow-lib.js"></script>
   <script src="cashflow-view.js"></script>
-  <!-- B-1023 (v2.0.49): catalog-lib.js is GENERATED from lib/table-sort.js + lib/catalog-view.js (test/_catalog-bundle.mjs). -->
+  <!-- B-1023 (v2.0.49): catalog-lib.js is GENERATED from lib/table-sort.js + lib/catalog-view.js
+       (+ v2.0.51: lib/catalog-filters.js, lib/copy-button.js) by test/_catalog-bundle.mjs. -->
   <script src="catalog-lib.js"></script>
   <script src="catalog-view.js"></script>
   <!-- B-774 (v2.0.9): run-lib.js is GENERATED from lib/ (test/_run-bundle.mjs). -->
   <script src="run-lib.js"></script>
+  <!-- B-1038 (v2.0.51): the Bought form's starting numbers + title, GENERATED from lib/mark-bought-prior.js (test/_mark-bought-bundle.mjs). -->
+  <script src="mark-bought-lib.js"></script>
   <!-- B-840 (v2.0.21): the Receive counter (same file as lib/receive-count.js); app.js opens it from a House row. -->
   <script src="receive-count.js"></script>
   <!-- B-874 (v2.0.24): the top bar's wording (generated from lib/activity-view.js) and the bar. -->

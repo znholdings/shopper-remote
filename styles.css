@@ -218,6 +218,10 @@ button { font: inherit; cursor: pointer; }
 .bought-form input { padding: 9px; border-radius: 8px; border: 1px solid var(--line); background: var(--s-n0); color: var(--text); font-size: 16px; }
 .bought-form button { grid-column: span 1; }
 .bought-form .primary-btn { grid-column: 1 / 3; }
+/* B-1038 (v2.0.51): the form's title - the laptop's wording, on its own row;
+   the columns may shrink below an input's own width (no sideways scroll at 390). */
+.bought-form { grid-template-columns: minmax(0, 1fr) 70px 90px; }
+.bought-form .bf-title { grid-column: 1 / -1; min-width: 0; font-weight: 600; font-size: 14px; overflow-wrap: anywhere; }
 
 /* ------------------------------------------------------------ v2.93 */
 /* P-25: progress + the laptop's own narration. */
@@ -1128,5 +1132,79 @@ html, body { overscroll-behavior: none; }
 .ctm-neg { color: var(--s-red-ink); }
 .ctm-empty { padding: 16px; text-align: center; color: var(--s-text-muted); }
 .ctm-more { width: 100%; margin: 8px 0 16px; }
+
+
+/* ── B-1040 (v2.0.51): the nine bottom tabs, each label inside its own tab
+   with a visible gap (Zach's iPhone, Retro: "PricingCatalog" ran together).
+   The bar stays nine EQUAL grid columns (B-797) - this only keeps each label
+   from spilling: a hair less type below 400px. Retro's pixel labels are
+   sized in remote/retro.css. ── */
+@media (max-width: 400px) {
+  #mainView > .tabs .tab-label, #mainView > .tabs .tab-label[data-short]::after { font-size: 9.5px; letter-spacing: -0.02em; }
+  #mainView > .tabs .tab-label[data-short] { font-size: 0; }
+}
+
+/* ── B-1041 / B-1042 / B-1043 / B-1044 (v2.0.51): the phone Catalog - Table /
+   Cards, the filter chips that show which one is on, the column sort and
+   filters, the small copy buttons. Tokens only. ── */
+.ctm-chipset { display: inline-flex; flex-wrap: wrap; gap: 6px; max-width: 100%; }
+.ctm-filter { margin: 6px 0 2px; }
+.ctm-seg { min-height: 32px; padding: 6px 12px; border: 1px solid var(--s-line); border-radius: var(--s-r-pill); background: var(--s-surface); color: var(--s-text-muted); font: 600 13px/1.1 var(--s-font); cursor: pointer; }
+.ctm-seg[aria-pressed="true"] { background: var(--s-accent); border-color: var(--s-accent); color: var(--s-on-accent); }
+.ctm-seg:focus-visible { outline: 2px solid var(--s-accent); outline-offset: 2px; }
+.ctm-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0 4px; min-width: 0; }
+.ctm-sort-wrap { display: inline-flex; align-items: center; gap: 6px; min-width: 0; flex: 1 1 140px; font-size: 12px; color: var(--s-text-muted); font-weight: 700; }
+.ctm-sort-sel { min-width: 0; flex: 1 1 auto; max-width: 100%; min-height: 32px; padding: 4px 8px; border: 1px solid var(--s-line); border-radius: var(--s-r-sm); background: var(--s-surface); color: var(--s-text); font: 14px var(--s-font); }
+.ctm-filter-btn { margin-left: auto; min-height: 32px; padding: 6px 12px; }
+.ctm-panel { margin: 6px 0; padding: 10px; background: var(--s-surface); border: 1px solid var(--s-line); border-radius: var(--s-r-sm); display: grid; gap: 6px; min-width: 0; }
+.ctm-panel-title { font-weight: 700; font-size: 14px; color: var(--s-text); }
+.ctm-pf { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 76px) minmax(0, 76px); gap: 6px; align-items: center; }
+.ctm-pf-l { font-size: 13px; color: var(--s-text); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ctm-pf-in { width: 100%; box-sizing: border-box; min-width: 0; min-height: 34px; padding: 4px 8px; border: 1px solid var(--s-line); border-radius: var(--s-r-sm); background: var(--s-surface); color: var(--s-text); font: 16px var(--s-font); }
+.ctm-pf-wide { grid-column: 2 / 4; }
+.ctm-panel-hint { margin: 2px 0; font-size: 12px; color: var(--s-text-muted); }
+.ctm-panel-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.ctm-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 0; min-width: 0; }
+.ctm-chip { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; min-height: 30px; padding: 3px 6px 3px 10px; border: 1px solid var(--s-accent); border-radius: var(--s-r-pill); background: var(--s-accent-bg); color: var(--s-text); font: 600 12px/1.2 var(--s-font); cursor: pointer; }
+.ctm-chip-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ctm-chip-x { font-size: 15px; line-height: 1; color: var(--s-text-muted); }
+.ctm-chip-clear { min-height: 30px; padding: 3px 6px; border: 0; background: transparent; color: var(--s-accent); font: 700 12px/1.2 var(--s-font); text-decoration: underline; cursor: pointer; }
+
+/* The table scrolls sideways INSIDE its box; the page never does. Product is pinned left. */
+.ctm-table-wrap { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; background: var(--s-surface); border: 1px solid var(--s-line); border-radius: var(--s-r-sm); margin: 0 0 8px; }
+.ctm-table { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; font-size: 13px; }
+.ctm-table th, .ctm-table td { padding: 6px 8px; border-bottom: 1px solid var(--s-line-soft); white-space: nowrap; vertical-align: middle; background: var(--s-surface); color: var(--s-text); }
+.ctm-table th { position: sticky; top: 0; z-index: 2; font-size: 11px; font-weight: 700; color: var(--s-text-muted); border-bottom-color: var(--s-line); vertical-align: bottom; }
+.ctm-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.ctm-table th:first-child, .ctm-table td:first-child { position: sticky; left: 0; z-index: 1; width: 176px; min-width: 176px; max-width: 176px; white-space: normal; border-right: 1px solid var(--s-line); }
+.ctm-table th:first-child { z-index: 3; }
+.ctm-th-in { display: inline-flex; align-items: flex-end; gap: 1px; }
+.ctm-th.num .ctm-th-in { justify-content: flex-end; }
+.ctm-sort { padding: 4px 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: inherit; cursor: pointer; white-space: nowrap; }
+.ctm-arrow { color: var(--s-accent); }
+.ctm-filt { position: relative; flex: none; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 22px; padding: 0; border: 0; background: transparent; color: var(--s-text-faint); cursor: pointer; }
+.ctm-filt::before, .s-copy::before { content: ""; position: absolute; left: 50%; top: 50%; width: 30px; height: 30px; transform: translate(-50%, -50%); }
+.ctm-filt.is-on { color: var(--s-accent); }
+.ctm-filt.is-on svg { fill: currentColor; }
+.ctm-tp { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.ctm-timg { width: 28px; height: 28px; flex: none; object-fit: contain; border-radius: 3px; background: var(--s-n0); }
+.ctm-tname { min-width: 0; flex: 1; }
+.ctm-tname .ctm-title { font-size: 12px; line-height: 1.25; }
+.ctm-tname .ctm-ids { font-size: 10px; }
+
+/* Copy buttons (lib/copy-button.js): a small muted icon after the value, a ~30px tap area that takes no room. */
+.s-copy { position: relative; flex: none; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; padding: 0; margin: 0 0 0 2px; border: 0; border-radius: 3px; background: transparent; color: var(--s-text-faint); cursor: pointer; vertical-align: middle; -webkit-tap-highlight-color: transparent; }
+.s-copy:hover, .s-copy:focus-visible { color: var(--s-text); }
+.s-copy:focus-visible { outline: 2px solid var(--s-accent); outline-offset: 0; }
+.s-copy.is-done { color: var(--s-green-ink); }
+.s-copy svg { width: 13px; height: 13px; display: block; }
+.ctm-tline { display: flex; align-items: flex-end; min-width: 0; }
+.ctm-tline .ctm-title { min-width: 0; }
+.ctm-ids { display: flex; align-items: center; gap: 0 4px; min-width: 0; }
+.ctm-id { display: inline-flex; align-items: center; min-width: 0; flex: none; }
+.ctm-id-sku { flex: 0 1 auto; }
+.ctm-timg.ctm-img-none { background: var(--s-n2); }
+.ctm-id-v { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ctm-id-sep { flex: none; }
 
 [hidden] { display: none !important; }
