@@ -14,6 +14,20 @@
   "use strict";
   const $ = (id) => document.getElementById(id);
   const SHOW_KEY = "shopperClaudeChipsPhone";
+  // B-1081 (v2.0.55): the panel is one line ("Claude: 2 questions · matched
+  // 79% ›") until tapped; open / shut is remembered on this phone.
+  const OPEN_KEY = "shopperClaudePanelOpenPhone";
+  let panelOpen = false;
+  try { panelOpen = localStorage.getItem(OPEN_KEY) === "1"; } catch (e) { panelOpen = false; }
+  const WARN_RE = /limit|failed|not usable|did not run/i;
+  function summaryText(d) {
+    const n = (d.scenarios || []).length;
+    const parts = ["Claude: " + (n ? n + " question" + (n === 1 ? "" : "s") : "no questions")];
+    const t = d.trend && d.trend.length ? d.trend[d.trend.length - 1] : null;
+    if (t) parts.push("matched " + (Number(t.pct) || 0) + "%");
+    if (d.status && WARN_RE.test(d.status)) parts.push("see note");
+    return parts.join(" · ");
+  }
   let showChips = false;
   let drawnKey = "";
   let data = null;
@@ -141,14 +155,23 @@
 
   function draw(host, d) {
     host.textContent = "";
-    const panel = el("section", "cl-panel cl-phone");
-    const head = el("div", "cl-head");
-    head.appendChild(el("h2", "cl-title section-head", "Claude's learning"));
+    const panel = el("details", "cl-panel cl-phone cl-fold");
+    panel.open = panelOpen;
+    panel.addEventListener("toggle", function () {
+      panelOpen = !!panel.open;
+      try { localStorage.setItem(OPEN_KEY, panelOpen ? "1" : "0"); } catch (e) { /* this phone only */ }
+    });
+    const head = el("summary", "cl-head cl-sum");
+    head.appendChild(el("span", "cl-sum-text", summaryText(d)));
+    const chev = el("span", "cl-sum-chev", "\u203A");
+    chev.setAttribute("aria-hidden", "true");
+    head.appendChild(chev);
     panel.appendChild(head);
     const body = el("div", "cl-body");
+    body.appendChild(el("h2", "cl-title section-head", "Claude's learning"));
     body.appendChild(el("p", "cl-sub", "Claude's guesses about how you pick - shown only, never applied."));
     if (flash) body.appendChild(el("p", "cl-status", flash));
-    if (d.status) body.appendChild(el("p", /limit|failed|not usable|did not run/i.test(d.status) ? "cl-status cl-status-warn" : "cl-status", d.status));
+    if (d.status) body.appendChild(el("p", WARN_RE.test(d.status) ? "cl-status cl-status-warn" : "cl-status", d.status));
     const qs = d.scenarios || [];
     if (qs.length) {
       const q = el("div", "cl-qs");
@@ -239,5 +262,5 @@
     tagCards(d);
   }
 
-  self.ShopperClaudeLearnView = Object.freeze({ render: render });
+  self.ShopperClaudeLearnView = Object.freeze({ render: render, summaryText: summaryText });
 })();

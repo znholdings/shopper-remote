@@ -1,0 +1,117 @@
+/* remote/ui55-a.css - v2.0.55 builder A: the phone's Stock and Ship tabs.
+   B-1073 sections fold + sticky jump row, B-1076 Products one line each,
+   B-1077 Arrivals one line + "It arrived", B-1079 Ship rows' Damaged / Wrong
+   item on one line. Tokens only; Retro needs !important to beat retro-core. */
+
+/* ── B-1073: the jump row ── */
+.s55-jump {
+  position: sticky; top: 0; z-index: 6;
+  /* Wraps (two short lines at 375) rather than scrolling sideways: every chip stays in sight. */
+  display: flex; flex-wrap: wrap; gap: 5px;
+  margin: 0 -12px 6px; padding: 4px 12px;
+  background: var(--s-bg); border-bottom: 1px solid var(--s-line);
+}
+.s55-chip {
+  flex: none; display: inline-flex; align-items: center; gap: 4px;
+  font: inherit; font-size: 12px; font-weight: 600; line-height: 1.2;
+  padding: 4px 8px; border-radius: 999px; border: 1px solid var(--s-line);
+  background: var(--s-surface); color: var(--s-text); white-space: nowrap;
+}
+.s55-chip-n:empty { display: none; }
+.s55-chip-n { color: var(--s-text-muted); font-variant-numeric: tabular-nums; }
+:root[data-theme="retro"] #inventoryPane .s55-chip {
+  font-size: 9px !important; padding: 2px 6px !important; min-height: 24px; box-shadow: none !important; letter-spacing: 0 !important;
+}
+:root[data-theme="retro"] #inventoryPane .s55-jump { gap: 4px; }
+
+/* ── B-1073: a section folds to its heading ── */
+/* Lands below the sticky jump row (two short lines, ~61-69 px). */
+.s55-sec { scroll-margin-top: 78px; }
+.s55-sec > .s55-head { display: flex; align-items: center; flex-wrap: nowrap; gap: 6px; min-width: 0; cursor: pointer; margin-bottom: 4px; -webkit-user-select: none; user-select: none; }
+.s55-sec.s55-closed > .s55-head { margin-bottom: 0; }
+.s55-sec.s55-closed > :not(.s55-head) { display: none !important; }
+.s55-toggle {
+  margin-left: auto; flex: none; width: 32px; height: 28px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--s-line); border-radius: 8px; background: var(--s-surface); color: var(--s-text);
+}
+.s55-chev { display: inline-block; font-size: 12px; line-height: 1; transition: transform .15s; }
+.s55-sec.s55-closed > .s55-head .s55-toggle .s55-chev { transform: rotate(-90deg); }
+:root[data-theme="retro"] #inventoryPane .s55-toggle { min-height: 28px; width: 32px; padding: 0 !important; }
+:root[data-theme="retro"] #inventoryPane .s55-head .s55-count:empty { display: none; }
+
+/* ── B-1076: Products, one line each; the controls open under it ── */
+#invRows .s55-prod { padding: 7px 10px; }
+.s55-prod-top { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.s55-prod-top .inv-title,
+.inv-arrival .inv-row-top .inv-title {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+  overflow-wrap: anywhere; font-size: 13px; line-height: 1.3;
+}
+.s55-prod.s55-open .s55-prod-top .inv-title { -webkit-line-clamp: unset; display: block; }
+.s55-nums { flex: none; display: inline-flex; gap: 6px; font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.s55-prod .s55-chev { flex: none; color: var(--s-text-muted); }
+.s55-prod.s55-open .s55-chev { transform: rotate(180deg); }
+.s55-prod-body { margin-top: 6px; display: grid; gap: 6px; }
+.s55-prod-body > .need-actions { margin-top: 0; }
+.s55-prod-tools { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.s55-prod-tools .mp-row-btn { display: inline-flex; align-items: center; gap: 4px; }
+.s55-mp-t { font-size: 12px; }
+:root[data-theme="retro"] #inventoryPane .s55-prod-top .inv-title,
+:root[data-theme="retro"] #inventoryPane .inv-arrival .inv-row-top .inv-title { font-size: 13px !important; line-height: 1.3 !important; }
+:root[data-theme="retro"] #inventoryPane .s55-nums,
+:root[data-theme="retro"] #inventoryPane .s55-nums * { font-size: 12px !important; }
+
+/* ── B-1077: Arrivals, one line + "It arrived"; ▾ = different amount / date + details ── */
+.inv-box .line.inv-arrival { padding: 7px 8px 7px 10px; margin-bottom: 5px; }
+.inv-arrival .inv-row-top { align-items: center; gap: 6px; }
+.inv-arrival .inv-row-top .inv-units { flex: none; white-space: nowrap; }
+.inv-arrival .inv-row-top > .primary-btn { flex: none; padding: 6px 10px; font-size: 13px; white-space: nowrap; }
+.s55-arr-toggle {
+  flex: none; width: 30px; height: 30px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--s-line); border-radius: 8px; background: var(--s-surface); color: var(--s-text); font-size: 12px;
+}
+.s55-arr-more { margin-top: 6px; display: grid; gap: 4px; }
+.s55-arr-diff .need-actions { margin-top: 0; align-items: center; }
+.s55-diff-label { flex-basis: 100%; }
+:root[data-theme="retro"] #inventoryPane .inv-arrival .inv-row-top > .primary-btn { padding: 4px 8px !important; min-height: 30px; }
+:root[data-theme="retro"] #inventoryPane .s55-arr-toggle { width: 30px; min-height: 30px; padding: 0 !important; }
+
+/* ── B-1079: Ship rows - "How many", Damaged and Wrong item on one line ── */
+/* Only a row of exactly [number box][button][button] (Damaged / Wrong item; Yes / No) -
+   other steps' rows (bag sizes, dates) wrap as before. */
+/* The row card is a grid: keep its one track to the card width, so a one-line row can never push it wider. */
+#wizardPane .wz-row { grid-template-columns: minmax(0, 1fr); }
+#wizardPane .wz-row-actions:has(> .wz-input[type="number"] + .wz-btn + .wz-btn:last-child) { flex-wrap: nowrap; gap: 6px; }
+#wizardPane .wz-row-actions:has(> .wz-input[type="number"] + .wz-btn + .wz-btn:last-child) > .wz-input { flex: 1 1 70px; width: auto; min-width: 56px; }
+#wizardPane .wz-row-actions:has(> .wz-input[type="number"] + .wz-btn + .wz-btn:last-child) > .wz-btn { flex: none; padding: 8px 10px; font-size: 14px; white-space: nowrap; }
+:root[data-theme="retro"] #wizardPane .wz-row-actions:has(> .wz-input[type="number"] + .wz-btn + .wz-btn:last-child) > .wz-input { padding: 6px 8px; }
+
+/* ── B-1073: Box contents' "Unsent on this phone: N" (#boxesHeaderBadge, B-1089) in its heading ── */
+.s55-badge:empty { display: none; }
+.s55-badge {
+  flex: none; font-size: 12px; font-weight: 700; line-height: 1.2; padding: 3px 8px; border-radius: 999px;
+  background: var(--s-yellow-bg, var(--s-surface-2)); color: var(--s-yellow-ink, var(--s-text)); border: 1px solid var(--s-line);
+  white-space: normal; overflow-wrap: anywhere; max-width: 100%;
+}
+:root[data-theme="retro"] #inventoryPane .s55-badge { font-size: 11px !important; }
+.s55-chip.s55-chip-warn::after { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--s-red); }
+
+/* ── B-1073: the Ship tab's wizard folds under "Ship to Amazon · Step N of M" ── */
+#shipWizardSection { scroll-margin-top: 8px; }
+#shipWizardSection > .s55-head { margin: 4px 0 8px; font-size: 15px; }
+#shipWizardSection.s55-closed > .s55-head { margin-bottom: 4px; }
+#shipWizardSection > .s55-head .s55-count { overflow-wrap: anywhere; }
+/* v2.0.55 review (B-1089): the folded Ship heading carries its unsent / typed box words -
+   the heading may wrap to a second line rather than push the page sideways. */
+#shipWizardSection > .s55-head { flex-wrap: wrap; row-gap: 4px; }
+#shipWizardSection > .s55-head .s55-badge { flex: 0 1 auto; min-width: 0; }
+:root[data-theme="retro"] #wizardPane .s55-badge { font-size: 11px !important; }
+:root[data-theme="retro"] #wizardPane .s55-toggle { min-height: 28px; width: 32px; padding: 0 !important; }
+
+/* ── B-1073: a folded section is just its heading row ── */
+#inventoryPane .s55-sec.s55-closed { padding-top: 8px !important; padding-bottom: 8px !important; }
+#inventoryPane .s55-sec.s55-closed > .s55-head { margin-top: 0 !important; }
+/* Home's tiles scroll here (app.js openInventoryView): land below the sticky jump row too. */
+#inventoryPane #invFilter, #inventoryPane #invBucketPanel { scroll-margin-top: 78px; }

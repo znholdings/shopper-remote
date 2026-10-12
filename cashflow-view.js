@@ -91,7 +91,9 @@
     b.className = "ai-banner " + (pull && pull.ok === false ? "ai-banner-warn" : "ai-banner-info");
     const btn = $("cfmPull");
     btn.disabled = !!(pull && pull.running);
-    btn.textContent = pull && pull.running ? "Reading Sellerboard..." : "Read Sellerboard now";
+    // B-1087 (v2.0.55): short enough for one row with Reload and Details at 375 (the full words in the tooltip).
+    btn.textContent = pull && pull.running ? "Reading..." : "Read SB";
+    btn.title = pull && pull.running ? "Reading Sellerboard..." : "Read Sellerboard now";
   }
 
   function tilesEl(m) {
@@ -100,11 +102,13 @@
       const d = el("div", "cfm-stat");
       d.append(el("div", "cfm-stat-label", t.label), el("div", "cfm-stat-value", t.value));
       const sub = el("div", "cfm-stat-sub");
+      // B-1085 (v2.0.55): the change stays; "vs the 30 days before (a normal swing ...)" and the
+      // 13-week trend line go behind Details (the Trends card says the trend).
       if (t.change) {
-        sub.append(el("b", t.change.cls, t.change.pct), document.createTextNode(t.change.rest));
+        sub.append(el("b", t.change.cls, t.change.pct), el("span", "cfm-tile-note", t.change.rest));
       } else sub.textContent = t.empty || "";
       d.append(sub);
-      if (t.verdict) d.append(el("div", "cfm-stat-sub cf-verdict", t.verdict));
+      if (t.verdict) d.append(el("div", "cfm-stat-sub cf-verdict cfm-tile-note", t.verdict));
       box.append(d);
     }
     return box;
@@ -188,22 +192,30 @@
   function trendsCard(m) {
     const c = card("Trends");
     c.append(el("p", "cfm-note", "Last 13 whole weeks, weekly totals (the weekday rhythm is gone), robust slope (Theil-Sen). A trend is only called rising or falling when its 90% range does not include \"flat\"."));
+    // B-1085 (v2.0.55): three columns fit the phone; the 90% range, % a week and the weekly
+    // average are one line per row under the table, behind Details. Nothing off-screen.
     const wrap = el("div", "cfm-table-wrap");
-    const t = el("table", "cfm-table");
+    const t = el("table", "cfm-table cfm-trends");
     const head = t.createTHead().insertRow();
-    ["", "Trend", "Per week", "90% range", "% a week", "Weekly average"].forEach((h, i) => { const th = el("th", i >= 2 ? "num" : "", h); head.append(th); });
+    ["", "Trend", "Per week"].forEach((h, i) => { const th = el("th", i >= 2 ? "num" : "", h); head.append(th); });
     const body = t.createTBody();
+    const more = el("ul", "cfm-note cfm-trend-more");
     for (const r of m.trends || []) {
       const row = body.insertRow();
-      [r.label, r.verdict, r.perWeek, r.range, r.pctWeek, r.avg].forEach((v, i) => {
+      [r.label, r.verdict, r.perWeek].forEach((v, i) => {
         const td = row.insertCell();
         td.textContent = v;
         if (i >= 2) td.className = "num";
         if (i === 1) td.className = r.cls + (r.cls !== "cf-flat" ? " cf-verdict" : "");
       });
+      const li = el("li");
+      const bits = [r.range && r.range !== "-" ? `90% range ${r.range}` : "", r.pctWeek && r.pctWeek !== "-" ? `${r.pctWeek} a week` : "", r.avg && r.avg !== "-" ? `weekly average ${r.avg}` : ""].filter(Boolean);
+      li.append(el("b", null, r.label + ": "), document.createTextNode(bits.length ? bits.join(" · ") : "not enough weeks yet"));
+      more.append(li);
     }
     wrap.append(t);
     c.append(wrap);
+    if (more.childNodes.length) c.append(more);
     return { c };
   }
 
@@ -251,7 +263,7 @@
     const pull = $("cfmPull");
     if (pull) pull.addEventListener("click", () => {
       pull.disabled = true;
-      pull.textContent = "Asking the laptop...";
+      pull.textContent = "Asking...";
       self.ShopperRemote.sendCommand("cashFlowPull", {});
     });
     const notes = $("cfmNotesToggle");

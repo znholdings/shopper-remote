@@ -154,6 +154,14 @@
     return box;
   }
 
+  function soldSeriesFor(r) {
+    if (!P || !P.soldSeries) return [];
+    const s = (data && data.sold) || {};
+    const key = String(r.asin || "").trim().toUpperCase();
+    const out = P.soldSeries((s.byAsin || {})[key], s.cover, s.today);
+    return Array.isArray(out) ? out : [];
+  }
+
   // B-821 (v2.0.17): the laptop's B-813 chart - same code (belowmin-lib.js =
   // lib/sold-per-day.js), same data (data.sold from the laptop).
   function soldBox(r) {
@@ -172,9 +180,10 @@
     }
     head.append(tabs);
     box.append(head);
-    const s = (data && data.sold) || {};
-    const key = String(r.asin || "").trim().toUpperCase();
-    box.append(P.drawSoldChart(document, P.soldSeries((s.byAsin || {})[key], s.cover, s.today), soldView));
+    const series = soldSeriesFor(r);
+    // B-1084 (v2.0.55): no sales report on file -> no empty box on every card; the note is once at the top.
+    if (!series.some((x) => x && x.known)) return null;
+    box.append(P.drawSoldChart(document, series, soldView));
     return box;
   }
 
@@ -206,7 +215,8 @@
     c.append(grid);
     const sold = soldBox(r);
     if (sold) c.append(sold);
-    if (P && P.drawKeepaCharts) c.append(P.drawKeepaCharts(document, r.chart || null, { asOf: r.chartAt || null }));
+    // B-1084 (v2.0.55): "Keepa charts not loaded yet" is said once at the top, not on every card.
+    if (P && P.drawKeepaCharts && r.chart) c.append(P.drawKeepaCharts(document, r.chart, { asOf: r.chartAt || null }));
     c.append(offers(r));
     c.append(choice(r, "keep", el("span", null, "Don't change")));
     const cur = choices[r.sku] && choices[r.sku].action === "custom" ? choices[r.sku] : null;
@@ -240,6 +250,21 @@
     return c;
   }
 
+  // B-1084 (v2.0.55): Zach - "Keepa charts not loaded yet…" and the sales-report note sat on
+  // every card. Now each is one line at the top, saying how many listings it is about.
+  function renderNotes(d) {
+    const box = $("bmmNotes");
+    if (!box) return;
+    box.textContent = "";
+    const rows = (d && d.rows) || [];
+    const of = (n) => (n === rows.length ? "" : ` for ${n} of ${rows.length} listings`);
+    const noChart = rows.filter((r) => !r.chart).length;
+    const noSold = P && P.soldSeries && P.drawSoldChart ? rows.filter((r) => !soldSeriesFor(r).some((x) => x && x.known)).length : 0;
+    if (noChart) box.append(el("p", "muted small bmm-note-keepa", `Keepa charts not loaded yet${of(noChart)} - they are bought a few at a time (3 Keepa tokens each) and kept a day.`));
+    if (noSold) box.append(el("p", "muted small bmm-note-sold", `No Amazon sales report on file yet${of(noSold)} - it is read once a day (Buy Score sale-price trend). The sold-per-day chart shows once it is.`));
+    box.hidden = !box.childNodes.length;
+  }
+
   function draw() {
     const box = $("bmmBody");
     if (!box) return;
@@ -252,6 +277,7 @@
     if (d && d.lastSend) msgs.push(`Last send: ${d.lastSend.confirmed} confirmed${d.lastSend.pending ? `, ${d.lastSend.pending} taken but not showing yet` : ""}${d.lastSend.failed ? `, ${d.lastSend.failed} NOT confirmed` : ""}.`);
     ban.hidden = !msgs.length;
     ban.textContent = msgs.join(" ");
+    renderNotes(d);
     if (!d || !d.rows || !d.rows.length) {
       box.append(el("p", "muted", d && d.readAt ? "Nothing below min right now." : ""));
     } else {
@@ -280,6 +306,16 @@
     const sendBtn = $("bmmSend");
     if (!check || !sendBtn || !self.ShopperRemote) return;
     check.addEventListener("click", () => self.ShopperRemote.sendCommand("belowMinCheck", {}));
+    // B-1084 (v2.0.55): the explainer behind ⓘ, remembered on this phone.
+    const info = $("bmmInfoToggle");
+    const explain = $("bmmExplain");
+    if (info && explain) {
+      let on = false;
+      try { on = localStorage.getItem("shopperBelowMinInfo") === "1"; } catch (e) { /* closed */ }
+      const apply = () => { explain.hidden = !on; info.setAttribute("aria-expanded", on ? "true" : "false"); info.classList.toggle("is-on", on); };
+      info.addEventListener("click", () => { on = !on; try { localStorage.setItem("shopperBelowMinInfo", on ? "1" : "0"); } catch (e) { /* fine */ } apply(); });
+      apply();
+    }
     sendBtn.addEventListener("click", () => {
       const picked = Object.fromEntries(Object.entries(choices).filter(([, c]) => c && c.action));
       if (!Object.keys(picked).length) return;

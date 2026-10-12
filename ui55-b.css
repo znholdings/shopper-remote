@@ -1,0 +1,80 @@
+/* ============================================================
+   v2.0.55 builder B - phone only (tokens only, light / dark / retro).
+   B-1075 the Run tab's status pill readable (was black on black in Retro)
+   B-1080 Buylist: one "More" sheet per line
+   B-1081 Buylist: Claude's learning + "Add an ASIN" folded to one line
+   B-1082 Run: the goal as one line ("Goal $X · stop after order · Edit")
+   B-1083 Home: Do next cards are the button ("›")
+   B-1086 the run banner folded into the top bar's status line
+   Elements here that are opened / shut with `hidden` rely on styles.css's
+   last rule ([hidden] { display: none !important; }).
+   ============================================================ */
+
+/* ── B-1075: the Run tab's status pill. styles.css gave it `background:
+   var(--line)`, and Retro's line colour IS its text colour (--s-n7), so
+   "idle" / "done" was a solid black block. One readable chip per state. ── */
+#runStatus.pill { background: var(--s-surface); color: var(--s-text); border: 1px solid var(--s-line); }
+#runStatus.pill-running { background: var(--s-green-bg); color: var(--s-green-ink); border-color: currentColor; }
+#runStatus:is(.pill-paused, .pill-aborting, .pill-collecting_urls) { background: var(--s-yellow-bg); color: var(--s-yellow-ink); border-color: currentColor; }
+#runStatus.pill-done { background: var(--s-violet-bg); color: var(--s-violet-ink); border-color: currentColor; }
+#runStatus:is(.pill-aborted, .pill-error) { background: var(--s-red-bg); color: var(--s-red-ink); border-color: currentColor; }
+
+/* ── B-1086: the run banner (#liveBanner) now sits at the start of the top
+   bar's status line - same words, same tone colours, a small chip instead
+   of its own 41 px band. Solid tone chips, so it reads on every skyline. ── */
+:root body .s-topbar .s-tb-line .live-banner {
+  display: inline; margin: 0 6px 0 0; padding: 1px 5px; border: 1px solid currentColor; box-shadow: none;
+  border-radius: var(--s-r-sm); font: inherit !important; font-weight: 800 !important; text-shadow: none;
+  -webkit-box-decoration-break: clone; box-decoration-break: clone;
+}
+:root body .s-topbar .s-tb-line .live-banner.tone-running { background: var(--s-green-bg); color: var(--s-green-ink); }
+:root body .s-topbar .s-tb-line .live-banner.tone-waiting { background: var(--s-yellow-bg); color: var(--s-yellow-ink); }
+:root body .s-topbar .s-tb-line .live-banner:is(.tone-paused, .tone-idle) { background: var(--s-blue-bg); color: var(--s-blue-ink); }
+:root body .s-topbar .s-tb-line .live-banner.tone-finished { background: var(--s-violet-bg); color: var(--s-violet-ink); }
+:root body .s-topbar .s-tb-line .live-banner:is(.tone-stalled, .tone-offline) { background: var(--s-red-bg); color: var(--s-red-ink); }
+:root[data-theme="retro"] body .s-topbar .s-tb-line .live-banner { font-weight: 400 !important; border-radius: 0; }
+
+/* ── B-1080: the Buylist line card - numbers, Approve, Qty, More. ── */
+.bl-more-btn { margin-left: auto; }
+/* Approve, the qty box, Set and More on ONE row: the box takes what is left. */
+#buylistItems .line > .l-actions .qty-input { flex: 1 1 44px; width: 44px; min-width: 40px; max-width: 72px; }
+@media (min-width: 360px) { #buylistItems .line > .l-actions { flex-wrap: nowrap; } }
+#buylistItems .line > .l-actions > .mini-btn { flex: none; white-space: nowrap; }
+:root[data-theme="retro"] #buylistItems .line > .l-actions { gap: 6px !important; }
+:root[data-theme="retro"] #buylistItems .line > .l-actions > .mini-btn { padding-left: 8px !important; padding-right: 8px !important; }
+.bl-sheet-box .bl-sheet-moves { margin: 0 0 10px; }
+.bl-sheet-box .bl-more { margin-top: 0; }
+.bl-sheet-box .parity-why, .bl-sheet-box .parity-ding { margin-top: 10px; }
+.bl-sheet-box .bl-sheet-done { width: 100%; margin-top: 14px; }
+
+/* ── B-1081 / B-1082: one-line folds (Claude's learning, Add an ASIN, the goal). ── */
+.cl-fold > summary, .goal-fold > summary {
+  display: flex; flex-wrap: nowrap; align-items: center; gap: 8px; min-height: 40px; cursor: pointer; list-style: none;
+}
+.cl-fold > summary::-webkit-details-marker, .goal-fold > summary::-webkit-details-marker { display: none; }
+.cl-fold > summary { font-weight: 700; font-size: 14px; }
+.cl-sum-text, .goal-sum-text { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.cl-sum-chev { flex: none; font-size: 22px; line-height: 1; color: var(--s-accent); transition: transform .15s; }
+.cl-fold[open] > summary .cl-sum-chev { transform: rotate(90deg); }
+.cl-phone.cl-panel.cl-fold { padding: 4px 12px; }
+.cl-phone.cl-panel.cl-fold[open] { padding-bottom: 10px; }
+.cl-fold .cl-body .cl-title { margin-top: 4px; }
+.bl-add-fold { margin: 8px 0; }
+.bl-add-fold[open] > summary { margin-bottom: 6px; }
+#goalBox { margin: 8px 0; padding-top: 4px; }
+.goal-fold > summary { font-weight: 700; font-size: 14px; }
+.goal-edit { flex: none; color: var(--s-accent); text-decoration: underline; font-weight: 700; }
+.goal-fold[open] .goal-edit { display: none; }
+
+/* ── B-1083: Home - Do next first; the whole card is the button, "›" at its edge. ── */
+#dashboardPane .dash-do { margin-top: 0; }
+.gl-row.gl-tap { cursor: pointer; }
+.gl-row .gl-chev { flex: none; align-self: center; margin-left: auto; font-size: 26px; line-height: 1; color: var(--s-accent); transition: transform .15s; }
+.gl-row.gl-open .gl-chev { transform: rotate(90deg); }
+.gl-row.gl-tap:focus-visible { outline: 2px solid var(--s-accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .cl-sum-chev, .gl-chev { transition: none; } }
+
+/* B-1082: in Retro every <details> is a card - so the goal box itself stays plain (no card in a card). */
+:root[data-theme="retro"] #goalBox { border: 0 !important; box-shadow: none !important; padding: 0 !important; background: none; }
+/* Retro: the "›" in the normal font at full size (the pixel font draws it tiny). */
+:root[data-theme="retro"] :is(.gl-row .gl-chev, .cl-sum-chev):not(#no-id) { font-family: var(--s-font) !important; font-size: 26px !important; line-height: 1 !important; }

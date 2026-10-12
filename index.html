@@ -20,6 +20,15 @@
   <link rel="stylesheet" href="claude-learning.css" />
   <!-- B-1071 (v2.0.54): Process returns on the Ship tab (remote/returns-view.js). -->
   <link rel="stylesheet" href="returns.css" />
+  <!-- v2.0.55 builder A (B-1073 / B-1076 / B-1077 / B-1079): Stock + Ship on the phone. -->
+  <link rel="stylesheet" href="ui55-a.css" />
+  <!-- v2.0.55 builder B (B-1074 / B-1075 / B-1080 - B-1083 / B-1086): Buylist More sheet, folded
+       panels, Run / Home order, run status in the top bar, readable status pill. -->
+  <link rel="stylesheet" href="ui55-b.css" />
+  <!-- v2.0.55 Builder C (B-1084 / B-1085 / B-1087 / B-1088): Pricing / Cash notes, one-line retro button rows, the Updated lines. -->
+  <link rel="stylesheet" href="ui55-c.css" />
+  <!-- B-1089 (v2.0.55): box contents can't be lost - Saved / Unsent lines, parked lists, archive. -->
+  <link rel="stylesheet" href="ui55-d.css" />
   <!-- Shopper 2 (v2.00, B-732): light / dark before first paint. The phone
        follows its own setting unless the top-bar button picked one. -->
   <script>
@@ -41,7 +50,7 @@
       <img src="shoppy-64.png" alt="" class="s-tb-shoppy" aria-hidden="true" />
       <div class="s-tb-main">
         <h1 class="s-tb-title">Shopper <em id="tbPage">Run</em></h1>
-        <div class="s-tb-line" role="status" aria-live="polite"><b class="s-tb-state">READY</b><span class="s-tb-text"></span><span class="s-tb-warn"></span></div>
+        <div class="s-tb-line" role="status" aria-live="polite"><span id="liveBanner" class="live-banner" hidden></span><b class="s-tb-state">READY</b><span class="s-tb-text"></span><span class="s-tb-warn"></span></div>
         <div id="deviceName" class="device-name"></div>
       </div>
       <div class="s-tb-actions">
@@ -53,8 +62,9 @@
 
     <!-- The liveness banner is the first thing on screen on purpose:
          Zach's own requirement was that "running" and "stalled, go to the
-         machine" must never look alike. -->
-    <div id="liveBanner" class="live-banner" hidden></div>
+         machine" must never look alike. B-1086 (v2.0.55): it now sits at the
+         start of the top bar's status line (#liveBanner above) - same text,
+         same tone colours, without its own 41 px band. -->
 
     <!-- P-25. Proof the tap landed (progress), and what the laptop is
          actually doing (currentStep + the generation log tail). -->
@@ -123,6 +133,21 @@
           <div id="promptActions" class="prompt-actions"></div>
         </div>
 
+        <!-- B-1082 (v2.0.55): idle, Start + the approval mode come first. -->
+        <div id="startRow" class="controls" hidden>
+          <label class="mode-row">
+            <span>Order approval</span>
+            <select id="modeSelect">
+              <option value="auto">Auto - place every order</option>
+              <option value="per-product">Per-product - approve once per ASIN</option>
+              <option value="per-order">Per-order - ask every time</option>
+            </select>
+          </label>
+          <button id="startBtn" class="primary-btn big">Start Buy Queue</button>
+          <button id="resumeSavedBtn" class="secondary-btn" hidden>Resume saved queue</button>
+          <button id="discardSavedBtn" class="ghost-btn" hidden>Discard saved queue</button>
+          <button id="previewBtn" class="ghost-btn" title="Refresh preview" aria-label="Refresh preview">Preview</button>
+        </div>
         <!-- B-774 (v2.0.9): RIGHT NOW - the line, order k of N, and the step of
              the buy (remote/run-lib.js = lib/buy-stage.js; remote/run-view.js
              draws it). Hidden when there is no queue. -->
@@ -157,20 +182,6 @@
         <!-- v4.74 (B-573): the daily spending goal + what happens when it is met. -->
         <div id="goalBox" class="section"></div>
 
-        <div id="startRow" class="controls" hidden>
-          <label class="mode-row">
-            <span>Order approval</span>
-            <select id="modeSelect">
-              <option value="auto">Auto - place every order</option>
-              <option value="per-product">Per-product - approve once per ASIN</option>
-              <option value="per-order">Per-order - ask every time</option>
-            </select>
-          </label>
-          <button id="startBtn" class="primary-btn big">Start Buy Queue</button>
-          <button id="resumeSavedBtn" class="secondary-btn" hidden>Resume saved queue</button>
-          <button id="discardSavedBtn" class="ghost-btn" hidden>Discard saved queue</button>
-          <button id="previewBtn" class="ghost-btn">Refresh preview</button>
-        </div>
 
         <div id="controlRow" class="controls" hidden>
           <button id="pauseBtn" class="secondary-btn">Pause</button>
@@ -253,12 +264,16 @@
           <button id="approveAllBtn" class="secondary-btn">Approve all</button>
         </div>
 
-        <!-- P-29: add straight to the buylist, not only to the queue. -->
+        <!-- P-29: add straight to the buylist, not only to the queue.
+             B-1081 (v2.0.55): folded to one "Add an ASIN" line (open / shut remembered). -->
+        <details id="blAddFold" class="section bl-add-fold">
+          <summary>Add an ASIN</summary>
         <div class="add-row">
           <input id="blAddAsin" placeholder="ASIN (e.g. B07XBQ1TSK)" autocapitalize="characters" />
           <input id="blAddQty" type="number" min="1" placeholder="Qty" />
           <button id="blAddBtn" class="secondary-btn">Add to buylist</button>
         </div>
+        </details>
         <p id="buylistMeta" class="muted"></p>
         <!-- P-43 (2026-09-09): "I need to know how much $ approved we have" -->
         <p id="buylistApproved" class="approved-total"></p>
@@ -283,12 +298,13 @@
              five tiles, a ranked Do next list (one button each, jumping to this
              app's own tabs), one status line. remote/dash-lib.js is GENERATED
              from lib/dashboard-todo.js (test/_dash-bundle.mjs). -->
-        <p id="dashAsOf" class="muted"></p>
-        <div id="dashTiles" class="gl-tiles"></div>
-        <div class="section dash-sec">
+        <!-- B-1083 (v2.0.55): Do next first (it started on screen 2 under the tiles). -->
+        <div class="section dash-sec dash-do">
           <h3>Do next <span id="dashDoCount" class="count"></span></h3>
           <div id="dashDoNext" class="lines"></div>
         </div>
+        <p id="dashAsOf" class="muted"></p>
+        <div id="dashTiles" class="gl-tiles"></div>
         <div class="section dash-sec gl-status">
           <!-- B-776 (v2.0.9): tap for the last run's report. -->
           <div class="dash-card dash-tap" id="dashLastRun" role="button" tabindex="0" aria-label="Last run - open its report">
@@ -321,8 +337,6 @@
            page last stored - House / Prep / In transit and the Arrivals
            boxes. Nothing on this tab can move a unit. -->
       <div id="inventoryPane" hidden>
-        <!-- B-579 (v4.75): dictate box contents, upload the pack list to ScanPower. -->
-        <div id="boxesSection" class="section bx-section"></div>
         <!-- v4.74 (B-567): the same Quick / Full refresh as the laptop. -->
         <div id="invRefresh"></div>
         <p id="invAsOf" class="muted"></p>
@@ -342,15 +356,19 @@
           <p id="invPrintLabelsNote" class="muted" hidden></p>
           <table id="invBucketTable" class="inv-table"></table>
         </div>
+        <!-- B-579 (v4.75): dictate box contents, upload the pack list to ScanPower.
+             B-1078 (v2.0.55): below the House / Prep / In transit tiles (it was first). -->
+        <div id="boxesSection" class="section bx-section"></div>
         <!-- v4.74 (B-568): the laptop's Needs you cards, with their answers. -->
         <div id="needsSection" class="section"></div>
         <!-- v4.74 (B-569): "What showed up", sliced by the dropdown. -->
         <div id="latestSection" class="section"></div>
-        <div class="section">
+        <!-- B-1073 (v2.0.55): ids for the collapsible sections + jump row (remote/stock-sections.js). -->
+        <div id="invArrivalsSection" class="section">
           <h3>Arrivals <span id="invArrivalsCount" class="count"></span></h3>
           <div id="invArrivals"></div>
         </div>
-        <div class="section">
+        <div id="invProductsSection" class="section">
           <h3>Products <span id="invProductCount" class="count"></span></h3>
           <input id="invFilter" class="inv-filter" type="search" placeholder="Filter by ASIN or name" autocapitalize="off" autocomplete="off" />
           <div id="invRows" class="lines"></div>
@@ -368,7 +386,7 @@
            after each Sellerboard read and drawn with its own chart code
            (cashflow-lib.js is built from lib/s-chart.js). -->
       <div id="cashFlowPane" hidden>
-        <div class="cfm-head"><button type="button" class="secondary-btn" id="cfmReload">Reload</button><button type="button" class="primary-btn" id="cfmPull">Read Sellerboard now</button><button type="button" class="fba-notes-btn" id="cfmNotesToggle" aria-expanded="false">&#9432; Details</button></div>
+        <div class="cfm-head"><button type="button" class="secondary-btn" id="cfmReload">Reload</button><button type="button" class="primary-btn" id="cfmPull" title="Read Sellerboard now">Read SB</button><button type="button" class="fba-notes-btn" id="cfmNotesToggle" aria-expanded="false">&#9432; Details</button></div>
         <!-- B-1058 / B-1059 (v2.0.53): Claude's summary + Ask Claude (remote/claude-screens.js). -->
         <div id="cfmClaude" class="csx-host cfm-card"></div>
         <p id="cfmStatus" class="muted small"></p>
@@ -377,10 +395,12 @@
         <div id="cfmBody"></div>
       </div>
       <div id="belowMinPane" hidden>
-        <div class="bmm-head"><button type="button" class="secondary-btn" id="bmmCheck">Check now</button></div>
+        <!-- B-1084 (v2.0.55): the explainer behind an ⓘ; the Keepa / sales-report notes once, in #bmmNotes. -->
+        <div class="bmm-head"><button type="button" class="secondary-btn" id="bmmCheck">Check now</button><button type="button" class="c55-info" id="bmmInfoToggle" aria-expanded="false" aria-controls="bmmExplain" aria-label="What sending does" title="What sending does">&#9432;</button></div>
         <p id="bmmAsOf" class="muted"></p>
         <div id="bmmBanner" class="ai-banner ai-banner-warn" hidden></div>
-        <p class="muted small">Sending a price lowers your Seller Snap min to it; Seller Snap can then go that low to win the Buy Box. Don't change hides a listing until its Buy Box or min changes.</p>
+        <div id="bmmNotes" class="bmm-notes" hidden></div>
+        <p id="bmmExplain" class="muted small" hidden>Sending a price lowers your Seller Snap min to it; Seller Snap can then go that low to win the Buy Box. Don't change hides a listing until its Buy Box or min changes.</p>
         <div id="bmmBody"></div>
         <!-- B-834 (v2.0.18): pinned above the tab bar while there is a choice. -->
         <div class="bmm-sendbar" id="bmmSendBar" hidden>
@@ -495,6 +515,8 @@
   </div>
 
   <script src="config.js"></script>
+  <!-- B-1088 (v2.0.55): the one "Updated N min ago" line on Stock / FBA / Home. -->
+  <script src="updated-line.js"></script>
   <!-- B-510 (v4.61): fba-lib.js is GENERATED from lib/ (test/_fba-bundle.mjs). -->
   <script src="fba-lib.js"></script>
   <script src="fba-view.js"></script>
@@ -503,6 +525,8 @@
   <script src="belowmin-lib.js"></script>
   <script src="belowmin-view.js"></script>
   <script src="wizard-view.js"></script>
+  <!-- B-1089 (v2.0.55): the box-word outbox (before app.js and boxes.js). -->
+  <script src="box-outbox.js"></script>
   <!-- B-765 (v2.0.8): cashflow-lib.js is GENERATED from lib/s-chart.js (test/_cashflow-bundle.mjs). -->
   <script src="cashflow-lib.js"></script>
   <script src="cashflow-view.js"></script>
@@ -538,6 +562,8 @@
   <!-- B-1071 (v2.0.54): Process returns (uses manual-print-view.js runCommand). -->
   <script src="returns-view.js"></script>
   <script src="boxes.js"></script>
+  <!-- B-1073 / B-1076 (v2.0.55): Stock sections fold + jump row; Products one line each. -->
+  <script src="stock-sections.js"></script>
   <script>
     // Shopper 2 (v2.00, B-732): the top-bar theme button - system -> light -> dark.
     // B-802 (v2.0.11): light -> dark -> retro -> light; the icon shows the NEXT one.

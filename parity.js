@@ -102,8 +102,12 @@
       if (rec.running) line = `${label} running${rec.phase ? " - " + rec.phase : ""}… (started ${ctText(rec.startedAt)})`;
       else if (rec.finishedAt) line = `${label} finished ${ctText(rec.finishedAt)}${rec.notes && rec.notes.length ? " (" + rec.notes.join("; ") + ")" : ""}.` + (rec.problems && rec.problems.length ? " ⚠ " + rec.problems.join("; ") + "." : "");
     }
-    if (line) host.append(node("p", "muted small", line));
-    if (where === "fba") host.append(node("p", "muted small", "The same Quick / Full refresh as the laptop's Dashboard, Pipeline and FBA pages."));
+    // B-1088 (v2.0.55): a finished refresh with no problem is a timestamp - it goes behind the
+    // tab's ⓘ with the explainer (remote/updated-line.js); running or a problem stays in sight.
+    const quiet = !!(rec && !rec.running && !(rec.problems && rec.problems.length));
+    if (line) host.append(node("p", "muted small" + (quiet ? " upd-more" : ""), line));
+    if (where === "fba") host.append(node("p", "muted small upd-more", "The same Quick / Full refresh as the laptop's Dashboard, Pipeline and FBA pages."));
+    if (self.ShopperUpdated) self.ShopperUpdated.sync(host);
   }
 
   // ---- B-568: Needs you ---------------------------------------------------
@@ -327,16 +331,30 @@
   }
 
   // Called by app.js for every arrival row it draws (B-569).
+  // B-1077 (v2.0.55): one line per row - title · units · "It arrived" · ▾. The
+  // details (the meta line, last update) and the quantity + date boxes sit
+  // under ▾ ("Different amount"), closed. The boxes keep their defaults while
+  // closed (the open units, today) - so "It arrived" on its own sends exactly
+  // what it sent before (all of it, today); closing ▾ puts the defaults back.
   function decorateArrival(rowEl, r, kind) {
-    if (r.lastUpdate) rowEl.append(node("div", "l-meta", `Last update: ${r.lastUpdate.text}${r.lastUpdate.atMs ? " (" + ctText(r.lastUpdate.atMs) + ")" : ""}`));
-    else rowEl.append(node("div", "l-meta muted", "No tracking email yet"));
+    const top = rowEl.querySelector ? rowEl.querySelector(".inv-row-top") : null;
+    const more = node("div", "s55-arr-more");
+    more.hidden = true;
+    const diff = node("div", "s55-arr-diff");
+    const info = node("div", "s55-arr-info");
+    more.append(diff, info);
+    // app.js's meta line goes under ▾ with the last update.
+    if (rowEl.querySelectorAll) for (const m of rowEl.querySelectorAll(":scope > .l-meta")) info.append(m);
+    if (r.lastUpdate) info.append(node("div", "l-meta", `Last update: ${r.lastUpdate.text}${r.lastUpdate.atMs ? " (" + ctText(r.lastUpdate.atMs) + ")" : ""}`));
+    else info.append(node("div", "l-meta muted", "No tracking email yet"));
     // B-691 (v4.93): "It arrived" + date on EVERY arrival row (Today,
     // Tomorrow, each later day, No date) - was Overdue only. Same command
     // (orderArrived) and the same orders-to-close the laptop published.
     const a = actions();
     if (!r.closeOrders || !r.closeOrders.length) {
       a.append(node("span", "muted small", "Refresh to mark this arrived (several orders behind it)."));
-      rowEl.append(a);
+      rowEl.append(a, more);
+      if (top) top.append(arrToggle(rowEl, more, null));
       return;
     }
     const dest = r.destination === "prep" ? "prep" : "house";
@@ -350,12 +368,42 @@
     const b = btn("It arrived", "primary-btn", async () => {
       if (!day.value) return;
       const p = qb.pick();
-      if (!p) return;
+      if (!p) { openMore(true); return; }
       const where = kind === "overdue" ? "Overdue" : "Upcoming";
       await run("arrivedQty", { asin: r.asin, destination: dest, orders: r.closeOrders.map((o) => ({ orderNumber: o.orderNumber, units: o.units })), ...(p.quantity == null ? {} : { quantity: p.quantity }), at: noonIso(day.value, dest), note: "Marked arrived from the phone's Arrivals › " + where, section: "Phone › " + where }, b);
     });
-    a.append(qb.wrap, b, day);
-    rowEl.append(a, qb.bad);
+    const label = node("span", "s55-diff-label muted small", "Different amount:");
+    a.append(label, qb.wrap, day);
+    diff.append(a, qb.bad);
+    const reset = () => {
+      qb.input.value = String(r3(sumUnits(r.closeOrders)));
+      qb.bad.hidden = true;
+      day.value = todayFor(dest);
+    };
+    const tog = arrToggle(rowEl, more, reset);
+    const openMore = tog.__open;
+    if (top) top.append(b, tog);
+    else rowEl.append(b, tog);
+    rowEl.append(more);
+  }
+  // The ▾ on an arrival row: opens the details + "Different amount" boxes; closing puts the defaults back.
+  function arrToggle(rowEl, more, reset) {
+    const t = node("button", "s55-arr-toggle", "▾");
+    t.type = "button";
+    t.title = "Different amount or date, and details";
+    const set = (on) => {
+      more.hidden = !on;
+      t.textContent = on ? "▴" : "▾";
+      if (t.setAttribute) { t.setAttribute("aria-expanded", String(on)); t.setAttribute("aria-label", on ? "Close: back to all of it, today" : "Different amount or date, and details"); }
+      if (rowEl.classList) rowEl.classList.toggle("s55-open", on);
+      if (!on && reset) reset();
+    };
+    t.__open = set;
+    t.addEventListener("click", () => set(more.hidden));
+    const title = rowEl.querySelector ? rowEl.querySelector(".inv-row-top .inv-title") : null;
+    if (title) title.addEventListener("click", () => set(more.hidden));
+    set(false);
+    return t;
   }
 
   // ---- B-570 / B-571: product row pencil + expiry ------------------------------
@@ -445,11 +493,26 @@
   }
 
   // ---- B-573: goal + stop mode -----------------------------------------------------
+  // B-1082 (v2.0.55): folded to one line - "Goal $1,500 · stop after order ·
+  // Edit" - with the same form under Edit. Open / shut survives a re-draw;
+  // a saved goal folds it again.
+  let goalOpen = false;
+  const GOAL_MODE_SHORT = { asap: "stop after order", finishLine: "finish the line" };
+  function goalSummaryText(s) {
+    const n = Math.round(Number(s && s.goal) || 0);
+    return `Goal $${n.toLocaleString("en-US")} · ${GOAL_MODE_SHORT[s && s.goalStopMode] || GOAL_MODE_SHORT.asap}`;
+  }
   function renderGoal(host, p) {
     if (editing(host)) return;
     host.textContent = "";
     const s = p.spendSettings;
     if (!s) { host.append(node("p", "muted small", "Spending goal: waiting for the laptop (needs Shopper v4.74).")); return; }
+    const fold = node("details", "goal-fold");
+    fold.open = goalOpen;
+    fold.addEventListener("toggle", () => { goalOpen = fold.open; });
+    const sum = node("summary", "goal-sum");
+    sum.append(node("span", "goal-sum-text", goalSummaryText(s)), node("span", "goal-edit", "Edit"));
+    fold.append(sum);
     const row = node("div", "controls");
     const goal = node("input", "need-input need-num");
     goal.type = "number";
@@ -459,10 +522,15 @@
     goal.value = String(s.goal || 0);
     const mode = node("select", "need-input");
     for (const [v, t] of [["asap", "Stop after the order it is placing"], ["finishLine", "Finish the current line"]]) { const o = node("option", null, t); o.value = v; if (v === s.goalStopMode) o.selected = true; mode.append(o); }
-    const save = btn("Save goal", "primary-btn", () => run("spendSettingsSet", { goal: Number(goal.value) || 0, goalStopMode: mode.value }, save));
+    const save = btn("Save goal", "primary-btn", () => run("spendSettingsSet", { goal: Number(goal.value) || 0, goalStopMode: mode.value }, save, async () => {
+      goalOpen = false;
+      const f = host.querySelector("details.goal-fold");
+      if (f) f.open = false;
+    }));
     row.append(node("span", "t-label", "Daily goal $"), goal, node("span", "t-label", "When met"), mode, save);
-    host.append(row);
-    if (s.goalSetAt) host.append(node("p", "muted small", `Goal set ${ctText(s.goalSetAt)}.`));
+    fold.append(row);
+    if (s.goalSetAt) fold.append(node("p", "muted small", `Goal set ${ctText(s.goalSetAt)}.`));
+    host.append(fold);
   }
 
   function render(p) {

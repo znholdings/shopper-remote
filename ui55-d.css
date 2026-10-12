@@ -1,0 +1,27 @@
+/* remote/ui55-d.css - v2.0.55 Builder D (B-1089): box contents can't be lost.
+   The Stock tab's Box contents section (remote/boxes.js) and the Ship tab's
+   box-words text box (remote/wizard-view.js): "Unsent on this phone",
+   "Saved on laptop", Box C said twice, parked lists, the archive. Tokens only. */
+.bx-badge { display: inline-block; margin-left: 4px; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; line-height: 1.5; vertical-align: middle; background: color-mix(in srgb, var(--s-yellow) 22%, transparent); color: var(--text); }
+.bx-note { margin: 4px 0; overflow-wrap: anywhere; }
+.bx-outbox { margin: 6px 0; padding: 8px 10px; border: 1px dashed var(--warn); border-radius: 8px; }
+.bx-unsent { margin: 0 0 4px; font-weight: 700; color: var(--text); overflow-wrap: anywhere; }
+.bx-unsent-msg { padding: 6px 0; border-top: 1px solid var(--line); }
+.bx-unsent-msg .l-meta { overflow-wrap: anywhere; }
+.bx-unsent-meta { font-size: 12px; color: var(--muted); }
+.bx-durable p { margin: 4px 0; overflow-wrap: anywhere; }
+.bx-saved-line { font-weight: 700; color: var(--good); }
+.bx-dupe { margin: 6px 0; }
+.bx-dupe .bx-row { margin: 4px 0 8px; }
+.bx-dupe button, .bx-switch, .bx-restore, .bx-reread { padding: 6px 12px; font-size: 14px; }
+.bx-more { margin-top: 8px; }
+.bx-more-box summary { cursor: pointer; color: var(--text); font-size: 14px; padding: 4px 0; overflow-wrap: anywhere; }
+.bx-more-box .line { margin: 6px 0; }
+.bx-more-box .l-meta { overflow-wrap: anywhere; }
+.bx-more-box button { margin-top: 4px; }
+/* Ship tab (the phone draws remote/wizard-view.js): words not on the laptop yet. */
+.wz-unsent { display: grid; gap: 4px; padding: 8px 10px; border: 1px dashed var(--warn); border-radius: 8px; min-width: 0; }
+.wz-unsent-head { margin: 0; font-weight: 700; color: var(--text); overflow-wrap: anywhere; }
+.wz-unsent-msg { font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+:root[data-theme="retro"] .bx-outbox, :root[data-theme="retro"] .wz-unsent { border-radius: 0; }
+:root[data-theme="retro"] .bx-badge { border-radius: 0; }

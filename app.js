@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.54";
+const APP_BUILD = "v2.0.55";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -327,6 +327,8 @@ const REMOTE_LABELS = {
   preview: "Refresh preview",
   buylistAddManual: "Add ASIN to buylist",
   boxesRead: "Read boxes", boxesAnswer: "Save answers", boxesUpload: "Upload boxes", boxesClear: "Start over", boxesRemove: "Remove box",
+  // B-1089 (v2.0.55)
+  boxesSend: "Send box words", boxesDupe: "Box said twice", boxesSwitch: "Switch back", boxesRestore: "Restore boxes", boxesReread: "Re-read all words",
   screenAsk: "Ask Claude", screenSummaryWrite: "Write the summary again",
 };
 
@@ -540,6 +542,8 @@ function renderPayload() {
   if (self.ShopperWizardView) {
     self.ShopperWizardView.render(els.wizardHost, p.wizard ? p.wizard.screen : null, {
       send: (action, payload) => sendCommand("wizardAction", { action, payload }),
+      // B-1089 (v2.0.55): box words go through the phone's outbox (kept until the laptop has them).
+      dictate: self.ShopperBoxOutbox ? self.ShopperBoxOutbox.dictateFor("phone-ship") : null,
     });
   }
   // B-765 (v2.0.8): the Cash tab.
@@ -552,8 +556,19 @@ function renderPayload() {
   if (self.ShopperParity) self.ShopperParity.render(p);
   // B-579 (v4.75): Box contents -> ScanPower (remote/boxes.js).
   if (self.ShopperBoxes) self.ShopperBoxes.render(p);
+  // B-1073 (v2.0.55): Stock sections fold + jump row counts (remote/stock-sections.js).
+  if (self.ShopperStockSections) self.ShopperStockSections.render(p);
   renderInFlight();
+  // B-1074 (v2.0.55): back to where Zach had scrolled, once, now there is something to scroll.
+  if (pendingScrollY != null) {
+    const y = pendingScrollY;
+    pendingScrollY = null;
+    requestAnimationFrame(() => { try { window.scrollTo(0, y); } catch (e) { /* stays at the top */ } });
+  }
 }
+
+// B-1089 (v2.0.55): the box-word outbox changed (saved, sent, confirmed) - redraw.
+if (self.ShopperBoxOutbox) self.ShopperBoxOutbox.onChange(() => { try { renderPayload(); } catch { /* next poll draws it */ } });
 
 // ------------------------------------------------------- P-36: don't
 // destroy what the user is holding
@@ -593,6 +608,8 @@ function isBeingEdited(container) {
 // Details panels are rebuilt with the rows, so which ones were open has
 // to survive outside the DOM or they snap shut under the user.
 const expandedAsins = new Set();
+// B-1080 (v2.0.55): which Buylist line's More sheet is open (survives the rebuild).
+let blSheetAsin = null;
 
 // P-42 (2026-09-09): "It's still jittery and slow, although it is
 // better." isBeingEdited() above only protects a field being actively
@@ -1043,11 +1060,14 @@ const OPTIMISTIC_DECISION = {
   // most repeated mistake.
 };
 
-function optBtn(label, asin, action) {
+// B-1080 (v2.0.55): `before` runs first (the More sheet closes BEFORE
+// buylistAction re-draws the list, so the re-drawn card does not re-open it).
+function optBtn(label, asin, action, before) {
   const b = document.createElement("button");
   b.className = "mini-btn";
+  b.type = "button";
   b.textContent = label;
-  b.addEventListener("click", () => buylistAction(asin, action));
+  b.addEventListener("click", () => { if (before) before(); buylistAction(asin, action); });
   return b;
 }
 
@@ -1361,20 +1381,52 @@ function buylistCard(i) {
     statCell("RP total", fmtQty(i.rpTotalQuantity)) +
     statCell("Supplier", i.supplierNames ? escapeHtml(i.supplierNames) : "-");
 
-  // P-36: remembered outside the DOM, because the DOM is disposable.
-  more.hidden = !expandedAsins.has(i.asin);
-  const toggle = document.createElement("button");
-  toggle.className = "mini-btn bl-toggle";
-  toggle.textContent = more.hidden ? "Details" : "Hide";
-  toggle.addEventListener("click", () => {
-    more.hidden = !more.hidden;
-    if (more.hidden) expandedAsins.delete(i.asin);
-    else expandedAsins.add(i.asin);
-    toggle.textContent = more.hidden ? "Details" : "Hide";
+  // B-1080 (v2.0.55): the card keeps its number row, Approve and Qty. Promote /
+  // Demote / Push / Block, Prep Center, the Details figures, "Why this Buy
+  // Score" and Ding moved into ONE "More" sheet per line (one tap away). The
+  // sheet lives inside the card, so P-36's isBeingEdited() guard still keeps
+  // a half-typed Ding note alive, and which line's sheet is open is
+  // remembered outside the DOM (blSheetAsin) so a 3-second rebuild re-opens it.
+  const sheet = document.createElement("div");
+  sheet.className = "report-sheet bl-sheet";
+  sheet.hidden = blSheetAsin !== i.asin;
+  const sheetBox = document.createElement("div");
+  sheetBox.className = "report-sheet-box bl-sheet-box";
+  sheetBox.setAttribute("role", "dialog");
+  sheetBox.setAttribute("aria-modal", "true");
+  sheetBox.setAttribute("aria-label", `More for ${i.title || i.asin}`);
+  const sheetTitle = document.createElement("h2");
+  sheetTitle.className = "report-sheet-title";
+  sheetTitle.textContent = "More";
+  const sheetSub = document.createElement("p");
+  sheetSub.className = "report-sheet-summary";
+  sheetSub.textContent = `${i.asin} · ${i.title || ""}`;
+  sheetBox.append(sheetTitle, sheetSub);
+  sheet.appendChild(sheetBox);
+  const closeSheet = () => {
+    sheet.hidden = true;
+    if (blSheetAsin === i.asin) blSheetAsin = null;
+  };
+  // A tap on the dimmed backdrop (not the box) closes it.
+  sheet.addEventListener("click", (e) => { if (e.target === sheet) closeSheet(); });
+  const moreBtn = document.createElement("button");
+  moreBtn.className = "mini-btn bl-more-btn";
+  moreBtn.type = "button";
+  moreBtn.textContent = "More";
+  moreBtn.setAttribute("aria-haspopup", "dialog");
+  moreBtn.addEventListener("click", () => {
+    blSheetAsin = i.asin;
+    sheet.hidden = false;
   });
+  // P-36: the figures that used to hide behind "Details" - always shown in the sheet.
+  more.hidden = false;
 
   const actions = document.createElement("div");
   actions.className = "l-actions";
+  // The four list moves, in the sheet; a move closes it (the card re-draws in place).
+  const moves = document.createElement("div");
+  moves.className = "l-actions bl-sheet-moves";
+  const sheetMove = (label, action) => optBtn(label, i.asin, action, closeSheet);
   // ⚠ `decision` is a STRING, not a boolean - see P-27. `!!i.approved`
   // was always false, so this toggle could never say "Unapprove".
   const isApproved = i.decision === "approved";
@@ -1402,10 +1454,10 @@ function buylistCard(i) {
   // approve, promote (up), demote to contingency (down), push (right),
   // block (no symbol). The phone now offers that same set and no
   // invented ones.
-  actions.appendChild(optBtn("Promote", i.asin, "promote"));
-  actions.appendChild(optBtn("Demote", i.asin, "contingency"));
-  actions.appendChild(optBtn("Push", i.asin, "push"));
-  actions.appendChild(optBtn("Block", i.asin, "block"));
+  moves.appendChild(sheetMove("Promote", "promote"));
+  moves.appendChild(sheetMove("Demote", "contingency"));
+  moves.appendChild(sheetMove("Push", "push"));
+  moves.appendChild(sheetMove("Block", "block"));
 
   // P-49: the write half of the Prep Center badge above - mirrors the
   // desktop's own .prep-center-toggle checkbox (buylist.js), same
@@ -1418,9 +1470,8 @@ function buylistCard(i) {
   pcCheckbox.checked = !!i.prepCenter;
   pcCheckbox.addEventListener("change", () => buylistSetPrepCenter(i.asin, pcCheckbox.checked));
   pcLabel.append(pcCheckbox, document.createTextNode("Prep Center"));
-  actions.appendChild(pcLabel);
-
-  actions.appendChild(toggle);
+  moves.appendChild(pcLabel);
+  sheetBox.append(moves, more);
 
   const qty = document.createElement("input");
   qty.type = "number";
@@ -1432,19 +1483,36 @@ function buylistCard(i) {
   qty.value = String(i.qty != null ? i.qty : (i.recommendedQty != null ? i.recommendedQty : 1));
   const setQty = document.createElement("button");
   setQty.className = "mini-btn";
-  setQty.textContent = "Set qty";
+  // B-1080 (v2.0.55): "Set" beside the number box, so Approve, the box, Set
+  // and More fit one row at 375 px (the name says what it sets).
+  setQty.type = "button";
+  setQty.textContent = "Set";
+  setQty.setAttribute("aria-label", "Set qty");
   // "conditional" is the buylist's own quantity-adjust action - the real
   // one, read out of background.js. There is no separate set-quantity
   // message, and inventing one would mean writing buy logic here.
   setQty.addEventListener("click", () => buylistAction(i.asin, "conditional", { qty: Number(qty.value) || 1 }));
-  actions.append(qty, setQty);
+  actions.append(qty, setQty, moreBtn);
 
   row.appendChild(actions);
-  row.appendChild(more);
-  // v4.74 (B-572): Ding + "Why this Buy Score" (remote/parity.js).
-  if (self.ShopperParity) self.ShopperParity.decorateBuylistCard(row, i);
+  // v4.74 (B-572): Ding + "Why this Buy Score" (remote/parity.js) - into the sheet (B-1080).
+  if (self.ShopperParity) self.ShopperParity.decorateBuylistCard(sheetBox, i);
+  const done = document.createElement("button");
+  done.className = "primary-btn bl-sheet-done";
+  done.type = "button";
+  done.textContent = "Done";
+  done.addEventListener("click", closeSheet);
+  sheetBox.appendChild(done);
+  row.appendChild(sheet);
   return row;
 }
+
+// B-1080 (v2.0.55): Escape closes an open More sheet.
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape" || !blSheetAsin) return;
+  blSheetAsin = null;
+  for (const s of document.querySelectorAll(".bl-sheet")) s.hidden = true;
+});
 
 function statCell(label, value) {
   return `<div class="bl-stat"><span class="bs-label">${label}</span><span class="bs-value">${value}</span></div>`;
@@ -1659,6 +1727,14 @@ function openArrivals() {
 }
 // B-662 (v4.85): the Bank view's way back.
 els.bankBack.addEventListener("click", () => switchTab("dashboard"));
+// B-1081 (v2.0.55): the Buylist's "Add an ASIN" fold - open / shut remembered on this phone.
+{
+  const fold = $("blAddFold");
+  if (fold) {
+    fold.open = store.get("shopperBlAddOpen") === true;
+    fold.addEventListener("toggle", () => store.set("shopperBlAddOpen", fold.open));
+  }
+}
 els.invFilter.addEventListener("input", () => renderInventory(lastPayload && lastPayload.inventory));
 // B-465: a tile opens its bucket's table; the same tile closes it.
 for (const tile of document.querySelectorAll(".inv-total[data-bucket]")) {
@@ -1675,20 +1751,12 @@ for (const tile of document.querySelectorAll(".inv-total[data-bucket]")) {
 // where he is actually looking. Sticky strip, no new payload fields -
 // currentAsin and currentStep have both always been projected.
 function renderNowStrip(p) {
-  const run = p.run || null;
-  const busy = run && (run.status === "running" || run.status === "collecting_urls");
-  const asin = run && run.currentAsin;
-  const step = run && run.currentStep;
-  if (!busy || (!asin && !step)) {
-    els.nowStrip.hidden = true;
-    return;
-  }
-  els.nowStrip.hidden = false;
-  const line = asin ? (p.lines || []).find((l) => l.asin === asin) : null;
-  els.nowAsin.textContent = asin ? (line && line.title ? `${asin} - ${line.title}` : asin) : "";
-  // B-774 (v2.0.9): the engine's own sentence when there is one (the queue's
-  // "Opening X..." used to sit here for the whole line).
-  els.nowStep.textContent = (run && run.engineStep) || step || "";
+  // B-1082 (v2.0.55): no longer drawn. While a run is going "Right now"
+  // (#runHero, remote/run-view.js) shows the same line and the same engine
+  // sentence at the top of the tab, so this blue strip above the list was a
+  // copy of it (P-64 / B-774 history: it once was the only "now" on the tab).
+  void p;
+  els.nowStrip.hidden = true;
 }
 
 // P-65 (v2.98): the end-of-queue report, phone-shaped. The desktop's own
@@ -1937,8 +2005,40 @@ try {
   }
 } catch (e) { /* resize + switchTab cover it */ }
 
+// B-1074 (v2.0.55): the phone opens on the tab Zach was on last (and, within
+// 30 minutes, where he had scrolled to) - remembered on THIS phone only
+// (localStorage through store, which is try/catch'd: private mode = default tab).
+const LAST_VIEW_KEY = "shopperLastView";
+const LAST_VIEW_TABS = ["dashboard", "run", "buylist", "inventory", "fba", "wizard", "belowmin", "catalog", "cashflow"];
+const LAST_VIEW_SCROLL_MS = 30 * 60000;
+let currentTab = "run";
+let pendingScrollY = null;
+function rememberView() {
+  store.set(LAST_VIEW_KEY, { tab: currentTab, y: Math.max(0, Math.round(window.scrollY || 0)), at: Date.now() });
+}
+function restoreLastView(now = Date.now()) {
+  const v = store.get(LAST_VIEW_KEY);
+  if (!v || typeof v !== "object" || !LAST_VIEW_TABS.includes(v.tab)) return null;
+  const y = Number(v.y) || 0;
+  const fresh = Number(v.at) > 0 && now - Number(v.at) < LAST_VIEW_SCROLL_MS;
+  switchTab(v.tab);
+  // The pane is empty until the first payload lands; renderPayload() scrolls then.
+  pendingScrollY = fresh && y > 0 ? y : null;
+  return v.tab;
+}
+let rememberTimer = 0;
+window.addEventListener("scroll", () => {
+  clearTimeout(rememberTimer);
+  rememberTimer = setTimeout(rememberView, 400);
+}, { passive: true });
+window.addEventListener("pagehide", rememberView);
+document.addEventListener("visibilitychange", () => { if (document.hidden) rememberView(); });
+
 function switchTab(which) {
   syncTabBarHeight();
+  // B-1074: the Bank view belongs to Home (no tab button of its own).
+  currentTab = which === "bank" ? "dashboard" : which;
+  rememberView();
   // B-874 (v2.0.24): the top bar names the tab ("SHOPPER Run").
   if (self.ShopperTopbar) self.ShopperTopbar.tab(which);
   els.runPane.hidden = which !== "run";
@@ -2081,7 +2181,10 @@ function renderInventory(inv) {
     renderInvBucket(null);
     return;
   }
-  els.invAsOf.textContent = "As of the laptop's last pipeline refresh, " + invAgo(inv.generatedAt) + " (" + new Date(inv.generatedAt).toLocaleString("en-US", { timeZone: "America/Chicago", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) + " CT).";
+  const invAsOfText = "As of the laptop's last pipeline refresh, " + invAgo(inv.generatedAt) + " (" + new Date(inv.generatedAt).toLocaleString("en-US", { timeZone: "America/Chicago", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) + " CT).";
+  // B-1088 (v2.0.55): one "Updated N min ago" line; the sentence behind its ⓘ (remote/updated-line.js).
+  if (self.ShopperUpdated) self.ShopperUpdated.set(els.invAsOf, { at: inv.generatedAt, detail: invAsOfText });
+  else els.invAsOf.textContent = invAsOfText;
   els.invHouse.textContent = invUnits(inv.totals.house);
   els.invPrep.textContent = invUnits(inv.totals.prep);
   els.invTransit.textContent = invUnits(inv.totals.inTransit);
@@ -2093,7 +2196,9 @@ function renderInventory(inv) {
     els.invArrivals.appendChild(invNode("div", "muted", "The arrivals report was not built on the last refresh."));
   } else {
     const c = a.counts;
-    els.invArrivalsCount.textContent = c.guessed ? "(~ = estimated from past lead time)" : "";
+    // B-1073 (v2.0.55): the heading shows how many rows (the section folds to it); the "~" note moved under it.
+    els.invArrivalsCount.textContent = String((c.overdue || 0) + (c.today || 0) + (c.tomorrow || 0) + (c.later || 0) + (c.undated || 0));
+    if (c.guessed) els.invArrivals.appendChild(invNode("p", "muted small", "~ = estimated from past lead time"));
     if (a.overdue.rowCount) els.invArrivals.appendChild(invArrivalBox("Overdue", a.overdue, "bad", "overdue"));
     els.invArrivals.appendChild(invArrivalBox("Today", a.today, "good"));
     els.invArrivals.appendChild(invArrivalBox("Tomorrow", a.tomorrow));
@@ -2105,6 +2210,11 @@ function renderInventory(inv) {
   const rows = inv.rows.filter((r) => !filter || r.asin.toLowerCase().includes(filter) || (r.title || "").toLowerCase().includes(filter));
   els.invProductCount.textContent = "(" + (filter ? rows.length + " of " : "") + inv.productCount + ")";
   for (const r of rows) {
+    // B-1076 (v2.0.55): one line per product; its controls open on a tap (remote/stock-sections.js).
+    if (self.ShopperStockSections) {
+      els.invRows.appendChild(self.ShopperStockSections.productRow(r, { units: invUnits, receiveButton: invReceiveButton }));
+      continue;
+    }
     const row = invNode("div", "line inv-product");
     const top = invNode("div", "inv-row-top");
     top.appendChild(invNode("span", "inv-title", r.title || r.asin));
@@ -2201,6 +2311,8 @@ function invSetReceiveLabel(b, asin) {
 function invRefreshReceiveButtons() {
   if (!self.ShopperReceive) return;
   for (const b of els.invBucketTable.querySelectorAll(".rc-row-btn")) invSetReceiveLabel(b, b.dataset.asin);
+  // B-1076 (v2.0.55): an open Products row has the same Receive button.
+  for (const b of els.invRows.querySelectorAll(".rc-row-btn")) invSetReceiveLabel(b, b.dataset.asin);
   self.ShopperReceive.paintBadges(els.invBucketTable);
   invPaintReceiveAll(lastPayload && lastPayload.inventory);
 }
@@ -2474,6 +2586,8 @@ function urlBase64ToUint8Array(base64String) {
   // the poll-driven renderers never touch either control.
   renderDensityButtons();
   renderSoundButton();
+  // B-1074 (v2.0.55): the tab he was on last (default Run when none is saved).
+  restoreLastView();
   // A phone that has been in a pocket for an hour must not show an hour-old
   // screen as if it were live.
   document.addEventListener("visibilitychange", () => { if (!document.hidden) poll(); });
@@ -2512,6 +2626,8 @@ function openInventoryView(bucket, anchor) {
   invBucket = bucket || null;
   switchTab("inventory");
   renderInventory(lastPayload && lastPayload.inventory);
+  // B-1073 (v2.0.55): Products may be folded on the Stock tab - open it first.
+  if (anchor === "products" && self.ShopperStockSections) self.ShopperStockSections.open("products");
   const target = anchor === "products" ? els.invFilter : bucket ? els.invBucketPanel : els.inventoryPane;
   if (target && !target.hidden && target.scrollIntoView) target.scrollIntoView({ block: "start" });
   else scrollAppTop();
@@ -2583,6 +2699,8 @@ function glTap(node, fn) {
   node.setAttribute("tabindex", "0");
   node.addEventListener("click", fn);
   node.addEventListener("keydown", (e) => {
+    // B-1083: only a key on the card itself (not on something inside it).
+    if (e.target !== node) return;
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
       fn();
@@ -2654,20 +2772,33 @@ function glRow(r) {
     if (r.notifs && r.notifs.length) body.appendChild(invNode("div", "muted small", "Mark done / Dismiss are on the laptop."));
   };
   if (!body.hidden) fill();
-  const btn = invNode("button", "primary-btn gl-go", r.go.target === "runreviews" ? "Run tab" : r.go.label);
-  btn.type = "button";
+  // B-1083 (v2.0.55): the whole card is the button - a "›" at its right edge
+  // instead of a full-width button under it. Same targets as before (the
+  // label, e.g. "Pricing" / "Run tab", is the card's accessible name);
+  // "expand" rows open in place, and a tap inside the opened part does not
+  // fold them again.
+  const label = r.go.target === "runreviews" ? "Run tab" : r.go.label;
+  const chev = invNode("span", "gl-chev", "\u203A");
+  chev.setAttribute("aria-hidden", "true");
+  top.appendChild(chev);
+  row.classList.add("gl-tap");
+  row.setAttribute("aria-label", r.title + " - " + label);
   if (r.go.target === "expand") {
-    btn.setAttribute("aria-expanded", String(!body.hidden));
-    btn.addEventListener("click", () => {
-      if (glOpen.has(r.id)) glOpen.delete(r.id); else glOpen.add(r.id);
-      body.hidden = !glOpen.has(r.id);
-      if (!body.hidden) fill();
-      btn.setAttribute("aria-expanded", String(!body.hidden));
-    });
-  } else {
-    btn.addEventListener("click", () => glGo(r.go.target));
+    row.setAttribute("aria-expanded", String(!body.hidden));
+    row.classList.toggle("gl-open", !body.hidden);
   }
-  row.appendChild(btn);
+  const act = () => {
+    if (r.go.target !== "expand") return glGo(r.go.target);
+    if (glOpen.has(r.id)) glOpen.delete(r.id); else glOpen.add(r.id);
+    body.hidden = !glOpen.has(r.id);
+    if (!body.hidden) fill();
+    row.setAttribute("aria-expanded", String(!body.hidden));
+    row.classList.toggle("gl-open", !body.hidden);
+  };
+  glTap(row, (e) => {
+    if (e && e.target && body.contains(e.target)) return;
+    act();
+  });
   row.appendChild(body);
   return row;
 }
@@ -2727,9 +2858,11 @@ function renderDashboard(d, p) {
   if (key === lastDashboardKey) return;
   lastDashboardKey = key;
   for (const k of ["dashTiles", "dashDoNext"]) els[k].textContent = "";
-  els.dashAsOf.textContent =
-    "Figures from the laptop's last Dashboard refresh, " + dashAgoMs(d.remoteBuiltAt) + "." +
+  const dashAsOfText = "Figures from the laptop's last Dashboard refresh, " + dashAgoMs(d.remoteBuiltAt) + "." +
     (d.stale ? " Refresh on the laptop for live figures." : "") + " Read-only.";
+  // B-1088 (v2.0.55): one "Updated N min ago" line (stale figures still say so); the sentence behind its ⓘ.
+  if (self.ShopperUpdated) self.ShopperUpdated.set(els.dashAsOf, { at: d.remoteBuiltAt, warn: d.stale ? "refresh on the laptop" : "", detail: dashAsOfText });
+  else els.dashAsOf.textContent = dashAsOfText;
 
   for (const t of tiles) els.dashTiles.appendChild(glTile(t));
   renderBank(d.spend);

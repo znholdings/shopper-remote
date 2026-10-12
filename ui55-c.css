@@ -1,0 +1,55 @@
+/* remote/ui55-c.css - v2.0.55 Builder C: phone only (this file is linked from remote/index.html).
+   B-1084 Pricing notes once at the top + explainer behind ⓘ
+   B-1085 Cash tile notes behind Details; Trends 3 columns
+   B-1087 Retro button rows that wrapped to 2-3 lines fit one line at 375
+   B-1088 One "Updated N min ago" line per tab (Stock / FBA / Home), the rest behind ⓘ */
+
+/* ── ⓘ button (Pricing head, Updated lines) ── */
+.c55-info { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; min-width: 30px; height: 30px; padding: 0 6px; margin: 0; border-radius: 999px; border: 1px solid var(--s-line-soft, #ccc); background: transparent; color: var(--s-text-muted); font: 600 16px/1 var(--s-font); cursor: pointer; vertical-align: middle; }
+.c55-info.is-on, .c55-info[aria-expanded="true"] { color: var(--s-accent); border-color: var(--s-accent); }
+.bmm-head .c55-info { flex: 0 0 auto; min-width: 40px; height: auto; }
+:root[data-theme="retro"] body .c55-info { font-family: var(--s-font) !important; font-size: 16px !important; font-weight: 600 !important; text-transform: none; min-height: 30px; padding: 0 6px !important; box-shadow: none !important; }
+:root[data-theme="retro"] body .bmm-head .c55-info { min-width: var(--rt-ctl-h); min-height: var(--rt-ctl-h); box-shadow: var(--rt-raise-sm) !important; }
+:root[data-theme="retro"] body .c55-info[aria-expanded="true"] { background: var(--s-accent) !important; color: var(--s-on-accent) !important; }
+
+/* ── B-1084: Pricing - the once-at-the-top notes ── */
+.bmm-notes { margin: 4px 0 8px; display: grid; gap: 4px; }
+.bmm-notes p { margin: 0; }
+
+/* ── B-1085: Cash - tile notes behind Details; Trends = 3 columns + one detail line per row ── */
+#cashFlowPane:not(.cfm-notes-on) .cfm-tile-note { display: none; }
+.cfm-tile-note { margin-left: 0; }
+.cfm-stat-sub > b + .cfm-tile-note::before { content: ""; }
+.cfm-trends { table-layout: auto; }
+.cfm-trends td, .cfm-trends th { white-space: normal; }
+.cfm-trends td:last-child, .cfm-trends th:last-child { white-space: nowrap; }
+.cfm-trend-more { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 4px; }
+.cfm-trend-more b { color: var(--s-text); }
+#cashFlowPane .cfm-table-wrap { overflow-x: visible; }
+
+/* ── B-1087: one-line button rows (Retro's pixel labels were wrapping at 375) ── */
+/* Run: Lines + Compact / Normal / Extended */
+:root[data-theme="retro"] #densityRow { flex-wrap: nowrap; gap: 4px; margin-left: 6px; }
+:root[data-theme="retro"] #densityRow .density-btn { padding: 4px 6px !important; min-height: 28px; }
+/* FBA chart controls: three rows, one line each */
+:root[data-theme="retro"] .fba-controls .fba-ctl-row { flex-wrap: nowrap; gap: 4px !important; }
+:root[data-theme="retro"] .fba-controls .ai-seg { flex-wrap: nowrap; gap: 4px; }
+:root[data-theme="retro"] .fba-controls .ai-seg-btn { padding: 4px 6px !important; min-height: 30px; white-space: nowrap; }
+:root[data-theme="retro"] .fba-controls .fba-ranges .ai-seg-btn, :root[data-theme="retro"] .fba-controls .fba-style .ai-seg-btn { flex: 1 1 auto; }
+/* Cash: range chips + Reload / Read Sellerboard / Details */
+:root[data-theme="retro"] #cfmRange { flex-wrap: nowrap; gap: 4px; }
+:root[data-theme="retro"] #cfmRange .cfm-tab { padding: 4px 6px !important; white-space: nowrap; flex: 1 1 auto; }
+:root[data-theme="retro"] #cfmRange { max-width: 100%; box-sizing: border-box; }
+.cfm-head { flex-wrap: nowrap; align-items: stretch; }
+.cfm-head #cfmReload, .cfm-head #cfmPull { flex: 1 1 auto; white-space: nowrap; }
+:root[data-theme="retro"] .cfm-head > button { padding: 6px 8px !important; white-space: nowrap; }
+/* Run idle: Start Buy Queue + Refresh preview */
+:root[data-theme="retro"] #startRow #startBtn { flex: 1 1 auto; padding: 8px 10px !important; white-space: nowrap; }
+:root[data-theme="retro"] #startRow #previewBtn { flex: 0 0 auto; padding: 6px 8px !important; white-space: nowrap; }
+/* Stock: Print FNSKU labels */
+:root[data-theme="retro"] #invPrintLabelsBtn { padding: 6px 8px !important; white-space: nowrap; }
+
+/* ── B-1088: the Updated line + what its ⓘ opens ── */
+.upd-line { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; }
+.upd-line .upd-more { flex: 1 0 100%; }
+[id$="Pane"]:not(.upd-open):has(.upd-info) .upd-more { display: none; }

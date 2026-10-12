@@ -43,15 +43,23 @@
     return n;
   }
 
-  // host: element; screen: the model; opts: { send(action, payload) -> Promise, force }
+  // host: element; screen: the model; opts: { send(action, payload) -> Promise, force, dictate }
+  // B-1089 (v2.0.55): opts.dictate = where the box words go (the phone's
+  // outbox, remote/box-outbox.js; the laptop page's own draft, wizard.js):
+  //   load() / save(text)  the text box survives every re-draw and reload
+  //   submit(text, input)  -> {ok:true, stored|queued} once the words are SAFE
+  //   pending()            words not on the laptop yet ("Unsent on this phone")
+  //   stamp()              redraw when those change
   function render(host, screen, opts) {
     opts = opts || {};
     if (!host) return;
-    var key = JSON.stringify(screen || null);
+    var dict = opts.dictate || null;
+    var key = JSON.stringify(screen || null) + (dict && dict.stamp ? dict.stamp() : "");
     if (!opts.force && host.__wzKey === key) return;
     // Never wipe what the helper is typing; the next update draws it.
+    // B-1089: never re-draw under a finger in the box-words text box, even empty.
     var a = document.activeElement;
-    if (!opts.force && a && host.contains(a) && (a.tagName === "INPUT" || a.tagName === "TEXTAREA") && a.value) return;
+    if (!opts.force && a && host.contains(a) && (a.tagName === "INPUT" || a.tagName === "TEXTAREA") && (a.value || a.className === "wz-textarea")) return;
     host.__wzKey = key;
     host.textContent = "";
     if (!screen) {
@@ -126,10 +134,18 @@
     }
 
     if (screen.input && screen.input.kind === "text") {
+      // B-1089 (v2.0.55): the words are never dropped. The text box keeps
+      // them across re-draws (dict.save on every keystroke) and is emptied
+      // only when submit says they are safe; Read is never locked while the
+      // laptop works - the words queue.
       var box = el("div", "wz-dictate");
       var ta = el("textarea", "wz-textarea");
       ta.rows = 5;
       ta.placeholder = screen.input.placeholder || "";
+      if (dict && dict.load) ta.value = dict.load() || "";
+      ta.addEventListener("input", function () {
+        if (dict && dict.save) dict.save(ta.value);
+      });
       var read = button({ label: "Read", style: "primary" }, function () {
         var text = String(ta.value || "").trim();
         if (!text) {
@@ -140,19 +156,49 @@
         }
         hint.hidden = true;
         read.disabled = true;
-        Promise.resolve(send(screen.input.action, { text: text })).then(function (res) {
+        var go = dict && dict.submit ? dict.submit(text, screen.input) : send(screen.input.action, { text: text });
+        Promise.resolve(go).then(function (res) {
           read.disabled = false;
-          if (!res || res.ok !== false) ta.value = "";
+          if (res && res.ok === true && (res.stored || res.queued)) {
+            ta.value = "";
+            if (dict && dict.save) dict.save("");
+            // A re-draw while the words were being saved drew them into a new
+            // text box - empty that one too (only if it holds just these words).
+            var live = host.querySelector ? host.querySelector(".wz-textarea") : null;
+            if (live && live !== ta && String(live.value || "").trim() === text) live.value = "";
+          } else if (res && res.error) {
+            hint.textContent = res.error;
+            hint.hidden = false;
+          }
+        }, function () {
+          read.disabled = false;
         });
-      }, busy);
+      }, false);
       box.append(ta, read);
+      var unsent = dict && dict.pending ? dict.pending() : [];
+      if (unsent.length) {
+        var ub = el("div", "wz-unsent");
+        var online = !(dict.laptopOnline && !dict.laptopOnline());
+        ub.append(el("p", "wz-unsent-head", "Unsent on this phone: " + unsent.length + (online ? " (sending…)" : " (the laptop isn't connected - they go as soon as it is)")));
+        unsent.forEach(function (u) {
+          ub.append(el("div", "wz-unsent-msg", u.words.length > 300 ? u.words.slice(0, 300) + "…" : u.words));
+        });
+        box.append(ub);
+      }
       wrap.append(box);
     }
 
     wrap.append(hint);
-    if ((screen.buttons || []).length) {
+    // v2.0.55 review (B-1089): box words still on this phone go before the
+    // upload - the upload button waits for them and says why.
+    var waiting = dict && dict.pendingAny ? dict.pendingAny().length : dict && dict.pending ? dict.pending().length : 0;
+    var buttons = (screen.buttons || []).filter(function (b) { return !(waiting && b.action === "boxesUpload"); });
+    if (waiting && buttons.length !== (screen.buttons || []).length) {
+      wrap.append(el("div", "wz-note wz-upload-wait", waiting + " message" + (waiting === 1 ? " is" : "s are") + " still on this phone, not on the laptop yet - " + (waiting === 1 ? "it goes" : "they go") + " first, then you can put the boxes in ScanPower."));
+    }
+    if (buttons.length) {
       var bar = el("div", "wz-buttons");
-      screen.buttons.forEach(function (b) {
+      buttons.forEach(function (b) {
         bar.append(button(b, press(b, null), busy));
       });
       wrap.append(bar);

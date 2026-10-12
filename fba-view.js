@@ -284,7 +284,10 @@
     }
     if (!data.available) { asOf.textContent = "Read-only."; return; }
     // B-603 (v4.78): one short line; the row count moved behind Details.
-    asOf.textContent = (data.pulledAt ? "As of " + F.fmtCT(data.pulledAt) : "No Amazon pull yet") + " · sent " + agoText(data.builtAt);
+    const asOfText = (data.pulledAt ? "As of " + F.fmtCT(data.pulledAt) : "No Amazon pull yet") + " · sent " + agoText(data.builtAt);
+    // B-1088 (v2.0.55): "Updated N min ago" (the Amazon pull's age); the rest behind its ⓘ (remote/updated-line.js).
+    if (self.ShopperUpdated && data.pulledAt) self.ShopperUpdated.set(asOf, { at: data.pulledAt, detail: asOfText + " · " + data.rowCount + " hourly row(s) on file. Read-only." });
+    else asOf.textContent = asOfText;
     asOf.title = data.rowCount + " hourly row(s) on file. Read-only.";
     const link = $("fbaWorkbook");
     if (data.historyUrl) { link.href = data.historyUrl; link.hidden = false; } else link.hidden = true;
