@@ -299,15 +299,20 @@ function buildDoNext(input = {}) {
   // B-971 (v2.0.39): a background check that failed or has gone quiet.
   const checkRows = bgCheckLines(input.bgChecks, num(input.now)).filter((c) => c.failed || c.stale);
   if (input.bgChecks && checkRows.length) {
+    // B-1051 (v2.0.52): Voice of the Customer failed only because Seller
+    // Central is signed out -> the row says what to do, and goes there.
+    const vocSignIn = checkRows.length === 1 && checkRows[0].id === "voc" && checkRows[0].failed && /signed out/i.test(checkRows[0].text);
     add({
       id: "checks",
       severity: checkRows.some((c) => c.failed) ? "high" : "medium",
-      title: checkRows.length === 1
+      title: vocSignIn
+        ? "Sign in to Seller Central"
+        : checkRows.length === 1
         ? `${checkRows[0].label}: ${checkRows[0].failed ? "the last read failed" : "no read in 12 h"}`
         : `${checkRows.length} background checks need a look`,
       detail: checkRows.map((c) => c.line).join(" · ") + ". Every line is on the Pipeline page's Activity tab and in Drive (Shopper run logs).",
       lines: checkRows.map((c) => ({ id: c.id, text: c.line })),
-      go: { label: "Activity", target: "pipeline" },
+      go: vocSignIn ? { label: "Seller Central", target: "voc" } : { label: "Activity", target: "pipeline" },
       count: checkRows.length,
     });
   }

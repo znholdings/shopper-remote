@@ -1207,4 +1207,24 @@ html, body { overscroll-behavior: none; }
 .ctm-id-v { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ctm-id-sep { flex: none; }
 
+/* B-1056 (v2.0.52): the House list's expiry date under each title (remote/house-expiry-view.js).
+   Compact: one small chip; tapping it opens a box + Save + Cancel that wraps inside the title cell. */
+.inv-table .hx { margin-top: 6px; min-width: 0; }
+.inv-table .hx-chip { display: inline-block; max-width: 100%; min-height: 26px; padding: 3px 8px; font: inherit; font-size: 11px; line-height: 1.3; white-space: normal; text-align: left; color: var(--text, inherit); background: transparent; border: 1px solid var(--line); border-radius: var(--s-r-sm); }
+.inv-table .hx-chip.hx-add { color: var(--s-accent); border-style: dashed; border-color: var(--s-accent); }
+.inv-table .hx-chip.hx-past { color: var(--bad); border-color: var(--bad); font-weight: 700; }
+.inv-table .hx-edit { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+.inv-table .hx-input { flex: 1 1 110px; min-width: 0; max-width: 100%; box-sizing: border-box; font-size: 16px; padding: 5px 6px; }
+.inv-table .hx-save, .inv-table .hx-cancel { min-height: 30px; padding: 4px 10px; font-size: 12px; }
+.inv-table .hx-meta { margin-top: 4px; font-size: 11px; line-height: 1.3; color: var(--muted); overflow-wrap: anywhere; }
+.inv-table .hx-meta.hx-bad { color: var(--bad); }
+:root[data-theme="retro"] .inv-table .hx-chip { min-height: 26px; padding: 6px 8px !important; font-size: 8px !important; line-height: 1.3 !important; }
+:root[data-theme="retro"] .inv-table .hx-save, :root[data-theme="retro"] .inv-table .hx-cancel { min-height: 30px; padding: 6px 8px !important; font-size: 8px !important; line-height: 1.3 !important; }
+:root[data-theme="retro"] .inv-table .hx-input { font-size: 16px !important; }
+:root[data-theme="retro"] .inv-table .hx-meta { font-size: 11px !important; line-height: 1.3 !important; }
+/* A passed date stays red in Retro too (Retro's button rule sets the ink with !important). */
+:root[data-theme="retro"] .inv-table .hx-chip.hx-past:not(#no-id) { color: var(--bad) !important; border-color: var(--bad) !important; }
+:root[data-theme="retro"] .inv-table .hx-meta.hx-bad { color: var(--bad) !important; }
+
 [hidden] { display: none !important; }
+

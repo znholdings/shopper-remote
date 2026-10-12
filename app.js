@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.51";
+const APP_BUILD = "v2.0.52";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -2247,6 +2247,11 @@ function renderInvBucket(inv) {
       badge.hidden = true;
       titleCell.appendChild(badge);
       self.ShopperReceive.paintBadges(badge);
+    }
+    // B-1056 (v2.0.52): the expiry date under the title (remote/house-expiry-view.js) - the laptop's
+    // House on hand "Expires" date; tap to add / change, saved with houseExpirySet.
+    if (invBucket === "house" && Number(r.house) > 0 && self.ShopperHouseExpiry) {
+      self.ShopperHouseExpiry.decorate(titleCell, r, (lastPayload && lastPayload.houseExpiry) || {});
     }
     tr.appendChild(titleCell);
     const asinCell = invNode("td", "inv-asin", r.asin);
