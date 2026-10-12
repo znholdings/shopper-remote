@@ -70,9 +70,12 @@ const SERIES = [
   ["ordPrep", "Prep (Shopper)", "#d0ab78", "", "ordPrep"],
   ["allInventory", "All inventory", "#3d2b1f", "", "allInventory"],
   // B-836 (v2.0.20): Available split by days of cover - the stock that SELLS
-  // (under 30 days at its last 30 days' sales) and the rest. Parts of
-  // Available, so lines only (never stacked on top of Available); blue like
+  // (under 30 days at its last 30 days' sales) and the rest. Blue like
   // Available, told apart by the dash.
+  // B-1065 (v2.0.54): they follow the chosen chart type like every other
+  // series - on Columns / Area they stack INSIDE Available's slot (carved out
+  // of it, never on top of it; lib/amzinv-chart.js stackPlan), on Lines they
+  // are lines.
   ["availSelling", "Available · selling (under 30 days)", SLOT.blue, "5 2", "available"],
   ["availSlow", "Available · slow (30+ days)", SLOT.blue, "1 3", "available"],
 ];
@@ -81,6 +84,8 @@ const AVAILABLE_SPLIT_COLS = Object.freeze([
   ["availSelling", "Available Selling Units", "Available Selling $"],
   ["availSlow", "Available Slow Units", "Available Slow $"],
 ]);
+// B-1065 (v2.0.54): Available's two parts, in stack order (selling at the bottom).
+const AVAILABLE_PARTS = Object.freeze(["availSelling", "availSlow"]);
 const AVAILABLE_SPLIT_HOVER = "Available split by days of cover: selling = would sell out in under 30 days at the last 30 days' sales (Amazon's orders report); slow = the rest, incl. no sales. Rows before v2.0.20 have no split.";
 // B-566: the Shopper segments, in stack order (after Amazon's + Other).
 const SHOPPER_PARTS = Object.freeze(["ordInTransit", "ordHouse", "ordPrep"]);
@@ -94,6 +99,10 @@ const ALL_INVENTORY_HOVER = "All inventory = Amazon's Total + Shopper's in trans
 // B-547: series that are NOT part of Amazon's Total - drawn as a line only,
 // never stacked into a column or an area band.
 // B-566: + All inventory (a total line over the stack, like Amazon's Total).
+// B-836: + the Available split - a row before v2.0.20 has no figure (a gap
+// in its line, "—" in the table, never a fake 0). B-1065 (v2.0.54): the split
+// now stacks inside Available's slot (AVAILABLE_PARTS); this list keeps only
+// the blank-is-unknown rule and the hover for it.
 const SEPARATE_SERIES = Object.freeze(["ordered", "allInventory", "availSelling", "availSlow"]);
 const ORDERED_SERIES_HOVER = "Shopper's figure, not Amazon's: bought but not at Amazon yet = in transit + house + prep.";
 // B-836 (v2.0.20): the hover for each separate series (Ordered's by default).
@@ -530,7 +539,7 @@ function fmt(v, measure) {
   if (measure === "units") return Math.round(v).toLocaleString("en-US");
   return "$" + v.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 }
-__m["amzinv.js"] = { AMZINV_SETTINGS_KEY, DAY_MS, SLOT, SERIES, AVAILABLE_SPLIT_COLS, AVAILABLE_SPLIT_HOVER, SHOPPER_PARTS, ORDERED_PART_COLS, ALL_INVENTORY_HOVER, SEPARATE_SERIES, ORDERED_SERIES_HOVER, separateHover, ORDERED_COLS, SERIES_BY_KEY, OTHER, BAR_BASE, BAR_SPLIT, AMZINV_DEFAULTS, normalizeSettings, rangeLabel, parseHistory, CT_ZONE, centralParts, centralDayKey, localDayKey, fmtCT, centralDayStart, centralDayEnd, dailyPoints, sliceRange, previousPeriod, dipSignal, extraAlerts, parseScanpowerTime, shipmentMarkers, barSegments, withLiveParts, ORDERED_BAR_PARTS, orderedSegments, orderedNote, fmt };
+__m["amzinv.js"] = { AMZINV_SETTINGS_KEY, DAY_MS, SLOT, SERIES, AVAILABLE_SPLIT_COLS, AVAILABLE_PARTS, AVAILABLE_SPLIT_HOVER, SHOPPER_PARTS, ORDERED_PART_COLS, ALL_INVENTORY_HOVER, SEPARATE_SERIES, ORDERED_SERIES_HOVER, separateHover, ORDERED_COLS, SERIES_BY_KEY, OTHER, BAR_BASE, BAR_SPLIT, AMZINV_DEFAULTS, normalizeSettings, rangeLabel, parseHistory, CT_ZONE, centralParts, centralDayKey, localDayKey, fmtCT, centralDayStart, centralDayEnd, dailyPoints, sliceRange, previousPeriod, dipSignal, extraAlerts, parseScanpowerTime, shipmentMarkers, barSegments, withLiveParts, ORDERED_BAR_PARTS, orderedSegments, orderedNote, fmt };
 })();
 // ---- lib/amzinv-chart.js ----
 (function () {
@@ -543,7 +552,7 @@ __m["amzinv.js"] = { AMZINV_SETTINGS_KEY, DAY_MS, SLOT, SERIES, AVAILABLE_SPLIT_
 // Marks (dataviz): 2px lines, 2px surface gaps between stacked segments,
 // recessive grid, legend always shown for >= 2 series, values in ink (never
 // the series colour), a crosshair + tooltip on hover, a table view.
-const { ALL_INVENTORY_HOVER, BAR_BASE, BAR_SPLIT, DAY_MS, ORDERED_SERIES_HOVER, SEPARATE_SERIES, SERIES_BY_KEY, SHOPPER_PARTS, centralParts, fmt, fmtCT, separateHover } = __m["amzinv.js"];
+const { ALL_INVENTORY_HOVER, AVAILABLE_PARTS, BAR_BASE, BAR_SPLIT, DAY_MS, ORDERED_SERIES_HOVER, SEPARATE_SERIES, SERIES_BY_KEY, SHOPPER_PARTS, centralParts, fmt, fmtCT, separateHover } = __m["amzinv.js"];
 
 const NS = "http://www.w3.org/2000/svg";
 function svg(doc, tag, attrs = {}, kids = []) {
@@ -653,11 +662,29 @@ function gapPath(points, x, y, get) {
 // stack slot) is a LINE at its own value, never stacked.
 // `other` = every Amazon headline status is fully stacked, so Amazon's
 // uncovered rest ("Other") belongs in the column too.
+// B-1065 (v2.0.54): Available's split (selling / slow) stacks too, carved
+// OUT of Available's slot - never on top of it. Chosen parts stack first;
+// then, while Available is chosen (or both parts are), "Available (rest)" =
+// Available minus the chosen parts fills the slot, so the column still adds
+// up (a row before v2.0.20 has no split: its rest is all of Available).
+// `rest` = { available: [the parts carved out] } when that happens.
 function stackPlan(keys, splitInbound = false) {
   const chosen = new Set((keys || []).filter((k) => SERIES_BY_KEY[k]));
   const stack = [], covered = new Set();
+  const rest = {};
   let other = true;
   for (const k of BAR_BASE) {
+    if (k === "available") {
+      const aParts = AVAILABLE_PARTS.filter((p) => chosen.has(p));
+      if (aParts.length) {
+        stack.push(...aParts);
+        if (chosen.has(k) || aParts.length === AVAILABLE_PARTS.length) {
+          stack.push(k);
+          rest[k] = aParts;
+        } else other = false;
+        continue;
+      }
+    }
     const parts = BAR_SPLIT[k] ? BAR_SPLIT[k].filter((p) => chosen.has(p)) : [];
     if (parts.length) {
       stack.push(...parts);
@@ -669,7 +696,23 @@ function stackPlan(keys, splitInbound = false) {
   if (chosen.has("ordered")) stack.push("ordered");
   else for (const k of SHOPPER_PARTS) if (chosen.has(k)) stack.push(k);
   const lines = Object.keys(SERIES_BY_KEY).filter((k) => chosen.has(k) && !stack.includes(k) && !covered.has(k));
-  return { stack, lines, other };
+  return { stack, lines, other, rest };
+}
+// B-1065 (v2.0.54): does this point carry the figures carved out of k?
+// (A row before v2.0.20 has no split - its Available is just "Available".)
+function restSplitAt(p, m, k, plan) {
+  const parts = plan && plan.rest ? plan.rest[k] : null;
+  return !!parts && parts.some((x) => p && p[m] && p[m][x] != null);
+}
+// B-1065 (v2.0.54): a stacked series' height at one point. Available's rest
+// (plan.rest) = Available minus the parts carved out of it; a sliver under
+// 0.5% of Available (rounding between the two figures) is not drawn.
+function stackValue(p, m, k, plan = null) {
+  const raw = Math.max(0, (p && p[m] && p[m][k]) || 0);
+  const parts = plan && plan.rest ? plan.rest[k] : null;
+  if (!parts) return raw;
+  const left = raw - parts.reduce((a, x) => a + Math.max(0, p[m][x] || 0), 0);
+  return left > raw * 0.005 ? Math.round(left * 100) / 100 : 0;
 }
 // Kept for callers/tests that only need the stacked keys.
 function stackableSeries(keys) {
@@ -677,9 +720,18 @@ function stackableSeries(keys) {
 }
 // A series as drawn IN a stack: Ordered is a solid segment there (its dotted
 // look belongs to the line it is when not stacked).
-function stackStyle(k) {
+// B-1065 (v2.0.54): Available's parts in a stack - three steps of the same
+// blue so they can be told apart in one slot (an Area band has no hatching):
+// "selling" Available's own blue, Available's rest a mid blue, "slow" the
+// lightest (+ the faded "sub" look).
+const AVAIL_REST_STACK_COLOR = "#6aa3e8";
+const AVAIL_SLOW_STACK_COLOR = "#a9cbf2";
+function stackStyle(k, plan = null) {
   const s = SERIES_BY_KEY[k];
-  return k === "ordered" ? { ...s, dash: "" } : s;
+  if (k === "ordered" || k === "availSelling") return { ...s, dash: "" };
+  if (k === "availSlow") return { ...s, color: AVAIL_SLOW_STACK_COLOR };
+  if (plan && plan.rest && plan.rest[k]) return { ...s, label: `${s.label} (rest)`, color: AVAIL_REST_STACK_COLOR };
+  return s;
 }
 // B-608 (v4.78): short y-axis labels ("$150k", "12.5k") - "$150,000" ran
 // off the left edge of a phone-width chart. Values elsewhere stay exact.
@@ -748,7 +800,7 @@ function drawTrend(doc, { points, keys, measure, style, compare = null, markers 
     for (const k of shown) {
       const raw = p[m][k];
       if (lineOnly.has(k)) { s[k] = [0, SEPARATE_SERIES.includes(k) ? (raw == null ? null : raw) : raw || 0]; continue; }
-      const v = Math.max(0, raw || 0);
+      const v = stackValue(p, m, k, plan);
       s[k] = [acc, (acc += v)];
     }
     return s;
@@ -791,9 +843,14 @@ function drawTrend(doc, { points, keys, measure, style, compare = null, markers 
   // series
   // Separate series (Ordered) last, so its line sits on top of the bands.
   const drawOrder = area ? [...plan.stack.slice().reverse(), ...plan.lines] : shown;
+  // B-1065 (v2.0.54): Available's rest that is nothing at every point (both
+  // parts chosen and every row split) is neither drawn nor in the legend.
+  const restIn = (k) => points.some((p) => restSplitAt(p, m, k, plan));
+  const emptyRest = new Set(area ? Object.keys(plan.rest || {}).filter((k) => stacks.every((st) => !st[k] || !(st[k][1] - st[k][0] > 0))) : []);
   for (const k of drawOrder) {
+    if (emptyRest.has(k)) continue;
     const sep = lineOnly.has(k);
-    const s = area && !sep ? stackStyle(k) : SERIES_BY_KEY[k];
+    const s = area && !sep ? stackStyle(k, restIn(k) ? plan : null) : SERIES_BY_KEY[k];
     const idx = new Map(points.map((p, i) => [p, i]));
     const top = gapPath(points, x, y, (p) => stacks[idx.get(p)][k][1]);
     if (area && !sep) {
@@ -857,7 +914,9 @@ function drawTrend(doc, { points, keys, measure, style, compare = null, markers 
 
   const legend = el(doc, "div", "ai-legend");
   for (const k of shown) {
-    const s = SERIES_BY_KEY[k];
+    // B-1065 (v2.0.54): a stacked band's legend matches the band.
+    if (emptyRest.has(k)) continue;
+    const s = area && !lineOnly.has(k) ? stackStyle(k, restIn(k) ? plan : null) : SERIES_BY_KEY[k];
     const item = el(doc, "span", "ai-legend-item");
     const sw = el(doc, "span", "ai-swatch");
     sw.style.background = s.color;
@@ -894,7 +953,7 @@ function drawTable(doc, { points, keys, measure, hourly }) {
   table.append(thead, tbody);
   return table;
 }
-__m["amzinv-chart.js"] = { svg, el, drawStackedBar, drawOrderedBar, gapPath, stackPlan, stackableSeries, stackStyle, fmtAxis, xTickIndexes, niceMax, tickLabel, drawTrend, drawTable };
+__m["amzinv-chart.js"] = { svg, el, drawStackedBar, drawOrderedBar, gapPath, stackPlan, restSplitAt, stackValue, stackableSeries, AVAIL_REST_STACK_COLOR, AVAIL_SLOW_STACK_COLOR, stackStyle, fmtAxis, xTickIndexes, niceMax, tickLabel, drawTrend, drawTable };
 })();
 // ---- lib/amzinv-columns.js ----
 (function () {
@@ -908,7 +967,7 @@ __m["amzinv-chart.js"] = { svg, el, drawStackedBar, drawOrderedBar, gapPath, sta
 //
 // No innerHTML; takes `doc` so tests hand in a fake document.
 const { ALL_INVENTORY_HOVER, BAR_BASE, DAY_MS, centralDayKey, centralDayStart, ORDERED_SERIES_HOVER, OTHER, SEPARATE_SERIES, SERIES_BY_KEY, SHOPPER_PARTS, barSegments, fmt, fmtCT, separateHover } = __m["amzinv.js"];
-const { el, fmtAxis, gapPath, niceMax, stackPlan, stackStyle, svg, tickLabel, xTickIndexes } = __m["amzinv-chart.js"];
+const { el, fmtAxis, gapPath, niceMax, restSplitAt, stackPlan, stackStyle, stackValue, svg, tickLabel, xTickIndexes } = __m["amzinv-chart.js"];
 
 // The columns for a list of points: [{ t, segments:[{key,label,color,dash,v,y0,y1}], total, top }].
 // B-604 (v4.78): `keys` given = the chips decide what stacks (stackPlan -
@@ -929,9 +988,12 @@ function chosenStacks(points, m, plan) {
   const amazonKeys = plan.stack.filter((k) => !SHOPPER_STACK.has(k));
   const shopperKeys = plan.stack.filter((k) => SHOPPER_STACK.has(k));
   return points.map((p) => {
-    const segs = amazonKeys.map((k) => ({ ...stackStyle(k), v: Math.max(0, p[m][k] || 0) }));
+    // B-1065 (v2.0.54): Available's parts stack in its slot, its rest after them.
+    const segs = amazonKeys.map((k) => ({ ...stackStyle(k, restSplitAt(p, m, k, plan) ? plan : null), v: stackValue(p, m, k, plan) }));
     if (plan.other) {
-      const covered = BAR_BASE.reduce((a, k) => a + (p[m][k] || 0), 0);
+      let covered = BAR_BASE.reduce((a, k) => a + (p[m][k] || 0), 0);
+      // The Available slot as stacked (its parts + rest), so the column tops out at Amazon's Total.
+      if (plan.rest && plan.rest.available) covered += segs.filter((x) => x.key === "available" || plan.rest.available.includes(x.key)).reduce((a, x) => a + x.v, 0) - Math.max(0, p[m].available || 0);
       const rest = Math.round(((p[m].total || 0) - covered) * 100) / 100;
       if (rest > 0) segs.push({ ...OTHER, v: rest });
     }
@@ -1084,8 +1146,9 @@ function drawColumnsTrend(doc, { points, keys = [], measure, splitInbound = fals
   const legend = el(doc, "div", "ai-legend");
   const seen = new Set();
   for (const c of cols) for (const s of c.segments) {
-    if (seen.has(s.key) || !(s.v > 0)) continue;
-    seen.add(s.key);
+    // B-1065 (v2.0.54): by label too - "Available" (rows before the split) and "Available (rest)" both get a key.
+    if (seen.has(s.key + "|" + s.label) || !(s.v > 0)) continue;
+    seen.add(s.key + "|" + s.label);
     const item = el(doc, "span", "ai-legend-item");
     const sw = el(doc, "span", "ai-swatch");
     sw.style.background = s.color;

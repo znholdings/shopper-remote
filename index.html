@@ -18,6 +18,8 @@
   <link rel="stylesheet" href="receive-count.css" />
   <!-- B-1062 / B-1063 (v2.0.53): Claude's learning on the Buylist tab (same file as lib/claude-learning.css). -->
   <link rel="stylesheet" href="claude-learning.css" />
+  <!-- B-1071 (v2.0.54): Process returns on the Ship tab (remote/returns-view.js). -->
+  <link rel="stylesheet" href="returns.css" />
   <!-- Shopper 2 (v2.00, B-732): light / dark before first paint. The phone
        follows its own setting unless the top-bar button picked one. -->
   <script>
@@ -360,7 +362,8 @@
            command, no write, no Amazon pull. -->
       <!-- B-741 (v2.01): the laptop's Below Min list, with the same choices. -->
       <!-- B-742 (v2.0.7): the Shipment Wizard - the same screens as the laptop's Ship to Amazon page. -->
-      <div id="wizardPane" hidden><div id="wizardHost"></div></div>
+      <!-- B-1071 (v2.0.54): + Process returns above the wizard (remote/returns-view.js draws #returnsHost). -->
+      <div id="wizardPane" hidden><div id="returnsHost"></div><div id="wizardHost"></div></div>
       <!-- B-765 (v2.0.8): the laptop's Cash Flow page, worked out on the laptop
            after each Sellerboard read and drawn with its own chart code
            (cashflow-lib.js is built from lib/s-chart.js). -->
@@ -439,6 +442,8 @@
                 <button type="button" class="ai-seg-btn ai-seg-lone" id="fbaTableToggle">Table</button>
                 <!-- B-515 (v4.63) -->
                 <button type="button" class="ai-seg-btn ai-seg-lone" id="fbaTrendlinesToggle" aria-pressed="true">Trendlines</button>
+                <!-- B-1064 (v2.0.54): one button opens the series checklist (#fbaChips). -->
+                <button type="button" class="ai-seg-btn ai-seg-lone fba-series-btn" id="fbaSeriesToggle" aria-expanded="false" aria-controls="fbaChips">Series</button>
               </div>
             </div>
             <div class="ai-custom" id="fbaCustom" hidden>
@@ -446,7 +451,7 @@
               <label>To <input type="date" id="fbaTo" /></label>
               <button type="button" class="ai-btn ai-btn-small" id="fbaApplyCustom">Apply</button>
             </div>
-            <div class="ai-chips" id="fbaChips" aria-label="Series on the chart"></div>
+            <div class="fba-series-list" id="fbaChips" role="group" aria-label="Series on the chart" hidden></div>
             <div id="fbaTrend"></div>
             <div id="fbaTable" class="fba-table-wrap" hidden></div>
           </section>
@@ -530,6 +535,8 @@
   <script src="house-expiry-view.js"></script>
   <!-- B-1057 (v2.0.53): Manual Print - the printer on each Stock tab row (the laptop runs the print). -->
   <script src="manual-print-view.js"></script>
+  <!-- B-1071 (v2.0.54): Process returns (uses manual-print-view.js runCommand). -->
+  <script src="returns-view.js"></script>
   <script src="boxes.js"></script>
   <script>
     // Shopper 2 (v2.00, B-732): the top-bar theme button - system -> light -> dark.

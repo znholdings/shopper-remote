@@ -563,11 +563,19 @@ button { font: inherit; cursor: pointer; }
 .fba-paper .ai-custom { margin: 0 0 8px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12px; color: var(--s-n5); }
 .fba-paper .ai-custom input { font-size: 16px; padding: 4px 6px; border: 1px solid color-mix(in srgb, var(--s-violet) 25%, transparent); border-radius: 8px; background: var(--s-n0); color: var(--s-violet-ink); }
 .fba-paper .ai-btn { font-size: 13px; font-weight: 600; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--s-violet); background: var(--s-n0); color: var(--s-violet); }
-.fba-paper .ai-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
-.fba-paper .ai-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; padding: 5px 9px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--s-violet) 20%, transparent); background: var(--s-n0); color: var(--s-n5); }
-.fba-paper .ai-chip[aria-pressed="true"] { color: var(--s-violet-ink); border-color: var(--s-violet); background: var(--s-n1); }
-.fba-paper .ai-chip[aria-pressed="false"] .ai-swatch { opacity: 0.35; }
-.fba-paper .ai-chip-more { border-style: dashed; color: var(--s-violet); }
+/* B-1064 (v2.0.54): the series checklist behind "Series · N on" - one short
+   row per series (one column on a phone, two on a wider screen), every row
+   under 32px. Retro gets its pixel look from the shared lists in
+   retro-core.css (.fba-ser sits with the segmented choices). */
+.fba-paper .fba-series-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr)); gap: 4px 6px; margin: 0 0 8px; }
+.fba-paper .fba-series-list[hidden] { display: none; }
+#fbaChips .fba-ser { display: flex; align-items: center; justify-content: flex-start; gap: 6px; width: 100%; min-width: 0; min-height: 28px; max-height: 32px; overflow: hidden; padding: 2px 8px !important; font-size: 12px; font-weight: 600; line-height: 1.2; text-align: left; border-radius: 8px; border: 1px solid color-mix(in srgb, var(--s-violet) 20%, transparent); background: var(--s-n0); color: var(--s-n5); box-sizing: border-box; }
+#fbaChips .fba-ser[aria-pressed="true"] { color: var(--s-violet-ink); border-color: var(--s-violet); background: var(--s-n1); }
+#fbaChips .fba-ser[aria-pressed="false"] .ai-swatch { opacity: 0.35; }
+#fbaChips .fba-ser-box { flex: none; width: 13px; height: 13px; border: 1.5px solid currentColor; border-radius: 3px; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; line-height: 1; box-sizing: border-box; }
+#fbaChips .fba-ser[aria-pressed="true"] .fba-ser-box::after { content: "\2713"; }
+#fbaChips .fba-ser-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+#fbaChips .fba-ser-more { grid-column: 1 / -1; justify-content: center; border-style: dashed; color: var(--s-violet); }
 .fba-paper .ai-col-seg { stroke: var(--s-n0); stroke-width: 1; }
 .fba-paper .ai-col-seg-sub { opacity: 0.7; }
 .fba-paper .ai-line-over { stroke-width: 2.5; }

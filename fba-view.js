@@ -24,7 +24,8 @@
   let points = [];          // decoded + merged
   let lastKey = "";         // fingerprint of the projection last drawn
   // B-515 (v4.63): `trendlines` null = follow the laptop's setting.
-  const view = { days: null, custom: null, customOpen: false, measure: null, style: null, table: false, moreChips: false, trendSeries: null, trendlines: null, notes: false };
+  // B-1064 (v2.0.54): `seriesOpen` = the Series checklist is showing (this visit only).
+  const view = { days: null, custom: null, customOpen: false, measure: null, style: null, table: false, moreChips: false, seriesOpen: false, trendSeries: null, trendlines: null, notes: false };
 
   function loadView() {
     try {
@@ -187,20 +188,36 @@
     }
   }
 
+  // B-1064 (v2.0.54): Zach - the series chips were ~14 huge Retro blocks,
+  // one per line, filling the phone. Now ONE "Series · N on" button opens a
+  // compact checklist (one short row per series, the defaults + the ones
+  // switched on, "Show all" for the rest). Same on/off list as before
+  // (view.trendSeries, remembered on this phone), same "More" grouping
+  // (lib/amzinv-chips.js chipGroups). The laptop page is not touched.
   function renderChips() {
     const host = $("fbaChips");
     host.textContent = "";
     const s = settings();
     const on = new Set(s.trendSeries);
+    const tog = $("fbaSeriesToggle");
+    if (tog) {
+      tog.textContent = "Series \u00b7 " + on.size + " on";
+      tog.classList.toggle("is-on", view.seriesOpen);
+      tog.classList.toggle("is-active", view.seriesOpen); // Retro's "on" look (retro-core.css section 6)
+      tog.setAttribute("aria-expanded", view.seriesOpen ? "true" : "false");
+    }
+    host.hidden = !view.seriesOpen;
+    if (!view.seriesOpen) return;
     const g = F.chipGroups(F.SERIES.map(([k]) => F.SERIES_BY_KEY[k]), on, view.moreChips);
     for (const key of g.shown) {
       const ser = F.SERIES_BY_KEY[key];
-      const b = node("button", "ai-chip");
+      const b = node("button", "fba-ser");
       b.type = "button";
+      b.dataset.key = key;
       b.setAttribute("aria-pressed", on.has(key) ? "true" : "false");
       const sw = node("span", "ai-swatch" + (ser.dash ? " ai-swatch-sub" : ""));
       sw.style.background = ser.color;
-      b.append(sw, document.createTextNode(ser.label));
+      b.append(node("span", "fba-ser-box"), sw, node("span", "fba-ser-name", ser.label));
       b.addEventListener("click", () => {
         view.trendSeries = on.has(key) ? s.trendSeries.filter((k) => k !== key) : s.trendSeries.concat([key]);
         saveView();
@@ -209,7 +226,7 @@
       host.append(b);
     }
     if (g.hiddenCount || view.moreChips) {
-      const more = node("button", "ai-chip ai-chip-more", view.moreChips ? "Fewer" : "More… (" + g.hiddenCount + ")");
+      const more = node("button", "fba-ser fba-ser-more", view.moreChips ? "Fewer" : "Show all (" + g.hiddenCount + " more)");
       more.type = "button";
       more.setAttribute("aria-expanded", view.moreChips ? "true" : "false");
       more.addEventListener("click", () => { view.moreChips = !view.moreChips; renderChips(); });
@@ -309,6 +326,7 @@
       draw();
     });
     on("fbaTableToggle", () => { view.table = !view.table; saveView(); draw(); });
+    on("fbaSeriesToggle", () => { view.seriesOpen = !view.seriesOpen; renderChips(); });
     on("fbaNotesToggle", () => { view.notes = !view.notes; saveView(); draw(); });
     on("fbaTrendlinesToggle", () => { view.trendlines = !trendlines(); saveView(); draw(); });
     on("fbaApplyCustom", () => {

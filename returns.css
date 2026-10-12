@@ -1,0 +1,42 @@
+/* remote/returns.css - B-1071 (v2.0.54): Process returns on the phone's Ship tab
+   (remote/returns-view.js). The sheet reuses the Receive pop-up's rc-overlay /
+   rc-card look (receive-count.css); this adds the entry button, the batch list
+   and the preview lines. Tokens only. Retro (retro-core.css forces 14px body
+   text and its own button look with !important) gets explicit rules at the end;
+   nothing here may make the page scroll sideways at 375 px. */
+.rtn-entry { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 0 0 12px; min-width: 0; }
+.rtn-entry .rtn-open { flex: none; min-height: 40px; padding: 8px 14px; font-weight: 700; }
+.rtn-entry-note { flex: 1 1 160px; min-width: 0; font-size: 13px; color: var(--s-text-muted); overflow-wrap: anywhere; }
+.rtn-card .rtn-kicker { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--s-text-muted); }
+.rtn-card .rtn-note { font-size: 13px; line-height: 1.35; color: var(--s-text-muted); overflow-wrap: anywhere; }
+.rtn-card .rtn-retry { align-self: flex-start; }
+.rtn-list { display: flex; flex-direction: column; gap: 8px; }
+.rtn-list .rtn-batch { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 10px 0; border-bottom: 1px solid var(--s-line); }
+.rtn-batch-words { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.rtn-batch .rtn-pick { flex: none; min-height: 40px; padding: 6px 16px; }
+.rtn-batch-name { font-size: 15px; font-weight: 700; line-height: 1.25; overflow-wrap: anywhere; max-width: 100%; }
+.rtn-batch-meta { font-size: 12px; color: var(--s-text-muted); }
+.rtn-more { font-size: 12px; color: var(--s-text-muted); }
+.rtn-lines { display: flex; flex-direction: column; border-top: 1px solid var(--s-line); }
+.rtn-line { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--s-line); min-width: 0; }
+.rtn-line-words { flex: 1 1 auto; min-width: 0; }
+.rtn-line-title { font-size: 14px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
+.rtn-line-meta { margin-top: 2px; font-family: var(--s-mono); font-size: 12px; color: var(--s-text-muted); overflow-wrap: anywhere; }
+.rtn-line-units { flex: none; font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--s-green-ink); }
+.rtn-line-done .rtn-line-units, .rtn-line-done .rtn-line-title { color: var(--s-text-muted); }
+.rtn-where { display: flex; align-items: center; gap: 10px; }
+.rtn-where .rtn-lab { font-size: 13px; font-weight: 700; }
+.rtn-where .rtn-where-pick { flex: 1 1 auto; min-width: 0; max-width: 220px; }
+.rtn-foot .rtn-post { flex: 2 1 180px; }
+.rtn-foot .rtn-back, .rtn-foot .rtn-close { flex: 1 1 90px; }
+
+:root[data-theme="retro"] .rtn-card { border: 2px solid var(--s-n7); box-shadow: 5px 5px 0 var(--s-n7); }
+:root[data-theme="retro"] .rtn-card .rtn-kicker { font-size: 10px !important; line-height: 1.3 !important; }
+:root[data-theme="retro"] .rtn-card .rtn-title { font-size: 14px !important; font-weight: 700; line-height: 1.3 !important; }
+:root[data-theme="retro"] .rtn-card :is(.rtn-note, .rtn-more, .rtn-batch-meta, .rtn-line-meta) { font-size: 12px !important; line-height: 1.35 !important; }
+:root[data-theme="retro"] .rtn-list .rtn-batch { border-bottom: 2px solid var(--s-n7); }
+:root[data-theme="retro"] .rtn-list .rtn-batch .rtn-batch-name { font-size: 14px !important; font-weight: 700; line-height: 1.25 !important; }
+:root[data-theme="retro"] .rtn-line-title { font-size: 14px !important; line-height: 1.3 !important; }
+:root[data-theme="retro"] .rtn-line-units { font-family: var(--s-pixel) !important; font-size: 12px !important; font-weight: 400 !important; }
+:root[data-theme="retro"] .rtn-entry-note { font-size: 12px !important; }
+:root[data-theme="retro"] .rtn-foot .rc-btn { white-space: normal !important; height: auto !important; min-height: 40px; }
