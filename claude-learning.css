@@ -1,0 +1,57 @@
+/* lib/claude-learning.css - B-1062 / B-1063 (v2.0.53): "Claude's learning" on
+   the Buylist page and the phone's Buylist tab. lib/claude-learning.css and
+   remote/claude-learning.css are the same file (test v2053-a). Tokens only
+   (--s-*), defined by lib/shopper-ui.css and the phone's token block. Nothing
+   here is wider than its box: long words wrap, no sideways scroll. */
+
+.cl-panel { margin-top: 16px; min-width: 0; overflow-wrap: anywhere; }
+.cl-panel * { box-sizing: border-box; }
+.cl-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
+.cl-title { margin: 0; font-size: 20px; }
+.cl-sub { color: var(--s-text-muted); font-size: 12px; }
+.cl-body { margin-top: 10px; display: grid; gap: 12px; font-size: 13px; min-width: 0; }
+.cl-body p { margin: 0; }
+.cl-status { color: var(--s-text-muted); }
+.cl-status-warn { color: var(--s-red); }
+.cl-h { margin: 0 0 6px; font-size: 14px; font-weight: 700; }
+
+/* The accuracy trend: one bar per scored list (height = % of lines matched). */
+.cl-trend { display: flex; align-items: flex-end; gap: 6px; min-height: 64px; padding: 4px 0; flex-wrap: wrap; }
+.cl-tbar { display: grid; justify-items: center; gap: 2px; width: 44px; }
+.cl-tbar-track { position: relative; width: 18px; height: 40px; background: var(--s-line-soft); border-radius: 3px; overflow: hidden; }
+.cl-tbar-fill { position: absolute; left: 0; right: 0; bottom: 0; background: var(--s-violet); }
+.cl-tbar-pct { font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.cl-tbar-day { font-size: 10px; color: var(--s-text-muted); white-space: nowrap; }
+
+/* A question (B-1063). */
+.cl-qs { display: grid; gap: 10px; }
+.cl-q { border: 1px solid var(--s-violet-soft); background: var(--s-violet-bg); color: var(--s-text); border-radius: 8px; padding: 10px 12px; display: grid; gap: 6px; min-width: 0; }
+.cl-q-text { font-weight: 700; }
+.cl-q-why { color: var(--s-text-muted); font-size: 12px; }
+.cl-q-note { width: 100%; max-width: 100%; min-height: 34px; font: inherit; font-size: 13px; padding: 6px 8px; resize: vertical; border: 1px solid var(--s-line); border-radius: 6px; background: var(--s-surface); color: var(--s-text); }
+.cl-q-btns { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.cl-q-btns button { min-height: 32px; }
+.cl-q-result { font-size: 12px; color: var(--s-text-muted); }
+.cl-q-result.cl-bad { color: var(--s-red); }
+
+.cl-rules { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+.cl-rule-ev { color: var(--s-text-muted); font-size: 12px; }
+.cl-toggle { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; }
+
+/* The per-line chip ("Claude: approve 24") and its reason (shown on a tap). */
+.cl-chip { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; border: 1px dashed var(--s-violet-soft); background: var(--s-violet-bg); color: var(--s-violet-ink); font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; white-space: nowrap; line-height: 1.5; }
+.cl-chip.cl-skip { border-color: var(--s-line); background: var(--s-surface); color: var(--s-text-muted); }
+.cl-reason { display: block; margin-top: 2px; font-size: 12px; color: var(--s-text-muted); white-space: normal; overflow-wrap: anywhere; }
+
+/* Phone: the same panel, compact. */
+.cl-phone.cl-panel { margin: 8px 0 12px; padding: 10px 12px; border: 1px solid var(--s-line); border-radius: 10px; background: var(--s-surface); }
+.cl-phone .cl-title { font-size: 16px; }
+.cl-phone .cl-tbar { width: 38px; }
+.cl-phone-chiprow { margin-top: 6px; }
+
+/* Retro: the card outline, hard shadow and the chip's pixel font come from
+   the shared lists in lib/retro-core.css (.cl-q, .cl-phone, .cl-chip). */
+:root[data-theme="retro"] .cl-q { background: var(--s-surface); }
+:root[data-theme="retro"] .cl-tbar-track { border: 2px solid var(--s-n7); }
+
+.cl-panel[hidden] { display: none !important; }

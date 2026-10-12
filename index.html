@@ -16,6 +16,8 @@
   <link rel="stylesheet" href="topbar.css" />
   <!-- B-840 (v2.0.21): the Receive counter pop-up (same file as lib/receive-count.css). -->
   <link rel="stylesheet" href="receive-count.css" />
+  <!-- B-1062 / B-1063 (v2.0.53): Claude's learning on the Buylist tab (same file as lib/claude-learning.css). -->
+  <link rel="stylesheet" href="claude-learning.css" />
   <!-- Shopper 2 (v2.00, B-732): light / dark before first paint. The phone
        follows its own setting unless the top-bar button picked one. -->
   <script>
@@ -263,6 +265,10 @@
         <div id="buylistApprovedBar" class="approved-progress" hidden>
           <div id="buylistApprovedFill" class="approved-progress-fill"></div>
         </div>
+        <!-- B-1062 / B-1063 (v2.0.53): Claude's learning, compact - its questions
+             (Approve / Reject + note, sent to the laptop), score trend, rules
+             and a per-line chip toggle. remote/claude-learn-view.js draws it. -->
+        <div id="claudeLearnHost"></div>
         <div id="buylistItems" class="lines"></div>
       </div>
 
@@ -359,7 +365,9 @@
            after each Sellerboard read and drawn with its own chart code
            (cashflow-lib.js is built from lib/s-chart.js). -->
       <div id="cashFlowPane" hidden>
-        <div class="cfm-head"><button type="button" class="secondary-btn" id="cfmReload">Reload</button><button type="button" class="primary-btn" id="cfmPull">Read Sellerboard now</button></div>
+        <div class="cfm-head"><button type="button" class="secondary-btn" id="cfmReload">Reload</button><button type="button" class="primary-btn" id="cfmPull">Read Sellerboard now</button><button type="button" class="fba-notes-btn" id="cfmNotesToggle" aria-expanded="false">&#9432; Details</button></div>
+        <!-- B-1058 / B-1059 (v2.0.53): Claude's summary + Ask Claude (remote/claude-screens.js). -->
+        <div id="cfmClaude" class="csx-host cfm-card"></div>
         <p id="cfmStatus" class="muted small"></p>
         <div id="cfmBanner" class="ai-banner ai-banner-info" hidden></div>
         <div class="cfm-tabs" role="group" aria-label="Time range" id="cfmRange"><button type="button" class="cfm-tab" data-days="30">30 days</button><button type="button" class="cfm-tab" data-days="90">90 days</button><button type="button" class="cfm-tab" data-days="180">180 days</button><button type="button" class="cfm-tab" data-days="365">365 days</button></div>
@@ -405,6 +413,8 @@
         <!-- v4.74 (B-574 / B-576): the one Quick / Full refresh. -->
         <div id="fbaRefresh"></div>
         <p id="fbaAsOf" class="muted"></p>
+        <!-- B-1058 / B-1059 (v2.0.53): Claude's summary + Ask Claude (remote/claude-screens.js). -->
+        <div id="fbaClaude" class="csx-host fba-paper"></div>
         <div id="fbaBanners" class="fba-banners"></div>
         <div id="fbaBody" class="fba-paper" hidden>
           <section class="fba-sec">
@@ -491,6 +501,9 @@
   <!-- B-765 (v2.0.8): cashflow-lib.js is GENERATED from lib/s-chart.js (test/_cashflow-bundle.mjs). -->
   <script src="cashflow-lib.js"></script>
   <script src="cashflow-view.js"></script>
+  <!-- B-1058 / B-1059 (v2.0.53): claude-screen-lib.js is GENERATED from lib/claude-screen-view.js (test/_claude-screen-bundle.mjs). -->
+  <script src="claude-screen-lib.js"></script>
+  <script src="claude-screens.js"></script>
   <!-- B-1023 (v2.0.49): catalog-lib.js is GENERATED from lib/table-sort.js + lib/catalog-view.js
        (+ v2.0.51: lib/catalog-filters.js, lib/copy-button.js) by test/_catalog-bundle.mjs. -->
   <script src="catalog-lib.js"></script>
@@ -505,6 +518,8 @@
   <script src="activity-view.js"></script>
   <script src="topbar-view.js"></script>
   <script src="app.js"></script>
+  <!-- B-1062 / B-1063 (v2.0.53) -->
+  <script src="claude-learn-view.js"></script>
   <script src="run-view.js"></script>
   <!-- B-683 (v4.93): typed MM/DD/YYYY date box, used by parity.js. -->
   <script src="date-input.js"></script>
@@ -513,6 +528,8 @@
        lib/house-expiry.js (test/_expiry-bundle.mjs); house-expiry-view.js draws it. -->
   <script src="expiry-lib.js"></script>
   <script src="house-expiry-view.js"></script>
+  <!-- B-1057 (v2.0.53): Manual Print - the printer on each Stock tab row (the laptop runs the print). -->
+  <script src="manual-print-view.js"></script>
   <script src="boxes.js"></script>
   <script>
     // Shopper 2 (v2.00, B-732): the top-bar theme button - system -> light -> dark.

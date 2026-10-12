@@ -1226,5 +1226,67 @@ html, body { overscroll-behavior: none; }
 :root[data-theme="retro"] .inv-table .hx-chip.hx-past:not(#no-id) { color: var(--bad) !important; border-color: var(--bad) !important; }
 :root[data-theme="retro"] .inv-table .hx-meta.hx-bad { color: var(--bad) !important; }
 
-[hidden] { display: none !important; }
+/* B-1058 / B-1059 (v2.0.53): Claude's box at the top of the FBA and Cash tabs
+   (claude-screen-lib.js = lib/claude-screen-view.js; same classes as the
+   laptop's lib/claude-screen.css). */
+.csx-panel { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.csx-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.csx-title { margin: 0; font-size: 14px; font-weight: 800; color: var(--s-text); }
+.csx-meta { color: var(--s-text-muted); font-size: 12px; }
+.csx-tools { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.csx-left-note, .csx-ask-note, .csx-said-note, .csx-status-note { color: var(--s-text-muted); font-size: 12px; margin: 0; overflow-wrap: anywhere; }
+.csx-said-note { color: var(--bad); }
+.csx-headline { margin: 0; font-weight: 700; font-size: 14px; color: var(--s-text); overflow-wrap: anywhere; }
+.csx-bullets { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.csx-b { font-size: 14px; line-height: 1.4; color: var(--s-text); overflow-wrap: anywhere; }
+.csx-kind { display: inline-block; min-width: 3.4em; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; color: var(--s-accent); }
+.csx-ask { display: flex; gap: 8px; min-width: 0; }
+.csx-q { flex: 1 1 auto; min-width: 0; padding: 8px 10px; font: inherit; font-size: 16px; border: 1px solid var(--s-line-soft); border-radius: 10px; background: var(--s-surface); color: var(--s-text); }
+.csx-answers { display: flex; flex-direction: column; gap: 8px; }
+.csx-ans { border-left: 3px solid var(--s-accent); padding: 2px 0 2px 10px; min-width: 0; }
+.csx-ans-fail { border-left-color: var(--bad); }
+.csx-ans-wait { border-left-color: var(--s-text-muted); }
+.csx-ans-q { margin: 0; font-weight: 700; font-size: 14px; color: var(--s-text); overflow-wrap: anywhere; }
+.csx-ans-a { margin: 2px 0 0; font-size: 14px; color: var(--s-text); white-space: pre-wrap; overflow-wrap: anywhere; }
+.csx-ans-meta { color: var(--s-text-muted); font-size: 11px; }
+/* B-1060 (v2.0.53): the Cash tab's explanations sit behind "Details" (as the FBA tab's do). */
+#cashFlowPane:not(.cfm-notes-on) .cfm-note:not(.cfm-keep),
+#cashFlowPane:not(.cfm-notes-on) .cfm-explain,
+#cashFlowPane:not(.cfm-notes-on) .cfm-explain-sub .cfm-stat-sub,
+#fbaPane:not(.fba-notes-on) #fbaTrend > .ai-note { display: none; }
+.cfm-head { flex-wrap: wrap; }
+.cfm-head .fba-notes-btn { flex: 0 0 auto; }
 
+
+/* B-1057 (v2.0.53): Manual Print (remote/manual-print-view.js). The row keeps its height: a
+   small printer under the units. The pop-up reuses the Receive pop-up (rc-overlay / rc-card). */
+.inv-table td.inv-num .mp-row-btn { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 28px; min-height: 0; margin-top: 6px; padding: 0; font: inherit; line-height: 1; color: var(--s-accent); background: transparent; border: 1px solid var(--s-accent); border-radius: var(--s-r-sm); cursor: pointer; }
+.inv-table td.inv-num .mp-row-btn svg { display: block; flex: none; }
+.mp-card .mp-kicker { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--s-text-muted); }
+.mp-card .mp-ids { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.mp-card .mp-pick { min-width: 0; max-width: 100%; font: inherit; font-size: 13px; padding: 4px 6px; }
+.mp-card .mp-note { font-size: 13px; line-height: 1.35; color: var(--s-text-muted); overflow-wrap: anywhere; }
+.mp-card .mp-form { display: flex; flex-wrap: wrap; gap: 10px; }
+.mp-card .mp-field { flex: 1 1 140px; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.mp-card .mp-field[hidden] { display: none; }
+.mp-card .mp-lab { font-size: 13px; font-weight: 700; }
+.mp-card .mp-foot .rc-btn { flex: 1 1 120px; }
+.mp-card .mp-retry { align-self: flex-start; }
+.mp-card .mp-picked { align-self: center; font-size: 13px; color: var(--s-text-muted); }
+:root[data-theme="retro"] .inv-table td.inv-num .mp-row-btn { width: 30px; height: 28px; min-height: 0 !important; padding: 0 !important; box-shadow: none !important; background: transparent !important; color: var(--s-accent) !important; border: 2px solid var(--s-n7) !important; }
+:root[data-theme="retro"] .mp-card { border: 2px solid var(--s-n7); box-shadow: 5px 5px 0 var(--s-n7); }
+:root[data-theme="retro"] .mp-card .mp-kicker { font-size: 10px !important; line-height: 1.3 !important; }
+:root[data-theme="retro"] .mp-card .mp-title { font-size: 14px !important; font-weight: 700; line-height: 1.3 !important; }
+:root[data-theme="retro"] .mp-card .mp-ids, :root[data-theme="retro"] .mp-card .mp-pick { font-size: 12px !important; line-height: 1.3 !important; }
+:root[data-theme="retro"] .mp-card .mp-note, :root[data-theme="retro"] .mp-card .mp-picked { font-size: 12px !important; line-height: 1.35 !important; }
+:root[data-theme="retro"] .mp-card .mp-lab { font-size: 9px !important; line-height: 1.3 !important; }
+:root[data-theme="retro"] .mp-card .rc-msg { font-size: 14px !important; line-height: 1.35 !important; }
+:root[data-theme="retro"] .mp-card .rc-input { font-size: 18px !important; min-height: 48px; padding: 8px 12px !important; line-height: 1.2; }
+:root[data-theme="retro"] .mp-card .rc-btn { min-height: 40px; padding: 6px 10px !important; font-size: 10px !important; line-height: 1.35 !important; text-align: center; }
+:root[data-theme="retro"] .mp-card .rc-primary { background: var(--s-accent) !important; color: var(--s-on-accent) !important; }
+:root[data-theme="retro"] .mp-card .rc-quiet { background: var(--s-surface) !important; box-shadow: none !important; }
+:root[data-theme="retro"] .mp-card .rc-x { width: 36px; height: 36px; min-height: 0; padding: 0 !important; font-size: 16px !important; font-family: var(--s-font) !important; }
+:root[data-theme="retro"] .mp-card .rc-ask { border: 2px solid var(--s-n7); }
+:root[data-theme="retro"] .mp-card .rc-ask-text { font-size: 14px !important; line-height: 1.35 !important; }
+
+[hidden] { display: none !important; }

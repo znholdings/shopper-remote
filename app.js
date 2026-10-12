@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.52";
+const APP_BUILD = "v2.0.53";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -202,7 +202,29 @@ function settleWaiter(id, status) {
   const w = waiters.get(id);
   if (w) { waiters.delete(id); w(status); }
 }
-self.ShopperRemote = Object.freeze({ sendCommand: (name, payload) => sendCommand(name, payload), waitFor });
+// B-1058 / B-1059 (v2.0.53): commandRow (= readCommand below) - the laptop's reason when a command was refused (remote/claude-screens.js).
+// B-1057 (v2.0.53): Manual Print (remote/manual-print-view.js) sends quietly and reads its own
+// command row, says "the laptop isn't connected" instead of sending when the laptop has gone
+// quiet, and takes back a print the laptop never picked up (status pending -> cancelled, only
+// while it is still pending), so nothing waits in the relay to print later.
+function laptopOnline() {
+  return !!deviceId && !!lastUpdatedAt && !laptopStaleness(lastUpdatedAt, Date.now());
+}
+async function readCommand(id) {
+  if (!id) return null;
+  const res = await sb(`commands?id=eq.${encodeURIComponent(id)}&select=status,reason,result`);
+  return res.ok && Array.isArray(res.json) && res.json[0] ? res.json[0] : null;
+}
+async function cancelPending(id, reason) {
+  if (!id) return false;
+  const res = await sb(`commands?id=eq.${encodeURIComponent(id)}&status=eq.pending`, {
+    method: "PATCH",
+    prefer: "return=representation",
+    body: { status: "cancelled", reason: String(reason || "taken back by the phone").slice(0, 500), updated_at: new Date().toISOString() },
+  });
+  return !!(res.ok && Array.isArray(res.json) && res.json.length === 1);
+}
+self.ShopperRemote = Object.freeze({ sendCommand: (name, payload) => sendCommand(name, payload), waitFor, commandRow: readCommand, sendQuiet: (name, payload) => sendCommand(name, payload, { quiet: true }), readCommand, cancelPending, laptopOnline });
 
 // ------------------------------------------------------- command outcomes
 //
@@ -301,9 +323,11 @@ const REMOTE_LABELS = {
   markBought: "Mark as bought", markNotBought: "Mark not bought", addSourceUrl: "Add source URL",
   addManualLine: "Add ASIN to queue", generateBuylist: "Generate buylist",
   buylistAction: "Buylist action", buylistApproveAll: "Approve all",
+  claudeScenarioAnswer: "Answer Claude's question", // B-1063 (v2.0.53)
   preview: "Refresh preview",
   buylistAddManual: "Add ASIN to buylist",
   boxesRead: "Read boxes", boxesAnswer: "Save answers", boxesUpload: "Upload boxes", boxesClear: "Start over", boxesRemove: "Remove box",
+  screenAsk: "Ask Claude", screenSummaryWrite: "Write the summary again",
 };
 
 // P-25, half one: proof the tap landed. A command that is still pending or
@@ -503,6 +527,8 @@ function renderPayload() {
   maybePlaySounds(p);
   renderBuylistGen(p.buylistGen);
   if (!isBeingEdited(els.buylistItems)) renderBuylist(p.buylist);
+  // B-1062 / B-1063 (v2.0.53): Claude's learning + line chips (remote/claude-learn-view.js).
+  if (self.ShopperClaudeLearnView) self.ShopperClaudeLearnView.render(p.buylist);
   rcSyncApply(p.inventory);
   renderInventory(p.inventory);
   // B-510/B-511 (v4.61): the FBA tab.
@@ -518,6 +544,8 @@ function renderPayload() {
   }
   // B-765 (v2.0.8): the Cash tab.
   if (self.ShopperCashFlowView) self.ShopperCashFlowView.render(p.cashFlow);
+  // B-1058 / B-1059 (v2.0.53): Claude's box on the FBA and Cash tabs (remote/claude-screens.js).
+  if (self.ShopperClaudeScreens) self.ShopperClaudeScreens.render(p, { offline: !!laptopStaleness(lastUpdatedAt, Date.now()) || !!(p.liveness && p.liveness.status === "offline") });
   // B-1023 (v2.0.49): the Catalog tab.
   if (self.ShopperCatalogView) self.ShopperCatalogView.render(p.catalog);
   // v4.74 (B-567 - B-574): refresh, Needs you, latest arrivals, goal.
@@ -1281,6 +1309,7 @@ function renderBuylist(bl) {
 function buylistCard(i) {
   const row = document.createElement("div");
   row.className = `line bl-${i.decision || "undecided"}`;
+  row.dataset.asin = i.asin || ""; // B-1062 (v2.0.53): remote/claude-learn-view.js chips the card
 
   // P-26. The five fields Zach named as what decides an approve/reject
   // (answered 2026-09-09), plus the title and thumbnail he asked for.
@@ -2257,7 +2286,10 @@ function renderInvBucket(inv) {
     const asinCell = invNode("td", "inv-asin", r.asin);
     if (withReceive) asinCell.appendChild(invReceiveButton(r));
     tr.appendChild(asinCell);
-    tr.appendChild(invNode("td", "inv-num" + (Number(r[b.field]) < 0 ? " inv-neg" : ""), invUnits(r[b.field])));
+    const numCell = invNode("td", "inv-num" + (Number(r[b.field]) < 0 ? " inv-neg" : ""), invUnits(r[b.field]));
+    // B-1057 (v2.0.53): Manual Print - the laptop Pipeline row's printer, under the units (remote/manual-print-view.js).
+    if (self.ShopperManualPrint) numCell.appendChild(self.ShopperManualPrint.button(r));
+    tr.appendChild(numCell);
     tbody.appendChild(tr);
   }
   els.invBucketTable.appendChild(thead);

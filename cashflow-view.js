@@ -13,7 +13,8 @@
   const C = self.ShopperChart;
   const $ = (id) => document.getElementById(id);
   const VIEW_KEY = "shopperCashFlowPhoneView";
-  const view = { days: 90, series: "sales", proj: "sales" };
+  // B-1060 (v2.0.53): `notes` = the explanations shown (the "Details" toggle).
+  const view = { days: 90, series: "sales", proj: "sales", notes: false };
   try { Object.assign(view, JSON.parse(localStorage.getItem(VIEW_KEY) || "{}")); } catch (e) { /* defaults */ }
   let data = null; // { model, pull }
   let drawnKey = "";
@@ -126,7 +127,8 @@
     c.append(box, legend([["k1", "7-day average (actual)"], ["k2", "forecast"], ["kband", "80% range"], ["k4", "from stock already at Amazon"]]));
     const grid = el("div", "cfm-proj-grid");
     for (const k of p.cards || []) {
-      const d = el("div", "cfm-stat");
+      // B-1060 (v2.0.53): "Why" is all explanation; "How sure" keeps its value, its sentence goes behind Details.
+      const d = el("div", "cfm-stat" + (k.label === "Why" ? " cfm-explain" : k.label === "How sure" ? " cfm-explain-sub" : ""));
       d.append(el("div", "cfm-stat-label", k.label), el("div", "cfm-stat-value", k.value), el("div", "cfm-stat-sub", k.sub));
       grid.append(d);
     }
@@ -175,7 +177,11 @@
     if (!m.hasSb) return { c: null };
     if (!m.buyVsPay) { c.append(empty("All Orders spend could not be read.")); return { c }; }
     const box = chartBox("cfmBuyVsPay");
-    c.append(box, el("p", "cfm-note", m.buyVsPayNote || ""));
+    // B-1060 (v2.0.53): the figure (first sentence) stays; what it means goes behind Details.
+    const bvp = String(m.buyVsPayNote || "");
+    const cut = bvp.indexOf(". ");
+    c.append(box, el("p", "cfm-note cfm-keep", cut > 0 ? bvp.slice(0, cut + 1) : bvp));
+    if (cut > 0) c.append(el("p", "cfm-note", bvp.slice(cut + 2)));
     return { c, draw: () => C.drawChart(box, { days: tail(m.days), height: 220, ref: 1, yFormat: (v) => v.toFixed(2) + "x", lines: [{ values: tail(m.buyVsPay), cls: "s-mark-5", label: "spend ÷ payout (30 days)" }] }) };
   }
 
@@ -220,6 +226,13 @@
     if (visible()) for (const p of parts) if (p.draw) p.draw();
   }
 
+  function applyNotes() {
+    const pane = $("cashFlowPane");
+    if (pane) pane.classList.toggle("cfm-notes-on", !!view.notes);
+    const b = $("cfmNotesToggle");
+    if (b) { b.classList.toggle("is-on", !!view.notes); b.setAttribute("aria-expanded", view.notes ? "true" : "false"); }
+  }
+
   function render(cashFlow) {
     data = cashFlow && typeof cashFlow === "object" ? cashFlow : null;
     draw(false);
@@ -241,6 +254,9 @@
       pull.textContent = "Asking the laptop...";
       self.ShopperRemote.sendCommand("cashFlowPull", {});
     });
+    const notes = $("cfmNotesToggle");
+    if (notes) notes.addEventListener("click", () => { view.notes = !view.notes; saveView(); applyNotes(); });
+    applyNotes();
     const reload = $("cfmReload");
     if (reload) reload.addEventListener("click", () => self.ShopperRemote.sendCommand("cashFlowRefresh", {}));
     let t = null;
