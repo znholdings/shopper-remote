@@ -292,6 +292,8 @@
   }
 
   function render(p) {
+    // B-1125 (v2.0.58): Aged inventory + No sales ride on the Pricing payload.
+    if (self.ShopperListingHealthView) self.ShopperListingHealthView.render(p && p.listingHealth);
     data = p || null;
     for (const sku of Object.keys(choices)) if (!(data && (data.rows || []).some((r) => r.sku === sku))) delete choices[sku];
     // Don't redraw under his thumb while he is choosing - only when the list changed.

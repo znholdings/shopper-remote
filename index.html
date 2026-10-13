@@ -7,8 +7,14 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>Shopper Remote</title>
+  <!-- B-1124 (v2.0.58): the home-screen icon. iOS keeps a touch icon per URL,
+       so it is named twice: the plain file, then the same file with
+       ?v=TOUCH_ICON_VERSION (remote/deploy/pwa-push-lib.mjs - bump both when the
+       PNG changes; the push refuses a page without them). -->
+  <meta name="apple-mobile-web-app-title" content="Shopper" />
   <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="apple-touch-icon" href="icon-180.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=1124" />
   <link rel="icon" type="image/png" href="shoppy-64.png" />
   <link rel="stylesheet" href="styles.css" />
   <link rel="stylesheet" href="retro.css" />
@@ -31,6 +37,8 @@
   <link rel="stylesheet" href="ui55-d.css" />
   <!-- B-1103 (v2.0.57): the Buylist tab's Target plans box. -->
   <link rel="stylesheet" href="ui57-b.css" />
+  <!-- B-1125 (v2.0.58): the Pricing tab's Aged inventory + No sales. -->
+  <link rel="stylesheet" href="ui58-c.css" />
   <!-- Shopper 2 (v2.00, B-732): light / dark before first paint. The phone
        follows its own setting unless the top-bar button picked one. -->
   <script>
@@ -406,6 +414,8 @@
         <div id="bmmBanner" class="ai-banner ai-banner-warn" hidden></div>
         <div id="bmmNotes" class="bmm-notes" hidden></div>
         <p id="bmmExplain" class="muted small" hidden>Sending a price lowers your Seller Snap min to it; Seller Snap can then go that low to win the Buy Box. Don't change hides a listing until its Buy Box or min changes.</p>
+        <!-- B-1125 (v2.0.58): Aged inventory + No sales (remote/listing-health-view.js). -->
+        <div id="lhmBox" class="lhm-box" hidden></div>
         <div id="bmmBody"></div>
         <!-- B-834 (v2.0.18): pinned above the tab bar while there is a choice. -->
         <div class="bmm-sendbar" id="bmmSendBar" hidden>
@@ -529,6 +539,7 @@
   <script src="dash-lib.js"></script>
   <script src="belowmin-lib.js"></script>
   <script src="belowmin-view.js"></script>
+  <script src="listing-health-view.js"></script>
   <script src="wizard-view.js"></script>
   <!-- B-1089 (v2.0.55): the box-word outbox (before app.js and boxes.js). -->
   <script src="box-outbox.js"></script>

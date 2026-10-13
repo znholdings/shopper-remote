@@ -1,0 +1,25 @@
+/* remote/ui58-c.css - B-1125 (v2.0.58): the Pricing tab's Aged inventory +
+   No sales sections (remote/listing-health-view.js). Tokens only. */
+.lhm-box { display: grid; gap: 10px; margin: 8px 0 12px; min-width: 0; }
+.lhm-card { background: var(--s-surface); border: 1px solid var(--s-line); border-radius: var(--s-r); padding: 12px; display: grid; gap: 6px; min-width: 0; }
+.lhm-card .ai-h2 { margin: 0; }
+.lhm-card p { margin: 0; }
+.lhm-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.lhm-levels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.lhm-level { border: 1px solid var(--s-line); border-radius: 8px; padding: 6px 8px; min-width: 0; }
+.lhm-level .t-value { font-size: 18px; }
+.lhm-paying { border-color: var(--s-red); }
+.lhm-paying .t-value { color: var(--s-red); }
+.lhm-soon { border-color: var(--s-yellow-ink); }
+.lhm-list { display: grid; min-width: 0; }
+.lhm-row { display: grid; gap: 4px; padding: 8px 0; border-top: 1px solid var(--s-line); min-width: 0; }
+.lhm-title { color: var(--s-text); text-decoration: none; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.lhm-ids { display: flex; align-items: center; gap: 4px; }
+.lhm-nums { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 10px; }
+.lhm-num { min-width: 0; }
+.lhm-v { font-size: 13px; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.lhm-pill-paying { color: var(--s-red); }
+.lhm-pill-soon { color: var(--s-yellow-ink); }
+.lhm-more { justify-self: start; }
+
+[hidden] { display: none !important; }

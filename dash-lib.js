@@ -44,7 +44,9 @@ const TARGETS = Object.freeze(["buylist", "buyqueue", "pipeline", "arrivals", "b
 // stranded inventory) failed, or has not finished a read in 12 h.
 // B-1101 (v2.0.57): "health" - a NEW Policy Compliance violation (Account
 // Health), right after the urgent notifications.
-const DO_NEXT_ORDER = Object.freeze(["urgent", "health", "owed", "needsYou", "belowMin", "pricingErrors", "voc", "arrivals", "runReviews", "fba", "stranded", "checks", "shipment"]);
+// B-1125 (v2.0.58): "aged" - listings paying (or within 30 days of paying)
+// Amazon's aged-inventory surcharge, right after the FBA alerts.
+const DO_NEXT_ORDER = Object.freeze(["urgent", "health", "owed", "needsYou", "belowMin", "pricingErrors", "voc", "arrivals", "runReviews", "fba", "aged", "stranded", "checks", "shipment"]);
 const SHIPMENT_NOTIFICATION_TYPE = "shipment_prompt";
 
 const num = (v) => {
@@ -132,6 +134,7 @@ function topSeverity(list) {
 //   pricingErrors     pricingGlance() (lib/pricing-errors.js) - { known, count, items } - B-862
 //   voc               vocGlance() (lib/voc-health.js) - { known, bad, atRisk, badCount, atRiskCount, pcxBadCount, changes } - B-941
 //   accountHealth     healthGlance() (lib/account-health.js) - { known, rating, status, total, alerts: [{ text }] } - B-1101
+//   agedInventory     agedGlance() (lib/aged-inventory.js) - { known, paying, soon, items: [{ asin, title, level, units, fee }] } - B-1125
 //   now               ms, for "2h ago" on an offer reading (optional)
 // -> [{ id, rank, severity, title, detail, go: { label, target }, notifs?: [...], count }]
 function buildDoNext(input = {}) {
@@ -297,6 +300,33 @@ function buildDoNext(input = {}) {
       detail: first.length > 140 ? first.slice(0, 137).replace(/\s+\S*$/, "") + "…" : first,
       go: { label: "FBA Inventory", target: "fba" },
       count: alerts.length,
+    });
+  }
+
+  // B-1125 (v2.0.58): Amazon's inventory age report - units over 180 days
+  // (paying the aged-inventory surcharge now) or on the next monthly charge.
+  const ag = input.agedInventory || null;
+  const agPay = ag && ag.known && ag.paying ? num(ag.paying.units) || 0 : 0;
+  const agSoon = ag && ag.known && ag.soon ? num(ag.soon.units) || 0 : 0;
+  if (agPay > 0 || agSoon > 0) {
+    const items = Array.isArray(ag.items) ? ag.items.filter(Boolean) : [];
+    const skus = (agPay > 0 ? num(ag.paying.skus) || 0 : 0) + (agSoon > 0 ? num(ag.soon.skus) || 0 : 0);
+    const feeOf = (g) => (g && num(g.fee) != null ? num(g.fee) : 0);
+    const fee = feeOf(agPay > 0 ? ag.paying : null) + feeOf(agSoon > 0 ? ag.soon : null);
+    const title = agPay > 0
+      ? `${plural(agPay, "unit")} paying Amazon's aged-inventory fee` + (agSoon > 0 ? ` · ${agSoon} more within 30 days` : "")
+      : `${plural(agSoon, "unit")} will pay Amazon's aged-inventory fee within 30 days`;
+    const lineText = (it) => `${String(it.asin || it.sku || "")}${shortTitle(it.title) ? " " + shortTitle(it.title) : ""} (${plural(num(it.units) || 0, "unit")}${it.level === "soon" ? " at the next charge" : " over 180 days"}${num(it.fee) > 0 ? ", est. " + money2(it.fee) : ""})`;
+    add({
+      id: "aged",
+      severity: agPay > 0 ? "high" : "medium",
+      title,
+      detail: (items.length ? linesDetail(items.map(lineText), Math.max(skus, items.length), "Pricing") + ". " : "")
+        + (fee > 0 ? `Amazon's estimate for the next monthly charge: ${money2(fee)}. ` : "")
+        + "Lower the price or send a removal - the list is on the Pricing page.",
+      lines: items.map((it) => ({ asin: String(it.asin || ""), sku: String(it.sku || ""), title: String(it.title || ""), units: num(it.units) || 0, level: String(it.level || ""), text: lineText(it) })),
+      go: { label: "Pricing", target: "belowmin" },
+      count: agPay + agSoon,
     });
   }
 

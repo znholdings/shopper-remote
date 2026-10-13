@@ -75,7 +75,7 @@
 /* ── 3. Labels, captions, counts, chips (pixel, small) ── */
 :root[data-theme="retro"] :is(label:not(.s-switch):not(.bm-choice):not(.radio-label), .bm-box-head, .t-label, .bs-label, .s-stat-label, .pp-card-label, .bq-tile-label,
 .status-label, .spend-label, .snapshot-label, .score-row-label, .score-field-label,
-.spending-goal-label, .eyebrow, .rh-eyebrow, .checkbox-label, .dt-label, .kc-big-l) {
+.spending-goal-label, .eyebrow, .rh-eyebrow, .checkbox-label, .dt-label, .kc-big-l, .lh-level-label, .ai-fc-src) {
   font-family: var(--s-pixel) !important; font-weight: 400 !important; font-size: var(--rt-label) !important;
   line-height: 1.6 !important; text-transform: uppercase;
 }
@@ -86,7 +86,7 @@
 
 /* ── 4. Big figures: normal font, bold, one size (B-804) ── */
 :root[data-theme="retro"] :is(.t-value, .bs-value, .s-stat-value, .pp-card-figure, .total-value, .status-value, .spend-value,
-.bank-balance-value, .inv-total b, .bq-tile-value, .next-run-headline, .dt-num, .kc-big-n, .gl-num) {
+.bank-balance-value, .inv-total b, .bq-tile-value, .next-run-headline, .dt-num, .kc-big-n, .gl-num, .lh-level-value) {
   font-family: var(--s-font) !important; font-weight: 800 !important; font-size: var(--rt-num) !important; line-height: 1.2 !important;
   font-variant-numeric: tabular-nums;
 }

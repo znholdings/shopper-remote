@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.57";
+const APP_BUILD = "v2.0.58";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -2862,6 +2862,8 @@ function renderDashboard(d, p) {
     bgChecks: ex.bgChecks || null,
     // B-1101 (v2.0.57): a new Policy Compliance violation.
     accountHealth: ex.accountHealth || null,
+    // B-1125 (v2.0.58): units paying (or about to pay) the aged-inventory surcharge.
+    agedInventory: ex.agedInventory || null,
     // B-862 (v2.0.23): listings deactivated for a pricing error.
     pricingErrors: ex.pricingErrors || null,
     now: Date.now(),
