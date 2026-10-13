@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.56";
+const APP_BUILD = "v2.0.57";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -324,6 +324,7 @@ const REMOTE_LABELS = {
   addManualLine: "Add ASIN to queue", generateBuylist: "Generate buylist",
   buylistAction: "Buylist action", buylistApproveAll: "Approve all",
   claudeScenarioAnswer: "Answer Claude's question", // B-1063 (v2.0.53)
+  targetPlanChoice: "Target plan: roll in or keep separate", // B-1103 (v2.0.57)
   preview: "Refresh preview",
   buylistAddManual: "Add ASIN to buylist",
   boxesRead: "Read boxes", boxesAnswer: "Save answers", boxesUpload: "Upload boxes", boxesClear: "Start over", boxesRemove: "Remove box",
@@ -531,6 +532,8 @@ function renderPayload() {
   if (!isBeingEdited(els.buylistItems)) renderBuylist(p.buylist);
   // B-1062 / B-1063 (v2.0.53): Claude's learning + line chips (remote/claude-learn-view.js).
   if (self.ShopperClaudeLearnView) self.ShopperClaudeLearnView.render(p.buylist);
+  // B-1103 (v2.0.57): the open Target plans + roll in / keep separate (remote/target-plans-view.js).
+  if (self.ShopperTargetPlansView) self.ShopperTargetPlansView.render(p.buylist);
   rcSyncApply(p.inventory);
   renderInventory(p.inventory);
   // B-510/B-511 (v4.61): the FBA tab.
@@ -1251,10 +1254,15 @@ function renderBuylist(bl) {
   // but we've lost that whole part of the desktop UI." Same math as the
   // desktop's computeApprovedTotals() (buylist.js) - sum of lineCost()
   // over every currently-approved item, all sections combined.
-  const approvedTotal = (bl.items || [])
+  // B-1103 (v2.0.57): + today's Target plan parts (a list line rolled into its
+  // plan counted once) - the laptop works out the adjustment.
+  const tpAdjust = bl.targetPlans && Number.isFinite(Number(bl.targetPlans.adjust)) ? Number(bl.targetPlans.adjust) : 0;
+  const approvedItemsTotal = (bl.items || [])
     .filter((i) => i.decision === "approved")
     .reduce((sum, i) => sum + lineCostPhone(i), 0);
-  els.buylistApproved.textContent = (bl.items || []).length ? `Approved: ${money(approvedTotal)}` : "";
+  const approvedTotal = approvedItemsTotal + tpAdjust;
+  const tpToday = !!(bl.targetPlans && Number(bl.targetPlans.todayDollars) > 0);
+  els.buylistApproved.textContent = (bl.items || []).length ? `Approved: ${money(approvedTotal)}${tpToday ? " (with today's Target plans)" : ""}` : "";
 
   // P-47: "a horizontal version of what's on the desktop." Desktop's tube
   // (buylist.js) fills against 1.5x Spend Needed, with "met" once Approved
@@ -2689,6 +2697,8 @@ function glGo(target) {
     plaid: () => switchTab("bank"),
     // B-941 (v2.0.35): Seller Central's Voice of the Customer page.
     voc: () => window.open("https://sellercentral.amazon.com/voice-of-the-customer", "_blank", "noopener"),
+    // B-1101 (v2.0.57): Seller Central's Account Health page.
+    health: () => window.open("https://sellercentral.amazon.com/performance/account/health", "_blank", "noopener"),
   }[target];
   if (go) go();
 }
@@ -2850,11 +2860,13 @@ function renderDashboard(d, p) {
     voc: ex.voc || null,
     // B-971 (v2.0.39): a background check that failed or went quiet.
     bgChecks: ex.bgChecks || null,
+    // B-1101 (v2.0.57): a new Policy Compliance violation.
+    accountHealth: ex.accountHealth || null,
     // B-862 (v2.0.23): listings deactivated for a pricing error.
     pricingErrors: ex.pricingErrors || null,
     now: Date.now(),
   });
-  const key = JSON.stringify([tiles, rows.map((r) => [r.id, r.title, r.detail, r.severity, r.go.label, (r.notifs || []).map((n) => n.key)]), d.lastRun, ex.nightly, d.remoteBuiltAt, d.stale, d.spend.bankRecent, ex.bgChecks || null]);
+  const key = JSON.stringify([tiles, rows.map((r) => [r.id, r.title, r.detail, r.severity, r.go.label, (r.notifs || []).map((n) => n.key)]), d.lastRun, ex.nightly, d.remoteBuiltAt, d.stale, d.spend.bankRecent, ex.bgChecks || null, ex.accountHealth || null]);
   if (key === lastDashboardKey) return;
   lastDashboardKey = key;
   for (const k of ["dashTiles", "dashDoNext"]) els[k].textContent = "";
@@ -2893,5 +2905,8 @@ function renderDashboard(d, p) {
     if (ex.bgChecks && G.bgCheckLines) {
       for (const c of G.bgCheckLines(ex.bgChecks, Date.now())) els.dashChecks.appendChild(invNode("div", c.failed || c.stale ? "warn-text" : "", c.line));
     }
+    // B-1101 (v2.0.57): the Account Health rating line (shared words, lib/dashboard-todo.js).
+    const hl = ex.accountHealth && G.accountHealthLine ? G.accountHealthLine(ex.accountHealth, Date.now()) : null;
+    if (hl) els.dashChecks.appendChild(invNode("div", hl.bad ? "warn-text" : "", hl.text));
   }
 }

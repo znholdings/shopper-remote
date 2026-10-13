@@ -1,0 +1,18 @@
+/* v2.0.57 builder B - B-1103: the open Target plans on the phone's Buylist tab
+   (remote/target-plans-view.js). Colours only through --s-* tokens. */
+.tpv-box { margin: 8px 0; }
+.tpv-head { margin: 0 0 6px; font-size: 15px; }
+.tpv-row { padding: 8px; margin-bottom: 6px; border: 1px solid color-mix(in srgb, var(--s-n5) 30%, transparent); border-radius: 8px; }
+.tpv-row.tpv-on-list { border-color: color-mix(in srgb, var(--s-orange) 60%, transparent); }
+.tpv-title { font-weight: 600; font-size: 14px; overflow-wrap: anywhere; }
+.tpv-facts, .tpv-onlist, .tpv-note { font-size: 13px; overflow-wrap: anywhere; }
+.tpv-facts { opacity: 0.85; }
+.tpv-onlist { margin-top: 4px; }
+.tpv-btns { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; }
+.tpv-pick[aria-pressed="true"] { background: color-mix(in srgb, var(--s-green) 25%, transparent); border-color: color-mix(in srgb, var(--s-green) 60%, transparent); font-weight: 700; }
+.tpv-result { font-size: 12px; }
+.tpv-bad { color: var(--s-red); }
+.tpv-note { margin: 6px 0 0; opacity: 0.85; }
+:root[data-theme="retro"] .tpv-row, :root[data-theme="retro"] .tpv-pick { border-radius: 0; }
+
+[hidden] { display: none !important; }

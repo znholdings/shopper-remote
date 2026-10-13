@@ -30,7 +30,9 @@ const __m = {};
 
 // B-941 (v2.0.35): "voc" = Seller Central's Voice of the Customer page (the
 // laptop opens it in a tab, the phone in the browser).
-const TARGETS = Object.freeze(["buylist", "buyqueue", "pipeline", "arrivals", "belowmin", "runreviews", "fba", "wizard", "cashflow", "bank", "expand", "plaid", "voc"]);
+// B-1101 (v2.0.57): "health" = Seller Central's Account Health page (laptop: a
+// tab; phone: the browser).
+const TARGETS = Object.freeze(["buylist", "buyqueue", "pipeline", "arrivals", "belowmin", "runreviews", "fba", "wizard", "cashflow", "bank", "expand", "plaid", "voc", "health"]);
 
 // Order = priority (Zach's list). Rows with nothing to do are not built.
 // B-837 (v2.0.20): "stranded" - units Amazon holds but cannot sell.
@@ -40,7 +42,9 @@ const TARGETS = Object.freeze(["buylist", "buyqueue", "pipeline", "arrivals", "b
 // Customer), right after pricing errors: a listing Amazon may suppress.
 // B-971 (v2.0.39): "checks" - a background check (Voice of the Customer,
 // stranded inventory) failed, or has not finished a read in 12 h.
-const DO_NEXT_ORDER = Object.freeze(["urgent", "owed", "needsYou", "belowMin", "pricingErrors", "voc", "arrivals", "runReviews", "fba", "stranded", "checks", "shipment"]);
+// B-1101 (v2.0.57): "health" - a NEW Policy Compliance violation (Account
+// Health), right after the urgent notifications.
+const DO_NEXT_ORDER = Object.freeze(["urgent", "health", "owed", "needsYou", "belowMin", "pricingErrors", "voc", "arrivals", "runReviews", "fba", "stranded", "checks", "shipment"]);
 const SHIPMENT_NOTIFICATION_TYPE = "shipment_prompt";
 
 const num = (v) => {
@@ -127,6 +131,7 @@ function topSeverity(list) {
 //   stranded          strandedGlance() (lib/stranded.js) - { known, units, skus, items? }
 //   pricingErrors     pricingGlance() (lib/pricing-errors.js) - { known, count, items } - B-862
 //   voc               vocGlance() (lib/voc-health.js) - { known, bad, atRisk, badCount, atRiskCount, pcxBadCount, changes } - B-941
+//   accountHealth     healthGlance() (lib/account-health.js) - { known, rating, status, total, alerts: [{ text }] } - B-1101
 //   now               ms, for "2h ago" on an offer reading (optional)
 // -> [{ id, rank, severity, title, detail, go: { label, target }, notifs?: [...], count }]
 function buildDoNext(input = {}) {
@@ -149,6 +154,24 @@ function buildDoNext(input = {}) {
       go: { label: "Review", target: "expand" },
       notifs: sorted,
       count: all,
+    });
+  }
+
+  // B-1101 (v2.0.57): a NEW Policy Compliance violation since the last read
+  // (Account Health) - shown for 3 days after it was found.
+  const ah = input.accountHealth || null;
+  const ahAlerts = ah && ah.known && Array.isArray(ah.alerts) ? ah.alerts.filter(Boolean) : [];
+  if (ahAlerts.length) {
+    const r = num(ah.rating);
+    add({
+      id: "health",
+      severity: "critical",
+      title: `Account Health: ${plural(ahAlerts.length, "new policy violation")}`,
+      detail: ahAlerts.slice(0, DO_NEXT_LINE_MAX).map((a) => String(a.text || a.category)).join(" · ") +
+        `. Account Health Rating ${r == null ? "not read" : r}${ah.status ? ` (${ah.status})` : ""}. Check it in Seller Central and answer Amazon.`,
+      lines: ahAlerts.map((a) => ({ text: String(a.text || a.category) })),
+      go: { label: "Account Health", target: "health" },
+      count: ahAlerts.length,
     });
   }
 
@@ -535,6 +558,21 @@ function bgCheckLines(checks, now) {
   });
 }
 
+// B-1101 (v2.0.57): the Dashboard's Account Health line (laptop + phone), from
+// healthGlance(): "Account Health: rating 908 (Healthy) · 21 policy issue(s) · read 2h ago".
+function accountHealthLine(g, now) {
+  if (!g || typeof g !== "object") return null;
+  if (!g.known) return { text: `Account Health: ${g.error ? `not read - ${g.error}` : "not read yet"}`, bad: !!g.error };
+  const r = num(g.rating);
+  const ago = ageText(g.at, num(now));
+  const alerts = Array.isArray(g.alerts) ? g.alerts.length : 0;
+  return {
+    text: `Account Health: rating ${r == null ? "not in the report" : r}${g.status ? ` (${g.status})` : ""} · ${plural(num(g.total) || 0, "policy issue")}` +
+      `${alerts ? ` · ${alerts} new` : ""}${ago ? ` · read ${ago}` : ""}${g.error ? ` · last read failed: ${g.error}` : ""}`,
+    bad: alerts > 0 || !!g.error,
+  };
+}
+
 // "2h ago" from two ms stamps (no clock read here - pure).
 function ageText(at, now) {
   const a = num(at), n = num(now);
@@ -610,7 +648,7 @@ function fbaStockValue(tiles) {
   }
   return any ? Math.round(total * 100) / 100 : null;
 }
-__m["dashboard-todo.js"] = { TARGETS, DO_NEXT_ORDER, SHIPMENT_NOTIFICATION_TYPE, DO_NEXT_LINE_MAX, shortTitle, strandedLineText, pricingOfferText, pricingLineText, money0, money2, changeLine, topSeverity, buildDoNext, SB_DAY_ROLLOVER_HOUR, chicagoClock, dayKeyAdd, usDate, sbCardRange, sumSbDays, buildSbCards, buildTiles, BG_CHECK_STALE_MS, BG_CHECK_LABELS, bgCheckStatusWords, bgCheckLines, ageText, BANK_BALANCE_ROWS, matchBankAccount, bankBalanceRows, plaidTile, fbaStockValue };
+__m["dashboard-todo.js"] = { TARGETS, DO_NEXT_ORDER, SHIPMENT_NOTIFICATION_TYPE, DO_NEXT_LINE_MAX, shortTitle, strandedLineText, pricingOfferText, pricingLineText, money0, money2, changeLine, topSeverity, buildDoNext, SB_DAY_ROLLOVER_HOUR, chicagoClock, dayKeyAdd, usDate, sbCardRange, sumSbDays, buildSbCards, buildTiles, BG_CHECK_STALE_MS, BG_CHECK_LABELS, bgCheckStatusWords, bgCheckLines, accountHealthLine, ageText, BANK_BALANCE_ROWS, matchBankAccount, bankBalanceRows, plaidTile, fbaStockValue };
 })();
 root.ShopperGlance = Object.freeze(Object.assign({}, ...Object.values(__m)));
 })(self);

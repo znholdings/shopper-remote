@@ -29,6 +29,8 @@
   <link rel="stylesheet" href="ui55-c.css" />
   <!-- B-1089 (v2.0.55): box contents can't be lost - Saved / Unsent lines, parked lists, archive. -->
   <link rel="stylesheet" href="ui55-d.css" />
+  <!-- B-1103 (v2.0.57): the Buylist tab's Target plans box. -->
+  <link rel="stylesheet" href="ui57-b.css" />
   <!-- Shopper 2 (v2.00, B-732): light / dark before first paint. The phone
        follows its own setting unless the top-bar button picked one. -->
   <script>
@@ -285,6 +287,9 @@
         <!-- B-1062 / B-1063 (v2.0.53): Claude's learning, compact - its questions
              (Approve / Reject + note, sent to the laptop), score trend, rules
              and a per-line chip toggle. remote/claude-learn-view.js draws it. -->
+        <!-- B-1103 (v2.0.57): open Target plans - roll tonight's line in or keep it separate.
+             remote/target-plans-view.js draws it. -->
+        <div id="tpPlanHost" hidden></div>
         <div id="claudeLearnHost"></div>
         <div id="buylistItems" class="lines"></div>
       </div>
@@ -549,6 +554,8 @@
   <script src="app.js"></script>
   <!-- B-1062 / B-1063 (v2.0.53) -->
   <script src="claude-learn-view.js"></script>
+  <!-- B-1103 (v2.0.57) -->
+  <script src="target-plans-view.js"></script>
   <script src="run-view.js"></script>
   <!-- B-683 (v4.93): typed MM/DD/YYYY date box, used by parity.js. -->
   <script src="date-input.js"></script>
