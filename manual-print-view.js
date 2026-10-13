@@ -170,7 +170,8 @@
     x.type = "button";
     x.setAttribute("aria-label", "Close");
     head.append(heads, x);
-    const note = el("div", "mp-note", "Prints this product's FNSKU labels on the laptop's label printer now. Nothing is written to any batch.");
+    // B-1093 (v2.0.56): the labels that print count as printed in the open ScanPower batch (the laptop adds them).
+    const note = el("div", "mp-note", "Prints this product's FNSKU labels on the laptop's label printer now. Nothing is added to any batch; when the product is in the open ScanPower batch, these labels count as printed there.");
     const status = el("div", "rc-msg mp-status");
     const retry = el("button", "rc-btn mp-retry", "Try again");
     retry.type = "button";

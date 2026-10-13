@@ -196,4 +196,9 @@
 .rc-badge.rc-badge-match .rc-badge-x:hover, .rc-badge.rc-badge-match .rc-badge-x:focus-visible { border-color: var(--s-count-match-ink); background: transparent; }
 .rc-badge.rc-badge-off .rc-badge-x:hover, .rc-badge.rc-badge-off .rc-badge-x:focus-visible { border-color: var(--s-count-off-ink); background: transparent; }
 
+/* B-1090 (v2.0.56): Zach 10/12 - mismatch is solid RED with white text (was yellow), and a product with
+   units at the house but no count shows a red "Not counted yet" chip (no x). The --s-count-off tokens
+   now carry the red (lib/shopper-ui.css, remote/styles.css), so the B-961 rules above paint it. */
+.rc-badge.rc-badge-none { background: var(--s-count-off); color: var(--s-count-off-ink); border-color: var(--s-count-off); }
+
 [hidden] { display: none !important; }

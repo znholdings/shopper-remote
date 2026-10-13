@@ -554,6 +554,12 @@
     var nodes = r0.classList && r0.classList.contains("rc-badge") ? [r0] : r0.querySelectorAll(".rc-badge");
     for (var i = 0; i < nodes.length; i++) {
       var t = totalFor(nodes[i].getAttribute("data-asin"));
+      // B-1090 (v2.0.56): Zach 10/12 - "it should just say 'not counted yet' and be in red, just so
+      // it's really easy to see which ones I haven't yet received". A product with units at the
+      // house (data-house > 0) and NO count in progress shows a solid red "Not counted yet" chip,
+      // with no x (there is nothing to clear). No House figure / House 0 = no chip, as before.
+      if (t == null && houseAbove0(nodes[i].getAttribute("data-house"))) { paintNotCounted(nodes[i]); continue; }
+      if (nodes[i].classList && typeof nodes[i].classList.toggle === "function") nodes[i].classList.toggle("rc-badge-none", false);
       if (t == null) { nodes[i].hidden = true; nodes[i].textContent = ""; }
       else {
         var parts = badgeParts(nodes[i]);
@@ -565,7 +571,7 @@
         } else nodes[i].textContent = "Counted " + fmtNum(t);
         nodes[i].title = "A count of " + fmtNum(t) + " is in progress for this product";
         // B-950 (v2.0.37): green when the count equals the row's House figure, yellow when it
-        // doesn't (the host puts House on data-house - and may put its own wording of it on
+        // doesn't. B-1090 (v2.0.56): mismatch is now solid red with white text (receive-count.css) (the host puts House on data-house - and may put its own wording of it on
         // data-house-text; no data-house = the plain green chip).
         var vs = badgeVsHouse(t, nodes[i].getAttribute("data-house"));
         if (nodes[i].classList && typeof nodes[i].classList.toggle === "function") {
@@ -576,6 +582,30 @@
         else if (vs === "off") nodes[i].title = "Counted " + fmtNum(t) + " of " + (nodes[i].getAttribute("data-house-text") || fmtNum(Number(nodes[i].getAttribute("data-house")))) + " at the house";
       }
     }
+  }
+  // B-1090 (v2.0.56): House above half a thousandth of a unit (the fractional House figures, never a
+  // negative row) - the rows that should get a "Not counted yet" chip when nothing is counted.
+  function houseAbove0(house) {
+    if (house == null || house === "") return false;
+    var h = Number(house);
+    return isFinite(h) && h > 0.0005;
+  }
+  function paintNotCounted(node) {
+    node.hidden = false;
+    if (typeof document !== "undefined" && typeof document.createElement === "function" && typeof node.appendChild === "function") {
+      // the text alone - the x is dropped (badgeParts rebuilds both once a count starts)
+      node.textContent = "";
+      var text = document.createElement("span");
+      text.className = "rc-badge-n";
+      text.textContent = "Not counted yet";
+      node.appendChild(text);
+    } else node.textContent = "Not counted yet";
+    if (node.classList && typeof node.classList.toggle === "function") {
+      node.classList.toggle("rc-badge-match", false);
+      node.classList.toggle("rc-badge-off", false);
+      node.classList.toggle("rc-badge-none", true);
+    }
+    node.title = "Not counted yet - " + (node.getAttribute("data-house-text") || fmtNum(Number(node.getAttribute("data-house")))) + " at the house, none received with Receive";
   }
   // "match" | "off" | null (no House figure). Same thousandth-of-a-unit test as openSetAll's
   // "already the House count" check.
