@@ -3,18 +3,20 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <!-- B-1129 (v2.0.60): the home-screen icon - ONE apple-touch-icon link, first
+       in <head>, an absolute same-origin path to a file name iOS has never seen
+       (apple-touch-icon.png: the cart, a plain opaque 180 x 180 PNG). Before
+       B-1124 the page had one plain link and the icon worked; B-1124's second
+       ?v= link did not bring it back. remote/deploy/pwa-push-lib.mjs
+       checkIconLinks refuses a page without exactly this. The probe page
+       icon-test.html carries ONLY this link (no manifest) to split the cause. -->
+  <link rel="apple-touch-icon" sizes="180x180" href="/shopper-remote/apple-touch-icon.png" />
   <meta name="theme-color" content="#6937d9" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <title>Shopper Remote</title>
-  <!-- B-1124 (v2.0.58): the home-screen icon. iOS keeps a touch icon per URL,
-       so it is named twice: the plain file, then the same file with
-       ?v=TOUCH_ICON_VERSION (remote/deploy/pwa-push-lib.mjs - bump both when the
-       PNG changes; the push refuses a page without them). -->
   <meta name="apple-mobile-web-app-title" content="Shopper" />
+  <title>Shopper Remote</title>
   <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png" />
-  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=1124" />
   <link rel="icon" type="image/png" href="shoppy-64.png" />
   <link rel="stylesheet" href="styles.css" />
   <link rel="stylesheet" href="retro.css" />
@@ -39,6 +41,7 @@
   <link rel="stylesheet" href="ui57-b.css" />
   <!-- B-1125 (v2.0.58): the Pricing tab's Aged inventory + No sales. -->
   <link rel="stylesheet" href="ui58-c.css" />
+  <link rel="stylesheet" href="ui60-c.css" /><!-- B-1137 (v2.0.60): the pack-rank editor -->
   <!-- Shopper 2 (v2.00, B-732): light / dark before first paint. The phone
        follows its own setting unless the top-bar button picked one. -->
   <script>
@@ -562,6 +565,8 @@
   <!-- B-874 (v2.0.24): the top bar's wording (generated from lib/activity-view.js) and the bar. -->
   <script src="activity-view.js"></script>
   <script src="topbar-view.js"></script>
+  <!-- B-1137 (v2.0.60): the Walmart pack-rank editor (app.js renderPrompt draws it). -->
+  <script src="pack-rank-view.js"></script>
   <script src="app.js"></script>
   <!-- B-1062 / B-1063 (v2.0.53) -->
   <script src="claude-learn-view.js"></script>

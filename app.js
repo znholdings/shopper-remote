@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.59";
+const APP_BUILD = "v2.0.60";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -1115,6 +1115,8 @@ function buylistSetPrepCenter(asin, prepCenter) {
 // filler prompt's own 5-minute clock lives in the laptop's buy loop.
 function renderPrompt(prompt) {
   if (!prompt) { els.promptCard.hidden = true; return; }
+  // B-1137 (v2.0.60): the pack-rank editor stays as Zach left it while the same question is open.
+  if (prompt.packRank && window.ShopperPackRankPhone && window.ShopperPackRankPhone.isOpen(els.promptFields, prompt.packRank)) return;
   els.promptCard.hidden = false;
   els.promptTitle.textContent = prompt.title;
   // P-63 (v2.98): the reason gets its own emphasized line and the long
@@ -1137,6 +1139,7 @@ function renderPrompt(prompt) {
     els.promptExpiry.textContent = `This one expires on its own in about ${secs}s - after that the line moves to the end of the queue.`;
   }
   els.promptFields.innerHTML = "";
+  if (els.promptFields.dataset) delete els.promptFields.dataset.packRankAsk;
   els.promptActions.innerHTML = "";
 
   const field = (id, label, attrs = {}) => {
@@ -1173,6 +1176,16 @@ function renderPrompt(prompt) {
     // background.js. A near-miss here (`size`) is a button that appears to
     // work and silently confirms nothing.
     getPayload = () => ({ asin: prompt.asin, lineId: prompt.lineId, confirmedSize: Number(size.value) || 1 });
+  }
+
+  // B-1137 (v2.0.60): the Walmart pack rank - its editor (remote/pack-rank-view.js);
+  // Save sends approveOrder with choice = the rank as JSON.
+  if (prompt.packRank) {
+    // Skip / Save name THIS rank question - the laptop refuses them for any other (review fix 1).
+    getPayload = () => ({ asin: prompt.asin, lineId: prompt.lineId, rankAskedAt: prompt.packRank.askedAt });
+  }
+  if (prompt.packRank && window.ShopperPackRankPhone) {
+    window.ShopperPackRankPhone.render(els.promptFields, prompt.packRank, (choice) => sendCommand("approveOrder", { ...getPayload(), approved: true, choice }));
   }
 
   // B-911 (v2.0.34): the pack choice (B-906) - one button per pack option, as

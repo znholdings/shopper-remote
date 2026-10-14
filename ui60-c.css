@@ -1,0 +1,29 @@
+/* remote/ui60-c.css - B-1137 (v2.0.60): the Walmart pack-rank editor in the
+   phone's prompt card (remote/pack-rank-view.js). Theme tokens only. */
+.prp { display: grid; gap: 8px; }
+.prp-product { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+.prp-help { margin: 0; font-size: 0.85rem; color: var(--s-text-muted, var(--text)); }
+.prp-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.prp-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border: 1px solid var(--s-line, var(--line));
+  border-radius: 8px;
+  background: var(--s-bg, var(--bg));
+}
+.prp-row.prp-dragging { outline: 2px solid var(--s-accent, var(--s-line)); }
+.prp-grip { touch-action: none; user-select: none; font-size: 1.3rem; padding: 0 4px; cursor: grab; }
+.prp-pos { font-weight: 700; min-width: 1.6em; }
+.prp-name { flex: 1 1 60%; min-width: 0; overflow-wrap: anywhere; font-weight: 600; }
+.prp-tags { font-weight: 400; color: var(--s-text-muted, var(--text)); }
+.prp-never { display: flex; align-items: center; gap: 4px; }
+.prp-move { min-width: 36px; min-height: 36px; margin-left: 4px; border: 1px solid var(--s-line, var(--line)); border-radius: 6px; background: var(--s-surface, var(--panel)); color: inherit; }
+.prp-pieces { width: 6em; padding: 6px; border: 1px solid var(--s-line, var(--line)); border-radius: 6px; background: var(--s-surface, var(--panel)); color: inherit; }
+.prp-pieces.prp-bad { border-color: var(--s-red, var(--s-line)); }
+.prp-add { display: flex; flex-wrap: wrap; gap: 6px; }
+.prp-url { flex: 1 1 200px; min-width: 0; padding: 6px; border: 1px solid var(--s-line, var(--line)); border-radius: 6px; background: var(--s-surface, var(--panel)); color: inherit; }
+.prp-error { margin: 0; color: var(--s-red, var(--text)); font-weight: 600; }
+[hidden] { display: none !important; }

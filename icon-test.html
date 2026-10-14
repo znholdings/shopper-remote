@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- B-1129 (v2.0.60): the home-screen icon PROBE. Exactly ONE apple-touch-icon
+       link (the same file index.html names) and NO manifest - so Add to Home
+       Screen from this page shows whether iOS uses a plain touch icon from this
+       site at all. remote/deploy/pwa-push-lib.mjs checkIconProbe keeps it so. -->
+  <link rel="apple-touch-icon" sizes="180x180" href="/shopper-remote/apple-touch-icon.png" />
+  <title>Icon test</title>
+  <style>
+    body { margin: 0; padding: 24px 16px; font: 16px/1.5 -apple-system, system-ui, sans-serif; background: #111318; color: #f2f2f5; }
+    img { width: 90px; height: 90px; border-radius: 20px; display: block; margin: 12px 0; }
+    li { margin: 6px 0; }
+  </style>
+</head>
+<body>
+  <h1>Shopper icon test</h1>
+  <p>This page has the home-screen icon and nothing else. The picture below is the file it names:</p>
+  <img src="/shopper-remote/apple-touch-icon.png" alt="The Shopper cart icon" />
+  <ol>
+    <li>Tap Share, then Add to Home Screen.</li>
+    <li>Look at the small picture in that sheet before you tap Add.</li>
+    <li>A cart = iOS takes the icon from this site; a letter "I" = it does not.</li>
+  </ol>
+  <p><a href="index.html" style="color:#9ecbff">Back to Shopper Remote</a></p>
+</body>
+</html>
