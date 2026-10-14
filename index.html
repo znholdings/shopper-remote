@@ -9,8 +9,12 @@
        B-1124 the page had one plain link and the icon worked; B-1124's second
        ?v= link did not bring it back. remote/deploy/pwa-push-lib.mjs
        checkIconLinks refuses a page without exactly this. The probe page
-       icon-test.html carries ONLY this link (no manifest) to split the cause. -->
-  <link rel="apple-touch-icon" sizes="180x180" href="/shopper-remote/apple-touch-icon.png" />
+       icon-test.html carries ONLY this link (no manifest) to split the cause.
+       B-1154 (v2.0.61): still a letter - the icons get NEW FILE NAMES with the
+       version in them (iOS can keep a failed icon per URL and can ignore ?v=)
+       + the precomposed name right after it. -->
+  <link rel="apple-touch-icon" sizes="180x180" href="/shopper-remote/icon-180.v2061.png" />
+  <link rel="apple-touch-icon-precomposed" sizes="180x180" href="/shopper-remote/apple-touch-icon-precomposed.png" />
   <meta name="theme-color" content="#6937d9" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />

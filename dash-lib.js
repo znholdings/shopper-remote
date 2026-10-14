@@ -32,7 +32,9 @@ const __m = {};
 // laptop opens it in a tab, the phone in the browser).
 // B-1101 (v2.0.57): "health" = Seller Central's Account Health page (laptop: a
 // tab; phone: the browser).
-const TARGETS = Object.freeze(["buylist", "buyqueue", "pipeline", "arrivals", "belowmin", "runreviews", "fba", "wizard", "cashflow", "bank", "expand", "plaid", "voc", "health"]);
+// B-1163 (v2.0.61): "books" = the Books pages (laptop: SHOPPER_OPEN_BOOKS_TAB;
+// the phone has no Books tab and is never handed a `books` input).
+const TARGETS = Object.freeze(["buylist", "buyqueue", "pipeline", "arrivals", "belowmin", "runreviews", "fba", "wizard", "cashflow", "bank", "expand", "plaid", "voc", "health", "books"]);
 
 // Order = priority (Zach's list). Rows with nothing to do are not built.
 // B-837 (v2.0.20): "stranded" - units Amazon holds but cannot sell.
@@ -46,7 +48,10 @@ const TARGETS = Object.freeze(["buylist", "buyqueue", "pipeline", "arrivals", "b
 // Health), right after the urgent notifications.
 // B-1125 (v2.0.58): "aged" - listings paying (or within 30 days of paying)
 // Amazon's aged-inventory surcharge, right after the FBA alerts.
-const DO_NEXT_ORDER = Object.freeze(["urgent", "health", "owed", "needsYou", "belowMin", "pricingErrors", "voc", "arrivals", "runReviews", "fba", "aged", "stranded", "checks", "shipment"]);
+// B-1163 (v2.0.61): the Books rows - "taxDates" (a federal tax date within 30
+// days), "tax1099" (January: last year's contractors paid $600+), "ownerDraw"
+// (days 1-7: last month's owner draws) - after the background checks.
+const DO_NEXT_ORDER = Object.freeze(["urgent", "health", "owed", "needsYou", "belowMin", "pricingErrors", "voc", "arrivals", "runReviews", "fba", "aged", "stranded", "checks", "taxDates", "tax1099", "ownerDraw", "shipment"]);
 const SHIPMENT_NOTIFICATION_TYPE = "shipment_prompt";
 
 const num = (v) => {
@@ -136,6 +141,8 @@ function topSeverity(list) {
 //   accountHealth     healthGlance() (lib/account-health.js) - { known, rating, status, total, alerts: [{ text }] } - B-1101
 //   agedInventory     agedGlance() (lib/aged-inventory.js) - { known, paying, soon, items: [{ asin, title, level, units, fee }] } - B-1125
 //   now               ms, for "2h ago" on an offer reading (optional)
+//   books             booksDoNextInput() (lib/book-tax-calendar.js) - { taxDates: [{ id, date, when, label, daysAway }],
+//                     tax1099: { year, vendors: [{ vendor, amount }] } | null, ownerDraw: { month, draws, personal } | null } - B-1163
 // -> [{ id, rank, severity, title, detail, go: { label, target }, notifs?: [...], count }]
 function buildDoNext(input = {}) {
   const rows = [];
@@ -367,6 +374,47 @@ function buildDoNext(input = {}) {
       lines: checkRows.map((c) => ({ id: c.id, text: c.line })),
       go: vocSignIn ? { label: "Seller Central", target: "voc" } : { label: "Activity", target: "pipeline" },
       count: checkRows.length,
+    });
+  }
+
+  // B-1163 (v2.0.61): the Books rows.
+  const bk = input.books || null;
+  const tds = bk && Array.isArray(bk.taxDates) ? bk.taxDates.filter((x) => x && x.date && x.label) : [];
+  if (tds.length) {
+    const soon = Math.min(...tds.map((x) => num(x.daysAway) ?? 99));
+    const lineText = (x) => `${x.when || x.date}${num(x.daysAway) === 0 ? " (today)" : num(x.daysAway) != null ? ` (${plural(num(x.daysAway), "day")})` : ""}: ${x.label}`;
+    add({
+      id: "taxDates",
+      severity: soon <= 7 ? "high" : "medium",
+      title: tds.length === 1 ? `Tax date ${tds[0].when || tds[0].date}: ${tds[0].label}` : `${plural(tds.length, "tax date")} in the next 30 days`,
+      detail: tds.map(lineText).join(" · ") + ". Federal dates; a weekend date moves to Monday.",
+      lines: tds.map((x) => ({ id: String(x.id || ""), date: String(x.date), text: lineText(x) })),
+      go: { label: "Books", target: "books" },
+      count: tds.length,
+    });
+  }
+  const nec = bk && bk.tax1099 && Array.isArray(bk.tax1099.vendors) ? bk.tax1099.vendors.filter(Boolean) : [];
+  if (nec.length) {
+    const lineText = (v) => `${String(v.vendor)} ${money2(v.amount)}`;
+    add({
+      id: "tax1099",
+      severity: "medium",
+      title: `1099-NEC: ${plural(nec.length, "contractor")} paid $600 or more in ${bk.tax1099.year}`,
+      detail: linesDetail(nec.map(lineText), nec.length, "Books") + ". From Independent Contractor (6030) in the books - due Jan 31.",
+      lines: nec.map((v) => ({ vendor: String(v.vendor), amount: num(v.amount), text: lineText(v) })),
+      go: { label: "Books", target: "books" },
+      count: nec.length,
+    });
+  }
+  const od = bk && bk.ownerDraw ? bk.ownerDraw : null;
+  if (od && (num(od.draws) || num(od.personal))) {
+    add({
+      id: "ownerDraw",
+      severity: "info",
+      title: `Owner draws in ${String(od.month)}: ${money2((num(od.draws) || 0) + (num(od.personal) || 0))}`,
+      detail: `Member Drawing (3100) ${money2(num(od.draws) || 0)} · personal spend on business accounts (7000) ${money2(num(od.personal) || 0)}.`,
+      go: { label: "Books", target: "books" },
+      count: 1,
     });
   }
 

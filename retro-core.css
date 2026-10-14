@@ -47,6 +47,9 @@
 /* B-1070 / B-1071 (v2.0.54): the Process returns batch line (laptop) and the phone's returns sheet - names and titles are sentences too. */
 :root[data-theme="retro"] :is(.pp-ret-pickstatus, .pp-ret-title, .rtn-title, .rtn-note, .rtn-batch-name, .rtn-line-title, .rtn-entry-note) { font-family: var(--s-font) !important; text-transform: none; }
 
+/* B-1163 (v2.0.61): the Books close page - account names, notes, the "Coming up" lines and the month label are sentences. */
+:root[data-theme="retro"] :is(.bc-sentence, .bc-acct, .bc-note-text, .bc-next li, .bc-month-label) { font-family: var(--s-font) !important; text-transform: none; }
+
 /* Body copy sizes: two only. */
 :root[data-theme="retro"] :is(p, li, dd, .l-title, .inv-title, .line-title, .need-body, .step-text, .prompt-reason, .dt-bank-row, .gl-bank-row) { font-size: var(--rt-body) !important; line-height: 1.4; }
 :root[data-theme="retro"] :is(.muted, .small, .subtle, .hint, .note, .s-note, .s-page-sub, .l-meta, .t-sub, .bs-sub, .pp-card-sub, .pp-card-money, .bq-tile-sub, .s-stat-sub, .s-nav-version, small, .warn-text, .status-line, .statline, [class*="hint"], [class*="-note"], .last-run-body,
@@ -60,7 +63,7 @@
 .s-page-title, .s-h2, .s-h3, .section-head, .bl-section-head, .dash-section-head, .section-title, .score-section-title,
 .pp-title, .ai-title, .ai-h2, .dash-title, .setup-title, .wz-title, .outcome-title, .rh-title,
 .spend-group-title, .run-review-head, .report-history-head, .recent-orders-head, .line-group-head, .scanpower-title,
-.report-sheet-title, .cf-card-head, .bq-card-head, .cfm-head, .fba-head, .inv-box-head, .ask-plan-title) {
+.report-sheet-title, .cf-card-head, .bq-card-head, .cfm-head, .fba-head, .inv-box-head, .ask-plan-title, .bk-card-head, .bsh-card-head) {
   font-family: var(--s-pixel) !important; font-weight: 400 !important; text-transform: uppercase;
   line-height: 1.5 !important; -webkit-text-fill-color: currentColor; background-image: none;
 }
@@ -68,14 +71,14 @@
 :root[data-theme="retro"] :is(h2, .s-h2, .report-sheet-title) { font-size: var(--rt-h2) !important; margin: 0 0 var(--rt-3); }
 :root[data-theme="retro"] :is(h3, .s-h3, .section-head, .bl-section-head, .dash-section-head, .section-title, .score-section-title, .ai-h2,
 .wz-title, .outcome-title, .rh-title, .spend-group-title, .run-review-head, .report-history-head, .recent-orders-head,
-.scanpower-title, .cf-card-head, .bq-card-head, .cfm-head, .fba-head, .inv-box-head, .ask-plan-title) { font-size: var(--rt-h3) !important; margin: 0 0 var(--rt-3); }
+.scanpower-title, .cf-card-head, .bq-card-head, .cfm-head, .fba-head, .inv-box-head, .ask-plan-title, .bk-card-head, .bsh-card-head) { font-size: var(--rt-h3) !important; margin: 0 0 var(--rt-3); }
 :root[data-theme="retro"] :is(h4, h5, h6, summary, legend, .line-group-head) { font-size: var(--rt-h4) !important; }
 :root[data-theme="retro"] summary { cursor: pointer; padding: var(--rt-1) 0; }
 
 /* ── 3. Labels, captions, counts, chips (pixel, small) ── */
 :root[data-theme="retro"] :is(label:not(.s-switch):not(.bm-choice):not(.radio-label), .bm-box-head, .t-label, .bs-label, .s-stat-label, .pp-card-label, .bq-tile-label,
 .status-label, .spend-label, .snapshot-label, .score-row-label, .score-field-label,
-.spending-goal-label, .eyebrow, .rh-eyebrow, .checkbox-label, .dt-label, .kc-big-l, .lh-level-label, .ai-fc-src) {
+.spending-goal-label, .eyebrow, .rh-eyebrow, .checkbox-label, .dt-label, .kc-big-l, .lh-level-label, .ai-fc-src, .ba-col-name) {
   font-family: var(--s-pixel) !important; font-weight: 400 !important; font-size: var(--rt-label) !important;
   line-height: 1.6 !important; text-transform: uppercase;
 }

@@ -8,9 +8,9 @@
   "background_color": "#111318",
   "theme_color": "#111318",
   "icons": [
-    { "src": "/shopper-remote/apple-touch-icon.png", "sizes": "180x180", "type": "image/png", "purpose": "any" },
-    { "src": "/shopper-remote/app-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "/shopper-remote/app-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "/shopper-remote/app-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    { "src": "/shopper-remote/icon-180.v2061.png", "sizes": "180x180", "type": "image/png", "purpose": "any" },
+    { "src": "/shopper-remote/app-icon-192.v2061.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/shopper-remote/app-icon-512.v2061.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/shopper-remote/app-icon-512.v2061.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }
