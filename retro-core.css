@@ -49,6 +49,8 @@
 
 /* B-1163 (v2.0.61): the Books close page - account names, notes, the "Coming up" lines and the month label are sentences. */
 :root[data-theme="retro"] :is(.bc-sentence, .bc-acct, .bc-note-text, .bc-next li, .bc-month-label) { font-family: var(--s-font) !important; text-transform: none; }
+/* B-1178 / B-1179 (v2.0.64): Books - bank account names, merchant keys, Claude's lines and the learner's summary are sentences. */
+:root[data-theme="retro"] :is(.bk-map-what, .bk-claude-what, .bk-remember-text, .br-learn-key, .br-learn-sum, .br-from) { font-family: var(--s-font) !important; text-transform: none; }
 
 /* Body copy sizes: two only. */
 :root[data-theme="retro"] :is(p, li, dd, .l-title, .inv-title, .line-title, .need-body, .step-text, .prompt-reason, .dt-bank-row, .gl-bank-row) { font-size: var(--rt-body) !important; line-height: 1.4; }

@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.63";
+const APP_BUILD = "v2.0.64";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -519,6 +519,8 @@ function renderPayload() {
   // that pane is what makes a quantity box typable at all - see
   // isBeingEdited() for the full reasoning.
   if (!isBeingEdited(els.lines)) renderLines(p.lines || [], p.lineCount || 0, p.truncated, p.progress);
+  // B-1173 (v2.0.64): the newest buy-tab snapshot on each line (or the "Snapshots off" hint).
+  if (self.ShopperBuyShotsPhone) self.ShopperBuyShotsPhone.render(p);
   // P-51: entries arrive pre-formatted as strings now (they were objects,
   // which join() turned into "[object Object]" for the whole log).
   els.log.textContent = (p.log || []).join("\n");
@@ -696,6 +698,7 @@ function setDensity(next) {
   // has to invalidate it by hand or the list would not re-render at all.
   lastRenderedLinesFp = undefined;
   if (lastPayload) renderLines(lastPayload.lines || [], lastPayload.lineCount || 0, lastPayload.truncated);
+  if (lastPayload && self.ShopperBuyShotsPhone) self.ShopperBuyShotsPhone.render(lastPayload); // B-1173
 }
 
 function renderDensityButtons() {
@@ -830,6 +833,8 @@ function renderLines(lines, total, truncated, progress) {
     const row = document.createElement("div");
     const outcome = RL ? RL.outcomeOf(l) : "";
     row.className = `line line-${l.status}${outcome ? ` oc-${outcome}` : ""}`;
+    // B-1173 (v2.0.64): remote/buy-shots-view.js finds the line's snapshot slot by this.
+    row.setAttribute("data-line-id", String(l.lineId || ""));
     // P-55: an error belongs on a line that is stopped and waiting on a
     // human, not on one that is mid-retry or already bought.
     const showError = !!l.error && ERROR_VISIBLE_STATUSES.has(l.status);
