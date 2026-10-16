@@ -22,4 +22,20 @@
 .lhm-pill-soon { color: var(--s-yellow-ink); }
 .lhm-more { justify-self: start; }
 
+/* B-1198 (v2.0.68): a row's Seller Snap block - figures, Min / Max /
+   strategy / Send, the below-cost tick (B-1202), the answer. Wraps inside the
+   row at 375 px (no sideways scroll). Tokens only. */
+.lhm-ss { display: grid; gap: 4px; min-width: 0; padding-top: 4px; border-top: 1px dashed var(--s-line); }
+.lhm-ss-now { overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.lhm-ss-edit { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-width: 0; }
+.lhm-ss-edit .qty-input { width: 76px; min-width: 0; font-variant-numeric: tabular-nums; }
+.lhm-ss-edit .lhm-ss-preset { flex: 1 1 130px; min-width: 0; max-width: 100%; padding: 6px; border-radius: 8px; border: 1px solid var(--s-line); background: var(--s-n0); color: var(--s-text); font-size: 16px; }
+.lhm-ss-loss { display: flex; align-items: center; gap: 6px; font-size: 13px; min-width: 0; overflow-wrap: anywhere; }
+.lhm-ss-loss input { margin: 0; flex: none; }
+.lhm-ss-result { overflow-wrap: anywhere; }
+.lhm-ss-result.is-good { color: var(--s-green-ink); }
+/* B-1202 (v2.0.68): the Min tab's "Send below cost" tick + why. */
+.bmm-loss { font-size: 13px; }
+.bmm-loss input { margin: 0; }
+
 [hidden] { display: none !important; }

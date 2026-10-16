@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.67";
+const APP_BUILD = "v2.0.68";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -331,6 +331,7 @@ const REMOTE_LABELS = {
   // B-1089 (v2.0.55)
   boxesSend: "Send box words", boxesDupe: "Box said twice", boxesSwitch: "Switch back", boxesRestore: "Restore boxes", boxesReread: "Re-read all words",
   screenAsk: "Ask Claude", screenSummaryWrite: "Write the summary again",
+  pricingRowSend: "Send a Pricing row", // B-1198 (v2.0.68)
 };
 
 // P-25, half one: proof the tap landed. A command that is still pending or

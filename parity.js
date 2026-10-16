@@ -245,11 +245,20 @@
       const boxes = new Map();
       for (const ln of sp.lines) {
         const r = node("div", "need-split-row");
-        r.append(node("span", "inv-title", `${ln.title || ln.asin}${ln.orderedUnits == null ? "" : " - ordered " + units(ln.orderedUnits)}`));
+        // B-1194 / B-1195 (v2.0.68): the name, then (one line each) the Target name matched and the pack size.
+        const nameCol = node("div", "need-split-name");
+        nameCol.append(node("span", "inv-title", `${ln.title || ln.asin}${ln.orderedUnits == null ? "" : " - ordered " + units(ln.orderedUnits)}`));
+        if (ln.targetTitle) nameCol.append(node("div", "muted small", `Target: ${ln.targetTitle}`));
+        const perBox = Number(ln.unitsPerBox);
+        if (perBox > 0 && Math.abs(perBox - Math.round(perBox)) > 1e-9) {
+          nameCol.append(node("div", "muted small", `1 ${String(sp.retailer || "retailer").replace(/^./, (c) => c.toUpperCase())} item = ${units(perBox)} unit${ln.cartQty ? ` · ordered ${units(ln.cartQty)} items` : ""} - halves like 2 1/2 are fine`));
+        }
+        r.append(nameCol);
         const box = node("input", "need-input need-num");
-        box.type = "number";
-        box.min = "0";
-        box.step = "1";
+        // B-1195: a text box - "2 1/2" is a real answer; the laptop checks it (whole items only).
+        box.type = "text";
+        box.inputMode = "decimal";
+        box.autocomplete = "off";
         box.placeholder = ln.suggest == null ? "units" : `suggest ${units(ln.suggest)}`;
         boxes.set(ln.asin, box);
         r.append(box);

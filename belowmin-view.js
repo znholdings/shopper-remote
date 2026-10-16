@@ -45,10 +45,17 @@
   function pickedCount() {
     return Object.values(choices).filter((c) => c && c.action).length;
   }
+  // B-1202 (v2.0.68): a Custom min under cost / at a loss is HELD (choice.held
+  // = the refusal words, set by its card) until the card's "Send below cost"
+  // is ticked - the laptop refuses it otherwise (lib/min-loss-check.js, the
+  // same rule, in belowmin-lib.js). holdCheck[sku] re-checks a card's choice.
+  const holdCheck = {};
   // B-834 (v2.0.18): the Send bar is pinned above the tab bar whenever there
   // is a choice (it used to sit at the top of the list and scroll away).
   function renderSend() {
-    const picked = Object.values(choices).filter((c) => c && c.action);
+    const all = Object.values(choices).filter((c) => c && c.action);
+    const held = all.filter((c) => c.held).length; // B-1202 (v2.0.68)
+    const picked = all.filter((c) => !c.held);
     const n = picked.length;
     const changes = picked.filter((c) => c.action !== "keep").length;
     const btn = $("bmmSend");
@@ -56,11 +63,11 @@
     btn.disabled = !n;
     btn.textContent = n ? `Send ${n} to Seller Snap` : "Send to Seller Snap";
     const bar = $("bmmSendBar");
-    if (bar) bar.hidden = !n;
+    if (bar) bar.hidden = !(n || held);
     const sum = $("bmmSendSummary");
-    if (sum) sum.textContent = n ? `${changes} price change${changes === 1 ? "" : "s"}${n - changes ? `, ${n - changes} Don't change` : ""}` : "";
+    if (sum) sum.textContent = (n ? `${changes} price change${changes === 1 ? "" : "s"}${n - changes ? `, ${n - changes} Don't change` : ""}` : "") + (held ? `${n ? " · " : ""}${held} under cost - not sent until "Send below cost" is ticked` : "");
     const pane = $("belowMinPane");
-    if (pane) pane.classList.toggle("has-sendbar", n > 0);
+    if (pane) pane.classList.toggle("has-sendbar", n > 0 || held > 0);
   }
 
   function choice(r, action, label, sub, disabled) {
@@ -73,7 +80,8 @@
     i.checked = !!(choices[r.sku] && choices[r.sku].action === action);
     i.addEventListener("change", () => {
       const prev = choices[r.sku] || {};
-      choices[r.sku] = { action, price: action === "custom" ? prev.price || "" : undefined };
+      choices[r.sku] = { action, price: action === "custom" ? prev.price || "" : undefined, allowLoss: action === "custom" && prev.allowLoss === true ? true : undefined };
+      if (holdCheck[r.sku]) holdCheck[r.sku](); // B-1202 (v2.0.68): back on Custom - held again if under cost
       renderSend();
     });
     lab.append(i, label);
@@ -227,23 +235,47 @@
     inp.placeholder = "0.00";
     inp.value = cur ? cur.price || "" : "";
     const live = el("div", "muted small bmm-sub");
+    // B-1202 (v2.0.68): "Send below cost" - shown while the typed min is under
+    // cost / at a loss (or ticked); the choice carries allowLoss: true.
+    const lossLab = el("label", "bmm-choice radio-label bmm-loss"); // radio-label: a sentence, not a retro caption
+    const lossBox = document.createElement("input");
+    lossBox.type = "checkbox";
+    lossBox.className = "bmm-loss-box";
+    lossBox.checked = !!(cur && cur.allowLoss === true);
+    lossLab.append(lossBox, el("span", null, (P && P.LOSS_TICK_LABEL) || "Send below cost (I typed this on purpose)"));
+    const lossWhy = el("div", "small warn-text bmm-sub bmm-loss-why");
     const upd = () => {
+      const ch = choices[r.sku];
+      const p = inp.value && P ? P.parsePrice(inp.value) : null;
+      const lc = p != null && P && P.minLossCheck ? P.minLossCheck(p, rowFor(r), false) : { ok: true };
+      const onCustom = !!(ch && ch.action === "custom");
+      lossLab.hidden = !onCustom || (lc.ok && !lossBox.checked);
+      lossWhy.hidden = !onCustom || lc.ok || lossBox.checked;
+      lossWhy.textContent = lc.ok ? "" : lc.error;
+      if (ch && ch.action === "custom") {
+        ch.allowLoss = lossBox.checked ? true : undefined;
+        ch.held = lc.ok || lossBox.checked ? undefined : lc.error;
+      } else if (ch) ch.held = undefined;
       if (!inp.value) { live.textContent = "Type a price."; return; }
-      const p = P ? P.parsePrice(inp.value) : null;
       if (p == null) { live.textContent = "Type a price like 12.97."; return; }
       const at = P ? P.profitAt(p, rowFor(r)) : null;
       live.textContent = `At ${money(p)}: ${atLine(at)}${r.max != null && p > r.max ? " · above your max" : ""}`;
     };
     inp.addEventListener("input", () => {
-      choices[r.sku] = { action: "custom", price: inp.value };
+      choices[r.sku] = { action: "custom", price: inp.value, allowLoss: lossBox.checked ? true : undefined };
       const radio = c.querySelector('input[type=radio][data-a="custom"]');
       if (radio) radio.checked = true;
       upd();
       renderSend();
     });
+    lossBox.addEventListener("change", () => {
+      upd();
+      renderSend();
+    });
+    holdCheck[r.sku] = upd;
     upd();
     wrap.append(el("span", null, "Custom min $ "), inp);
-    c.append(choice(r, "custom", wrap, live));
+    c.append(choice(r, "custom", wrap, live), lossWhy, lossLab);
     const sg = r.suggestion || {};
     if (sg.price != null) c.append(choice(r, "suggested", el("span", null, `Suggested min ${money(sg.price)}`), el("div", "muted small bmm-sub", `At ${money(sg.price)}: ${atLine(sg)}`)));
     else c.append(choice(r, "suggested", el("span", null, "No suggestion"), el("div", "muted small bmm-sub", sg.reason || ""), true));
@@ -285,7 +317,9 @@
     }
     if (d && d.recent && d.recent.length) {
       const ul = el("ul", "muted small bmm-recent");
-      for (const h of d.recent) ul.append(el("li", null, `${h.asin} min -> ${money(h.newMin)}: ${h.result}`));
+      // B-1199 (v2.0.68): a max / strategy send names what it changed (words);
+      // a min-only change (or an older laptop without words) keeps "min -> $x".
+      for (const h of d.recent) ul.append(el("li", null, `${h.asin} ${h.words || ("min -> " + money(h.newMin))}: ${h.result}`));
       box.append(el("h3", "ai-h2", "Recent changes"), ul);
     }
     renderSend();
@@ -293,7 +327,8 @@
 
   function render(p) {
     // B-1125 (v2.0.58): Aged inventory + No sales ride on the Pricing payload.
-    if (self.ShopperListingHealthView) self.ShopperListingHealthView.render(p && p.listingHealth);
+    // B-1198 (v2.0.68): + the recent sends (a row's own answer, by SKU).
+    if (self.ShopperListingHealthView) self.ShopperListingHealthView.render(p && p.listingHealth, (p && p.recent) || null);
     data = p || null;
     for (const sku of Object.keys(choices)) if (!(data && (data.rows || []).some((r) => r.sku === sku))) delete choices[sku];
     // Don't redraw under his thumb while he is choosing - only when the list changed.
@@ -319,10 +354,12 @@
       apply();
     }
     sendBtn.addEventListener("click", () => {
-      const picked = Object.fromEntries(Object.entries(choices).filter(([, c]) => c && c.action));
+      // B-1202 (v2.0.68): a Custom min under cost stays on its card (not sent)
+      // until its "Send below cost" tick is ticked.
+      const picked = Object.fromEntries(Object.entries(choices).filter(([, c]) => c && c.action && !c.held).map(([k, c]) => [k, { action: c.action, price: c.price, ...(c.allowLoss === true ? { allowLoss: true } : {}) }]));
       if (!Object.keys(picked).length) return;
       self.ShopperRemote.sendCommand("belowMinSend", { choices: picked });
-      for (const k of Object.keys(choices)) delete choices[k];
+      for (const k of Object.keys(picked)) delete choices[k];
       lastKey = "";
       renderSend();
     });
