@@ -17,6 +17,10 @@
   // B-605 / B-607 (v4.78): a new key, so every phone starts once on the new
   // defaults (30d, non-overlapping series) instead of an older saved pick.
   const VIEW_KEY = "shopperFbaPhoneView2";
+  // B-1231 (v2.0.70): = lib/amzinv.js normalizeSettings' seriesVersion. A
+  // series list this phone saved before it is dropped ONCE (the phone then
+  // follows the laptop's list - the Full stack); a test holds the two equal.
+  const PHONE_SERIES_VERSION = 6;
   const SPARK_W = 300, SPARK_H = 56;
   const NS = "http://www.w3.org/2000/svg";
 
@@ -32,6 +36,7 @@
       const raw = JSON.parse(localStorage.getItem(VIEW_KEY) || "null");
       if (raw && typeof raw === "object") {
         for (const k of ["days", "measure", "style", "trendSeries"]) if (raw[k] != null) view[k] = raw[k];
+        if (!(Number(raw.seriesVersion) >= PHONE_SERIES_VERSION)) view.trendSeries = null;
         view.table = !!raw.table;
         view.notes = !!raw.notes;
         if (typeof raw.trendlines === "boolean") view.trendlines = raw.trendlines;
@@ -40,7 +45,7 @@
   }
   function saveView() {
     try {
-      localStorage.setItem(VIEW_KEY, JSON.stringify({ days: view.days, measure: view.measure, style: view.style, trendSeries: view.trendSeries, table: view.table, trendlines: view.trendlines, notes: view.notes }));
+      localStorage.setItem(VIEW_KEY, JSON.stringify({ days: view.days, measure: view.measure, style: view.style, trendSeries: view.trendSeries, seriesVersion: PHONE_SERIES_VERSION, table: view.table, trendlines: view.trendlines, notes: view.notes }));
     } catch (_e) { /* the page still draws */ }
   }
   loadView();
@@ -186,6 +191,19 @@
       tl.classList.toggle("is-on", trendlines());
       tl.setAttribute("aria-pressed", trendlines() ? "true" : "false");
     }
+    // B-1231 (v2.0.70): the whole pipeline in one stack (the laptop's button, same list).
+    const fs = $("fbaFullStack");
+    if (fs) {
+      const on = F.sameSeries(settings().trendSeries, F.FULL_STACK_SERIES);
+      fs.classList.toggle("is-on", on);
+      fs.setAttribute("aria-pressed", on ? "true" : "false");
+      fs.onclick = () => {
+        view.trendSeries = F.FULL_STACK_SERIES.slice();
+        if (style() === "lines") view.style = "columns";
+        saveView();
+        draw();
+      };
+    }
   }
 
   // B-1064 (v2.0.54): Zach - the series chips were ~14 huge Retro blocks,
@@ -215,6 +233,7 @@
       b.type = "button";
       b.dataset.key = key;
       b.setAttribute("aria-pressed", on.has(key) ? "true" : "false");
+      if (F.chipHover && F.chipHover(key)) b.title = F.chipHover(key);
       const sw = node("span", "ai-swatch" + (ser.dash ? " ai-swatch-sub" : ""));
       sw.style.background = ser.color;
       b.append(node("span", "fba-ser-box"), sw, node("span", "fba-ser-name", ser.label));

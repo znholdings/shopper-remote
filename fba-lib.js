@@ -119,6 +119,36 @@ const OTHER = { key: "other", label: "Other", color: SLOT.green, dash: "" };
 // of Total (anything Amazon counts that none of these covers) is "Other".
 const BAR_BASE = ["available", "inboundAll", "fcTransfer", "fcProcessing", "customerOrders", "unfulfillable", "researching"];
 const BAR_SPLIT = { inboundAll: ["inboundWorking", "inboundShipped", "inboundReceiving"] };
+// B-1229 (v2.0.70): every parent -> its parts, in stack order. A ticked part
+// stacks INSIDE its ticked parent's slot with the parent's rest after it
+// (B-1065's Available model, for every parent - lib/amzinv-chart.js stackPlan).
+// Ordered's parts are Shopper's own series (their group is themselves).
+const SERIES_PARTS = Object.freeze({
+  available: AVAILABLE_PARTS,
+  inboundAll: BAR_SPLIT.inboundAll,
+  unfulfillable: ["unfCustomerDamaged", "unfWarehouseDamaged", "unfDistributorDamaged", "unfCarrierDamaged", "unfDefective", "unfExpired"],
+  researching: ["researchShort", "researchMid", "researchLong"],
+  reservedTotal: ["fcTransfer", "fcProcessing", "customerOrders"],
+  ordered: SHOPPER_PARTS,
+});
+// B-1231 (v2.0.70): "Full stack" - the whole pipeline in one column, Available
+// at the bottom, then Inbound working / shipped / receiving, FC Transfer /
+// Processing, then Shopper's In transit / House / Prep ("Ordered (Shopper)" =
+// those three; Ordered stays ticked so a row from before the split still
+// draws Ordered whole - on split rows its rest is 0 and is not drawn).
+const FULL_STACK_SERIES = Object.freeze(["available", "inboundWorking", "inboundShipped", "inboundReceiving", "fcTransfer", "fcProcessing", "ordInTransit", "ordHouse", "ordPrep", "ordered"]);
+// B-1229 (v2.0.70): the series that never stack (Columns / Area) say why on their chip.
+const LINE_ONLY_HOVER = "Always a line: Future supply is not part of Amazon's Total, so it never stacks into a column or band.";
+function chipHover(k) {
+  return k === "futureReserved" || k === "futureBuyable" ? LINE_ONLY_HOVER : "";
+}
+// B-1231: the same series ticked (order-free) - the "Full stack" button is lit.
+function sameSeries(a, b) {
+  const x = new Set(Array.isArray(a) ? a : []), y = new Set(Array.isArray(b) ? b : []);
+  if (x.size !== y.size) return false;
+  for (const k of x) if (!y.has(k)) return false;
+  return true;
+}
 
 // ---- settings --------------------------------------------------------------
 const AMZINV_DEFAULTS = Object.freeze({
@@ -131,7 +161,8 @@ const AMZINV_DEFAULTS = Object.freeze({
   // Amazon's headline statuses + Shopper's Ordered as ONE stacked segment
   // (B-604). Totals, subtotals and Shopper's three parts start off.
   // B-836 (v2.0.20): + the "selling" part of Available, as a line.
-  trendSeries: ["available", "inboundAll", "fcTransfer", "fcProcessing", "customerOrders", "unfulfillable", "researching", "ordered", "availSelling"],
+  // B-1231 (v2.0.70): Zach - the Full stack is the default view.
+  trendSeries: FULL_STACK_SERIES,
   splitInboundInBars: false,
   showMarkers: true,
   showCompare: false,
@@ -162,7 +193,7 @@ function normalizeSettings(raw) {
   presets = [...new Set(presets)].sort((a, b) => (a === 0) - (b === 0) || a - b).slice(0, 8);
   if (!presets.length) presets = d.presets.slice();
   let defaultRange = presets.includes(clampInt(r.defaultRange, 0, 3650, -1)) ? clampInt(r.defaultRange, 0, 3650, 30) : presets.includes(d.defaultRange) ? d.defaultRange : presets[0];
-  const trendSeries = Array.isArray(r.trendSeries) ? r.trendSeries.filter((k) => SERIES_BY_KEY[k]) : d.trendSeries.slice();
+  let trendSeries = Array.isArray(r.trendSeries) ? r.trendSeries.filter((k) => SERIES_BY_KEY[k]) : d.trendSeries.slice();
   // B-547 (v4.68): a series list saved before Ordered existed gets it once
   // (seriesVersion 2); after that, turning it off sticks.
   if (Array.isArray(r.trendSeries) && !(Number(r.seriesVersion) >= 2) && !trendSeries.includes("ordered")) trendSeries.push("ordered");
@@ -182,6 +213,8 @@ function normalizeSettings(raw) {
   // B-836 (v2.0.20, seriesVersion 5): a list saved before this release gets
   // the "selling" line once; after that, turning it off sticks.
   if (Array.isArray(r.trendSeries) && !(Number(r.seriesVersion) >= 5) && !trendSeries.includes("availSelling")) trendSeries.push("availSelling");
+  // B-1231 (v2.0.70, seriesVersion 6): every saved list resets ONCE to the Full stack.
+  if (raw && typeof raw === "object" && !(Number(r.seriesVersion) >= 6)) trendSeries = [...FULL_STACK_SERIES];
   const ra = r.alerts || {};
   const jump = (x, dd) => ({ enabled: bool(x && x.enabled, dd.enabled), pct: clampInt(x && x.pct, 1, 1000, dd.pct), minUnits: clampInt(x && x.minUnits, 0, 100000, dd.minUnits) });
   const rs = ra.receivingStuck || {};
@@ -195,7 +228,7 @@ function normalizeSettings(raw) {
     showMarkers: bool(r.showMarkers, d.showMarkers),
     showCompare: bool(r.showCompare, d.showCompare),
     showTrendlines: bool(r.showTrendlines, d.showTrendlines),
-    seriesVersion: 5,
+    seriesVersion: 6,
     dip: {
       enabled: bool(r.dip && r.dip.enabled, d.dip.enabled),
       windowDays: clampInt(r.dip && r.dip.windowDays, 3, 90, d.dip.windowDays),
@@ -539,7 +572,7 @@ function fmt(v, measure) {
   if (measure === "units") return Math.round(v).toLocaleString("en-US");
   return "$" + v.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 }
-__m["amzinv.js"] = { AMZINV_SETTINGS_KEY, DAY_MS, SLOT, SERIES, AVAILABLE_SPLIT_COLS, AVAILABLE_PARTS, AVAILABLE_SPLIT_HOVER, SHOPPER_PARTS, ORDERED_PART_COLS, ALL_INVENTORY_HOVER, SEPARATE_SERIES, ORDERED_SERIES_HOVER, separateHover, ORDERED_COLS, SERIES_BY_KEY, OTHER, BAR_BASE, BAR_SPLIT, AMZINV_DEFAULTS, normalizeSettings, rangeLabel, parseHistory, CT_ZONE, centralParts, centralDayKey, localDayKey, fmtCT, centralDayStart, centralDayEnd, dailyPoints, sliceRange, previousPeriod, dipSignal, extraAlerts, parseScanpowerTime, shipmentMarkers, barSegments, withLiveParts, ORDERED_BAR_PARTS, orderedSegments, orderedNote, fmt };
+__m["amzinv.js"] = { AMZINV_SETTINGS_KEY, DAY_MS, SLOT, SERIES, AVAILABLE_SPLIT_COLS, AVAILABLE_PARTS, AVAILABLE_SPLIT_HOVER, SHOPPER_PARTS, ORDERED_PART_COLS, ALL_INVENTORY_HOVER, SEPARATE_SERIES, ORDERED_SERIES_HOVER, separateHover, ORDERED_COLS, SERIES_BY_KEY, OTHER, BAR_BASE, BAR_SPLIT, SERIES_PARTS, FULL_STACK_SERIES, LINE_ONLY_HOVER, chipHover, sameSeries, AMZINV_DEFAULTS, normalizeSettings, rangeLabel, parseHistory, CT_ZONE, centralParts, centralDayKey, localDayKey, fmtCT, centralDayStart, centralDayEnd, dailyPoints, sliceRange, previousPeriod, dipSignal, extraAlerts, parseScanpowerTime, shipmentMarkers, barSegments, withLiveParts, ORDERED_BAR_PARTS, orderedSegments, orderedNote, fmt };
 })();
 // ---- lib/amzinv-chart.js ----
 (function () {
@@ -552,7 +585,7 @@ __m["amzinv.js"] = { AMZINV_SETTINGS_KEY, DAY_MS, SLOT, SERIES, AVAILABLE_SPLIT_
 // Marks (dataviz): 2px lines, 2px surface gaps between stacked segments,
 // recessive grid, legend always shown for >= 2 series, values in ink (never
 // the series colour), a crosshair + tooltip on hover, a table view.
-const { ALL_INVENTORY_HOVER, AVAILABLE_PARTS, BAR_BASE, BAR_SPLIT, DAY_MS, ORDERED_SERIES_HOVER, SEPARATE_SERIES, SERIES_BY_KEY, SHOPPER_PARTS, centralParts, fmt, fmtCT, separateHover } = __m["amzinv.js"];
+const { ALL_INVENTORY_HOVER, AVAILABLE_PARTS, BAR_BASE, BAR_SPLIT, SERIES_PARTS, DAY_MS, ORDERED_SERIES_HOVER, SEPARATE_SERIES, SERIES_BY_KEY, SHOPPER_PARTS, centralParts, fmt, fmtCT, separateHover } = __m["amzinv.js"];
 
 const NS = "http://www.w3.org/2000/svg";
 function svg(doc, tag, attrs = {}, kids = []) {
@@ -669,32 +702,47 @@ function gapPath(points, x, y, get) {
 // up (a row before v2.0.20 has no split: its rest is all of Available).
 // `rest` = { available: [the parts carved out] } when that happens.
 function stackPlan(keys, splitInbound = false) {
+  // B-1229 (v2.0.70): ONE rule for every parent (SERIES_PARTS) - its ticked
+  // parts stack inside its slot, then (while the parent is ticked) its rest
+  // = parent minus those parts (rest[parent]); a ticked part whose parent is
+  // off stacks on its own. Was three rules: Inbound's parts replaced the
+  // parent (Inbound (all) became a line), Ordered's parts became lines while
+  // Ordered was on, and Unfulfillable's / Researching's parts never stacked.
+  // Total / All inventory / Future supply stay lines (not slots of Amazon's Total).
   const chosen = new Set((keys || []).filter((k) => SERIES_BY_KEY[k]));
   const stack = [], covered = new Set();
   const rest = {};
   let other = true;
   for (const k of BAR_BASE) {
-    if (k === "available") {
-      const aParts = AVAILABLE_PARTS.filter((p) => chosen.has(p));
-      if (aParts.length) {
-        stack.push(...aParts);
-        if (chosen.has(k) || aParts.length === AVAILABLE_PARTS.length) {
-          stack.push(k);
-          rest[k] = aParts;
-        } else other = false;
-        continue;
-      }
+    if (splitInbound && k === "inboundAll" && chosen.has(k)) {
+      // The bar setting: a ticked Inbound (all) stacks as its three parts.
+      stack.push(...BAR_SPLIT[k]);
+      covered.add(k);
+      continue;
     }
-    const parts = BAR_SPLIT[k] ? BAR_SPLIT[k].filter((p) => chosen.has(p)) : [];
-    if (parts.length) {
-      stack.push(...parts);
-      if (parts.length < BAR_SPLIT[k].length) other = false;
-    } else if (chosen.has(k)) {
-      if (splitInbound && BAR_SPLIT[k]) { stack.push(...BAR_SPLIT[k]); covered.add(k); } else stack.push(k);
-    } else other = false;
+    const all = SERIES_PARTS[k] || [];
+    const parts = all.filter((p) => chosen.has(p));
+    stack.push(...parts);
+    const whole = all.length > 0 && parts.length === all.length;
+    // A3 (B-1065): both Available parts keep the slot whole (rest = unsplit rows).
+    if (chosen.has(k) || (k === "available" && whole)) {
+      stack.push(k);
+      if (parts.length) rest[k] = parts;
+    } else if (!whole) other = false;
   }
-  if (chosen.has("ordered")) stack.push("ordered");
-  else for (const k of SHOPPER_PARTS) if (chosen.has(k)) stack.push(k);
+  // Reserved Total's parts are headline statuses already in the stack.
+  if (chosen.has("reservedTotal")) {
+    const parts = SERIES_PARTS.reservedTotal.filter((p) => chosen.has(p));
+    stack.push("reservedTotal");
+    if (parts.length) rest.reservedTotal = parts;
+  }
+  // Shopper's parts, then Ordered's rest (rows before v4.74: Ordered whole).
+  const sParts = SHOPPER_PARTS.filter((p) => chosen.has(p));
+  stack.push(...sParts);
+  if (chosen.has("ordered")) {
+    stack.push("ordered");
+    if (sParts.length) rest.ordered = sParts;
+  }
   const lines = Object.keys(SERIES_BY_KEY).filter((k) => chosen.has(k) && !stack.includes(k) && !covered.has(k));
   return { stack, lines, other, rest };
 }
@@ -728,10 +776,13 @@ const AVAIL_REST_STACK_COLOR = "#6aa3e8";
 const AVAIL_SLOW_STACK_COLOR = "#a9cbf2";
 function stackStyle(k, plan = null) {
   const s = SERIES_BY_KEY[k];
-  if (k === "ordered" || k === "availSelling") return { ...s, dash: "" };
-  if (k === "availSlow") return { ...s, color: AVAIL_SLOW_STACK_COLOR };
-  if (plan && plan.rest && plan.rest[k]) return { ...s, label: `${s.label} (rest)`, color: AVAIL_REST_STACK_COLOR };
-  return s;
+  let out = s;
+  if (k === "ordered" || k === "availSelling") out = { ...s, dash: "" };
+  else if (k === "availSlow") out = { ...s, color: AVAIL_SLOW_STACK_COLOR };
+  // B-1229 (v2.0.70): any parent's rest is labelled "(rest)"; it keeps the
+  // parent's colour - only Available's rest takes the mid blue (B-1065).
+  if (plan && plan.rest && plan.rest[k]) out = { ...out, label: `${s.label} (rest)`, ...(k === "available" ? { color: AVAIL_REST_STACK_COLOR } : {}) };
+  return out;
 }
 // B-608 (v4.78): short y-axis labels ("$150k", "12.5k") - "$150,000" ran
 // off the left edge of a phone-width chart. Values elsewhere stay exact.
@@ -993,14 +1044,21 @@ function chosenStacks(points, m, plan) {
     if (plan.other) {
       let covered = BAR_BASE.reduce((a, k) => a + (p[m][k] || 0), 0);
       // The Available slot as stacked (its parts + rest), so the column tops out at Amazon's Total.
-      if (plan.rest && plan.rest.available) covered += segs.filter((x) => x.key === "available" || plan.rest.available.includes(x.key)).reduce((a, x) => a + x.v, 0) - Math.max(0, p[m].available || 0);
+      // B-1229 (v2.0.70): the same for every headline parent with a rest.
+      for (const k of BAR_BASE) {
+        if (!(plan.rest && plan.rest[k])) continue;
+        covered += segs.filter((x) => x.key === k || plan.rest[k].includes(x.key)).reduce((a, x) => a + x.v, 0) - Math.max(0, p[m][k] || 0);
+      }
       const rest = Math.round(((p[m].total || 0) - covered) * 100) / 100;
       if (rest > 0) segs.push({ ...OTHER, v: rest });
     }
     // A row older than v4.68 has no Shopper figure: no segment, and the
     // column is not called All inventory.
-    const hasShopper = shopperKeys.length > 0 && shopperKeys.every((k) => p[m][k] != null);
-    if (hasShopper) for (const k of shopperKeys) segs.push({ ...stackStyle(k), v: Math.max(0, p[m][k] || 0) });
+    // B-1229 (v2.0.70): Ordered's parts stack inside its slot, Ordered's rest
+    // after them; a row before v4.74 has Ordered but no parts - a null part
+    // draws 0, so it draws Ordered whole (rest = Ordered - 0).
+    const hasShopper = shopperKeys.length > 0 && shopperKeys.some((k) => p[m][k] != null);
+    if (hasShopper) for (const k of shopperKeys) segs.push({ ...stackStyle(k, restSplitAt(p, m, k, plan) ? plan : null), v: stackValue(p, m, k, plan) });
     let acc = 0;
     const segments = segs.map((s) => ({ key: s.key, label: s.label, color: s.color, dash: s.dash, v: s.v, y0: acc, y1: (acc += s.v) }));
     const full = plan.other && hasShopper && (shopperKeys.includes("ordered") || shopperKeys.length === SHOPPER_PARTS.length);

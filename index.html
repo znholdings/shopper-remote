@@ -477,6 +477,11 @@
                 <!-- B-1064 (v2.0.54): one button opens the series checklist (#fbaChips). -->
                 <button type="button" class="ai-seg-btn ai-seg-lone fba-series-btn" id="fbaSeriesToggle" aria-expanded="false" aria-controls="fbaChips">Series</button>
               </div>
+              <!-- B-1231 (v2.0.70): the whole pipeline in one stack (lib/amzinv.js FULL_STACK_SERIES).
+                   Its own row - Retro keeps each row on one line (ui55-c.css) and row 3 is full at 375. -->
+              <div class="fba-ctl-row">
+                <button type="button" class="ai-seg-btn ai-seg-lone" id="fbaFullStack" aria-pressed="false">Full stack</button>
+              </div>
             </div>
             <div class="ai-custom" id="fbaCustom" hidden>
               <label>From <input type="date" id="fbaFrom" /></label>
