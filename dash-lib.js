@@ -349,6 +349,8 @@ function buildDoNext(input = {}) {
       lines: items.map((it) => ({ asin: String(it.asin || ""), sku: String(it.sku || ""), title: String(it.title || ""), units: num(it.units) || 0, level: String(it.level || ""), text: lineText(it) })),
       go: { label: "Pricing", target: "belowmin" },
       count: agPay + agSoon,
+      // B-1304 (v2.0.76): count is UNITS; The Daily's "N in all" counts products.
+      products: Math.max(skus, items.length),
     });
   }
 
@@ -368,6 +370,8 @@ function buildDoNext(input = {}) {
       lines: items.map((it) => ({ asin: String(it.asin || ""), sku: String(it.sku || ""), title: String(it.title || ""), units: num(it.units) || 0, text: strandedLineText(it) })),
       go: { label: "FBA Inventory", target: "fba" },
       count: strandedUnits,
+      // B-1304 (v2.0.76): count is UNITS; The Daily's "N in all" counts products.
+      products: Math.max(skus, items.length),
     });
   }
 
@@ -1059,6 +1063,21 @@ function dailyRowItems(row) {
   return out;
 }
 
+// B-1304 (v2.0.76): how many PRODUCTS a listing step holds when the phone's
+// count (fresh.all) is not there - the laptop. Its full listing list is the
+// count (the phone's fresh.all is that same list's length); no list -> the
+// row's own product count; a row whose count is units (stranded, aged) is
+// never counted by its units - its listed products then.
+const DAILY_UNIT_COUNT_STEPS = Object.freeze(["stranded", "aged"]);
+function dailyRowProducts(r, items, listings) {
+  const n = Array.isArray(items) ? items.length : 0;
+  if (!r) return n;
+  if (listings && Array.isArray(listings[r.id]) && listings[r.id].length) return n;
+  if (numOr(r.products) != null && numOr(r.products) >= 0) return numOr(r.products);
+  if (DAILY_UNIT_COUNT_STEPS.includes(r.id)) return n;
+  return Number(r.count) || 0;
+}
+
 // The wizard. rows = buildDoNext(...) (every row, ignored ones too);
 // opts.listings = { [step]: [{ key, text, asin, title }] } (the laptop's full
 // lists; default = the row's own lines); opts.fresh = { [step]: { keys, count } }
@@ -1083,7 +1102,7 @@ function buildDailySteps(rows, state, now, opts = {}) {
       const f = o.fresh && isObj(o.fresh[r.id]) ? o.fresh[r.id] : null;
       // B-1286 (v2.0.75): the laptop's own count of listings when it sent one
       // (a stranded row's count is UNITS, not listings).
-      s.allCount = Math.max(items.length, f && numOr(f.all) > 0 ? numOr(f.all) : Number(r.count) || 0);
+      s.allCount = Math.max(items.length, f && numOr(f.all) > 0 ? numOr(f.all) : dailyRowProducts(r, items, o.listings));
       const freshSet = new Set(f ? (Array.isArray(f.keys) ? f.keys : []) : dailyFreshKeys(st, r.id, items.map((x) => x.key)));
       s.freshItems = items.filter((x) => freshSet.has(x.key));
       s.freshCount = f && numOr(f.count) != null ? Math.max(numOr(f.count), s.freshItems.length) : s.freshItems.length;
@@ -1260,7 +1279,7 @@ function dailyOverview(input = {}) {
   });
   return { day: r ? r.yesterday : null, sections };
 }
-__m["daily-steps.js"] = { DAILY_STATE_VERSION, DAILY_DAY_MS, DAILY_IGNORE_CHOICES, DAILY_STEP_IDS, DAILY_STEP_LABELS, DAILY_LISTING_STEPS, DAILY_SEEN_MAX, DAILY_SEEN_KEYS_MAX, DAILY_FRESH_REMOTE_MAX, DAILY_REMOTE_LIST_STEPS, DAILY_REMOTE_LIST_MAX, DAILY_REMOTE_TEXT_MAX, dailyStepLabel, emptyDailyState, normalizeDailyState, dailyBuyingDay, isDailyIgnored, isDailyDoneToday, dailyWhenText, dailyDayText, DAILY_PAGE_SIZE, dailyPage, dailyUntilText, dailyListingKey, recordDailySeen, dailyFreshKeys, DAILY_ACTIONS, applyDailyAction, filterIgnoredRows, dailyIgnoredList, dailyRowItems, buildDailySteps, dailyRemoteView, dailyPayoutRows, dailyOverview };
+__m["daily-steps.js"] = { DAILY_STATE_VERSION, DAILY_DAY_MS, DAILY_IGNORE_CHOICES, DAILY_STEP_IDS, DAILY_STEP_LABELS, DAILY_LISTING_STEPS, DAILY_SEEN_MAX, DAILY_SEEN_KEYS_MAX, DAILY_FRESH_REMOTE_MAX, DAILY_REMOTE_LIST_STEPS, DAILY_REMOTE_LIST_MAX, DAILY_REMOTE_TEXT_MAX, dailyStepLabel, emptyDailyState, normalizeDailyState, dailyBuyingDay, isDailyIgnored, isDailyDoneToday, dailyWhenText, dailyDayText, DAILY_PAGE_SIZE, dailyPage, dailyUntilText, dailyListingKey, recordDailySeen, dailyFreshKeys, DAILY_ACTIONS, applyDailyAction, filterIgnoredRows, dailyIgnoredList, dailyRowItems, DAILY_UNIT_COUNT_STEPS, dailyRowProducts, buildDailySteps, dailyRemoteView, dailyPayoutRows, dailyOverview };
 })();
 root.ShopperGlance = Object.freeze(Object.assign({}, ...Object.values(__m)));
 })(self);
