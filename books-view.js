@@ -13,6 +13,15 @@
 //     the laptop answers another way (a card payment waiting for its Chase
 //     line, a line booked the wrong way round, a closed month) say so and
 //     have no picker.
+// B-1278 (v2.0.74): card-payment and wrong-way-round rows now get the
+// laptop's OWN answers (the row says which - lib/books-phone.js): the
+// laptop's lead line, a picker without the bank / card accounts on a card
+// payment, "Nothing - the Chase line books it" (booksLineClear = the page's
+// clear: true, confirmed first), and a wrong-way-round pick previewed first
+// (the laptop's words: what is voided, what is booked) and sent only on
+// "Re-book it". A line in a closed month still has no picker.
+// B-1277 (v2.0.74): Reload - asks the laptop to read the Books again now
+// (booksReload; the laptop allows it once a minute, and so does this button).
 // One pick at a time; a pick the laptop never picks up says so (5 minutes,
 // app.js) and nothing is re-sent on its own.
 (function () {
@@ -25,6 +34,14 @@
   let sending = "";
   const notes = {}; // row key -> { phase, text, at }
   const picked = {}; // row key -> account code chosen, not sent yet
+  // B-1278: = books/books.js NOTHING_CHOICE / NOTHING_LABEL (the test holds them together).
+  const NOTHING = "__nothing__";
+  const NOTHING_LABEL = "Nothing - the Chase line books it";
+  // B-1277: = lib/books-phone-reload.js BOOKS_PHONE_RELOAD_GAP_MS (the laptop refuses inside it anyway).
+  const RELOAD_GAP_MS = 60 * 1000;
+  let reloadUntil = 0;
+  let reloadAt = 0; // the books.at the Reload was pressed against (0 = not waiting)
+  let reloadTimer = null;
 
   function el(tag, cls, text) {
     const n = document.createElement(tag);
@@ -112,6 +129,19 @@
     if (n.phase !== "sending" && Date.now() - n.at > NOTE_MS) { delete notes[key]; return null; }
     return n;
   }
+  // B-1278: = books/books.js signPreviewText (money out = Dr <account> / Cr <bank>,
+  // money in = Dr <bank> / Cr <account>); the laptop sent the bank and the amount.
+  function signPreviewText(sign, code) {
+    const cents = Math.round(Number(sign && sign.cents) || 0);
+    const bank = String((sign && sign.bank) || "");
+    const legs = cents < 0 ? `Dr ${code} / Cr ${bank}` : `Dr ${bank} / Cr ${code}`;
+    return `Re-book this line: its current entry is voided, then ${legs} ${money(Math.abs(cents))} is booked.`;
+  }
+  function bookLabel(r, code) {
+    if (!code) return "Book it";
+    if (code === NOTHING) return "Set to nothing";
+    return r.kind === "sign" ? "Re-book it" : `Book to ${code}`;
+  }
   function rowEl(r) {
     const li = el("li", "bkm-row");
     li.dataset.key = r.key;
@@ -126,32 +156,72 @@
     if (!r.pick) {
       li.append(el("div", "bkm-lead", r.why || "Answer this one on the laptop."));
     } else {
+      // B-1278: the laptop's own lead line on a card payment / wrong-way-round row.
+      if (r.lead) li.append(el("div", "bkm-lead", r.lead));
       const box = el("div", "bkm-pick");
       const sel = el("select", "bkm-select");
       sel.setAttribute("aria-label", `Account for ${r.text}`);
-      // The account it sits on now (6900) is left out of the list - the pick is a move.
-      const blank = el("option", null, "Pick an account");
+      // A parked Journal line: the account it sits on now (6900) is left out of
+      // the list - the pick is a move (the laptop ignores a pick of it too).
+      // B-1278 (v2.0.74): a waiting bank line keeps its as-booked account in the
+      // list, as on the laptop - "pick its account again" re-books a line booked
+      // the wrong way round, and 2200 is still the usual answer on a late Gusto line.
+      const parked = String(r.key || "").startsWith("j:");
+      const blank = el("option", null, !parked && r.account ? `${r.account} (as booked)` : "Pick an account");
       blank.value = "";
       sel.append(blank);
+      // B-1278: "Nothing - the Chase line books it" (a card line booked before its Chase line).
+      if (r.nothing) {
+        const none = el("option", null, NOTHING_LABEL);
+        none.value = NOTHING;
+        sel.append(none);
+      }
+      const omit = Array.isArray(r.omit) ? r.omit.map(String) : [];
       for (const a of data.accounts || []) {
-        if (String(a[0]) === String(r.account)) continue;
+        if (parked && String(a[0]) === String(r.account)) continue;
+        if (omit.includes(String(a[0]))) continue;
         const o = el("option", null, `${a[0]} ${a[1]}`);
         o.value = String(a[0]);
         sel.append(o);
       }
       sel.value = picked[r.key] || "";
-      const btn = el("button", "primary-btn bkm-book", picked[r.key] ? `Book to ${picked[r.key]}` : "Book it");
+      const btn = el("button", "primary-btn bkm-book", bookLabel(r, picked[r.key]));
       btn.type = "button";
       btn.disabled = !picked[r.key] || !!sending;
       sel.disabled = !!sending;
+      // B-1278: a wrong-way-round pick says what is voided and what is booked before anything is sent.
+      const preview = el("div", "bkm-sign-preview");
+      preview.setAttribute("role", "status");
+      const cancel = el("button", "secondary-btn bkm-cancel", "Cancel");
+      cancel.type = "button";
+      const showPreview = () => {
+        const on = r.kind === "sign" && !!r.sign && !!picked[r.key];
+        preview.textContent = on ? signPreviewText(r.sign, picked[r.key]) : "";
+        preview.hidden = !on;
+        cancel.hidden = !on;
+      };
       sel.addEventListener("change", () => {
         picked[r.key] = sel.value;
         btn.disabled = !sel.value || !!sending;
-        btn.textContent = sel.value ? `Book to ${sel.value}` : "Book it";
+        btn.textContent = bookLabel(r, sel.value);
+        showPreview();
       });
-      btn.addEventListener("click", () => { if (picked[r.key]) pick(r, picked[r.key]); });
-      box.append(sel, btn);
-      li.append(box);
+      cancel.addEventListener("click", () => {
+        delete picked[r.key];
+        sel.value = "";
+        btn.disabled = true;
+        btn.textContent = bookLabel(r, "");
+        showPreview();
+      });
+      btn.addEventListener("click", () => {
+        const code = picked[r.key];
+        if (!code) return;
+        if (code === NOTHING && !confirm(`Set this card line to nothing? Its entries are voided - the Chase line books this payment.`)) return;
+        pick(r, code);
+      });
+      box.append(sel, btn, cancel);
+      li.append(box, preview);
+      showPreview();
     }
     if (n) li.append(el("div", "bkm-note bkm-note-" + n.phase, n.text));
     return li;
@@ -202,6 +272,7 @@
 
   function render(books) {
     data = books && typeof books === "object" ? books : null;
+    reloadState();
     const key = JSON.stringify(data) + "|" + JSON.stringify(notes) + "|" + sending;
     if (key === drawnKey) { statusLine(); return; }
     drawnKey = key;
@@ -218,11 +289,15 @@
       return;
     }
     sending = r.key;
-    notes[r.key] = { phase: "sending", text: `Booking to ${code}...`, at: Date.now() };
+    const nothing = code === NOTHING;
+    notes[r.key] = { phase: "sending", text: nothing ? "Setting it to nothing..." : `Booking to ${code}...`, at: Date.now() };
     redraw();
     let id = null;
     try {
-      id = await R.sendCommand("booksLineSet", { lineId: r.lineId, entryId: r.entryId || "", sourceTab: r.sourceTab || "", month: r.month || "", account: code, remember: rememberOn() && (!r.sourceTab || r.sourceTab === "Bank Lines") });
+      // B-1278: "Nothing" is its own command (the laptop fixes clear / account / remember).
+      id = nothing
+        ? await R.sendCommand("booksLineClear", { lineId: r.lineId, entryId: r.entryId || "", sourceTab: r.sourceTab || "", month: r.month || "" })
+        : await R.sendCommand("booksLineSet", { lineId: r.lineId, entryId: r.entryId || "", sourceTab: r.sourceTab || "", month: r.month || "", account: code, remember: rememberOn() && (!r.sourceTab || r.sourceTab === "Bank Lines") });
     } catch (e) { id = null; }
     if (!id) {
       sending = "";
@@ -237,7 +312,10 @@
     const res = row && row.result && typeof row.result === "object" ? row.result : null;
     sending = "";
     delete picked[r.key];
-    if (status === "done") {
+    if (status === "done" && nothing) {
+      const v = res && Number(res.voided) > 0 ? ` (${res.voided} entr${Number(res.voided) === 1 ? "y" : "ies"} voided)` : "";
+      notes[r.key] = { phase: "done", text: `${r.date} ${r.text.slice(0, 40)}: set to nothing - the Chase line books this payment${v}.`, at: Date.now() };
+    } else if (status === "done") {
       const rem = res && res.remembered;
       const extra = res && res.corrected ? ` (its month is closed - a correcting entry dated ${res.postedOn || "today"})` : "";
       const said = rem && rem.ruleId ? ` Remembered: always book ${rem.key} to ${rem.account}.` : rem && rem.skipped ? ` Not remembered (${rem.skipped}).` : "";
@@ -250,7 +328,58 @@
     redraw();
   }
 
+  // ---- B-1277: Reload ----
+  function reloadState() {
+    const btn = $("bkmReload");
+    const note = $("bkmReloadNote");
+    if (!btn) return;
+    const now = Date.now();
+    // The fresh copy arrived (its read time moved): the wait is over.
+    if (reloadAt && data && Number(data.at) > reloadAt) {
+      reloadAt = 0;
+      if (note) { note.textContent = "Reloaded."; note.dataset.phase = "done"; }
+    }
+    const left = Math.max(0, Math.ceil((reloadUntil - now) / 1000));
+    // A minute on and still the old copy: say so (the laptop keeps its last good read when a read fails).
+    if (reloadAt && left === 0) {
+      reloadAt = 0;
+      if (note) { note.textContent = "No fresh copy came back - this is the laptop's last read (its log says why)."; note.dataset.phase = "failed"; }
+    }
+    btn.disabled = left > 0;
+    btn.textContent = left > 0 ? `Reload (${left} s)` : "Reload";
+    if (reloadTimer) { clearTimeout(reloadTimer); reloadTimer = null; }
+    if (left > 0) reloadTimer = setTimeout(reloadState, 1000);
+  }
+  async function reload() {
+    const R = self.ShopperRemote;
+    const note = $("bkmReloadNote");
+    const say = (text, phase) => { if (note) { note.textContent = text; note.dataset.phase = phase; } };
+    if (!R || !R.sendCommand || Date.now() < reloadUntil) return;
+    if (R.laptopOnline && !R.laptopOnline()) { say("The laptop isn't connected - nothing was sent.", "failed"); return; }
+    reloadUntil = Date.now() + RELOAD_GAP_MS;
+    reloadAt = Number(data && data.at) || 1;
+    say("Asking the laptop to read the Books again...", "sending");
+    reloadState();
+    let id = null;
+    try { id = await R.sendCommand("booksReload", {}); } catch (e) { id = null; }
+    if (!id) { reloadAt = 0; reloadUntil = 0; say("Not sent - the phone could not reach the laptop's relay. Try again.", "failed"); reloadState(); return; }
+    let status = "done";
+    try { if (R.waitFor) status = await R.waitFor(id); } catch (e) { status = "done"; }
+    if (status === "done") {
+      if (reloadAt) say("The laptop is reading the Books - they show here in a moment.", "sending");
+    } else {
+      let row = null;
+      try { if (R.readCommand) row = await R.readCommand(id); } catch (e) { row = null; }
+      const res = row && row.result && typeof row.result === "object" ? row.result : null;
+      reloadAt = 0;
+      say(status === "timeout" ? "No answer from the laptop in 5 minutes." : `Not reloaded: ${String((res && res.error) || (row && row.reason) || status)}`, "failed");
+    }
+    reloadState();
+  }
+
   function wire() {
+    const rb = $("bkmReload");
+    if (rb) rb.addEventListener("click", () => { reload(); });
     const box = $("bkmRemember");
     if (box) {
       box.checked = rememberOn();

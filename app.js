@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.73";
+const APP_BUILD = "v2.0.74";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -354,6 +354,7 @@ const REMOTE_LABELS = {
   screenAsk: "Ask Claude", screenSummaryWrite: "Write the summary again",
   pricingRowSend: "Send a Pricing row", // B-1198 (v2.0.68)
   booksLineSet: "Book a Needs you line", // B-1232 (v2.0.73)
+  booksLineClear: "Card line - nothing", booksReload: "Reload the Books", // B-1278 / B-1277 (v2.0.74)
 };
 
 // P-25, half one: proof the tap landed. A command that is still pending or
@@ -2949,6 +2950,7 @@ function renderDashboard(d, p) {
       plaid: ex.plaid || null,
       virtualBank: d.spend.bankBalance,
       payoutNext30: ex.cash && ex.cash.payoutNext30 ? ex.cash.payoutNext30 : null,
+      payoutNext: ex.payoutNext || null, // B-1268 (v2.0.74): Amazon's open settlement
       arrivalsToday: d.pipeline.available ? d.pipeline.arrivalsToday : null,
       overdue: arrCounts ? arrCounts.overdue : null,
     },

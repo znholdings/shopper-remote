@@ -64,5 +64,11 @@
 .daily-pane .dy-sum-item { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px 10px; padding: 6px 0; border-top: 1px solid var(--s-line-soft); overflow-wrap: anywhere; }
 .daily-pane .dy-sum-head { display: block; margin-top: 6px; }
 .daily-pane .dy-home { min-height: 44px; }
+/* B-1272 (v2.0.74): Mark done / Dismiss / Undo under each notification. */
+.daily-pane .dy-notif-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+.daily-pane .dy-notif-actions .dy-notif-done { min-height: 40px; }
+.daily-pane .dy-notif-actions .linkish { min-height: 40px; }
+/* B-1271 (v2.0.74): "Show N more" under a long listing step. */
+.daily-pane .dy-more { align-self: start; min-height: 40px; }
 
 [hidden] { display: none !important; }

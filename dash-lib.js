@@ -893,6 +893,30 @@ function dailyWhenText(ms) {
   }
 }
 
+// B-1268 (v2.0.74): "Mon 10/27" (Central) - a payout's day.
+function dailyDayText(ms) {
+  const n = numOr(ms);
+  if (n == null) return "";
+  try {
+    return new Intl.DateTimeFormat("en-US", { timeZone: "America/Chicago", weekday: "short", month: "numeric", day: "numeric" }).format(new Date(n));
+  } catch (e) {
+    return new Date(n).toISOString().slice(0, 10);
+  }
+}
+
+// B-1271 (v2.0.74): a long listing step shows a page at a time ("Show N more").
+// shown = how many are on screen now (null = the first page).
+// -> { items, left, more (the next press adds), next (shown after it) }
+const DAILY_PAGE_SIZE = 50;
+function dailyPage(list, shown, size = DAILY_PAGE_SIZE) {
+  const arr = Array.isArray(list) ? list : [];
+  const step = numOr(size) > 0 ? Math.floor(numOr(size)) : DAILY_PAGE_SIZE;
+  const n = Math.max(step, numOr(shown) > 0 ? Math.floor(numOr(shown)) : step);
+  const items = arr.slice(0, n);
+  const left = arr.length - items.length;
+  return { items, left, more: Math.min(step, left), next: n + step };
+}
+
 // "until Mon 10/20, 3:12 AM" / "forever".
 function dailyUntilText(entry) {
   if (!entry || !entry.ignoredAt) return "";
@@ -1075,6 +1099,39 @@ function dailyRemoteView(state, listings, at) {
 }
 
 // ---- the Overview ----------------------------------------------------------
+// B-1268 (v2.0.74): Amazon's next payout (g = lib/payout-next.js payoutGlance()).
+// The date is Amazon's own end date, or "about" its start + the last closed
+// period's length; neither on file -> "closing date not on file". Never guessed.
+function dailyPayoutRows(g, now) {
+  const rows = [];
+  if (!g || !g.known) {
+    rows.push({ label: "Next Amazon payout", value: "not read yet", sub: g && g.error ? `not read: ${g.error}` : "read from Amazon every 6 hours" });
+    return { rows, note: "Amazon's next payout date is not on file yet - the 30-day figure is the Cash Flow projection." };
+  }
+  const n = g.next;
+  if (n && numOr(n.amount) != null) {
+    const when = numOr(n.closesAt) != null ? `closes ${dailyDayText(n.closesAt)}`
+      : numOr(n.closesAbout) != null ? `closes about ${dailyDayText(n.closesAbout)} (${n.cycleDays}-day periods)`
+      : "closing date not on file";
+    const bits = [numOr(n.since) != null ? `building since ${dailyDayText(n.since)}` : "", when, n.others > 0 ? `+${n.others} more open` : ""].filter(Boolean);
+    rows.push({ label: "Next Amazon payout", value: money2(n.amount), sub: bits.join(" · "), dir: numOr(n.amount) < 0 ? "down" : "flat" });
+  } else {
+    rows.push({ label: "Next Amazon payout", value: "none open", sub: "Amazon has no open settlement on file" });
+  }
+  const w = g.onItsWay;
+  if (w && numOr(w.amount) != null) {
+    rows.push({
+      label: w.failed ? "Amazon payout FAILED" : "Amazon payout on its way",
+      value: money2(w.amount),
+      sub: [numOr(w.sentAt) != null ? `sent ${dailyDayText(w.sentAt)}` : "", w.status ? `Amazon: ${w.status}` : ""].filter(Boolean).join(" · "),
+      dir: w.failed ? "down" : "flat",
+    });
+  }
+  const last = g.last && numOr(g.last.amount) != null ? ` Last paid ${money2(g.last.amount)}${numOr(g.last.paidAt) != null ? ` on ${dailyDayText(g.last.paidAt)}` : ""}.` : "";
+  const age = numOr(g.readAt) != null && numOr(now) != null ? ageText(g.readAt, now) : "";
+  return { rows, note: `Amazon payout read ${age || "-"}${g.error ? ` (the last read failed: ${g.error})` : ""}.${last} The 30-day figure is the Cash Flow projection.` };
+}
+
 // input (all optional, null = not read):
 //   cash      the Cash Flow summary ({ days }) - yesterday vs the 7 days before it
 //   now       ms
@@ -1083,6 +1140,7 @@ function dailyRemoteView(state, listings, at) {
 //   aged      agedGlance()
 //   plaid     plaidGlance()   virtualBank (number)
 //   payoutNext30  { total, low, high } (Cash Flow summary) - the projected payout
+//   payoutNext    lib/payout-next.js payoutGlance() - Amazon's open settlement (B-1268)
 //   arrivalsToday, overdue
 // -> { day, sections: [{ id, title, rows: [{ label, value, sub, dir }] , note }] }
 const NR = "not read yet";
@@ -1151,16 +1209,17 @@ function dailyOverview(input = {}) {
     if (y.read > 0) payY = y.payout;
   }
   const plaidAge = i.plaid && i.plaid.at && now != null ? ageText(i.plaid.at, now) : "";
+  const po = dailyPayoutRows(i.payoutNext, now);
   sections.push({
     id: "cash",
     title: "Cash",
     rows: bank.concat([
       { label: "Virtual Bank", value: vb == null ? NR : money2(vb), dir: vb != null && vb < 0 ? "down" : "flat" },
+    ], po.rows, [
       { label: "Est. Amazon payout yesterday", value: payY == null ? NR : money2(payY) },
       { label: "Amazon payout, next 30 days", value: pay ? money0(pay.total) : NR, sub: pay ? `projected · ${money0(pay.low)} to ${money0(pay.high)}` : "" },
     ]),
-    // The date of Amazon's next disbursement is not stored anywhere - never guessed.
-    note: (plaidAge ? `Bank balances read ${plaidAge}. ` : "") + "Amazon's next payout date is not on file - the 30-day figure is the Cash Flow projection.",
+    note: (plaidAge ? `Bank balances read ${plaidAge}. ` : "") + po.note,
   });
 
   // Arrivals.
@@ -1176,7 +1235,7 @@ function dailyOverview(input = {}) {
   });
   return { day: r ? r.yesterday : null, sections };
 }
-__m["daily-steps.js"] = { DAILY_STATE_VERSION, DAILY_DAY_MS, DAILY_IGNORE_CHOICES, DAILY_STEP_IDS, DAILY_STEP_LABELS, DAILY_LISTING_STEPS, DAILY_SEEN_MAX, DAILY_SEEN_KEYS_MAX, DAILY_FRESH_REMOTE_MAX, dailyStepLabel, emptyDailyState, normalizeDailyState, dailyBuyingDay, isDailyIgnored, isDailyDoneToday, dailyWhenText, dailyUntilText, dailyListingKey, recordDailySeen, dailyFreshKeys, DAILY_ACTIONS, applyDailyAction, filterIgnoredRows, dailyIgnoredList, dailyRowItems, buildDailySteps, dailyRemoteView, dailyOverview };
+__m["daily-steps.js"] = { DAILY_STATE_VERSION, DAILY_DAY_MS, DAILY_IGNORE_CHOICES, DAILY_STEP_IDS, DAILY_STEP_LABELS, DAILY_LISTING_STEPS, DAILY_SEEN_MAX, DAILY_SEEN_KEYS_MAX, DAILY_FRESH_REMOTE_MAX, dailyStepLabel, emptyDailyState, normalizeDailyState, dailyBuyingDay, isDailyIgnored, isDailyDoneToday, dailyWhenText, dailyDayText, DAILY_PAGE_SIZE, dailyPage, dailyUntilText, dailyListingKey, recordDailySeen, dailyFreshKeys, DAILY_ACTIONS, applyDailyAction, filterIgnoredRows, dailyIgnoredList, dailyRowItems, buildDailySteps, dailyRemoteView, dailyPayoutRows, dailyOverview };
 })();
 root.ShopperGlance = Object.freeze(Object.assign({}, ...Object.values(__m)));
 })(self);

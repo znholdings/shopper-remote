@@ -37,4 +37,13 @@
 #booksPane .bkm-empty { padding: 12px 0; }
 :root[data-theme="retro"] #booksPane .bkm-month { font-family: var(--s-pixel) !important; font-weight: 400 !important; font-size: 9px !important; line-height: 1.6 !important; border-radius: 0; }
 :root[data-theme="retro"] #booksPane .bkm-pick .bkm-select { border-radius: 0; border: 2px solid var(--s-line); }
+/* B-1277 (v2.0.74): Reload, top right; what it is doing to its left. */
+#booksPane .bkm-head { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin: 6px 0; min-width: 0; }
+#booksPane .bkm-head .bkm-reload-note { flex: 1 1 auto; min-width: 0; color: var(--s-text-muted); overflow-wrap: anywhere; }
+#booksPane .bkm-head .bkm-reload-note[data-phase="done"] { color: var(--s-green-ink); }
+#booksPane .bkm-head .bkm-reload-note[data-phase="failed"] { color: var(--s-red-ink); }
+#booksPane .bkm-head #bkmReload { flex: 0 0 auto; white-space: nowrap; }
+/* B-1278 (v2.0.74): a wrong-way-round pick says what it does before it is sent. */
+#booksPane .bkm-pick .bkm-cancel { flex: 0 0 auto; white-space: nowrap; }
+#booksPane .bkm-sign-preview { margin-top: 6px; font-size: 12px; font-weight: 600; color: var(--s-text); overflow-wrap: anywhere; }
 [hidden] { display: none !important; }

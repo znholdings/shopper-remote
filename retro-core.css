@@ -63,7 +63,7 @@
 :root[data-theme="retro"] td { font-size: var(--rt-body); }
 
 /* ── 2. Headings (pixel, uppercase) ── */
-:root[data-theme="retro"] :is(h1, h2, h3, h4, h5, h6, summary, legend,
+:root[data-theme="retro"] :is(h1, h2, h3, h4, h5, h6, summary, legend, .dy-ov-title, .dy-sum-head, .dy-top-title,
 .s-page-title, .s-h2, .s-h3, .section-head, .bl-section-head, .dash-section-head, .section-title, .score-section-title,
 .pp-title, .ai-title, .ai-h2, .dash-title, .setup-title, .wz-title, .outcome-title, .rh-title,
 .spend-group-title, .run-review-head, .report-history-head, .recent-orders-head, .line-group-head, .scanpower-title,
@@ -76,20 +76,20 @@
 :root[data-theme="retro"] :is(h3, .s-h3, .section-head, .bl-section-head, .dash-section-head, .section-title, .score-section-title, .ai-h2,
 .wz-title, .outcome-title, .rh-title, .spend-group-title, .run-review-head, .report-history-head, .recent-orders-head,
 .scanpower-title, .cf-card-head, .bq-card-head, .cfm-head, .fba-head, .inv-box-head, .ask-plan-title, .bk-card-head, .bsh-card-head) { font-size: var(--rt-h3) !important; margin: 0 0 var(--rt-3); }
-:root[data-theme="retro"] :is(h4, h5, h6, summary, legend, .line-group-head) { font-size: var(--rt-h4) !important; }
+:root[data-theme="retro"] :is(h4, h5, h6, summary, legend, .line-group-head, .dy-ov-title, .dy-sum-head, .dy-top-title) { font-size: var(--rt-h4) !important; }
 :root[data-theme="retro"] summary { cursor: pointer; padding: var(--rt-1) 0; }
 
 /* ── 3. Labels, captions, counts, chips (pixel, small) ── */
 :root[data-theme="retro"] :is(label:not(.s-switch):not(.bm-choice):not(.radio-label), .bm-box-head, .t-label, .bs-label, .s-stat-label, .pp-card-label, .bq-tile-label,
 .status-label, .spend-label, .snapshot-label, .score-row-label, .score-field-label,
-.spending-goal-label, .eyebrow, .rh-eyebrow, .checkbox-label, .dt-label, .kc-big-l, .lh-level-label, .ai-fc-src, .ba-col-name) {
+.spending-goal-label, .eyebrow, .rh-eyebrow, .checkbox-label, .dt-label, .kc-big-l, .lh-level-label, .ai-fc-src, .dy-step-n, .ba-col-name) {
   font-family: var(--s-pixel) !important; font-weight: 400 !important; font-size: var(--rt-label) !important;
   line-height: 1.6 !important; text-transform: uppercase;
 }
-:root[data-theme="retro"] :is(.count, .s-pill, .pill, .pc-badge, .l-status, .pp-tab-count, .d-state, .oc-chip, .dn-rank, .gl-rank, .dash-count, .cl-chip) {
+:root[data-theme="retro"] :is(.count, .s-pill, .pill, .pc-badge, .l-status, .pp-tab-count, .d-state, .oc-chip, .dn-rank, .gl-rank, .dn-num, .dn-head .dn-num, .gl-cnt, .dy-chip, .dash-count, .cl-chip) {
   font-family: var(--s-pixel) !important; font-weight: 400 !important; font-size: var(--rt-cap) !important; line-height: 1.6 !important; text-transform: uppercase;
 }
-:root[data-theme="retro"] :is(.s-pill, .pill, .pc-badge, .oc-chip, .cl-chip) { border: 1px solid currentColor; padding: 2px 6px; }
+:root[data-theme="retro"] :is(.s-pill, .pill, .pc-badge, .dn-num, .gl-cnt, .oc-chip, .cl-chip) { border: 1px solid currentColor; padding: 2px 6px; }
 
 /* ── 4. Big figures: normal font, bold, one size (B-804) ── */
 :root[data-theme="retro"] :is(.t-value, .bs-value, .s-stat-value, .pp-card-figure, .total-value, .status-value, .spend-value,
@@ -164,14 +164,14 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input:not(
 /* ── 8. Cards: square, black outline, hard shadow, one padding ── */
 :root[data-theme="retro"] :is(.s-card, .s-stat, .panel, .card, .pp-card, .ai-card, .dash-card, .setup-section, .status-card, .rr-card, .bank-card, .bl-card,
 .total-box, .spend-card, .status-box, .bq-tile, .report-card, .prompt-card, .fba-card, .gen-card, .safety-box, .modal-box, .keepa-warning-box,
-.preview-section, .log-section, .pp-subpanel, .section, .line, .run-hero, .need-card, .dash-tile, .total, .inv-total, .report-sheet-box, .dt-tile, .dn-row, .bmm-sendbar, .ask-plan, .labels-card, .labels-unsaved, .cl-q, .cl-phone) {
+.preview-section, .log-section, .pp-subpanel, .section, .line, .run-hero, .need-card, .dash-tile, .total, .inv-total, .report-sheet-box, .dt-tile, .dn-row, .bmm-sendbar, .dy-ov-box, .dy-notif, .ask-plan, .labels-card, .labels-unsaved, .cl-q, .cl-phone) {
   border: var(--rt-line) !important; box-shadow: var(--rt-raise) !important; background-image: none !important;
 }
 :root[data-theme="retro"] :is(.s-card, .panel, .card, .ai-card, .dash-card, .setup-section, .status-card, .rr-card, .bank-card, .bl-card,
 .report-card, .prompt-card, .fba-card, .gen-card, .modal-box, .section, .run-hero, .need-card, .preview-section, .log-section, .labels-card) { padding: var(--rt-4) !important; }
-:root[data-theme="retro"] :is(.s-stat, .pp-card, .dash-tile, .total, .inv-total, .bq-tile, .total-box, .spend-card, .status-box, .line, .dt-tile, .dn-row, .ask-plan, .cl-q, .cl-phone) { padding: var(--rt-3) !important; }
+:root[data-theme="retro"] :is(.s-stat, .pp-card, .dash-tile, .total, .inv-total, .bq-tile, .total-box, .spend-card, .status-box, .line, .dt-tile, .dn-row, .dy-ov-box, .dy-notif, .ask-plan, .cl-q, .cl-phone) { padding: var(--rt-3) !important; }
 /* A card inside a card: outline only, no second shadow. */
-:root[data-theme="retro"] :is(.section, .panel, .s-card, .card, .cl-phone) :is(.line, .need-card, .s-stat, .total, .inv-total, .dash-tile, .dn-row, .ask-plan, .cl-q) { box-shadow: none !important; }
+:root[data-theme="retro"] :is(.section, .panel, .s-card, .card, .cl-phone) :is(.line, .need-card, .s-stat, .total, .inv-total, .dash-tile, .dn-row, .dy-ov-box, .dy-notif, .ask-plan, .cl-q) { box-shadow: none !important; }
 :root[data-theme="retro"] details { border: var(--rt-line); box-shadow: var(--rt-raise); padding: var(--rt-2) var(--rt-3); background: var(--s-surface); }
 :root[data-theme="retro"] details[open] > summary { margin-bottom: var(--rt-2); }
 
@@ -194,7 +194,7 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input:not(
 /* ── 11. Text inside a pixel thing stays pixel (a count in a tab, the
       label inside a sidebar link, a <b> inside a heading). ── */
 :root[data-theme="retro"] body :is(button:not(.s-stat), h1, h2, h3, h4, h5, h6, summary, legend, label:not(.s-switch):not(.bm-choice):not(.radio-label), th,
-.s-nav-link, .s-nav-sublink, .s-tab, .pp-tab, .density-btn, .ai-seg-btn, .cfm-tab, .section-head, .s-page-title, .pp-title) *:not(input):not(select):not(textarea):not([class*="note"]):not([class*="hint"]):not([class*="blurb"]):not(.muted):not(.subtle):not(small) {
+.s-nav-link, .s-nav-sublink, .s-tab, .pp-tab, .density-btn, .ai-seg-btn, .cfm-tab, .section-head, .s-page-title, .pp-title) *:not(input):not(select):not(textarea):not([class*="note"]):not([class*="hint"]):not([class*="blurb"]):not(.muted):not(.subtle):not(small):not(.dn-num) {
   font-family: inherit !important;
 }
 :root[data-theme="retro"] :is(p, li) { line-height: 1.25 !important; }

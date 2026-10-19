@@ -457,6 +457,8 @@
            laptop from the Books page's own reply (lib/books-phone.js); a pick is the Books
            page picker's own message (remote/books-view.js draws it). -->
       <div id="booksPane" hidden>
+        <!-- B-1277 (v2.0.74): Reload = the laptop reads the Books again now (once a minute). -->
+        <div class="bkm-head"><span id="bkmReloadNote" class="bkm-reload-note small" role="status"></span><button type="button" class="secondary-btn" id="bkmReload">Reload</button></div>
         <p id="bkmStatus" class="muted small"></p>
         <div id="bkmBanner" class="ai-banner ai-banner-warn" hidden></div>
         <div id="bkmBody" hidden>

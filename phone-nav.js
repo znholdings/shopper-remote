@@ -82,9 +82,25 @@
 
   // ---- the edge swipe (passive: the page still scrolls normally) ----------
   var touch = null;
-  function swipeStart(x, y) {
+  // B-1274 (v2.0.74): a finger on a table (or any box) that scrolls sideways
+  // and is NOT scrolled fully left is scrolling that box back - a swipe to
+  // the right there must not open the sidebar. Walks up from where the
+  // finger landed; a box counts only when it can really scroll sideways
+  // (overflow-x auto/scroll and wider inside than out).
+  function scrolledSidewaysAt(el) {
+    var win = doc.defaultView;
+    for (var n = el; n && n.nodeType === 1 && n !== doc.body && n !== doc.documentElement; n = n.parentElement) {
+      if (!(n.scrollLeft > 0) || !(n.scrollWidth > n.clientWidth + 1)) continue;
+      var ox = "";
+      try { ox = win.getComputedStyle(n).overflowX; } catch (e) { ox = ""; }
+      if (ox === "auto" || ox === "scroll" || ox === "overlay") return true;
+    }
+    return false;
+  }
+  function swipeStart(x, y, target) {
     var opened = isOpen();
-    touch = (opened || (x <= EDGE && canOpen())) ? { x: x, y: y, opened: opened } : null;
+    var canStart = opened || (x <= EDGE && canOpen() && !scrolledSidewaysAt(target));
+    touch = canStart ? { x: x, y: y, opened: opened } : null;
     return !!touch;
   }
   function swipeMove(x, y) {
@@ -97,7 +113,7 @@
   }
   doc.addEventListener("touchstart", function (e) {
     if (!e.touches || e.touches.length !== 1) { touch = null; return; }
-    swipeStart(e.touches[0].clientX, e.touches[0].clientY);
+    swipeStart(e.touches[0].clientX, e.touches[0].clientY, e.target);
   }, { passive: true });
   doc.addEventListener("touchmove", function (e) {
     if (!touch || !e.touches || !e.touches.length) return;
@@ -115,5 +131,5 @@
     }).observe(bar);
   }
 
-  self.ShopperPhoneNav = Object.freeze({ open: open, close: close, isOpen: isOpen, swipeStart: swipeStart, swipeMove: swipeMove, EDGE: EDGE, PULL: PULL });
+  self.ShopperPhoneNav = Object.freeze({ open: open, close: close, isOpen: isOpen, swipeStart: swipeStart, swipeMove: swipeMove, scrolledSidewaysAt: scrolledSidewaysAt, EDGE: EDGE, PULL: PULL });
 })();
