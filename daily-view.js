@@ -94,7 +94,8 @@
   function show(toSummary) {
     if (!ctx) return;
     const G = self.ShopperGlance;
-    const m = G.buildDailySteps(ctx.rows, effectiveState(), Date.now(), { fresh: (ctx.daily && ctx.daily.fresh) || {} });
+    // B-1286 (v2.0.75): the laptop's FULL pricing-error / stranded lists (dashboard.extra.daily.lists).
+    const m = G.buildDailySteps(ctx.rows, effectiveState(), Date.now(), { fresh: (ctx.daily && ctx.daily.fresh) || {}, listings: (ctx.daily && ctx.daily.lists) || {} });
     steps = m.steps;
     doneToday = m.doneToday;
     session.clear();

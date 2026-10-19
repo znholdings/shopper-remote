@@ -815,6 +815,14 @@ const DAILY_LISTING_STEPS = Object.freeze(["belowMin", "pricingErrors", "voc", "
 const DAILY_SEEN_MAX = 1500;
 const DAILY_SEEN_KEYS_MAX = 2000; // one "seen" message
 const DAILY_FRESH_REMOTE_MAX = 60;
+// B-1286 (v2.0.75): the phone gets EVERY pricing-error and stranded listing
+// for The Daily (not the Dashboard payload's 15 / 20) - key + one short line
+// each, up to 250 per step (about 30 KB at most for both), and the new-listing
+// keys for those steps up to the same 250. Past 250 the phone still says how
+// many more are on the laptop.
+const DAILY_REMOTE_LIST_STEPS = Object.freeze(["pricingErrors", "stranded"]);
+const DAILY_REMOTE_LIST_MAX = 250;
+const DAILY_REMOTE_TEXT_MAX = 110;
 
 const isObj = (v) => !!v && typeof v === "object" && !Array.isArray(v);
 const numOr = (v) => {
@@ -1072,8 +1080,10 @@ function buildDailySteps(rows, state, now, opts = {}) {
       const items = o.listings && Array.isArray(o.listings[r.id]) && o.listings[r.id].length ? o.listings[r.id] : dailyRowItems(r);
       s.kind = "listing";
       s.items = items;
-      s.allCount = Math.max(items.length, Number(r.count) || 0);
       const f = o.fresh && isObj(o.fresh[r.id]) ? o.fresh[r.id] : null;
+      // B-1286 (v2.0.75): the laptop's own count of listings when it sent one
+      // (a stranded row's count is UNITS, not listings).
+      s.allCount = Math.max(items.length, f && numOr(f.all) > 0 ? numOr(f.all) : Number(r.count) || 0);
       const freshSet = new Set(f ? (Array.isArray(f.keys) ? f.keys : []) : dailyFreshKeys(st, r.id, items.map((x) => x.key)));
       s.freshItems = items.filter((x) => freshSet.has(x.key));
       s.freshCount = f && numOr(f.count) != null ? Math.max(numOr(f.count), s.freshItems.length) : s.freshItems.length;
@@ -1093,9 +1103,24 @@ function dailyRemoteView(state, listings, at) {
   for (const step of DAILY_LISTING_STEPS) {
     const items = listings && Array.isArray(listings[step]) ? listings[step] : [];
     const keys = dailyFreshKeys(st, step, items.map((x) => x && x.key));
-    fresh[step] = { keys: keys.slice(0, DAILY_FRESH_REMOTE_MAX), count: keys.length, all: items.length };
+    const listed = DAILY_REMOTE_LIST_STEPS.includes(step);
+    fresh[step] = { keys: keys.slice(0, listed ? DAILY_REMOTE_LIST_MAX : DAILY_FRESH_REMOTE_MAX), count: keys.length, all: items.length };
   }
-  return { at: numOr(at), steps: st.steps, fresh };
+  // B-1286: the listings themselves for the steps the Dashboard payload cuts short.
+  const lists = {};
+  for (const step of DAILY_REMOTE_LIST_STEPS) {
+    const items = listings && Array.isArray(listings[step]) ? listings[step] : [];
+    const out = [];
+    for (const x of items) {
+      if (out.length >= DAILY_REMOTE_LIST_MAX) break;
+      const key = x && String(x.key || "").slice(0, 120);
+      if (key) out.push({ key, text: String(x.text || key).slice(0, DAILY_REMOTE_TEXT_MAX) });
+    }
+    if (out.length) lists[step] = out;
+  }
+  const view = { at: numOr(at), steps: st.steps, fresh };
+  if (Object.keys(lists).length) view.lists = lists;
+  return view;
 }
 
 // ---- the Overview ----------------------------------------------------------
@@ -1235,7 +1260,7 @@ function dailyOverview(input = {}) {
   });
   return { day: r ? r.yesterday : null, sections };
 }
-__m["daily-steps.js"] = { DAILY_STATE_VERSION, DAILY_DAY_MS, DAILY_IGNORE_CHOICES, DAILY_STEP_IDS, DAILY_STEP_LABELS, DAILY_LISTING_STEPS, DAILY_SEEN_MAX, DAILY_SEEN_KEYS_MAX, DAILY_FRESH_REMOTE_MAX, dailyStepLabel, emptyDailyState, normalizeDailyState, dailyBuyingDay, isDailyIgnored, isDailyDoneToday, dailyWhenText, dailyDayText, DAILY_PAGE_SIZE, dailyPage, dailyUntilText, dailyListingKey, recordDailySeen, dailyFreshKeys, DAILY_ACTIONS, applyDailyAction, filterIgnoredRows, dailyIgnoredList, dailyRowItems, buildDailySteps, dailyRemoteView, dailyPayoutRows, dailyOverview };
+__m["daily-steps.js"] = { DAILY_STATE_VERSION, DAILY_DAY_MS, DAILY_IGNORE_CHOICES, DAILY_STEP_IDS, DAILY_STEP_LABELS, DAILY_LISTING_STEPS, DAILY_SEEN_MAX, DAILY_SEEN_KEYS_MAX, DAILY_FRESH_REMOTE_MAX, DAILY_REMOTE_LIST_STEPS, DAILY_REMOTE_LIST_MAX, DAILY_REMOTE_TEXT_MAX, dailyStepLabel, emptyDailyState, normalizeDailyState, dailyBuyingDay, isDailyIgnored, isDailyDoneToday, dailyWhenText, dailyDayText, DAILY_PAGE_SIZE, dailyPage, dailyUntilText, dailyListingKey, recordDailySeen, dailyFreshKeys, DAILY_ACTIONS, applyDailyAction, filterIgnoredRows, dailyIgnoredList, dailyRowItems, buildDailySteps, dailyRemoteView, dailyPayoutRows, dailyOverview };
 })();
 root.ShopperGlance = Object.freeze(Object.assign({}, ...Object.values(__m)));
 })(self);

@@ -1042,6 +1042,9 @@ html, body { overscroll-behavior: none; }
 .gl-title { display: block; font-size: 15px; overflow-wrap: anywhere; }
 .gl-go { width: 100%; }
 .gl-expand { display: grid; gap: 6px; }
+/* B-1287 (v2.0.75): Mark done / Dismiss / Undo under a Do next notification. */
+.gl-notif-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+#dashDoNext .gl-notif-actions .secondary-btn, #dashDoNext .gl-notif-actions .linkish { min-height: 40px; }
 .gl-status { display: grid; gap: 6px; }
 
 /* B-858 (v2.0.22): the Sellerboard "Yesterday" / "This Month" cards - full

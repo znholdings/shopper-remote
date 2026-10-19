@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.74";
+const APP_BUILD = "v2.0.75";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -2823,9 +2823,12 @@ function glRow(r) {
         if (n.count > n.examples.length) ul.appendChild(invNode("li", null, "+" + (n.count - n.examples.length) + " more"));
         c.appendChild(ul);
       }
+      // B-1287 (v2.0.75): Mark done / Dismiss / Undo here too (remote/notif-actions.js -> dashNotifAction).
+      c.dataset.id = n.id || "";
+      if (self.ShopperNotifActions) c.appendChild(self.ShopperNotifActions.build(n, fill));
       body.appendChild(c);
     }
-    if (r.notifs && r.notifs.length) body.appendChild(invNode("div", "muted small", "Mark done / Dismiss are on the laptop."));
+    if (r.notifs && r.notifs.length && !self.ShopperNotifActions) body.appendChild(invNode("div", "muted small", "Mark done / Dismiss are on the laptop."));
   };
   if (!body.hidden) fill();
   // B-1083 (v2.0.55): the whole card is the button - a "›" at its right edge
