@@ -223,19 +223,27 @@
 
     for (const s of needs.stayed) {
       const c = needCard(`${s.batch} · ${s.location}`, s.at ? `went out ${ctText(Date.parse(s.at) || s.at)}` : "",
-        `${s.rows.length} product(s) still read above zero on the ${s.location} shelf when this shipment went out.`);
-      for (const r of s.rows) c.append(node("div", "l-meta", `${r.title || r.asin}: shipped ${units(r.shipped)} · left ${units(r.left)} · now ${units(r.now)}`));
-      const a = actions();
-      a.append(
-        btn("They stayed - keep them", "secondary-btn", (e) => run("dismissCheck", { id: s.id }, e.target)),
-        btn("None stayed - take them off", "primary-btn", (e) => run("setPartialCounts", {
-          destination: s.location,
-          entries: s.rows.map((r) => ({ asin: r.asin, units: r.takeOffTo })),
-          excludeBatchIds: s.batchId ? [String(s.batchId)] : [],
-          note: `Nothing stayed behind from ${s.batch} (B-539, from the phone)`,
-        }, e.target, () => run("dismissCheck", { id: s.id })))
-      );
-      c.append(a);
+        `${s.rows.length} product(s) still read above zero on the ${s.location} shelf when this shipment went out. Answer for each product.`);
+      // B-1251 (v2.0.73): one answer PER PRODUCT - the laptop card's own two messages, for that product only.
+      for (const r of s.rows) {
+        const row = node("div", "need-stayed-row");
+        row.append(node("div", "l-meta", `${r.title || r.asin}: shipped ${units(r.shipped)} · left ${units(r.left)} · now ${units(r.now)}`));
+        if (r.id) {
+          const a = actions();
+          const gone = () => { row.hidden = true; };
+          a.append(
+            btn("Stayed", "secondary-btn", async (e) => { if (await run("dismissCheck", { id: r.id }, e.target) === "done") gone(); }),
+            btn("Didn't stay", "primary-btn", (e) => run("setPartialCounts", {
+              destination: s.location,
+              entries: [{ asin: r.asin, units: r.takeOffTo }],
+              excludeBatchIds: s.batchId ? [String(s.batchId)] : [],
+              note: `Nothing stayed behind from ${s.batch}: ${r.title || r.asin} (B-539 / B-1251, from the phone)`,
+            }, e.target, async () => { if (await run("dismissCheck", { id: r.id }) === "done") gone(); }))
+          );
+          row.append(a);
+        }
+        c.append(row);
+      }
       host.append(c);
     }
 

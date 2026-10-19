@@ -72,23 +72,7 @@
 :root[data-theme="retro"] .inv-total b { display: block; margin-top: var(--rt-1); }
 :root[data-theme="retro"] .inv-nums { display: flex; flex-wrap: wrap; gap: var(--rt-2); margin: var(--rt-1) 0; }
 
-/* The bottom tab bar: the console strip. */
-:root[data-theme="retro"] #mainView > .tabs { background: var(--s-console); border-top: 3px solid var(--s-n7); backdrop-filter: none; -webkit-backdrop-filter: none; }
-:root[data-theme="retro"] #mainView > .tabs .tab { color: var(--s-console-muted); box-shadow: none !important; border: 0 !important; }
-:root[data-theme="retro"] #mainView > .tabs .tab.active { color: var(--s-on-accent); background: var(--s-accent); }
-:root[data-theme="retro"] #mainView > .tabs .tab-label { font-family: var(--s-pixel) !important; font-weight: 400; font-size: var(--rt-cap); letter-spacing: -1px !important; line-height: 1.6; }
-@media (max-width: 520px) {
-  :root[data-theme="retro"] #mainView > .tabs .tab-label[data-short] { font-size: 0; }
-  :root[data-theme="retro"] #mainView > .tabs .tab-label[data-short]::after { font-size: var(--rt-cap); }
-}
-
-
-/* B-1040 (v2.0.51): nine pixel labels on a phone - "Buylist", "Pricing" and "Catalog" (7 letters) were
-   49 px in 41-47 px tabs and ran into each other. 6 px, a little tighter: each fits with a gap. */
-@media (max-width: 520px) {
-  :root[data-theme="retro"] #mainView > .tabs .tab-label, :root[data-theme="retro"] #mainView > .tabs .tab-label[data-short]::after { font-size: 6px !important; letter-spacing: -0.75px !important; }
-  :root[data-theme="retro"] #mainView > .tabs .tab-label[data-short] { font-size: 0 !important; }
-}
+/* B-1233 (v2.0.73): the bottom tab bar's console strip went with the bar (remote/phone-nav.css draws the sidebar). */
 
 /* B-1041 - B-1044 (v2.0.51): the phone Catalog in Retro - pixel chips with a filled "on", the table's
    black heading bar in the normal font (a pixel "FC TRANSFER" is too wide), small copy icons. */

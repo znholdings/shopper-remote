@@ -54,7 +54,8 @@
   const tooLate = (o) => o.status === "rejected" && /was not connected/.test(String(o.reason || ""));
   function online() {
     const R = remote();
-    return !!(R && typeof R.laptopOnline === "function" && R.laptopOnline());
+    // B-1248 (v2.0.73): the computer that prints labels (the laptop, even as a Viewer).
+    return !!(R && typeof R.laptopOnline === "function" && R.laptopOnline("manualPrint"));
   }
   function todayIso() {
     return new Date(timing.now()).toLocaleDateString("en-CA", { timeZone: "America/Chicago" });

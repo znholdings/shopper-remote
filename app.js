@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.72";
+const APP_BUILD = "v2.0.73";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -62,6 +62,8 @@ for (const id of [
   "tabCashFlow","cashFlowPane",
   // B-1023 (v2.0.49): the Catalog tab (remote/catalog-view.js draws it).
   "tabCatalog","catalogPane",
+  // B-1232 (v2.0.73): the Books tab (remote/books-view.js draws it).
+  "tabBooks","booksPane",
   // B-662 (v4.85): the Bank view, opened from the Bank balance tile.
   "bankPane","bankBack","bankBal","bankAsOf","bankCount","bankRows",
   // B-776 (v2.0.9): the report card's heading (it also shows the LAST run's report).
@@ -154,6 +156,15 @@ async function sb(path, { method = "GET", body, prefer } = {}) {
 // `signature` is sent as null and `role` as "active" because protocol v1
 // reserves both. They exist so device-key signing can be added later
 // without a schema migration - see the backlog's forward-compat notes.
+// B-1248 (v2.0.73): label prints go to the computer that prints labels (the
+// laptop, even as a Viewer). The Main names it in its payload (labelPrinter:
+// deviceId + the command names that go there); everything else goes to the
+// Main as before.
+function commandTarget(name) {
+  const lp = lastPayload && lastPayload.labelPrinter;
+  if (lp && lp.deviceId && Array.isArray(lp.commands) && lp.commands.includes(name)) return String(lp.deviceId);
+  return deviceId;
+}
 async function sendCommand(name, payload = {}, opts = {}) {
   if (!deviceId) return;
   // B-843 (v2.0.22): `quiet` = a background sync (Receive counts) - no "Sent" toast, no progress pill,
@@ -166,7 +177,7 @@ async function sendCommand(name, payload = {}, opts = {}) {
     prefer: "return=representation",
     body: [{
       v: 1,
-      device_id: deviceId,
+      device_id: commandTarget(name),
       name,
       payload,
       issued_at: new Date().toISOString(),
@@ -207,7 +218,17 @@ function settleWaiter(id, status) {
 // command row, says "the laptop isn't connected" instead of sending when the laptop has gone
 // quiet, and takes back a print the laptop never picked up (status pending -> cancelled, only
 // while it is still pending), so nothing waits in the relay to print later.
-function laptopOnline() {
+// B-1248 (v2.0.73): the printing computer checks in every minute and the Main
+// relays it (its own 1-minute registry read + the 45 s publish), so 5 minutes
+// of quiet means it is off. A print it does not pick up within 50 s is
+// refused, never run late (lib/remote-protocol.js maxAgeMs), whatever this says.
+const PRINTER_STALE_MS = 5 * 60 * 1000;
+function laptopOnline(name) {
+  // B-1248 (v2.0.73): a label print is up when the PRINTING computer checked in lately.
+  const lp = lastPayload && lastPayload.labelPrinter;
+  if (name && lp && lp.deviceId && !lp.self && Array.isArray(lp.commands) && lp.commands.includes(name)) {
+    return Number(lp.seenAt) > 0 && Date.now() - Number(lp.seenAt) <= PRINTER_STALE_MS;
+  }
   return !!deviceId && !!lastUpdatedAt && !laptopStaleness(lastUpdatedAt, Date.now());
 }
 async function readCommand(id) {
@@ -332,6 +353,7 @@ const REMOTE_LABELS = {
   boxesSend: "Send box words", boxesDupe: "Box said twice", boxesSwitch: "Switch back", boxesRestore: "Restore boxes", boxesReread: "Re-read all words",
   screenAsk: "Ask Claude", screenSummaryWrite: "Write the summary again",
   pricingRowSend: "Send a Pricing row", // B-1198 (v2.0.68)
+  booksLineSet: "Book a Needs you line", // B-1232 (v2.0.73)
 };
 
 // P-25, half one: proof the tap landed. A command that is still pending or
@@ -558,6 +580,8 @@ function renderPayload() {
   if (self.ShopperClaudeScreens) self.ShopperClaudeScreens.render(p, { offline: !!laptopStaleness(lastUpdatedAt, Date.now()) || !!(p.liveness && p.liveness.status === "offline") });
   // B-1023 (v2.0.49): the Catalog tab.
   if (self.ShopperCatalogView) self.ShopperCatalogView.render(p.catalog);
+  // B-1232 (v2.0.73): the Books tab.
+  if (self.ShopperBooksView) self.ShopperBooksView.render(p.books);
   // v4.74 (B-567 - B-574): refresh, Needs you, latest arrivals, goal.
   if (self.ShopperParity) self.ShopperParity.render(p);
   // B-579 (v4.75): Box contents -> ScanPower (remote/boxes.js).
@@ -1554,7 +1578,8 @@ function decisionSuffix(i) {
 // ------------------------------------------------------------ controls
 els.signInBtn.addEventListener("click", signIn);
 els.signOutBtn.addEventListener("click", signOut);
-els.startBtn.addEventListener("click", () => sendCommand("start", { approvalMode: els.modeSelect.value }));
+// v2.0.73 review (M3): the list signature this phone was shown - the laptop refuses a list that moved.
+els.startBtn.addEventListener("click", () => sendCommand("start", { approvalMode: els.modeSelect.value, listSig: (lastPayload && lastPayload.buylistSig) || null }));
 els.resumeSavedBtn.addEventListener("click", () => sendCommand("resumeSaved"));
 els.pauseBtn.addEventListener("click", () => sendCommand("pause"));
 els.resumeBtn.addEventListener("click", () => sendCommand("resume"));
@@ -1744,6 +1769,8 @@ els.tabBelowMin.addEventListener("click", () => switchTab("belowmin"));
 els.tabWizard.addEventListener("click", () => switchTab("wizard"));
 els.tabCashFlow.addEventListener("click", () => switchTab("cashflow"));
 els.tabCatalog.addEventListener("click", () => switchTab("catalog"));
+els.tabBooks.addEventListener("click", () => switchTab("books"));
+if (self.ShopperBooksView) self.ShopperBooksView.wire();
 if (self.ShopperBelowMinView) self.ShopperBelowMinView.wire();
 if (self.ShopperCashFlowView) self.ShopperCashFlowView.wire();
 if (self.ShopperCatalogView) self.ShopperCatalogView.wire();
@@ -2014,29 +2041,15 @@ function maybePlaySounds(p) {
   if (next.totalSpent > prev.totalSpent) playSound("order-placed");
 }
 
-// B-834 (v2.0.18): the Min tab's Send bar sits right above the bottom tab bar;
-// the bar's real height (it changes with the theme and the home-indicator
-// inset) is measured into --tabbar-h.
-function syncTabBarHeight() {
-  try {
-    const bar = document.querySelector("#mainView > .tabs");
-    const h = bar ? bar.offsetHeight : 0;
-    if (h > 0) document.documentElement.style.setProperty("--tabbar-h", h + "px");
-  } catch (e) { /* the CSS fallback is a good guess */ }
-}
-window.addEventListener("resize", syncTabBarHeight);
-try {
-  if (typeof ResizeObserver === "function") {
-    const barEl = document.querySelector("#mainView > .tabs");
-    if (barEl) new ResizeObserver(syncTabBarHeight).observe(barEl);
-  }
-} catch (e) { /* resize + switchTab cover it */ }
+// B-1233 (v2.0.73): the bottom tab bar is gone (the phone's navigation is the
+// sidebar in remote/phone-nav.js), and with it the measure of that bar's height
+// the Pricing tab's Send bar sat on.
 
 // B-1074 (v2.0.55): the phone opens on the tab Zach was on last (and, within
 // 30 minutes, where he had scrolled to) - remembered on THIS phone only
 // (localStorage through store, which is try/catch'd: private mode = default tab).
 const LAST_VIEW_KEY = "shopperLastView";
-const LAST_VIEW_TABS = ["dashboard", "run", "buylist", "inventory", "fba", "wizard", "belowmin", "catalog", "cashflow"];
+const LAST_VIEW_TABS = ["dashboard", "run", "buylist", "inventory", "fba", "wizard", "belowmin", "catalog", "cashflow", "books"];
 const LAST_VIEW_SCROLL_MS = 30 * 60000;
 let currentTab = "run";
 let pendingScrollY = null;
@@ -2062,7 +2075,6 @@ window.addEventListener("pagehide", rememberView);
 document.addEventListener("visibilitychange", () => { if (document.hidden) rememberView(); });
 
 function switchTab(which) {
-  syncTabBarHeight();
   // B-1074: the Bank view belongs to Home (no tab button of its own).
   currentTab = which === "bank" ? "dashboard" : which;
   rememberView();
@@ -2083,6 +2095,10 @@ function switchTab(which) {
   // B-1023 (v2.0.49): the Catalog tab.
   els.catalogPane.hidden = which !== "catalog";
   els.tabCatalog.classList.toggle("active", which === "catalog");
+  // B-1232 (v2.0.73): the Books tab.
+  els.booksPane.hidden = which !== "books";
+  els.tabBooks.classList.toggle("active", which === "books");
+  if (which === "books" && self.ShopperBooksView) self.ShopperBooksView.shown();
   // B-662 (v4.85): the Bank view is part of the Dashboard (no tab button of its own).
   els.bankPane.hidden = which !== "bank";
   if (which === "bank") scrollAppTop();
@@ -2712,6 +2728,7 @@ function glGo(target) {
     wizard: () => switchTab("wizard"),
     cashflow: () => switchTab("cashflow"),
     catalog: () => switchTab("catalog"),
+    books: () => switchTab("books"),
     bank: () => switchTab("bank"),
     plaid: () => switchTab("bank"),
     // B-941 (v2.0.35): Seller Central's Voice of the Customer page.
@@ -2769,20 +2786,29 @@ function glTile(t) {
   return glTap(n, () => glGo(t.target));
 }
 
+// B-1256 (v2.0.73): Zach - "way too much on the Do Next list": each card is ONE
+// short line with its count; the detail (ASIN lists, titles, reasons) opens in
+// place from the small "Details" button (the card itself still goes to its tab).
+const GL_COUNT_HIDDEN = ["owed", "ownerDraw"];
 function glRow(r) {
   const row = invNode("div", "line gl-row gl-sev-" + r.severity);
   row.dataset.row = r.id;
   const top = invNode("div", "gl-row-top");
   top.appendChild(invNode("span", "gl-rank", r.rank));
   const main = invNode("div", "gl-main");
-  main.appendChild(invNode("b", "gl-title", r.title));
-  if (r.detail) main.appendChild(invNode("div", "l-meta", r.detail));
+  const head = invNode("div", "gl-line");
+  head.appendChild(invNode("b", "gl-title", r.short || r.title));
+  if (GL_COUNT_HIDDEN.indexOf(r.id) < 0 && Number(r.count) > 0) head.appendChild(invNode("span", "gl-cnt", r.count));
+  main.appendChild(head);
   top.appendChild(main);
   row.appendChild(top);
   const body = invNode("div", "gl-expand");
   body.hidden = !glOpen.has(r.id);
+  const hasMore = !!(r.detail || (r.notifs && r.notifs.length) || (r.short && r.short !== r.title));
   const fill = () => {
     body.textContent = "";
+    if (r.short && r.short !== r.title) body.appendChild(invNode("div", "gl-full", r.title));
+    if (r.detail) body.appendChild(invNode("div", "l-meta", r.detail));
     for (const n of r.notifs || []) {
       const c = invNode("div", "line dash-notif sev-" + n.severity);
       const t = invNode("div", "inv-row-top");
@@ -2807,22 +2833,37 @@ function glRow(r) {
   // "expand" rows open in place, and a tap inside the opened part does not
   // fold them again.
   const label = r.go.target === "runreviews" ? "Run tab" : r.go.label;
+  const openState = () => {
+    row.classList.toggle("gl-open", !body.hidden);
+    for (const x of [row, more]) if (x && x.hasAttribute("aria-expanded")) x.setAttribute("aria-expanded", String(!body.hidden));
+  };
+  const flip = () => {
+    if (glOpen.has(r.id)) glOpen.delete(r.id); else glOpen.add(r.id);
+    body.hidden = !glOpen.has(r.id);
+    if (!body.hidden) fill();
+    openState();
+  };
+  // B-1256: the detail's own small button (not on an "expand" card - the card opens it).
+  let more = null;
+  if (hasMore && r.go.target !== "expand") {
+    more = invNode("button", "gl-more gl-more-link", "\u25BE");
+    more.type = "button";
+    more.setAttribute("aria-label", "Details");
+    more.title = "Details";
+    more.setAttribute("aria-expanded", String(!body.hidden));
+    more.addEventListener("click", (e) => { e.stopPropagation(); flip(); });
+    top.appendChild(more);
+  }
   const chev = invNode("span", "gl-chev", "\u203A");
   chev.setAttribute("aria-hidden", "true");
   top.appendChild(chev);
   row.classList.add("gl-tap");
-  row.setAttribute("aria-label", r.title + " - " + label);
-  if (r.go.target === "expand") {
-    row.setAttribute("aria-expanded", String(!body.hidden));
-    row.classList.toggle("gl-open", !body.hidden);
-  }
+  row.setAttribute("aria-label", (r.short || r.title) + " - " + label);
+  if (r.go.target === "expand") row.setAttribute("aria-expanded", String(!body.hidden));
+  openState();
   const act = () => {
     if (r.go.target !== "expand") return glGo(r.go.target);
-    if (glOpen.has(r.id)) glOpen.delete(r.id); else glOpen.add(r.id);
-    body.hidden = !glOpen.has(r.id);
-    if (!body.hidden) fill();
-    row.setAttribute("aria-expanded", String(!body.hidden));
-    row.classList.toggle("gl-open", !body.hidden);
+    flip();
   };
   glTap(row, (e) => {
     if (e && e.target && body.contains(e.target)) return;
@@ -2836,6 +2877,7 @@ function renderDashboard(d, p) {
   const G = self.ShopperGlance;
   if (!d || !G) {
     lastDashboardKey = "";
+    if (self.ShopperDailyView) self.ShopperDailyView.update(null); // B-1257: nothing to step through yet
     for (const k of ["dashTiles", "dashDoNext"]) els[k].textContent = "";
     els.dashAsOf.textContent = "Waiting for the laptop to send its Dashboard (needs Shopper v4.56 on the laptop, and the Dashboard opened there once).";
     els.dashDoCount.textContent = els.dashNightly.textContent = "";
@@ -2862,7 +2904,7 @@ function renderDashboard(d, p) {
       fba: fba.ok && !fba.empty ? G.fbaStockValue(fba.tiles) : null,
     },
   });
-  const rows = G.buildDoNext({
+  const allRows = G.buildDoNext({
     loaded: true,
     notifications: d.notifications,
     notificationCount: d.openCount,
@@ -2883,10 +2925,35 @@ function renderDashboard(d, p) {
     accountHealth: ex.accountHealth || null,
     // B-1125 (v2.0.58): units paying (or about to pay) the aged-inventory surcharge.
     agedInventory: ex.agedInventory || null,
+    // B-1257 (v2.0.73): the Min tab's listings - The Daily's "new since your last review".
+    belowMinItems: p && p.belowMin && Array.isArray(p.belowMin.rows) ? p.belowMin.rows : null,
     // B-862 (v2.0.23): listings deactivated for a pricing error.
     pricingErrors: ex.pricingErrors || null,
     now: Date.now(),
   });
+  // B-1257 (v2.0.73): The Daily (remote/daily-view.js) - a step ignored there
+  // (on this phone or the laptop) is off Do next until its time is up.
+  const DV = self.ShopperDailyView;
+  const dvOut = DV ? DV.update({
+    rows: allRows,
+    daily: ex.daily || null,
+    go: glGo,
+    rerender: () => { lastDashboardKey = ""; if (lastPayload) renderDashboard(lastPayload.dashboard, lastPayload); },
+    overviewInput: {
+      cash: ex.cash || null,
+      now: Date.now(),
+      fbaTiles: fba.ok && !fba.empty ? fba.tiles : null,
+      house: d.pipeline.available ? d.pipeline.house : null,
+      prep: d.pipeline.available ? d.pipeline.prep : null,
+      aged: ex.agedInventory || null,
+      plaid: ex.plaid || null,
+      virtualBank: d.spend.bankBalance,
+      payoutNext30: ex.cash && ex.cash.payoutNext30 ? ex.cash.payoutNext30 : null,
+      arrivalsToday: d.pipeline.available ? d.pipeline.arrivalsToday : null,
+      overdue: arrCounts ? arrCounts.overdue : null,
+    },
+  }) : null;
+  const rows = dvOut ? dvOut.rows : allRows;
   const key = JSON.stringify([tiles, rows.map((r) => [r.id, r.title, r.detail, r.severity, r.go.label, (r.notifs || []).map((n) => n.key)]), d.lastRun, ex.nightly, d.remoteBuiltAt, d.stale, d.spend.bankRecent, ex.bgChecks || null, ex.accountHealth || null]);
   if (key === lastDashboardKey) return;
   lastDashboardKey = key;

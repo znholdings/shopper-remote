@@ -1,0 +1,40 @@
+/* remote/books.css - v2.0.73 builder E, B-1232: the phone's Books tab
+   (remote/books-view.js). The tiles are the Home tab's (dash-tile gl-tile, in
+   styles.css / retro-core.css); this sheet lays out the Needs you rows only.
+   Colours are --s-* tokens only. */
+#booksPane .bkm-tiles { margin-top: 6px; }
+#booksPane .bkm-tile .gl-bank-row { display: flex; justify-content: space-between; gap: 8px; min-width: 0; }
+#booksPane .bkm-tile .gl-bank-label { min-width: 0; overflow-wrap: anywhere; }
+#booksPane .bkm-tile .gl-bank-value { white-space: nowrap; font-variant-numeric: tabular-nums; font-weight: 700; }
+#booksPane .bkm-tile .gl-split { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 4px; }
+#booksPane .bkm-tile .gl-split-item { display: inline-flex; gap: 6px; font-size: 12px; color: var(--s-text-muted); }
+#booksPane .bkm-tile .gl-split-value { color: var(--s-text); font-weight: 700; font-variant-numeric: tabular-nums; }
+#booksPane .bkm-card .section-head { justify-content: space-between; }
+#booksPane .bkm-intro { margin: 4px 0 8px; }
+#booksPane .bkm-remember { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; color: var(--s-text-muted); margin: 0 0 8px; }
+#booksPane .bkm-remember input { margin-top: 2px; flex: 0 0 auto; }
+#booksPane .bkm-needs { list-style: none; margin: 0; padding: 0; }
+#booksPane .bkm-row { border-top: 1px solid var(--s-line-soft); padding: 10px 0; min-width: 0; }
+#booksPane .bkm-row:first-child { border-top: 0; }
+#booksPane .bkm-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+#booksPane .bkm-amt { font-weight: 800; font-variant-numeric: tabular-nums; color: var(--s-text); }
+#booksPane .bkm-amt.bkm-out { color: var(--s-red-ink); }
+#booksPane .bkm-amt.bkm-in { color: var(--s-green-ink); }
+#booksPane .bkm-date { font-size: 12px; color: var(--s-text-muted); font-variant-numeric: tabular-nums; }
+#booksPane .bkm-month { font-size: 11px; font-weight: 700; color: var(--s-text); background: var(--s-n2); border-radius: var(--s-r-sm); padding: 1px 6px; }
+#booksPane .bkm-what { margin-top: 3px; font-size: 13px; color: var(--s-text); overflow-wrap: anywhere; }
+#booksPane .bkm-why { margin-top: 3px; overflow-wrap: anywhere; }
+#booksPane .bkm-sug { margin-top: 3px; font-size: 12px; color: var(--s-accent); overflow-wrap: anywhere; }
+#booksPane .bkm-lead { margin-top: 6px; font-size: 12px; font-weight: 600; color: var(--s-text-muted); overflow-wrap: anywhere; }
+#booksPane .bkm-pick { display: flex; gap: 8px; margin-top: 8px; min-width: 0; }
+#booksPane .bkm-pick .bkm-select { flex: 1 1 auto; min-width: 0; max-width: 100%; padding: 8px; border: 1px solid var(--s-line); border-radius: var(--s-r-sm); background: var(--s-surface); color: var(--s-text); font-size: 14px; }
+#booksPane .bkm-pick .bkm-book { flex: 0 0 auto; white-space: nowrap; }
+#booksPane .bkm-note { margin: 6px 0 0; font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }
+#booksPane .bkm-note-sending { color: var(--s-text-muted); }
+#booksPane .bkm-note-done { color: var(--s-green-ink); }
+#booksPane .bkm-note-failed { color: var(--s-red-ink); }
+#booksPane .bkm-done { margin: 6px 0; }
+#booksPane .bkm-empty { padding: 12px 0; }
+:root[data-theme="retro"] #booksPane .bkm-month { font-family: var(--s-pixel) !important; font-weight: 400 !important; font-size: 9px !important; line-height: 1.6 !important; border-radius: 0; }
+:root[data-theme="retro"] #booksPane .bkm-pick .bkm-select { border-radius: 0; border: 2px solid var(--s-line); }
+[hidden] { display: none !important; }

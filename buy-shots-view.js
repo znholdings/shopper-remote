@@ -11,6 +11,9 @@
 //
 // Loaded after app.js and uses its globals (token(), CFG) at call time.
 // textContent only; the full view closes with the `hidden` attribute.
+// B-1250 (v2.0.73): the full view FOLLOWS its line - while it is open, each
+// newer picture of that line replaces the one on screen (like a slide show),
+// loaded first so the screen never goes blank between pictures.
 (function () {
   "use strict";
   const BUCKET = "buy-shots";
@@ -124,16 +127,43 @@
     f.addEventListener("click", () => {
       f.hidden = true;
       img.removeAttribute("src");
+      f.removeAttribute("data-line-id");
+      f.removeAttribute("data-path");
     });
     doc.body.appendChild(f);
     return f;
   }
 
-  function openFull(doc, url, text) {
+  const FULL_TAIL = " - updates live · tap to close";
+  function openFull(doc, url, text, lineId, path) {
     const f = fullEl(doc);
     f.querySelector("img").src = url;
-    f.querySelector(".bs-cap").textContent = text + " - tap to close";
+    f.querySelector(".bs-cap").textContent = text + FULL_TAIL;
+    f.setAttribute("data-line-id", lineId || "");
+    f.setAttribute("data-path", path || "");
     f.hidden = false;
+  }
+
+  // B-1250: the open full view shows line `lineId`; a newer picture of it replaces the one shown.
+  function followFull(doc, lineId, url, path, text) {
+    const f = doc.getElementById("buyShotsFull");
+    if (!f || f.hidden || !lineId || f.getAttribute("data-line-id") !== lineId) return false;
+    if (f.getAttribute("data-path") === path) return false;
+    f.setAttribute("data-path", path);
+    const img = f.querySelector("img");
+    const show = () => {
+      if (f.hidden || f.getAttribute("data-path") !== path) return;
+      img.src = url;
+      f.querySelector(".bs-cap").textContent = text + FULL_TAIL;
+    };
+    const Img = doc.defaultView && doc.defaultView.Image;
+    if (typeof Img !== "function") { show(); return true; }
+    const pre = new Img();
+    pre.onload = show;
+    // Not loaded (an expired link): forget it, so the next poll tries again.
+    pre.onerror = () => { if (f.getAttribute("data-path") === path) f.removeAttribute("data-path"); };
+    pre.src = url;
+    return true;
   }
 
   function clearThumbs(doc) {
@@ -193,7 +223,7 @@
         cap.className = "bs-cap";
         btn.appendChild(img);
         btn.appendChild(cap);
-        btn.addEventListener("click", () => openFull(doc, btn.getAttribute("data-url"), btn.getAttribute("data-cap")));
+        btn.addEventListener("click", () => openFull(doc, btn.getAttribute("data-url"), btn.getAttribute("data-cap"), row.getAttribute("data-line-id"), btn.getAttribute("data-path")));
         const top = row.querySelector(".l-title") || row.querySelector(".l-top");
         if (top && top.nextSibling) row.insertBefore(btn, top.nextSibling);
         else row.appendChild(btn);
@@ -206,6 +236,7 @@
       btn.setAttribute("data-url", url);
       btn.setAttribute("data-cap", text);
       btn.querySelector(".bs-cap").textContent = text;
+      followFull(doc, row.getAttribute("data-line-id"), url, e.path, text);
       shown++;
     }
     if (toSign.length && !signing && nowMs >= signBlockedUntil) {
@@ -220,5 +251,5 @@
     return { shown, toSign: toSign.length };
   }
 
-  self.ShopperBuyShotsPhone = { render, shouldLoad, onCellular, connectionType, absoluteSignedUrl, signRequest, signPaths, caption, _cache: cache, _signing: () => signing, _reset: () => { cache.clear(); signing = null; signBlockedUntil = 0; lastPayload = null; } };
+  self.ShopperBuyShotsPhone = { render, shouldLoad, onCellular, connectionType, absoluteSignedUrl, signRequest, signPaths, caption, openFull, followFull, _cache: cache, _signing: () => signing, _reset: () => { cache.clear(); signing = null; signBlockedUntil = 0; lastPayload = null; } };
 })();

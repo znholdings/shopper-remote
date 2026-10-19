@@ -145,9 +145,7 @@ h2 { font-size: 14px; margin: 14px 0 6px; }
 .tone-stalled, .tone-offline { background: color-mix(in srgb, var(--s-red) 16%, transparent); color: var(--bad); }
 
 .view { padding-top: 6px; }
-.tabs { display: flex; gap: 6px; margin: 10px 0; }
-.tab { flex: 1; padding: 9px; border-radius: 9px; border: 1px solid var(--line); background: var(--panel); color: var(--muted); font-weight: 700; }
-.tab.active { color: var(--text); border-color: var(--accent); }
+/* B-1233 (v2.0.73): the bottom tab bar is gone - the phone's navigation is a sidebar (remote/phone-nav.css). */
 
 .prompt-card { background: var(--panel); border: 1px solid var(--warn); border-radius: 12px; padding: 12px; margin: 10px 0; }
 .prompt-fields { margin: 8px 0; }
@@ -486,8 +484,6 @@ button { font: inherit; cursor: pointer; }
 /* B-494: Shoppy in the top bar. */
 .brand { display: inline-flex; align-items: center; gap: 7px; }
 .brand-logo { width: 26px; height: 26px; object-fit: contain; }
-/* Four tabs now - they must still fit a narrow phone. */
-.tabs .tab { padding: 9px 4px; font-size: 13px; }
 
 /* B-490: the Dashboard tab. */
 .dash-sec h3 { font-size: 14px; margin: 4px 0 8px; }
@@ -522,8 +518,6 @@ button { font: inherit; cursor: pointer; }
    is near-black), so they sit on a light "paper" card - the laptop page's
    own look, scoped here - rather than being recoloured for the dark app.
    --------------------------------------------------------------------- */
-.tabs { overflow-x: auto; }
-.tab { flex: 1 1 auto; min-width: 0; padding: 9px 6px; white-space: nowrap; }
 .fba-banners .ai-banner, .fba-paper { color: var(--s-violet-ink); }
 .fba-paper { background: var(--s-n0); border-radius: 14px; padding: 12px 12px 10px; margin: 8px 0; }
 .fba-sec + .fba-sec { border-top: 1px solid var(--s-n6); margin-top: 10px; padding-top: 10px; }
@@ -687,6 +681,8 @@ body::before { content: ""; position: fixed; top: 0; left: 0; right: 0; height: 
 .need-qty .need-qty-input { width: 84px; appearance: textfield; -moz-appearance: textfield; }
 .need-qty .need-qty-input::-webkit-inner-spin-button, .need-qty .need-qty-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 .need-split-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+/* B-1251 (v2.0.73): a stayed-behind card answers per product. */
+.need-stayed-row { display: flex; flex-direction: column; gap: 4px; padding: 6px 0 2px; border-top: 1px solid var(--s-line-soft); }
 .parity-edit, .parity-ding { flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .parity-why summary { cursor: pointer; font-size: 13px; }
 .parity-why-text { white-space: pre-wrap; font-size: 12px; margin: 6px 0 0; }
@@ -722,37 +718,19 @@ body::before { content: ""; position: fixed; top: 0; left: 0; right: 0; height: 
 .date-typed { width: 8.5em; font-variant-numeric: tabular-nums; }
 .date-typed[aria-invalid="true"] { border-color: var(--bad); }
 
-/* ── Shopper 2 (v2.00, B-732): the phone's bottom tab bar (same icons,
-   colours and names as the laptop's sidebar) and brand. ── */
+/* ── Shopper 2 (v2.00, B-732): the phone's brand. (Its bottom tab bar went with B-1233, v2.0.73.) ── */
 body { background: var(--s-bg); color: var(--s-text); font-family: var(--s-font); }
-#app { padding-bottom: calc(84px + env(safe-area-inset-bottom)); }
+#app { padding-bottom: calc(20px + env(safe-area-inset-bottom)); }
 .brand { display: inline-flex; align-items: center; gap: 8px; }
 .brand-word { background: var(--s-brand); -webkit-background-clip: text; background-clip: text; color: transparent; font-weight: 800; }
 .theme-btn { display: inline-flex; align-items: center; justify-content: center; padding: 6px !important; }
-#mainView > .tabs {
-  position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; margin: 0; gap: 0;
-  display: flex; justify-content: space-around; overflow: visible;
-  padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
-  background: color-mix(in srgb, var(--s-surface) 94%, transparent);
-  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-  border-top: 1px solid var(--s-line);
-}
-#mainView > .tabs .tab {
-  flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px;
-  padding: 6px 2px; border: 0; border-radius: 10px; background: transparent; color: var(--s-text-muted);
-  font-size: 11px; font-weight: 700;
-}
-#mainView > .tabs .tab.active { color: var(--s-accent); background: var(--s-accent-bg); border: 0; }
-#mainView > .tabs .tab-icon { display: block; }
-/* B-742 (v2.0.7): seven tabs on a 375px phone - each tab sized to its own label
-   (Dashboard and Inventory get the room Run/FBA/Ship/Min do not need). */
-#mainView > .tabs .tab { flex: 1 1 auto; white-space: nowrap; }
 .primary-btn { border-radius: 10px; }
 
 /* B-741 (v2.01), B-745/746/747 (v2.0.2): the Min tab - Buy Box under the Seller Snap min. Tokens only. */
 .bmm-head { display: flex; gap: 8px; margin: 10px 0 6px; }
-/* B-834 (v2.0.18): the Send bar - fixed above the bottom tab bar (its height is measured into --tabbar-h by app.js). */
-.bmm-sendbar { position: fixed; left: 0; right: 0; bottom: var(--tabbar-h, calc(64px + env(safe-area-inset-bottom))); z-index: 45; display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--s-surface); border-top: 1px solid var(--s-line); box-shadow: 0 -4px 12px color-mix(in srgb, var(--s-text) 18%, transparent); }
+/* B-834 (v2.0.18): the Send bar - fixed to the bottom of the screen. B-1233 (v2.0.73): no tab bar under it
+   any more (it sat on top of the bar's measured --tabbar-h), so it clears only the home-indicator inset (remote/phone-nav.css). */
+.bmm-sendbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 45; display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--s-surface); border-top: 1px solid var(--s-line); box-shadow: 0 -4px 12px color-mix(in srgb, var(--s-text) 18%, transparent); }
 .bmm-sendsum { flex: 1 1 auto; min-width: 0; font-size: 12px; color: var(--s-text-muted); overflow-wrap: anywhere; }
 .bmm-sendbar button { flex: 0 0 auto; }
 #belowMinPane.has-sendbar { padding-bottom: 72px; }
@@ -907,11 +885,6 @@ body { background: var(--s-bg); color: var(--s-text); font-family: var(--s-font)
 .s-legend i.k4 { background: var(--s-green); } .s-legend i.k5 { background: var(--s-orange); }
 .s-legend i.kbar { background: color-mix(in srgb, var(--s-violet) 28%, transparent); height: 10px; }
 .s-legend i.kband { background: color-mix(in srgb, var(--s-violet) 14%, transparent); height: 10px; }
-/* Eight tabs on a 375px phone: a little less padding and type below 430px. */
-@media (max-width: 430px) {
-  #mainView > .tabs { padding-left: 2px; padding-right: 2px; }
-  #mainView > .tabs .tab { font-size: 10px; padding: 6px 1px; }
-}
 
 /* B-775 (v2.0.9): a queue that ended says Finished (it said Idle). */
 .live-banner.tone-finished { background: color-mix(in srgb, var(--s-violet) 12%, transparent); color: var(--s-violet-ink); }
@@ -929,19 +902,6 @@ body { background: var(--s-bg); color: var(--s-text); font-family: var(--s-font)
    dragged with it. */
 html, body { overscroll-behavior: none; }
 
-/* ── B-797 (v2.0.9): eight EQUAL columns. Each tab used to be as wide as its
-   label, so Dashboard and Inventory pushed their neighbours together. Below
-   400px the two long labels use their short names (data-short). ── */
-#mainView > .tabs { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); justify-content: stretch; }
-/* B-1023 (v2.0.49): nine tabs with Catalog. */
-#mainView > .tabs .tab { min-width: 0; padding: 6px 0; overflow: hidden; }
-#mainView > .tabs .tab-label { display: block; max-width: 100%; overflow: hidden; white-space: nowrap; font-size: 10px; letter-spacing: -0.01em; }
-/* B-799 (v2.0.10): 8 columns on a 430px phone are ~53px - "Dashboard" was
-   clipped there. The short names now apply up to 520px. */
-@media (max-width: 520px) {
-  #mainView > .tabs .tab-label[data-short] { font-size: 0; }
-  #mainView > .tabs .tab-label[data-short]::after { content: attr(data-short); font-size: 10px; }
-}
 
 /* ── B-774 (v2.0.9): Right now, the step tracker, the money band and the
    outcome chips on the Run tab. Tokens only. ── */
@@ -1031,20 +991,6 @@ html, body { overscroll-behavior: none; }
 .line.inv-arrival.dest-prep .l-meta, .line.inv-arrival.dest-prep .muted,
 .line.inv-arrival.dest-house .l-meta, .line.inv-arrival.dest-house .muted { color: var(--s-dest-ink-2); }
 
-/* ── B-818 (v2.0.17): the tab bar rode up the screen during a fast scroll on
-   Zach's iPhone (10/4 22:16 recording, v2.0.15) and snapped back when the
-   scroll stopped. That is iOS drawing a fixed bar that has no layer of its
-   own as part of the scrolling page until the momentum ends - and a
-   backdrop blur behind a fixed bar is the known trigger. The bar gets its
-   own compositing layer and a solid background (no blur). Checked in
-   Chromium only - iOS can't be reproduced off the phone. ── */
-#mainView > .tabs {
-  background: var(--s-surface);
-  backdrop-filter: none; -webkit-backdrop-filter: none;
-  transform: translate3d(0, 0, 0); -webkit-transform: translate3d(0, 0, 0);
-  will-change: transform;
-  -webkit-backface-visibility: hidden; backface-visibility: hidden;
-}
 
 /* B-829 (v2.0.18): the sold-per-day chart has a y-axis (0 / middle / top). */
 .bmm-sold .sold-chart { grid-template-columns: 40px minmax(0, 1fr); column-gap: 4px; }
@@ -1143,15 +1089,6 @@ html, body { overscroll-behavior: none; }
 .ctm-more { width: 100%; margin: 8px 0 16px; }
 
 
-/* ── B-1040 (v2.0.51): the nine bottom tabs, each label inside its own tab
-   with a visible gap (Zach's iPhone, Retro: "PricingCatalog" ran together).
-   The bar stays nine EQUAL grid columns (B-797) - this only keeps each label
-   from spilling: a hair less type below 400px. Retro's pixel labels are
-   sized in remote/retro.css. ── */
-@media (max-width: 400px) {
-  #mainView > .tabs .tab-label, #mainView > .tabs .tab-label[data-short]::after { font-size: 9.5px; letter-spacing: -0.02em; }
-  #mainView > .tabs .tab-label[data-short] { font-size: 0; }
-}
 
 /* ── B-1041 / B-1042 / B-1043 / B-1044 (v2.0.51): the phone Catalog - Table /
    Cards, the filter chips that show which one is on, the column sort and

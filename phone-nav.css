@@ -1,0 +1,83 @@
+/* B-1233 (v2.0.73): the phone's sidebar navigation (remote/phone-nav.js) - the
+   laptop sidebar's look (lib/sidenav.css + lib/theme-retro.css), as a drawer
+   that slides in from the left over a scrim. Any number of sections: the
+   list scrolls inside the drawer. Tokens only (--s-*). */
+
+/* The menu button: in the top bar; fixed at the top right once the bar has
+   scrolled away (body.pn-float); not shown before sign-in. */
+.pn-burger { display: inline-flex; align-items: center; justify-content: center; }
+body:has(#mainView[hidden]) .pn-burger { display: none; }
+body.pn-float .pn-burger {
+  position: fixed; z-index: 60;
+  top: calc(env(safe-area-inset-top, 0px) + 8px); right: calc(env(safe-area-inset-right, 0px) + 10px);
+  width: 40px; height: 40px;
+  background: var(--s-surface); color: var(--s-text);
+  border: 1px solid var(--s-line); border-radius: var(--s-r-sm); box-shadow: var(--s-elev-2);
+}
+
+.pn-scrim {
+  position: fixed; inset: 0; z-index: 1040;
+  background: color-mix(in srgb, var(--s-n7) 45%, transparent);
+  opacity: 0; visibility: hidden; transition: opacity .18s, visibility 0s .18s;
+  touch-action: none;
+}
+body.pn-open .pn-scrim { opacity: 1; visibility: visible; transition: opacity .18s; }
+
+.pn-drawer {
+  position: fixed; top: 0; bottom: 0; left: 0; z-index: 1050;
+  width: min(280px, 84vw); box-sizing: border-box;
+  display: flex; flex-direction: column;
+  padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+  background: var(--s-surface); color: var(--s-text);
+  border-right: 1px solid var(--s-line-soft); box-shadow: var(--s-elev-2);
+  font-family: var(--s-font);
+  transform: translateX(-100%); visibility: hidden;
+  transition: transform .18s ease-out, visibility 0s .18s;
+  overscroll-behavior: contain;
+}
+body.pn-open .pn-drawer { transform: none; visibility: visible; transition: transform .18s ease-out; }
+.pn-drawer::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--s-brand); opacity: .8; }
+.pn-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 14px 10px 10px 14px; }
+.pn-brand { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.pn-logo { width: 30px; height: 30px; object-fit: contain; flex: none; }
+.pn-word { font-weight: 800; font-size: 15px; white-space: nowrap; background: var(--s-brand); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.pn-drawer .pn-close { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; padding: 0; border: 0; border-radius: var(--s-r-sm); background: transparent; color: var(--s-text-muted); box-shadow: none; flex: none; }
+.pn-drawer .pn-close svg { flex: none; width: 20px; height: 20px; }
+.pn-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; gap: 2px; padding: 4px 8px 8px; }
+.pn-drawer .pn-list .tab {
+  flex: none; display: flex; flex-direction: row; align-items: center; gap: 12px;
+  width: 100%; min-width: 0; min-height: 44px; margin: 0; padding: 0 10px;
+  border: 0; border-radius: var(--s-r-sm); background: transparent; box-shadow: none;
+  color: var(--s-text-2); font: 600 15px/1.2 var(--s-font); text-align: left; white-space: nowrap; cursor: pointer;
+}
+.pn-drawer .pn-list .tab.active { background: var(--s-accent-bg); color: var(--s-accent); }
+.pn-drawer .pn-list .tab-icon { display: block; flex: none; }
+.pn-drawer .pn-list .tab-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* The phone's old short name (Run, Stock, Ship) - the name the top bar shows. */
+.pn-drawer .pn-alias { flex: none; font-size: 11px; font-weight: 600; color: var(--s-text-faint); }
+.pn-drawer .pn-list .tab.active .pn-alias { color: inherit; opacity: .75; }
+.pn-foot { padding: 8px 18px 12px; border-top: 1px solid var(--s-line-soft); }
+.pn-version { font-size: 11px; color: var(--s-text-faint); }
+
+/* The Pricing tab's Send bar sits on the bottom edge now (B-834): clear the home indicator. */
+#belowMinPane .bmm-sendbar { padding-bottom: calc(var(--rt-2, 8px) + env(safe-area-inset-bottom, 0px)) !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pn-drawer, .pn-scrim, body.pn-open .pn-drawer, body.pn-open .pn-scrim { transition: none; }
+}
+
+/* Retro: the laptop sidebar's console strip (lib/theme-retro.css .s-nav*). Two classes
+   beat the retro type-size rule (retro-core.css) - the labels keep their own size. */
+:root[data-theme="retro"] .pn-drawer { background: var(--s-console); color: var(--s-console-ink); border-right: 3px solid var(--s-n7); box-shadow: none; }
+:root[data-theme="retro"] .pn-drawer::before { background: var(--s-accent); opacity: 1; height: 4px; }
+:root[data-theme="retro"] .pn-drawer .pn-word { background: none; -webkit-background-clip: border-box; background-clip: border-box; color: var(--s-accent); -webkit-text-fill-color: currentColor; font-family: var(--s-pixel) !important; font-weight: 400; font-size: var(--rt-h4) !important; }
+:root[data-theme="retro"] .pn-drawer .pn-close { color: var(--s-console-muted); box-shadow: none !important; border: 0 !important; background: transparent !important; padding: 0 !important; min-width: 36px; min-height: 36px; }
+:root[data-theme="retro"] .pn-drawer .pn-list .tab { font-family: var(--s-pixel) !important; font-weight: 400; font-size: var(--rt-label) !important; line-height: 1.4 !important; text-transform: uppercase; color: var(--s-console-ink); box-shadow: none !important; border: 0 !important; border-radius: 0; }
+:root[data-theme="retro"] .pn-drawer .pn-list .tab.active { background: var(--s-accent); color: var(--s-on-accent); }
+:root[data-theme="retro"] .pn-drawer .pn-list .tab-label { font-size: var(--rt-label) !important; }
+:root[data-theme="retro"] .pn-drawer .pn-alias { font-family: var(--s-pixel) !important; font-size: var(--rt-cap) !important; color: var(--s-console-muted); }
+:root[data-theme="retro"] .pn-drawer .pn-foot { border-top-color: var(--s-n4); }
+:root[data-theme="retro"] .pn-drawer .pn-version { color: var(--s-console-muted); font-size: var(--rt-cap) !important; }
+:root[data-theme="retro"] body.pn-float .pn-burger { background: var(--s-console) !important; color: var(--s-console-ink) !important; border: 2px solid var(--s-n7) !important; border-radius: 0; }
+
+[hidden] { display: none !important; }

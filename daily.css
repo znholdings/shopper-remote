@@ -1,0 +1,68 @@
+/* remote/daily.css - B-1257 (v2.0.73): The Daily on Home, and B-1256's short
+   Do next cards (one line + count; "Details" opens the rest in place). */
+
+/* B-1256: the one-line card. */
+.gl-row .gl-line { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.gl-row .gl-line .gl-title { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gl-row .gl-cnt {
+  flex: none; min-width: 22px; padding: 1px 7px; border-radius: var(--s-r-pill, 999px);
+  background: var(--s-accent-bg); color: var(--s-accent); font-size: 12px; font-weight: 800; text-align: center;
+}
+.gl-row .gl-row-top { align-items: center; }
+/* a small caret (its name is "Details") - the card keeps its width for the line */
+.gl-row button.gl-more {
+  flex: none; align-self: center; width: 32px; height: 32px; min-height: 32px; padding: 0; margin: 0;
+  border: 1px solid var(--s-line); border-radius: var(--s-r-sm, 6px); background: var(--s-surface); color: var(--s-text);
+  font: inherit; font-size: 16px; line-height: 1; cursor: pointer; text-decoration: none;
+}
+.gl-row.gl-open button.gl-more { border-color: var(--s-accent); color: var(--s-accent); transform: rotate(180deg); }
+.gl-row .gl-full { font-weight: 700; font-size: 13px; overflow-wrap: anywhere; }
+.dash-do-hidden { margin: 6px 2px 0; }
+
+/* B-1257: the launch button and the pane (the rest of Home hides while it is open). */
+.daily-launch { display: flex; margin: 0 0 10px; }
+.daily-launch .daily-open-btn { flex: 1 1 auto; min-height: 44px; font-weight: 800; }
+#dashboardPane.daily-on > :not(#dailyPane) { display: none !important; }
+.daily-pane { display: grid; gap: 10px; min-width: 0; }
+.daily-pane .dy-top { display: flex; align-items: center; gap: 12px; }
+.daily-pane .dy-top-title { font-size: 18px; }
+.daily-pane .dy-steps { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch; max-width: 100%; }
+.daily-pane .dy-chip {
+  flex: none; border: 1px solid var(--s-line); background: var(--s-surface); color: var(--s-text);
+  border-radius: var(--s-r-pill, 999px); padding: 4px 10px; font: inherit; font-size: 12px; white-space: nowrap; cursor: pointer;
+}
+.daily-pane .dy-chip.dy-chip-on { border-color: var(--s-accent); background: var(--s-accent-bg); color: var(--s-accent); font-weight: 700; }
+.daily-pane .dy-chip.dy-chip-reviewed, .daily-pane .dy-chip.dy-chip-done { border-color: var(--s-green); color: var(--s-green-ink); }
+.daily-pane .dy-chip.dy-chip-ignored { text-decoration: line-through; opacity: .7; }
+.daily-pane .dy-card { display: grid; gap: 12px; min-width: 0; }
+.daily-pane .dy-step { display: grid; gap: 8px; min-width: 0; border-left: 4px solid var(--s-line); padding-left: 10px; }
+.daily-pane .dy-step.dy-sev-critical { border-left-color: var(--s-red); }
+.daily-pane .dy-step.dy-sev-high { border-left-color: var(--s-orange); }
+.daily-pane .dy-step.dy-sev-medium { border-left-color: var(--s-blue); }
+.daily-pane .dy-step-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; }
+.daily-pane .dy-step-title { margin: 0; font-size: 17px; }
+.daily-pane .dy-row-title { margin: 0; font-weight: 700; overflow-wrap: anywhere; }
+.daily-pane .dy-detail, .daily-pane .dy-fresh-line { margin: 0; overflow-wrap: anywhere; }
+.daily-pane .dy-lines { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+.daily-pane .dy-line { overflow-wrap: anywhere; font-size: 13px; }
+.daily-pane .dy-ov-grid { display: grid; gap: 10px; }
+.daily-pane .dy-ov-box { border: 1px solid var(--s-line); border-radius: var(--s-r-sm, 8px); padding: 8px 10px; min-width: 0; }
+.daily-pane .dy-ov-title { display: block; margin-bottom: 4px; }
+.daily-pane .dy-ov-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 8px; padding: 3px 0; border-top: 1px solid var(--s-line-soft); }
+.daily-pane .dy-ov-row:first-of-type { border-top: 0; }
+.daily-pane .dy-ov-label { min-width: 0; overflow-wrap: anywhere; }
+.daily-pane .dy-ov-value { font-weight: 800; text-align: right; }
+.daily-pane .dy-ov-sub { grid-column: 1 / -1; font-size: 12px; opacity: .8; }
+.daily-pane .dy-dir-up .dy-ov-sub { color: var(--s-green-ink); }
+.daily-pane .dy-dir-down .dy-ov-sub, .daily-pane .dy-dir-down .dy-ov-value { color: var(--s-red-ink); }
+.daily-pane .dy-ov-note { margin: 4px 0 0; }
+.daily-pane .dy-controls { display: grid; gap: 10px; border-top: 1px solid var(--s-line-soft); padding-top: 10px; }
+.daily-pane .dy-nav { display: flex; gap: 8px; }
+.daily-pane .dy-nav button { flex: 1 1 0; min-height: 44px; min-width: 0; }
+.daily-pane .dy-ignore { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.daily-pane .dy-ignore select.dy-ignore-select { flex: 1 1 120px; min-height: 40px; min-width: 0; }
+.daily-pane .dy-sum-item { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px 10px; padding: 6px 0; border-top: 1px solid var(--s-line-soft); overflow-wrap: anywhere; }
+.daily-pane .dy-sum-head { display: block; margin-top: 6px; }
+.daily-pane .dy-home { min-height: 44px; }
+
+[hidden] { display: none !important; }
