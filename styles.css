@@ -690,8 +690,6 @@ body::before { content: ""; position: fixed; top: 0; left: 0; right: 0; height: 
 .need-qty .need-qty-input::-webkit-inner-spin-button, .need-qty .need-qty-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 .need-split-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 /* B-1251 (v2.0.73): a stayed-behind card answers per product. */
-.need-done { opacity: 0.55; text-decoration: line-through; } /* B-1321 (v2.0.79) */
-.need-err { color: var(--s-red-ink); }
 .need-stayed-row { display: flex; flex-direction: column; gap: 4px; padding: 6px 0 2px; border-top: 1px solid var(--s-line-soft); }
 .parity-edit, .parity-ding { flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .parity-why summary { cursor: pointer; font-size: 13px; }
@@ -710,9 +708,6 @@ body::before { content: ""; position: fixed; top: 0; left: 0; right: 0; height: 
 .bx-questions h4 { margin: 10px 0 4px; }
 .bx-replace { display: block; margin: 8px 0; font-size: 14px; }
 .bx-upload { width: 100%; margin-top: 6px; }
-.bx-upload-anyway { width: 100%; margin-top: 6px; border: 1px solid var(--line, currentColor); }
-.bx-force { margin-top: 6px; }
-.bx-force-item { overflow-wrap: anywhere; }
 /* B-711 (v4.95): the saved box list line and each card's Remove button. */
 .bx-saved { font-weight: 700; margin: 6px 0; color: var(--text); }
 .bx-remove { margin-top: 6px; padding: 6px 12px; font-size: 14px; }

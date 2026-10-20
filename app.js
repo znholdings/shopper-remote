@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.79";
+const APP_BUILD = "v2.0.80";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -207,7 +207,28 @@ function waitFor(id) {
   return new Promise((resolve) => {
     if (!id) { resolve("not sent"); return; }
     waiters.set(id, resolve);
+    waitFast();
   });
+}
+// B-1321 (v2.0.79): while a button waits for the laptop's answer, its outcome is
+// read every second (one small select) instead of on the 3 s tick, for up to 30 s
+// after the last press - "Done" shows up to 2 s sooner. Then back to the tick.
+const WAIT_FAST_MS = 1000;
+const WAIT_FAST_FOR_MS = 30 * 1000;
+let waitFastTimer = null;
+let waitFastSince = 0;
+function waitFast() {
+  waitFastSince = Date.now();
+  // Only alongside the page's own poll loop (signed in and polling) - never on its own.
+  if (waitFastTimer || !pollTimer) return;
+  waitFastTimer = setInterval(() => {
+    if (!waiters.size || Date.now() - waitFastSince > WAIT_FAST_FOR_MS) {
+      clearInterval(waitFastTimer);
+      waitFastTimer = null;
+      return;
+    }
+    pollCommandOutcomes().catch(() => {});
+  }, WAIT_FAST_MS);
 }
 function settleWaiter(id, status) {
   const w = waiters.get(id);
@@ -351,6 +372,7 @@ const REMOTE_LABELS = {
   boxesRead: "Read boxes", boxesAnswer: "Save answers", boxesUpload: "Upload boxes", boxesClear: "Start over", boxesRemove: "Remove box",
   // B-1089 (v2.0.55)
   boxesSend: "Send box words", boxesDupe: "Box said twice", boxesSwitch: "Switch back", boxesRestore: "Restore boxes", boxesReread: "Re-read all words",
+  boxesUploadAnyway: "Upload boxes anyway", // B-1326 (v2.0.79)
   screenAsk: "Ask Claude", screenSummaryWrite: "Write the summary again",
   pricingRowSend: "Send a Pricing row", // B-1198 (v2.0.68)
   booksLineSet: "Book a Needs you line", // B-1232 (v2.0.73)

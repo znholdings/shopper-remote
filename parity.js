@@ -74,53 +74,45 @@
 
   // Send, then (optionally) wait for the laptop's answer. `after` runs only
   // when the laptop said done - a refused first step never fires the second.
-  // B-1321 (v2.0.79): "Saving..." (button off, a second tap cannot fire it again) ->
-  // "Done - drops off" and the card / row hidden the moment the laptop says done
-  // (not at the next payload) -> a plain sentence under the buttons when it fails.
-  // Words pinned equal to lib/action-press.js (test v2079-d). Only the answer
-  // buttons of a card drop it (DROPS); Refresh / Save / Remove ding keep theirs.
-  const SAVING = "Saving…";
-  const DONE = "Done - drops off";
-  const DROPS = { arrivedQty: 1, orderNeverArrived: 1, orderKeepWaiting: 1, dismissCheck: 1, onTheWayArrived: 1, splitBook: 1, splitDismiss: 1, orderRestore: 1, orderRepair: 1, orderCancel: 1 };
-  function dropTarget(button) {
-    return button && button.closest ? button.closest(".need-stayed-row, .need-card, .line") : null;
-  }
-  function failLine(button, text) {
-    const host = button && button.parentNode;
-    if (!host || !host.appendChild) return;
-    const old = host.querySelector && host.querySelector(".need-err");
-    if (old) old.remove();
-    host.appendChild(node("div", "l-meta need-err", text));
-  }
-  async function run(name, payload, button, after) {
-    if (button && !button.dataset) button.dataset = {};
-    if (button && (button.disabled || button.dataset.pressing)) return "busy"; // never twice
-    if (button) { button.disabled = true; button.dataset.pressing = "1"; button.dataset.label = button.dataset.label || button.textContent; button.textContent = SAVING; }
+  // B-1321 (v2.0.79): through remote/press-feedback.js (= lib/press-feedback.js): "Sent to
+  // the laptop…" at once (the press goes through the Main computer), then "Done - drops off"
+  // (the card greyed, struck and gone a moment later) when the laptop says done, or the
+  // laptop's plain reason beside the button. `opts.drop` - the card goes (default: no).
+  async function run(name, payload, button, after, opts) {
+    const P = self.ShopperPress;
+    if (P && button && !(opts && opts.plain)) {
+      let status = "not sent";
+      const res = await P.press(button, {
+        sending: P.SENT,
+        drop: opts ? !!opts.drop : !!(DEFAULT_DROP[name] && DEFAULT_DROP[name](payload || {})),
+        row: opts && opts.row,
+        // a Needs you card that goes takes one off the "Needs you N" heading too
+        counts: button.closest && button.closest("#needsSection") && document.querySelector("#needsSection h3 .count") ? [document.querySelector("#needsSection h3 .count")] : [],
+        run: async () => {
+          const id = await R().sendCommand(name, payload);
+          status = id ? await R().waitFor(id) : "not sent";
+          let reason = "";
+          let result = null;
+          if (status !== "done" && id && typeof R().readCommand === "function") {
+            try { const row = await R().readCommand(id); reason = (row && row.reason) || ""; result = (row && row.result) || null; } catch (e) { /* the status says enough */ }
+          }
+          return P.phoneAnswer(status, reason, result);
+        },
+      });
+      if (!res) return "busy";
+      if (status === "done" && after) await after();
+      return status;
+    }
+    if (button) { button.disabled = true; button.dataset.label = button.dataset.label || button.textContent; button.textContent = "Sending…"; }
     const id = await R().sendCommand(name, payload);
     const status = id ? await R().waitFor(id) : "not sent";
+    if (button) { button.disabled = false; button.textContent = button.dataset.label; }
     if (status === "done" && after) await after();
-    if (button) {
-      // A PART quantity ("3 of 5 arrived") leaves the rest open on the row: it says Done, then the
-      // button comes back (the laptop refuses a repeat of the same press - B-951) - the row is not dropped.
-      const part = (name === "arrivedQty" || name === "onTheWayArrived") && payload && payload.quantity != null;
-      const row = status === "done" && DROPS[name] && !part ? dropTarget(button) : null;
-      if (row) {
-        button.textContent = DONE;
-        row.classList.add("need-done");
-        setTimeout(() => { row.hidden = true; }, 450); // long enough to read "Done"; the laptop has it already
-      } else if (status === "done" && part) {
-        button.textContent = "Done";
-        setTimeout(() => { button.disabled = false; button.textContent = button.dataset.label; delete button.dataset.pressing; }, 450);
-        return status;
-      } else {
-        button.disabled = false;
-        button.textContent = button.dataset.label;
-        if (status !== "done") failLine(button, "That did not go through" + (status && status !== "not sent" ? " (" + status + ")" : "") + ".");
-      }
-      delete button.dataset.pressing;
-    }
     return status;
   }
+  const DROP = { drop: true }; // B-1321: the card / row goes once the laptop says done
+  // ... and with no opts given: "It arrived" on a check card goes when all of it arrived.
+  const DEFAULT_DROP = { onTheWayArrived: (p) => p.quantity == null };
 
   // ---- B-567: refresh bar ------------------------------------------------
   function refreshBar(host, p, where) {
@@ -128,8 +120,8 @@
     const rec = p.refresh || null;
     const running = !!(rec && rec.running);
     const row = node("div", "controls parity-refresh");
-    const q = btn(running && rec.mode === "quick" ? "Refreshing…" : "Quick refresh", "secondary-btn", () => run("refreshAll", { mode: "quick" }, q));
-    const f = btn(running && rec.mode === "full" ? "Refreshing…" : "Full refresh", "primary-btn", () => run("refreshAll", { mode: "full" }, f));
+    const q = btn(running && rec.mode === "quick" ? "Refreshing…" : "Quick refresh", "secondary-btn", () => run("refreshAll", { mode: "quick" }, q, null, { plain: true }));
+    const f = btn(running && rec.mode === "full" ? "Refreshing…" : "Full refresh", "primary-btn", () => run("refreshAll", { mode: "full" }, f, null, { plain: true }));
     q.title = "About 20 seconds: everything except reading email.";
     f.title = "About 2.5 minutes: everything, email included.";
     q.disabled = f.disabled = running;
@@ -224,10 +216,10 @@
       const fix = node("input", "need-input");
       fix.placeholder = "Corrected order number";
       a.append(
-        btn("Restore the row", "primary-btn", (e) => run("orderRestore", { orderNumber: f.orderNumber, asin: f.asin }, e.target)),
+        btn("Restore the row", "primary-btn", (e) => run("orderRestore", { orderNumber: f.orderNumber, asin: f.asin }, e.target, null, DROP)),
         fix,
-        btn("Repair", "secondary-btn", (e) => { if (fix.value.trim()) run("orderRepair", { orderNumber: f.orderNumber, asin: f.asin, newOrderNumber: fix.value.trim() }, e.target); }),
-        btn("Cancel this order", "danger-btn", (e) => { if (confirm(`Cancel order ${f.orderNumber} (${units(f.units)} units)?`)) run("orderCancel", { orderNumber: f.orderNumber, asin: f.asin, units: f.units }, e.target); })
+        btn("Repair", "secondary-btn", (e) => { if (fix.value.trim()) run("orderRepair", { orderNumber: f.orderNumber, asin: f.asin, newOrderNumber: fix.value.trim() }, e.target, null, DROP); }),
+        btn("Cancel this order", "danger-btn", (e) => { if (confirm(`Cancel order ${f.orderNumber} (${units(f.units)} units)?`)) run("orderCancel", { orderNumber: f.orderNumber, asin: f.asin, units: f.units }, e.target, null, DROP); })
       );
       c.append(a);
       host.append(c);
@@ -250,11 +242,11 @@
         btn("It arrived", "primary-btn", (e) => {
           const p = qb.pick();
           if (!p) return;
-          run("arrivedQty", { asin: o.asin, destination: o.destination === "prep" ? "prep" : "house", orders: [{ orderNumber: o.orderNumber, units: o.open }], ...(p.quantity == null ? {} : { quantity: p.quantity }), at: noonIso(day.value, o.destination) || new Date().toISOString(), section: "Phone › Needs you" }, e.target);
+          run("arrivedQty", { asin: o.asin, destination: o.destination === "prep" ? "prep" : "house", orders: [{ orderNumber: o.orderNumber, units: o.open }], ...(p.quantity == null ? {} : { quantity: p.quantity }), at: noonIso(day.value, o.destination) || new Date().toISOString(), section: "Phone › Needs you" }, e.target, null, { drop: p.quantity == null });
         }),
         day,
-        btn("It never arrived", "danger-btn", (e) => { if (confirm(`Mark ${units(o.open)} units of order ${o.orderNumber} as never arrived?`)) run("orderNeverArrived", { orderNumber: o.orderNumber, asin: o.asin, units: o.open }, e.target); }),
-        btn("Keep waiting", "secondary-btn", (e) => run("orderKeepWaiting", { key: o.key }, e.target))
+        btn("It never arrived", "danger-btn", (e) => { if (confirm(`Mark ${units(o.open)} units of order ${o.orderNumber} as never arrived?`)) run("orderNeverArrived", { orderNumber: o.orderNumber, asin: o.asin, units: o.open }, e.target, null, DROP); }),
+        btn("Keep waiting", "secondary-btn", (e) => run("orderKeepWaiting", { key: o.key }, e.target, null, DROP))
       );
       c.append(a, qb.bad);
       host.append(c);
@@ -317,9 +309,9 @@
         btn("Book these", "primary-btn", (e) => {
           const allocation = {};
           for (const [asin, box] of boxes) if (String(box.value).trim() !== "") allocation[asin] = String(box.value).trim();
-          run("splitBook", { key: sp.key, allocation }, e.target);
+          run("splitBook", { key: sp.key, allocation }, e.target, null, DROP);
         }),
-        btn("Leave it in transit", "secondary-btn", (e) => run("splitDismiss", { key: sp.key }, e.target))
+        btn("Leave it in transit", "secondary-btn", (e) => run("splitDismiss", { key: sp.key }, e.target, null, DROP))
       );
       c.append(a);
       host.append(c);
@@ -333,7 +325,7 @@
       // B-951 (v2.0.37): how many arrived; all of it sends the card's answer as before.
       const kq = k.arrived ? qtyBox(sumUnits(k.arrived.orders)) : null;
       if (k.arrived) a.append(kq.wrap, btn("It arrived", "primary-btn", (e) => { const p = kq.pick(); if (p) run("onTheWayArrived", p.quantity == null ? k.arrived : { ...k.arrived, quantity: p.quantity }, e.target); }));
-      a.append(btn(k.button || "Dismiss", "secondary-btn", (e) => run("dismissCheck", { id: k.id }, e.target)));
+      a.append(btn(k.button || "Dismiss", "secondary-btn", (e) => run("dismissCheck", { id: k.id }, e.target, null, DROP)));
       c.append(a);
       if (kq) c.append(kq.bad);
       host.append(c);
@@ -426,7 +418,7 @@
       const p = qb.pick();
       if (!p) { openMore(true); return; }
       const where = kind === "overdue" ? "Overdue" : "Upcoming";
-      await run("arrivedQty", { asin: r.asin, destination: dest, orders: r.closeOrders.map((o) => ({ orderNumber: o.orderNumber, units: o.units })), ...(p.quantity == null ? {} : { quantity: p.quantity }), at: noonIso(day.value, dest), note: "Marked arrived from the phone's Arrivals › " + where, section: "Phone › " + where }, b);
+      await run("arrivedQty", { asin: r.asin, destination: dest, orders: r.closeOrders.map((o) => ({ orderNumber: o.orderNumber, units: o.units })), ...(p.quantity == null ? {} : { quantity: p.quantity }), at: noonIso(day.value, dest), note: "Marked arrived from the phone's Arrivals › " + where, section: "Phone › " + where }, b, null, { drop: p.quantity == null, row: rowEl });
     });
     const label = node("span", "s55-diff-label muted small", "Different amount:");
     a.append(label, qb.wrap, day);
@@ -481,7 +473,8 @@
         if (num.value === "") return;
         const now = where.value === "prep" ? r.prep : r.house;
         if (!confirm(`Set ${where.value === "prep" ? "Prep" : "House"} for ${r.title || r.asin} from ${units(now)} to ${units(num.value)}? Only this product changes.`)) return;
-        run("setCount", { asin: r.asin, destination: where.value, units: Number(num.value) || 0, note: note.value || "Set from the phone" }, save, async () => box.remove());
+        // B-1321 (v2.0.79): "Done - saved" stays readable for a moment before the box closes.
+        run("setCount", { asin: r.asin, destination: where.value, units: Number(num.value) || 0, note: note.value || "Set from the phone" }, save, async () => setTimeout(() => box.remove(), (self.ShopperPress && self.ShopperPress.LINGER_MS) || 0));
       });
       box.append(where, num, note, save, btn("Cancel", "secondary-btn", () => box.remove()));
       rowEl.append(box);

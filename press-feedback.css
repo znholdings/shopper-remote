@@ -1,0 +1,33 @@
+/* lib/press-feedback.css - B-1321 (v2.0.79). remote/press-feedback.css is a
+   byte-identical copy. What lib/press-feedback.js paints: "Saving..." while the
+   write runs, a greyed + struck row with "Done - drops off" once it is saved,
+   the plain reason beside the button when it was not.
+   The grey + strike go on every part of the row EXCEPT the Done button and the
+   boxes holding it (a strike set on a parent cannot be taken off its child),
+   so "Done - drops off" itself stays sharp and green. */
+.press-saving { opacity: 0.85; }
+.press-busy { cursor: progress; }
+.press-done > :not(:has(.press-done-btn)):not(.press-done-btn),
+.press-done :has(.press-done-btn) > :not(:has(.press-done-btn)):not(.press-done-btn) {
+  opacity: 0.45;
+  text-decoration: line-through;
+}
+:root:root:root .press-done-btn.press-done-btn,
+:root:root:root .press-done-btn.press-done-btn:disabled {
+  opacity: 1 !important;
+  text-decoration: none;
+  color: var(--s-green-ink, #12603a) !important;
+  background: var(--s-green-bg, #e3f4ea) !important;
+  border-color: var(--s-green, #1f8a4c) !important;
+}
+.press-saved { outline: 2px solid var(--s-green, #1f8a4c); outline-offset: 2px; }
+.press-error {
+  display: inline-block;
+  max-width: 100%;
+  margin: 2px 0 2px 6px;
+  color: var(--s-red-ink, #9b1c1c);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  vertical-align: middle;
+}
+.press-done-note { margin-left: 6px; color: var(--s-green-ink, #12603a); }

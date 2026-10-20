@@ -82,7 +82,7 @@
 
     function press(b, input) {
       return function () {
-        if (b.confirm && typeof confirm === "function" && !confirm(b.confirm)) return; // B-1326: Upload anyway asks first
+        if (b.confirm && typeof confirm === "function" && !confirm(b.confirm)) return; // B-1326 (v2.0.79 laptops): Upload anyway asks first
         var payload = {};
         var k;
         for (k in b.payload || {}) payload[k] = b.payload[k];
