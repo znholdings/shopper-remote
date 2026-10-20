@@ -388,6 +388,14 @@
           <div class="inv-total inv-prep" data-bucket="prep" role="button" tabindex="0" aria-pressed="false"><span class="t-label">Prep</span><b id="invPrep">-</b></div>
           <div class="inv-total inv-transit" data-bucket="transit" role="button" tabindex="0" aria-pressed="false"><span class="t-label">In transit</span><b id="invTransit">-</b></div>
         </div>
+        <!-- B-1309 (v2.0.78): one search for every list on this tab (remote/stock-search.js) - it was the Products filter. -->
+        <div class="inv-search" role="search">
+          <span class="inv-search-box">
+            <input id="invFilter" class="inv-filter" type="text" inputmode="search" enterkeyhint="search" placeholder="Search: ASIN, product, retailer, order #" aria-label="Search this tab" aria-describedby="invSearchCount" autocapitalize="off" autocomplete="off" spellcheck="false" />
+            <button type="button" id="invFilterClear" class="inv-search-clear" aria-label="Clear the search" hidden>&times;</button>
+          </span>
+          <span id="invSearchCount" class="muted small" aria-live="polite" hidden></span>
+        </div>
         <div id="invBucketPanel" class="section" hidden>
           <h3 id="invBucketTitle"></h3>
           <p id="invBucketNote" class="muted" hidden></p>
@@ -412,7 +420,6 @@
         </div>
         <div id="invProductsSection" class="section">
           <h3>Products <span id="invProductCount" class="count"></span></h3>
-          <input id="invFilter" class="inv-filter" type="search" placeholder="Filter by ASIN or name" autocapitalize="off" autocomplete="off" />
           <div id="invRows" class="lines"></div>
         </div>
       </div>
@@ -649,6 +656,8 @@
   <script src="boxes.js"></script>
   <!-- B-1073 / B-1076 (v2.0.55): Stock sections fold + jump row; Products one line each. -->
   <script src="stock-sections.js"></script>
+  <!-- B-1309 (v2.0.78): the Stock tab's search box filters every list as he types. -->
+  <script src="stock-search.js"></script>
   <script>
     // Shopper 2 (v2.00, B-732): the top-bar theme button - system -> light -> dark.
     // B-802 (v2.0.11): light -> dark -> retro -> light; the icon shows the NEXT one.

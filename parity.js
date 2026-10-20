@@ -74,12 +74,51 @@
 
   // Send, then (optionally) wait for the laptop's answer. `after` runs only
   // when the laptop said done - a refused first step never fires the second.
+  // B-1321 (v2.0.79): "Saving..." (button off, a second tap cannot fire it again) ->
+  // "Done - drops off" and the card / row hidden the moment the laptop says done
+  // (not at the next payload) -> a plain sentence under the buttons when it fails.
+  // Words pinned equal to lib/action-press.js (test v2079-d). Only the answer
+  // buttons of a card drop it (DROPS); Refresh / Save / Remove ding keep theirs.
+  const SAVING = "Saving…";
+  const DONE = "Done - drops off";
+  const DROPS = { arrivedQty: 1, orderNeverArrived: 1, orderKeepWaiting: 1, dismissCheck: 1, onTheWayArrived: 1, splitBook: 1, splitDismiss: 1, orderRestore: 1, orderRepair: 1, orderCancel: 1 };
+  function dropTarget(button) {
+    return button && button.closest ? button.closest(".need-stayed-row, .need-card, .line") : null;
+  }
+  function failLine(button, text) {
+    const host = button && button.parentNode;
+    if (!host || !host.appendChild) return;
+    const old = host.querySelector && host.querySelector(".need-err");
+    if (old) old.remove();
+    host.appendChild(node("div", "l-meta need-err", text));
+  }
   async function run(name, payload, button, after) {
-    if (button) { button.disabled = true; button.dataset.label = button.dataset.label || button.textContent; button.textContent = "Sending…"; }
+    if (button && !button.dataset) button.dataset = {};
+    if (button && (button.disabled || button.dataset.pressing)) return "busy"; // never twice
+    if (button) { button.disabled = true; button.dataset.pressing = "1"; button.dataset.label = button.dataset.label || button.textContent; button.textContent = SAVING; }
     const id = await R().sendCommand(name, payload);
     const status = id ? await R().waitFor(id) : "not sent";
-    if (button) { button.disabled = false; button.textContent = button.dataset.label; }
     if (status === "done" && after) await after();
+    if (button) {
+      // A PART quantity ("3 of 5 arrived") leaves the rest open on the row: it says Done, then the
+      // button comes back (the laptop refuses a repeat of the same press - B-951) - the row is not dropped.
+      const part = (name === "arrivedQty" || name === "onTheWayArrived") && payload && payload.quantity != null;
+      const row = status === "done" && DROPS[name] && !part ? dropTarget(button) : null;
+      if (row) {
+        button.textContent = DONE;
+        row.classList.add("need-done");
+        setTimeout(() => { row.hidden = true; }, 450); // long enough to read "Done"; the laptop has it already
+      } else if (status === "done" && part) {
+        button.textContent = "Done";
+        setTimeout(() => { button.disabled = false; button.textContent = button.dataset.label; delete button.dataset.pressing; }, 450);
+        return status;
+      } else {
+        button.disabled = false;
+        button.textContent = button.dataset.label;
+        if (status !== "done") failLine(button, "That did not go through" + (status && status !== "not sent" ? " (" + status + ")" : "") + ".");
+      }
+      delete button.dataset.pressing;
+    }
     return status;
   }
 

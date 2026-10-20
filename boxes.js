@@ -481,6 +481,23 @@
       box.appendChild(node("p", "muted", "Some saved words are not turned into boxes yet - tap Re-check with ScanPower, or remove them, then it can upload."));
     } else if (!d.appendBlocked || d.questions.length || d.blocking.length) {
       box.appendChild(node("p", "muted", "Answer the questions or fix the text, then it can upload."));
+      // B-1326: Upload anyway - the boxes as read, despite over-counts / unmatched names.
+      const fw = Array.isArray(d.forceWarnings) ? d.forceWarnings : [];
+      if (fw.length && !b.pending && !unsentHere.length && !queuedThere) {
+        const warnNode = node("div", "bx-force");
+        warnNode.appendChild(node("p", "warn-text", "Or upload the boxes as read, despite:"));
+        fw.forEach((t) => warnNode.appendChild(node("p", "warn-text bx-force-item", "• " + t)));
+        box.appendChild(warnNode);
+        const anyway = btn("Upload anyway", "ghost-btn bx-upload-anyway", () => {
+          const where = b.batch ? b.batch.name : "ScanPower";
+          if (!confirm("Upload these " + d.boxes.length + " boxes to " + where + " anyway, even though:\n\n- " + fw.join("\n- ") + "\n\nScanPower keeps only what is expected for each product; you fix the rest in ScanPower. This is logged.")) return;
+          const late = unsentFor(b);
+          if (late.length) { say(late.length + " message(s) on this phone are not on the laptop yet - they go first, then upload."); return; }
+          anyway.disabled = true;
+          R().sendCommand("boxesUpload", { id: b.id, mode, force: true, warnings: fw });
+        });
+        box.appendChild(anyway);
+      }
     }
   }
 

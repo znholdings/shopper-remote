@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.77";
+const APP_BUILD = "v2.0.79";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -2210,6 +2210,8 @@ function renderInventory(inv) {
   // v4.74: rows now carry inputs (count, expiry, It arrived date) - never
   // rebuild under a finger that is typing (P-36's rule).
   if (isBeingEdited(els.inventoryPane)) return;
+  // B-1339 (v2.0.79): FNSKU / older order numbers per product reach the Stock search.
+  if (self.ShopperStockSearch && self.ShopperStockSearch.setFind) self.ShopperStockSearch.setFind(inv && inv.find);
   const filter = (els.invFilter.value || "").trim().toLowerCase();
   const key = JSON.stringify(inv || null) + "|" + JSON.stringify((lastPayload && lastPayload.houseExpiry) || null) + "|" + filter + "|" + invBucket;
   if (key === lastInventoryKey) return;
@@ -2251,9 +2253,14 @@ function renderInventory(inv) {
     if (a.undated.rowCount) els.invArrivals.appendChild(invArrivalBox("No date yet", a.undated));
   }
 
-  const rows = inv.rows.filter((r) => !filter || r.asin.toLowerCase().includes(filter) || (r.title || "").toLowerCase().includes(filter));
+  // B-1309 (v2.0.78): the same words as the Stock tab's search (remote/stock-search.js) - every word, any order.
+  const ss = self.ShopperStockSearch;
+  const words = ss ? ss.tokens(filter) : [];
+  const rows = inv.rows.filter((r) => !filter || (ss ? ss.matches(r.asin + " " + (r.title || "") + " " + ((inv.find && inv.find[String(r.asin).toUpperCase()]) || ""), words) : r.asin.toLowerCase().includes(filter) || (r.title || "").toLowerCase().includes(filter)));
   els.invProductCount.textContent = "(" + (filter ? rows.length + " of " : "") + inv.productCount + ")";
-  for (const r of rows) {
+  // With the search module every product is drawn and it hides the misses as he types
+  // (so the "N of M" beside the box stays the same before and after a redraw).
+  for (const r of ss ? inv.rows : rows) {
     // B-1076 (v2.0.55): one line per product; its controls open on a tap (remote/stock-sections.js).
     if (self.ShopperStockSections) {
       els.invRows.appendChild(self.ShopperStockSections.productRow(r, { units: invUnits, receiveButton: invReceiveButton }));
@@ -2672,7 +2679,8 @@ function openInventoryView(bucket, anchor) {
   renderInventory(lastPayload && lastPayload.inventory);
   // B-1073 (v2.0.55): Products may be folded on the Stock tab - open it first.
   if (anchor === "products" && self.ShopperStockSections) self.ShopperStockSections.open("products");
-  const target = anchor === "products" ? els.invFilter : bucket ? els.invBucketPanel : els.inventoryPane;
+  // B-1309 (v2.0.78): the search box moved above the lists - Products lands on its own heading.
+  const target = anchor === "products" ? document.getElementById("invProductsSection") || els.invFilter : bucket ? els.invBucketPanel : els.inventoryPane;
   if (target && !target.hidden && target.scrollIntoView) target.scrollIntoView({ block: "start" });
   else scrollAppTop();
 }
@@ -2736,6 +2744,9 @@ function glGo(target) {
     voc: () => window.open("https://sellercentral.amazon.com/voice-of-the-customer", "_blank", "noopener"),
     // B-1101 (v2.0.57): Seller Central's Account Health page.
     health: () => window.open("https://sellercentral.amazon.com/performance/account/health", "_blank", "noopener"),
+    // B-1319 (v2.0.78): the phone never writes to ScanPower - it shows the House list; the
+    // row's detail says to press Update ScanPower batch on the laptop.
+    updatebatch: () => openInventoryView("house"),
   }[target];
   if (go) go();
 }
@@ -2931,6 +2942,8 @@ function renderDashboard(d, p) {
     agedInventory: ex.agedInventory || null,
     // B-1257 (v2.0.73): the Min tab's listings - The Daily's "new since your last review".
     belowMinItems: p && p.belowMin && Array.isArray(p.belowMin.rows) ? p.belowMin.rows : null,
+    // B-1319 (v2.0.78): house arrivals for the open ScanPower batch (the laptop adds them).
+    batchOffer: ex.batchOffer || null,
     // B-862 (v2.0.23): listings deactivated for a pricing error.
     pricingErrors: ex.pricingErrors || null,
     now: Date.now(),

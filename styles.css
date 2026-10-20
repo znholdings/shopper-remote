@@ -448,6 +448,14 @@ button { font: inherit; cursor: pointer; }
 .inv-n.inv-transit { color: var(--transit); }
 .inv-n.inv-neg { color: var(--bad); font-weight: 700; }
 .inv-filter { width: 100%; box-sizing: border-box; padding: 10px; margin: 4px 0 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--s-n0); color: var(--text); font-size: 16px; }
+/* B-1309 (v2.0.78): the Stock tab's search (remote/stock-search.js) - under the tiles, filters every list. */
+.inv-search { margin: 4px 0 8px; min-width: 0; }
+.inv-search-box { position: relative; display: block; min-width: 0; }
+.inv-search .inv-filter { margin: 0; padding-right: 40px; }
+.inv-search-clear { position: absolute; right: 4px; top: 0; bottom: 0; margin: auto 0; width: 34px; height: 34px; padding: 0; border: 0; background: none; color: var(--muted, inherit); font-size: 22px; line-height: 1; cursor: pointer; }
+:root[data-theme="retro"] .inv-search-clear:not(#no-id) { border: 0 !important; box-shadow: none !important; background: none !important; padding: 0 !important; min-width: 0 !important; height: 34px !important; transform: none !important; }
+#invSearchCount { display: block; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.inv-search-miss, .inv-search-hide { display: none !important; }
 /* B-465 (v4.50): the tiles are buttons; the open one is outlined. */
 .inv-total[data-bucket] { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .inv-total.inv-total-on { outline: 2px solid var(--text); outline-offset: -1px; }
@@ -682,6 +690,8 @@ body::before { content: ""; position: fixed; top: 0; left: 0; right: 0; height: 
 .need-qty .need-qty-input::-webkit-inner-spin-button, .need-qty .need-qty-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 .need-split-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 /* B-1251 (v2.0.73): a stayed-behind card answers per product. */
+.need-done { opacity: 0.55; text-decoration: line-through; } /* B-1321 (v2.0.79) */
+.need-err { color: var(--s-red-ink); }
 .need-stayed-row { display: flex; flex-direction: column; gap: 4px; padding: 6px 0 2px; border-top: 1px solid var(--s-line-soft); }
 .parity-edit, .parity-ding { flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .parity-why summary { cursor: pointer; font-size: 13px; }
@@ -700,6 +710,9 @@ body::before { content: ""; position: fixed; top: 0; left: 0; right: 0; height: 
 .bx-questions h4 { margin: 10px 0 4px; }
 .bx-replace { display: block; margin: 8px 0; font-size: 14px; }
 .bx-upload { width: 100%; margin-top: 6px; }
+.bx-upload-anyway { width: 100%; margin-top: 6px; border: 1px solid var(--line, currentColor); }
+.bx-force { margin-top: 6px; }
+.bx-force-item { overflow-wrap: anywhere; }
 /* B-711 (v4.95): the saved box list line and each card's Remove button. */
 .bx-saved { font-weight: 700; margin: 6px 0; color: var(--text); }
 .bx-remove { margin-top: 6px; padding: 6px 12px; font-size: 14px; }
