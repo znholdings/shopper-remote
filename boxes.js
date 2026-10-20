@@ -270,11 +270,12 @@
     const list = (b && b.batches) || [];
     const keep = batchSel.value;
     while (batchSel.firstChild) batchSel.removeChild(batchSel.firstChild);
-    const o0 = node("option", null, b && b.batch && (b.saved || b.pending) ? b.batch.name + (b.saved ? " (saved boxes)" : " (saved words)") : "Newest batch");
+    const o0 = node("option", null, b && b.batch && (b.saved || b.pending) ? b.batch.name + (b.saved ? " (saved boxes)" : " (saved words)") : "Newest house batch");
     o0.value = "";
     batchSel.appendChild(o0);
     for (const x of list) {
-      const o = node("option", null, x.name + " (" + x.id + ")");
+      // B-1320: open house batches only; one not at Pack yet keeps the words.
+      const o = node("option", null, x.name + " (" + x.id + ")" + (x.step != null && Number(x.step) < 3 ? " - not at Pack yet" : ""));
       o.value = x.id;
       batchSel.appendChild(o);
     }
