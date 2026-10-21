@@ -34,7 +34,8 @@ const __m = {};
 // tab; phone: the browser).
 // B-1163 (v2.0.61): "books" = the Books pages (laptop: SHOPPER_OPEN_BOOKS_TAB;
 // the phone has no Books tab and is never handed a `books` input).
-const TARGETS = Object.freeze(["buylist", "buyqueue", "pipeline", "arrivals", "belowmin", "runreviews", "fba", "wizard", "cashflow", "bank", "expand", "plaid", "voc", "health", "books", "updatebatch"]);
+const TARGETS = Object.freeze(["buylist", "buyqueue", "pipeline", "arrivals", "belowmin", "runreviews", "fba", "wizard", "cashflow", "bank", "expand", "plaid", "voc", "health", "books", "updatebatch", "catalog"]);
+// B-1369 (v2.0.82): "catalog" = the Catalog page (the COGS check card; laptop: SHOPPER_OPEN_CATALOG_TAB, phone: its Catalog tab).
 // B-1319 (v2.0.78, builder D): "updatebatch" = the Pipeline page's Update ScanPower batch
 // pop-up (laptop: SHOPPER_OPEN_PIPELINE_TAB view "updatebatch"; the phone, which never
 // writes to ScanPower, opens its House list).
@@ -58,9 +59,10 @@ const TARGETS = Object.freeze(["buylist", "buyqueue", "pipeline", "arrivals", "b
 // Shopper could not prove and fix itself (a declined B-1298 re-send ...) - each
 // one a notification of type RPSB_HAND_NOTIFICATION_TYPE, right after the
 // notifications row; Mark done / Dismiss on each (laptop and phone).
-const DO_NEXT_ORDER = Object.freeze(["urgent", "rpsbHand", "health", "owed", "needsYou", "belowMin", "pricingErrors", "voc", "arrivals", "batchOffer", "runReviews", "fba", "aged", "stranded", "checks", "taxDates", "tax1099", "ownerDraw", "shipment"]);
+const DO_NEXT_ORDER = Object.freeze(["urgent", "rpsbHand", "health", "owed", "needsYou", "belowMin", "pricingErrors", "voc", "arrivals", "batchOffer", "runReviews", "fba", "aged", "stranded", "checks", "cogs", "taxDates", "tax1099", "ownerDraw", "shipment"]);
 const SHIPMENT_NOTIFICATION_TYPE = "shipment_prompt";
 const RPSB_HAND_NOTIFICATION_TYPE = "rpsb_hand"; // B-1310 (lib/rpsb-hand.js makes them)
+const COGS_NOTIFICATION_TYPE = "cogs_check"; // B-1362 made it a notification; B-1369 (v2.0.82) a row of its own - an old one is kept out of "urgent"
 
 const num = (v) => {
   if (v == null || v === "") return null;
@@ -168,7 +170,7 @@ function buildDoNext(input = {}) {
   const notifs = Array.isArray(input.notifications) ? input.notifications : [];
   const shipment = notifs.filter((n) => n && n.type === SHIPMENT_NOTIFICATION_TYPE);
   const hand = notifs.filter((n) => n && n.type === RPSB_HAND_NOTIFICATION_TYPE); // B-1310
-  const urgent = notifs.filter((n) => n && n.type !== SHIPMENT_NOTIFICATION_TYPE && n.type !== RPSB_HAND_NOTIFICATION_TYPE);
+  const urgent = notifs.filter((n) => n && n.type !== SHIPMENT_NOTIFICATION_TYPE && n.type !== RPSB_HAND_NOTIFICATION_TYPE && n.type !== COGS_NOTIFICATION_TYPE);
   const add = (r) => rows.push(r);
 
   if (urgent.length) {
@@ -427,6 +429,28 @@ function buildDoNext(input = {}) {
       count: strandedUnits,
       // B-1304 (v2.0.76): count is UNITS; The Daily's "N in all" counts products.
       products: Math.max(skus, items.length),
+    });
+  }
+
+  // B-1369 (v2.0.82): the COGS check's own row (it rode in the notifications row before).
+  // input.cogsCheck = cogsGlance() (lib/cogs-check.js) { count, blank, tolerancePct, items: [{ asin, title, blank, line }] } | null.
+  const cg = input.cogsCheck || null;
+  const cgCount = cg ? Math.floor(num(cg.count) || 0) : 0;
+  if (cgCount > 0) {
+    const cgBlank = Math.floor(num(cg.blank) || 0);
+    const cgItems = Array.isArray(cg.items) ? cg.items.filter(Boolean) : [];
+    const bits = [];
+    if (cgBlank) bits.push(`${cgBlank} blank in Sellerboard`);
+    if (cgCount - cgBlank) bits.push(`${cgCount - cgBlank} off by more than ${num(cg.tolerancePct) || 0}%`);
+    add({
+      id: "cogs",
+      severity: "medium",
+      title: `COGS check: ${plural(cgCount, "product")} with a Sellerboard cost to fix`,
+      short: `COGS check: ${plural(cgCount, "cost")} to fix`,
+      detail: bits.join(", ") + ". " + linesDetail(cgItems.map((x) => String(x.line || x.asin)), cgCount, "Catalog") + ". Nothing changes until you say Yes on the Catalog page.",
+      lines: cgItems.map((x) => ({ asin: String(x.asin || ""), title: String(x.title || ""), text: String(x.line || x.asin || "") })),
+      go: { label: "Catalog", target: "catalog" },
+      count: cgCount,
     });
   }
 
@@ -804,7 +828,7 @@ function fbaStockValue(tiles) {
   }
   return any ? Math.round(total * 100) / 100 : null;
 }
-__m["dashboard-todo.js"] = { TARGETS, DO_NEXT_ORDER, SHIPMENT_NOTIFICATION_TYPE, RPSB_HAND_NOTIFICATION_TYPE, DO_NEXT_LINE_MAX, shortTitle, strandedLineText, pricingOfferText, pricingLineText, belowMinLineText, money0, money2, changeLine, topSeverity, buildDoNext, SB_DAY_ROLLOVER_HOUR, chicagoClock, dayKeyAdd, usDate, sbCardRange, sumSbDays, buildSbCards, buildTiles, BG_CHECK_STALE_MS, BG_CHECK_LABELS, bgCheckStatusWords, bgCheckLines, accountHealthLine, ageText, BANK_BALANCE_ROWS, matchBankAccount, bankBalanceRows, plaidTile, fbaStockValue };
+__m["dashboard-todo.js"] = { TARGETS, DO_NEXT_ORDER, SHIPMENT_NOTIFICATION_TYPE, RPSB_HAND_NOTIFICATION_TYPE, COGS_NOTIFICATION_TYPE, DO_NEXT_LINE_MAX, shortTitle, strandedLineText, pricingOfferText, pricingLineText, belowMinLineText, money0, money2, changeLine, topSeverity, buildDoNext, SB_DAY_ROLLOVER_HOUR, chicagoClock, dayKeyAdd, usDate, sbCardRange, sumSbDays, buildSbCards, buildTiles, BG_CHECK_STALE_MS, BG_CHECK_LABELS, bgCheckStatusWords, bgCheckLines, accountHealthLine, ageText, BANK_BALANCE_ROWS, matchBankAccount, bankBalanceRows, plaidTile, fbaStockValue };
 })();
 // ---- lib/unit-fraction.js ----
 (function () {
@@ -915,6 +939,7 @@ const DAILY_STEP_LABELS = Object.freeze({
   fba: "FBA alerts",
   aged: "Aged inventory",
   stranded: "Stranded inventory",
+  cogs: "COGS check", // B-1369 (v2.0.82)
   checks: "Background checks",
   taxDates: "Tax dates",
   tax1099: "1099-NEC",

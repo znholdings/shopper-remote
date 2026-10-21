@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.80";
+const APP_BUILD = "v2.0.83";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -2966,6 +2966,8 @@ function renderDashboard(d, p) {
     belowMinItems: p && p.belowMin && Array.isArray(p.belowMin.rows) ? p.belowMin.rows : null,
     // B-1319 (v2.0.78): house arrivals for the open ScanPower batch (the laptop adds them).
     batchOffer: ex.batchOffer || null,
+    // B-1369 (v2.0.82): the COGS check's own row.
+    cogsCheck: ex.cogsCheck || null,
     // B-862 (v2.0.23): listings deactivated for a pricing error.
     pricingErrors: ex.pricingErrors || null,
     now: Date.now(),
@@ -2994,7 +2996,7 @@ function renderDashboard(d, p) {
     },
   }) : null;
   const rows = dvOut ? dvOut.rows : allRows;
-  const key = JSON.stringify([tiles, rows.map((r) => [r.id, r.title, r.detail, r.severity, r.go.label, (r.notifs || []).map((n) => n.key)]), d.lastRun, ex.nightly, d.remoteBuiltAt, d.stale, d.spend.bankRecent, ex.bgChecks || null, ex.accountHealth || null]);
+  const key = JSON.stringify([tiles, rows.map((r) => [r.id, r.title, r.detail, r.severity, r.go.label, (r.notifs || []).map((n) => n.key)]), d.lastRun, ex.nightly, d.remoteBuiltAt, d.stale, d.spend.bankRecent, ex.bgChecks || null, ex.accountHealth || null, d.resolvedHand || null]);
   if (key === lastDashboardKey) return;
   lastDashboardKey = key;
   for (const k of ["dashTiles", "dashDoNext"]) els[k].textContent = "";
@@ -3013,6 +3015,11 @@ function renderDashboard(d, p) {
     els.dashDoNext.appendChild(invNode("div", "muted", unknown ? "Nothing flagged - but today's spend figures are not loaded (refresh the Dashboard on the laptop)." : "All caught up. Nothing needs you right now."));
   }
   for (const r of rows) els.dashDoNext.appendChild(glRow(r));
+  // B-1347 (v2.0.82): closed "check by hand" items, with Undo.
+  if (self.ShopperNotifActions && self.ShopperNotifActions.buildResolved) {
+    const closed = self.ShopperNotifActions.buildResolved(d.resolvedHand, () => { lastDashboardKey = ""; if (lastPayload) renderDashboard(lastPayload.dashboard, lastPayload); });
+    if (closed) els.dashDoNext.appendChild(closed);
+  }
 
   // status: last run (tap = its report) + the nightly buy list
   const last = d.lastRun;

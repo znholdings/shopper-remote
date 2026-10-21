@@ -33,7 +33,8 @@
   var KEEP_HIDDEN_MS = 5 * 60 * 1000;
   var ROW_SELECTOR = ".press-row, .pp-need, .pp-mismatch, .pp-stayed-row, .notif, .need-stayed-row, .need-card, .inv-arrival, tr, li";
 
-  var dropped = new Map(); // key -> { until, sel }
+  var dropped = new Map(); // key -> { until, sel, counts: [element ids] }
+  var adjusted = new Map(); // count element id -> { text, keys } - what was taken off the text it shows now
   var watcher = null;
 
   function now() { return Date.now(); }
@@ -74,10 +75,33 @@
     var k = keyOf(el);
     var hit = dropped.get(k);
     if (!hit || hit.until <= now()) return false;
+    var fresh = !(el.dataset && el.dataset.pressGone === "1");
     el.hidden = true;
     if (el.style) el.style.display = "none";
     if (el.dataset) el.dataset.pressGone = "1";
+    // B-1359 (v2.0.82): a row that was counted and is drawn again from older figures is off the count
+    // again too - the redraw put the old number back, and the rebuild has not landed yet.
+    if (fresh && hit.counts && hit.counts.length) retakeCounts(hit.counts, k);
     return true;
+  }
+
+  // Takes one off each count element (by id) for the row `key`, once per number shown.
+  function retakeCounts(ids, key) {
+    if (typeof document === "undefined") return;
+    for (var i = 0; i < ids.length; i++) {
+      var c = document.getElementById(ids[i]);
+      if (!c) continue;
+      var txt = String(c.textContent || "");
+      var rec = adjusted.get(ids[i]);
+      if (rec && rec.text === txt && rec.keys[key]) continue; // already off this number
+      var v = parseInt(txt.replace(/[^0-9-]/g, ""), 10);
+      if (!isFinite(v)) continue;
+      var nv = String(Math.max(0, v - 1));
+      var keys = rec && rec.text === txt ? rec.keys : {};
+      keys[key] = 1;
+      c.textContent = nv;
+      adjusted.set(ids[i], { text: nv, keys: keys });
+    }
   }
 
   // Rows drawn again from figures older than the press stay off (see top).
@@ -109,9 +133,9 @@
   }
 
   // `key` / `sel` are taken when the button is pressed, before its words change.
-  function remember(key, sel) {
+  function remember(key, sel, counts) {
     if (!key) return;
-    dropped.set(key, { until: now() + KEEP_HIDDEN_MS, sel: sel });
+    dropped.set(key, { until: now() + KEEP_HIDDEN_MS, sel: sel, counts: counts || [] });
     watch();
   }
 
@@ -211,9 +235,22 @@
       if (typeof opts.onDone === "function") { try { opts.onDone(res, row); } catch (e) { /* the press is saved either way */ } }
       if (drop && row) {
         if (row.classList) row.classList.add("press-done");
-        remember(key, sel);
         var counts = opts.counts || [];
-        for (var i = 0; i < counts.length; i++) dropCount(typeof counts[i] === "function" ? counts[i]() : counts[i]);
+        var countIds = [];
+        for (var i = 0; i < counts.length; i++) {
+          var ce = typeof counts[i] === "function" ? counts[i]() : counts[i];
+          dropCount(ce);
+          if (ce && ce.id) {
+            countIds.push(ce.id);
+            // the number now shown already has this row off it
+            var rec0 = adjusted.get(ce.id);
+            var t0 = String(ce.textContent || "");
+            var keys0 = rec0 && rec0.text === t0 ? rec0.keys : {};
+            keys0[key] = 1;
+            adjusted.set(ce.id, { text: t0, keys: keys0 });
+          }
+        }
+        remember(key, sel, countIds);
         setTimeout(function () {
           var parent = row.parentNode;
           if (parent) parent.removeChild(row);
@@ -262,7 +299,7 @@
     phoneAnswer: phoneAnswer,
     hideDropped: hideDropped,
     isDropped: function (el) { prune(); var v = dropped.get(keyOf(el)); return !!(v && v.until > now()); },
-    forget: function () { dropped.clear(); prune(); },
+    forget: function () { dropped.clear(); adjusted.clear(); prune(); },
     keyOf: keyOf,
     SAVING: SAVING,
     SENT: SENT,
