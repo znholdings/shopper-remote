@@ -195,6 +195,19 @@
     return box;
   }
 
+  // B-1410 (v2.0.88): the current Seller Snap strategy + the min / max / strategy picker + Send -
+  // the Pricing tab's own block (listing-health-view.js ssBlock) and send (pricingRowSend).
+  function ssStrategy(c, r) {
+    const LH = self.ShopperListingHealthView;
+    const sp = data && data.sp ? data.sp[r.sku] || null : null;
+    if (!LH || !LH.ssBlock || !data || !("sp" in data) || !data.sp) return; // an older laptop sends no sp
+    const box = el("div", "bmm-ss");
+    box.append(el("div", "t-label", "Seller Snap strategy"));
+    if (sp) box.append(el("div", "bmm-ss-strategy", `Current: ${sp.preset == null ? "none (AI Default)" : P && P.prPresetLabel ? P.prPresetLabel(sp.preset) : sp.preset}`));
+    box.append(LH.ssBlock({ asin: r.asin, sp }, data.presets || []));
+    c.append(box);
+  }
+
   function card(r) {
     const c = el("div", "bmm-card");
     const top = el("div", "bmm-top");
@@ -276,6 +289,7 @@
     upd();
     wrap.append(el("span", null, "Custom min $ "), inp);
     c.append(choice(r, "custom", wrap, live), lossWhy, lossLab);
+    ssStrategy(c, r);
     const sg = r.suggestion || {};
     if (sg.price != null) c.append(choice(r, "suggested", el("span", null, `Suggested min ${money(sg.price)}`), el("div", "muted small bmm-sub", `At ${money(sg.price)}: ${atLine(sg)}`)));
     else c.append(choice(r, "suggested", el("span", null, "No suggestion"), el("div", "muted small bmm-sub", sg.reason || ""), true));
@@ -332,13 +346,19 @@
     data = p || null;
     for (const sku of Object.keys(choices)) if (!(data && (data.rows || []).some((r) => r.sku === sku))) delete choices[sku];
     // Don't redraw under his thumb while he is choosing - only when the list changed.
-    const key = JSON.stringify(data && [data.readAt, data.count, data.error, data.lastSend, (data.rows || []).map((r) => [r.sku, r.bb, r.min, r.chartAt, r.offers ? r.offers.length : -1, r.stockAt || 0])]);
+    // B-1410: never redraw under his thumb while a Seller Snap box on a card has the focus.
+    const fa = document.activeElement;
+    const body = $("bmmBody");
+    if (fa && body && body.contains(fa) && /^(INPUT|SELECT|TEXTAREA)$/.test(fa.tagName) && fa.closest(".bmm-ss")) return;
+    const key = JSON.stringify(data && [data.readAt, data.count, data.error, data.lastSend, data.sp || null, (data.rows || []).map((r) => [r.sku, r.bb, r.min, r.chartAt, r.offers ? r.offers.length : -1, r.stockAt || 0])]);
     if (key === lastKey) return;
     lastKey = key;
     draw();
   }
 
   function wire() {
+    // B-1410: a Min card's Seller Snap send redraws the cards (typed values and the answer live in listing-health-view.js).
+    if (self.ShopperListingHealthView && self.ShopperListingHealthView.onRepaint) self.ShopperListingHealthView.onRepaint(() => { lastKey = ""; if (data) draw(); });
     const check = $("bmmCheck");
     const sendBtn = $("bmmSend");
     if (!check || !sendBtn || !self.ShopperRemote) return;

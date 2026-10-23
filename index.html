@@ -22,6 +22,7 @@
   <link rel="stylesheet" href="claude-learning.css" />
   <!-- B-1071 (v2.0.54): Process returns on the Ship tab (remote/returns-view.js). -->
   <link rel="stylesheet" href="returns.css" />
+  <link rel="stylesheet" href="packing.css" /><!-- B-1426 (v2.0.92): Packing data on the Ship tab (= lib/packing-ui.css) -->
   <!-- v2.0.55 builder A (B-1073 / B-1076 / B-1077 / B-1079): Stock + Ship on the phone. -->
   <link rel="stylesheet" href="ui55-a.css" />
   <!-- v2.0.55 builder B (B-1074 / B-1075 / B-1080 - B-1083 / B-1086): Buylist More sheet, folded
@@ -143,6 +144,8 @@
           <button id="tabBelowMin" class="tab"><svg class="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12l-8 8-9-9V3h8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg><span class="tab-label">Pricing</span></button>
           <!-- B-742 (v2.0.7): the Shipment Wizard (+ B-1071 Process returns). -->
           <button id="tabWizard" class="tab"><svg class="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h11v9H3z"/><path d="M14 10h4l3 3v3h-7"/><circle cx="7" cy="18" r="1.6"/><circle cx="17" cy="18" r="1.6"/></svg><span class="tab-label">Ship to Amazon</span><span class="pn-alias">Ship</span></button>
+          <!-- B-1451 (v2.0.93): Packing planner straight from the menu - not a pane: remote/packing-view.js opens the packing sheet on tap (no Ship tab steps). -->
+          <button id="tabPacking" class="tab"><svg class="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg><span class="tab-label">Packing planner</span><span class="pn-alias">Pack</span></button>
         </div>
         <div class="pn-foot"><span id="pnBuild" class="pn-version"></span></div>
       </nav>
@@ -383,6 +386,7 @@
         <!-- v4.74 (B-567): the same Quick / Full refresh as the laptop. -->
         <div id="invRefresh"></div>
         <p id="invAsOf" class="muted"></p>
+        <p id="invLiveSync" class="muted small"></p>
         <div class="inv-totals">
           <!-- B-465 (v4.50): each tile opens its products, largest first. -->
           <div class="inv-total inv-house" data-bucket="house" role="button" tabindex="0" aria-pressed="false"><span class="t-label">House</span><b id="invHouse">-</b></div>
@@ -431,7 +435,7 @@
       <!-- B-741 (v2.01): the laptop's Below Min list, with the same choices. -->
       <!-- B-742 (v2.0.7): the Shipment Wizard - the same screens as the laptop's Ship to Amazon page. -->
       <!-- B-1071 (v2.0.54): + Process returns above the wizard (remote/returns-view.js draws #returnsHost). -->
-      <div id="wizardPane" hidden><div id="returnsHost"></div><div id="wizardHost"></div></div>
+      <div id="wizardPane" hidden><div id="packingHost"></div><div id="returnsHost"></div><div id="wizardHost"></div></div>
       <!-- B-765 (v2.0.8): the laptop's Cash Flow page, worked out on the laptop
            after each Sellerboard read and drawn with its own chart code
            (cashflow-lib.js is built from lib/s-chart.js). -->
@@ -656,6 +660,9 @@
   <script src="manual-print-view.js"></script>
   <!-- B-1071 (v2.0.54): Process returns (uses manual-print-view.js runCommand). -->
   <script src="returns-view.js"></script>
+  <!-- B-1426 / B-1429 (v2.0.92): Packing data (uses manual-print-view.js runCommand; packing-lib.js is built from lib/packing-form*.js). -->
+  <script src="packing-lib.js"></script>
+  <script src="packing-view.js"></script>
   <script src="boxes.js"></script>
   <!-- B-1073 / B-1076 (v2.0.55): Stock sections fold + jump row; Products one line each. -->
   <script src="stock-sections.js"></script>

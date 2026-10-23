@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.84";
+const APP_BUILD = "v2.0.94";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -41,7 +41,7 @@ for (const id of [
   "promptReason","promptDetails","skipFailedBtn","nowStrip","nowAsin","nowStep",
   "densityRow","logSection","reportCard","reportUrgent","reportSummary","reportBuckets","soundBtn",
   // B-459 (v4.49): the read-only Inventory tab.
-  "tabInventory","inventoryPane","invAsOf","invHouse","invPrep","invTransit",
+  "tabInventory","inventoryPane","invAsOf","invLiveSync","invHouse","invPrep","invTransit",
   "invArrivalsCount","invArrivals","invProductCount","invFilter","invRows",
   // B-465 (v4.50): tap a House / Prep / In transit tile for its products.
   "invBucketPanel","invBucketTitle","invBucketNote","invBucketTable",
@@ -377,6 +377,10 @@ const REMOTE_LABELS = {
   pricingRowSend: "Send a Pricing row", // B-1198 (v2.0.68)
   booksLineSet: "Book a Needs you line", // B-1232 (v2.0.73)
   booksLineClear: "Card line - nothing", booksReload: "Reload the Books", // B-1278 / B-1277 (v2.0.74)
+  // B-1426 / B-1429 (v2.0.92): packing data (remote/packing-view.js)
+  packingSave: "Save packing data", packingTraits: "Claude's packing traits", packingBoxSave: "Save a box", packingBoxesSeed: "Add box sizes", packingReplayBatch: "Replay a batch", packingReplayClear: "Clear the replay", packingReplayLast: "Read the last replay", packingReplayReload: "Reload the last replay",
+  // B-1427 / B-1428 (v2.0.92): the planner
+  packingPlan: "Make a packing plan", packingApprove: "Approve the packing plan", packingReject: "Reject the packing plan", packingRuleConfirm: "Add the packing rule", packingRuleDelete: "Delete a packing rule", packingRealWeight: "Save a real box weight", packingDraft: "Send boxes to Box contents (draft)",
 };
 
 // P-25, half one: proof the tap landed. A command that is still pending or
@@ -1058,7 +1062,7 @@ function openSourceUrlForm(row, l) {
   if (row.querySelector(".src-form")) return;
   const form = document.createElement("div");
   form.className = "bought-form src-form";
-  form.innerHTML = `<input class="sf-url" type="url" inputmode="url" placeholder="https://www.walmart.com/ip/..." />`;
+  form.innerHTML = `<input class="sf-url" type="url" inputmode="url" placeholder="https://business.walmart.com/ip/..." />`;
   const save = document.createElement("button");
   save.className = "primary-btn mini-btn";
   save.textContent = "Save URL";
@@ -1211,8 +1215,8 @@ function renderPrompt(prompt) {
   let getPayload = () => ({ asin: prompt.asin, lineId: prompt.lineId });
 
   if (prompt.kind === "sourceUrl") {
-    const url = field("pUrl", "Source URL", { type: "url", placeholder: "https://www.walmart.com/ip/..." });
-    const ipu = field("pIpu", "Items per unit", { type: "number", min: "1", value: "1" });
+    const url = field("pUrl", "Source URL", { type: "url", placeholder: "https://business.walmart.com/ip/..." });
+    const ipu = field("pIpu", "Pieces per Amazon unit", { type: "number", min: "1", value: "1" });
     getPayload = () => ({ asin: prompt.asin, lineId: prompt.lineId, url: url.value.trim(), itemsPerUnit: Number(ipu.value) || 1 });
   } else if (prompt.kind === "filler") {
     const fa = field("pFillerAsin", "Filler ASIN (optional)", { type: "text" });
@@ -2235,7 +2239,7 @@ function renderInventory(inv) {
   // B-1339 (v2.0.79): FNSKU / older order numbers per product reach the Stock search.
   if (self.ShopperStockSearch && self.ShopperStockSearch.setFind) self.ShopperStockSearch.setFind(inv && inv.find);
   const filter = (els.invFilter.value || "").trim().toLowerCase();
-  const key = JSON.stringify(inv || null) + "|" + JSON.stringify((lastPayload && lastPayload.houseExpiry) || null) + "|" + filter + "|" + invBucket;
+  const key = JSON.stringify(inv || null, (k, v) => (k === "liveSync" ? undefined : v)) + "|" + JSON.stringify((lastPayload && lastPayload.houseExpiry) || null) + "|" + filter + "|" + invBucket;
   if (key === lastInventoryKey) return;
   lastInventoryKey = key;
   els.invArrivals.textContent = "";
@@ -2353,7 +2357,22 @@ function rcSyncStart() {
   // B-933 (v2.0.35): the x on a "Counted N" chip clears that tally - the Receive labels follow.
   if (self.ShopperReceive.onBadgeClear) self.ShopperReceive.onBadgeClear(() => invRefreshReceiveButtons());
 }
+// B-1419 (v2.0.91): "Synced 12 s ago" - when the laptop last exchanged the shared copy with the other computer.
+let rcLive = null;
+function rcLiveWords(st, now) {
+  if (!st || !st.at) return "";
+  const s = Math.max(0, Math.round((now - st.at) / 1000));
+  const age = s < 5 ? "just now" : s < 90 ? s + " s ago" : s < 5400 ? Math.round(s / 60) + " min ago" : Math.round(s / 3600) + " h ago";
+  return st.ok === false ? "Not syncing with the other computer - last synced " + age : "Synced" + (st.withName ? " with " + st.withName : "") + " " + age;
+}
+function rcLivePaint() {
+  if (els.invLiveSync) els.invLiveSync.textContent = rcLiveWords(rcLive, Date.now());
+}
+let rcLiveTimer = null;
 function rcSyncApply(inv) {
+  rcLive = (inv && inv.liveSync) || rcLive;
+  rcLivePaint();
+  if (!rcLiveTimer && typeof setInterval === "function") rcLiveTimer = setInterval(rcLivePaint, 5000); // the "Synced Xs ago" counts up between payloads
   const RC = self.ShopperReceive;
   if (!RC || !RC.applyRemote) return;
   rcSyncStart();

@@ -422,7 +422,9 @@ function dipSignal(points, dip, now = Date.now()) {
   return { state: run >= dip.fireDays ? "firing" : "clear", run, latest, measure: m, bands: flags.filter((f) => f && f.fires).map((f) => f.t) };
 }
 
-function extraAlerts(points, alerts) {
+// B-1408 (v2.0.88): opts.shipmentStalls = lib/receiving-stall.js receivingStalls() - when it HAS per-shipment
+// data its alerts replace the old total-units rule; without it, Receiving flat for 5+ days is the fallback.
+function extraAlerts(points, alerts, opts = null) {
   const days = dailyPoints(points);
   const out = [];
   const jump = (key, cfg, label) => {
@@ -436,10 +438,17 @@ function extraAlerts(points, alerts) {
   jump("unfulfillable", alerts.unfulfillableJump, "Unfulfillable");
   jump("researching", alerts.researchingJump, "Researching");
   const rs = alerts.receivingStuck;
-  if (rs.enabled && days.length >= rs.days) {
-    const tail = days.slice(-rs.days);
-    if (tail.every((d) => d.units.inboundReceiving >= rs.minUnits)) {
-      out.push({ kind: "receivingStuck", text: `Inbound Receiving has held at ${rs.minUnits}+ units for ${rs.days} day(s) in a row (now ${tail[tail.length - 1].units.inboundReceiving}) - check-in may be stuck.` });
+  const st = opts && opts.shipmentStalls;
+  if (rs.enabled && st && st.have) {
+    // B-1414 (v2.0.89): ONE alert for all slow shipments (rows carry the per-shipment figures).
+    if (st.summary) out.push({ kind: "receivingStuck", text: st.summary.text, rows: st.summary.rows });
+  } else if (rs.enabled) {
+    // B-1408 fallback: the total is unchanged (so not coming down either) for 5+ days - never "above 100".
+    const need = Math.max(5, rs.days);
+    const tail = days.slice(-need);
+    const v = tail.length ? tail[0].units.inboundReceiving : 0;
+    if (tail.length >= need && v > 0 && tail.every((d) => d.units.inboundReceiving === v)) {
+      out.push({ kind: "receivingStuck", text: `Inbound Receiving has not changed for ${need} day(s) (still ${v} units) - check-in may be stuck.` });
     }
   }
   return out;
@@ -1294,11 +1303,11 @@ function squeezeText(dip, settings) {
 }
 
 // Firing supply squeeze first, then the other alerts. [{ kind, text }]
-function fbaAlerts(points, settings) {
+function fbaAlerts(points, settings, opts = null) {
   const out = [];
   const dip = dipSignal(points, settings.dip);
   if (dip.state === "firing") out.push({ kind: "squeeze", text: squeezeText(dip, settings) });
-  return out.concat(extraAlerts(points, settings.alerts));
+  return out.concat(extraAlerts(points, settings.alerts, opts));
 }
 
 // B-547 (v4.68): the Ordered tile - Shopper's in transit + house + prep at
@@ -1317,7 +1326,7 @@ function orderedTile(ordered) {
   };
 }
 
-function fbaCardModel({ points, pulledAt = null, settings, now = Date.now(), ordered = null }) {
+function fbaCardModel({ points, pulledAt = null, settings, now = Date.now(), ordered = null, shipmentStalls = null }) {
   const pts = Array.isArray(points) ? points : [];
   const latest = pts.length ? pts[pts.length - 1] : null;
   if (!latest) return { empty: true, tiles: [], alerts: [], spark: [], asOf: pulledAt || null, ordered: orderedTile(ordered) };
@@ -1334,7 +1343,7 @@ function fbaCardModel({ points, pulledAt = null, settings, now = Date.now(), ord
     asOf: pulledAt || latest.t,
     rowAt: latest.t,
     tiles,
-    alerts: fbaAlerts(pts, settings),
+    alerts: fbaAlerts(pts, settings, { shipmentStalls }),
     spark,
     unpricedUnits: latest.unpricedUnits || 0,
     ordered: orderedTile(ordered),

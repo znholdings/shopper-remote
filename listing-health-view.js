@@ -120,7 +120,9 @@
   // the box when a button is tapped) and the row's new state is drawn. Later
   // (the laptop's answer) a box with the focus is left alone - the next
   // payload draws it.
+  const repaintHooks = []; // B-1410: other phone views that draw a row's Seller Snap block (the Min cards)
   function redraw(fromTap) {
+    for (const f of repaintHooks) { try { f(); } catch (e) { /* fine */ } }
     const box = $("lhmBox");
     const a = document.activeElement;
     if (fromTap && box && a && box.contains(a) && typeof a.blur === "function") a.blur();
@@ -171,7 +173,7 @@
     }
     redraw();
   }
-  function ssBlock(r) {
+  function ssBlock(r, presetsIn) {
     const box = el("div", "lhm-ss");
     const sp = r && r.sp;
     if (!sp || !sp.sku) {
@@ -188,7 +190,7 @@
     const maxI = priceBox("lhm-ss-max", "Max", sp.max, d.max, busy);
     edit.append(minI, maxI);
     let sel = null;
-    const presets = data && Array.isArray(data.presets) ? data.presets : [];
+    const presets = Array.isArray(presetsIn) ? presetsIn : data && Array.isArray(data.presets) ? data.presets : [];
     if (presets.length && P.prPickerChoices) {
       sel = el("select", "lhm-ss-preset");
       sel.setAttribute("aria-label", "Seller Snap strategy");
@@ -349,5 +351,6 @@
     box.append(aged, ns);
   }
 
-  self.ShopperListingHealthView = { render };
+  // B-1410 (v2.0.88): the Min cards draw the same Seller Snap block (ssBlock) and get redrawn after its sends.
+  self.ShopperListingHealthView = { render, ssBlock: (r, presets) => ssBlock(r, presets), onRepaint: (f) => repaintHooks.push(f) };
 })();

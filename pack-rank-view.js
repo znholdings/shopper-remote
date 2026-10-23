@@ -52,7 +52,7 @@
     const ip = parts.indexOf("ip");
     if (ip < 0) return null;
     const id = parts.slice(ip + 1).reverse().find((s) => /^\d{5,15}$/.test(s));
-    return id ? "https://" + (url.hostname.toLowerCase() === "walmart.com" ? "www.walmart.com" : url.hostname.toLowerCase()) + "/ip/" + id : null;
+    return id ? "https://business.walmart.com/ip/" + id : null; // B-1437
   }
 
   // Is the editor for THIS question already drawn? (kept while Zach works on it)
@@ -165,7 +165,7 @@
     const add = el("div", "prp-add");
     const url = el("input", "prp-url");
     url.type = "url";
-    url.placeholder = "Your link: https://www.walmart.com/ip/...";
+    url.placeholder = "Your link: https://business.walmart.com/ip/...";
     const pcs = el("input", "prp-pieces");
     pcs.type = "text";
     pcs.placeholder = "pieces";

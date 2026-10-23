@@ -208,17 +208,20 @@ function buildDoNext(input = {}) {
   // (Account Health) - shown for 3 days after it was found.
   const ah = input.accountHealth || null;
   const ahAlerts = ah && ah.known && Array.isArray(ah.alerts) ? ah.alerts.filter(Boolean) : [];
-  if (ahAlerts.length) {
+  // B-1413: a NEW individual violation also raises the card, even when the category counts did not rise.
+  const ahNewVios = ah && Array.isArray(ah.violations) ? ah.violations.filter((v) => v && v.isNew) : [];
+  if (ahAlerts.length || ahNewVios.length) {
     const r = num(ah.rating);
+    const ahLines = ahAlerts.length ? ahAlerts.map((a) => String(a.text || a.category)) : ahNewVios.map((v) => String(v.policy || v.category || "New violation") + (v.asin ? ` (${v.asin})` : ""));
     add({
       id: "health",
       severity: "critical",
-      title: `Account Health: ${plural(ahAlerts.length, "new policy violation")}`,
-      detail: ahAlerts.slice(0, DO_NEXT_LINE_MAX).map((a) => String(a.text || a.category)).join(" · ") +
+      title: `Account Health: ${plural(ahLines.length, "new policy violation")}`,
+      detail: ahLines.slice(0, DO_NEXT_LINE_MAX).join(" · ") +
         `. Account Health Rating ${r == null ? "not read" : r}${ah.status ? ` (${ah.status})` : ""}. Check it in Seller Central and answer Amazon.`,
-      lines: ahAlerts.map((a) => ({ text: String(a.text || a.category) })),
+      lines: ahLines.map((t) => ({ text: t })),
       go: { label: "Account Health", target: "health" },
-      count: ahAlerts.length,
+      count: ahLines.length,
     });
   }
 
@@ -374,7 +377,10 @@ function buildDoNext(input = {}) {
     add({
       id: "fba",
       severity: "medium",
-      title: plural(alerts.length, "FBA alert"),
+      // B-1414 (v2.0.89): the slow-check-in alert is one card titled by its shipment count.
+      title: alerts.length === 1 && alerts[0].kind === "receivingStuck" && Array.isArray(alerts[0].rows) && alerts[0].rows.length
+        ? `${alerts[0].rows.length} shipment${alerts[0].rows.length === 1 ? "" : "s"} slow to check in`
+        : plural(alerts.length, "FBA alert"),
       detail: first.length > 140 ? first.slice(0, 137).replace(/\s+\S*$/, "") + "…" : first,
       go: { label: "FBA Inventory", target: "fba" },
       count: alerts.length,

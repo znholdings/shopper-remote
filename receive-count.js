@@ -337,9 +337,25 @@
     }
   }
 
+  // B-1415 (v2.0.89): a count belongs to the batch / day it was made for. Zach 10/22: "Counted 25"
+  // chips from a PREVIOUS shipment showed on products not counted today. A stored tally is SHOWN and
+  // USED (chip, Receive button label, Set-all) only if it was last edited today (this device's
+  // calendar day) (day rule only, same on the phone; the House anchor is NOT used, it moves on
+  // every partial count and would hide in-progress tallies). Older tallies stay in storage (sync, history) - they just do not
+  // count for the new batch. Opening the pop-up on one starts a fresh tally that replaces it.
+  function sessionStart(now) {
+    var d = new Date(typeof now === "number" ? now : Date.now());
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
+  }
+  function isCurrentSession(updatedAt, now) {
+    var u = Number(updatedAt);
+    return isFinite(u) && u >= sessionStart(now);
+  }
+
   function getChunks(asin, now) {
     var e = readMap(now)[normAsin(asin)];
-    return e ? e.chunks.slice() : [];
+    return e && isCurrentSession(e.updatedAt, now) ? e.chunks.slice() : [];
   }
 
   // ---- B-843 (v2.0.22): the clears (tombstones) and the sync with the other device.
@@ -1389,6 +1405,7 @@
     parseSpoken: parseSpoken,
     prune: prune,
     getChunks: getChunks,
+    isCurrentSession: isCurrentSession,
     setChunks: setChunks,
     clearFor: clearFor,
     totalFor: totalFor,

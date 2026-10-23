@@ -104,6 +104,9 @@
   }
 }
 
+/* B-1416 (v2.0.89): Pipeline "Pack Of" cells above 1 - dark blue, white text (same in the phone's styles.css). */
+:root { --s-pack-multi-bg: #1c3f94; --s-pack-multi-fg: #ffffff; }
+:root[data-theme="dark"] { --s-pack-multi-bg: #2f5fd0; --s-pack-multi-fg: #ffffff; }
 /* B-801 (v2.0.10): destination tokens (rules at the end of this file). */
 :root { --s-dest-prep: #00ffff; --s-dest-house: #ffff00; --s-dest-prep-bg: var(--s-dest-prep); --s-dest-house-bg: var(--s-dest-house); --s-dest-ink: #1a1d2b; --s-dest-ink-2: #3a3f55; }
 :root[data-theme="dark"] { --s-dest-prep-bg: color-mix(in srgb, var(--s-dest-prep) 16%, var(--s-surface)); --s-dest-house-bg: color-mix(in srgb, var(--s-dest-house) 14%, var(--s-surface)); --s-dest-ink: var(--s-text); --s-dest-ink-2: var(--s-text-muted); }

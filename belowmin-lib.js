@@ -276,6 +276,25 @@ function pickRange(chart, wanted) {
   return list.some((r) => r.days === KC_DEFAULT_RANGE) ? KC_DEFAULT_RANGE : list[list.length - 1].days;
 }
 
+// B-1411: the Buy Box holder at `day`: { name, channel } or null (nobody /
+// unknown). name null = holder known but not looked up yet; channel null = unknown.
+function holderAt(chart, day) {
+  if (!chart || !Array.isArray(chart.sellers) || !Array.isArray(chart.bbs)) return null;
+  const idx = valueAt(chart.bbs, day);
+  if (idx == null || !chart.sellers[idx]) return null;
+  const info = (chart.sinfo && chart.sinfo[idx]) || [];
+  return { name: info[0] || null, channel: info[1] || null, id: chart.sellers[idx] };
+}
+const holderText = (h) => (h ? `${h.name || "seller " + h.id} · ${h.channel || "FBA/FBM unknown"}` : "");
+// The offers line: "7 offers · 3 FBA / 4 FBM" - from a split history when the chart has one,
+// else the current split (only for "now").
+function offerSplitAt(chart, day, atNow) {
+  const f = valueAt(chart.offF, day), m = valueAt(chart.offM, day);
+  if (f != null && m != null) return `${fmtInt(f)} FBA / ${fmtInt(m)} FBM`;
+  if (atNow && chart.offNow && Number.isFinite(chart.offNow.f) && Number.isFinite(chart.offNow.m)) return `${chart.offNow.f} FBA / ${chart.offNow.m} FBM`;
+  return "";
+}
+
 // "Sep 12 · Buy Box $16.37 · Rank #12,345 · Sold 300/mo · Offers 7"
 function readoutText(chart, day) {
   const bits = [fmtDay(chart.startMs + day * 86400000)];
@@ -284,9 +303,14 @@ function readoutText(chart, day) {
   const sold = valueAt(chart.sold, day);
   const offers = valueAt(chart.offers, day);
   bits.push(bb == null ? "Buy Box -" : `Buy Box ${fmtMoney(bb)}`);
+  const hold = bb == null ? null : holderAt(chart, day);
+  if (hold) bits.push(holderText(hold));
   if (rank != null) bits.push(`Rank #${fmtInt(rank)}`);
   if (sold != null) bits.push(`Sold ${fmtInt(sold)}/mo`);
-  if (offers != null) bits.push(`Offers ${fmtInt(offers)}`);
+  if (offers != null) {
+    const sp = offerSplitAt(chart, day, day >= (chart.days || KC_DEFAULT_RANGE));
+    bits.push(`Offers ${fmtInt(offers)}${sp ? " · " + sp : ""}`);
+  }
   return bits.join(" · ");
 }
 
@@ -305,9 +329,9 @@ function bigReadouts(chart, day = null) {
   const sold = valueAt(chart.sold, at);
   const offers = valueAt(chart.offers, at);
   return [
-    { key: "bb", n: bb == null ? "-" : fmtMoney(bb), l: when, sub: "Buy Box" },
+    { key: "bb", n: bb == null ? "-" : fmtMoney(bb), l: when, sub: "Buy Box", sub2: bb == null ? "" : holderText(holderAt(chart, at)) },
     { key: "sold", n: sold == null ? "-" : fmtInt(sold), l: when, sub: "sold a month", sub2: rank == null ? "" : `Rank #${fmtInt(rank)}` },
-    { key: "offers", n: offers == null ? "-" : fmtInt(offers), l: when, sub: "offers" },
+    { key: "offers", n: offers == null ? "-" : fmtInt(offers), l: when, sub: "offers", sub2: offers == null ? "" : offerSplitAt(chart, at, !hovering) },
   ];
 }
 
@@ -470,7 +494,7 @@ function drawKeepaCharts(doc, chart, { asOf = null, range = null } = {}) {
   wrap.append(bar, panels, note);
   return wrap;
 }
-__m["keepa-chart-svg.js"] = { KC_W, KC_PAD_L, KC_PAD_R, KC_PANELS, KC_RANGES, KC_DEFAULT_RANGE, visiblePoints, extent, KC_Y_PAD, padExtent, stepPath, valueAt, rangesFor, pickRange, readoutText, bigReadouts, drawKeepaCharts };
+__m["keepa-chart-svg.js"] = { KC_W, KC_PAD_L, KC_PAD_R, KC_PANELS, KC_RANGES, KC_DEFAULT_RANGE, visiblePoints, extent, KC_Y_PAD, padExtent, stepPath, valueAt, rangesFor, pickRange, holderAt, offerSplitAt, readoutText, bigReadouts, drawKeepaCharts };
 })();
 // ---- lib/sold-per-day.js ----
 (function () {

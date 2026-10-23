@@ -65,7 +65,12 @@ function lastLineOf(last) {
   if (!label && !at) return "";
   const head = ("Last " + lower1(label || "job")).trim() + (at ? " " + at : "");
   const took = formatDuration(last.durationMs);
-  if (last.ok === false) return head + (took ? ` · stopped after ${took}` : " · stopped");
+  if (last.ok === false) {
+    // B-1394: say WHY it stopped (the job's own failure text), not just "stopped after 6s".
+    const why = String(last.text || "").replace(/\s+/g, " ").trim();
+    const reason = why && !/^(stopped|done)$/i.test(why) ? ` - ${why.length > 160 ? why.slice(0, 157) + "..." : why}` : "";
+    return head + (took ? ` · stopped after ${took}` : " · stopped") + reason;
+  }
   return head + (took ? ` · done in ${took}` : "");
 }
 

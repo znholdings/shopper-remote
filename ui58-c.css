@@ -38,4 +38,6 @@
 .bmm-loss { font-size: 13px; }
 .bmm-loss input { margin: 0; }
 
+.bmm-ss { display: grid; gap: 4px; min-width: 0; }
+.bmm-ss-strategy { font-weight: 600; overflow-wrap: anywhere; }
 [hidden] { display: none !important; }
