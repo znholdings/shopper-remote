@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.95";
+const APP_BUILD = "v2.0.97";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -28,7 +28,7 @@ for (const id of [
   "promptCard","promptTitle","promptDetail","promptExpiry","promptFields","promptActions",
   "runStatus","currentStep","tSpent","tNeeded","tToday","tBought","tDefaultNote",
   "startRow","modeSelect","startBtn","resumeSavedBtn","controlRow","pauseBtn","resumeBtn",
-  "retryFailedBtn","finishNowBtn","abortBtn","unstickNote","addAsin","addQty","addPriority","addBtn",
+  "retryFailedBtn","finishNowBtn","abortBtn","targetDestRow","targetDestHouseBtn","targetDestPrepBtn","unstickNote","addAsin","addQty","addPriority","addBtn",
   "lineCount","lines","log","generateBtn","approveAllBtn","buylistMeta","buylistApproved",
   "buylistApprovedBar","buylistApprovedFill","buylistItems","toast","installHint",
   "progress","progressText","genCard","genStep","genLog","previewBtn","discardSavedBtn",
@@ -562,6 +562,8 @@ function renderPayload() {
   els.skipFailedBtn.hidden = els.retryFailedBtn.hidden;
 
   els.discardSavedBtn.hidden = !(p.savedQueue && p.savedQueue.exists) || live;
+  // B-1457 (v2.0.96): only while a Target line is still waiting to be ordered.
+  els.targetDestRow.hidden = !(live && (p.lines || []).some((l) => l.retailer === "target" && TARGET_DEST_STATUSES_PHONE.has(l.status)));
 
   renderPrompt(p.prompt);
   // ⚠ P-36. Both of these rebuild their whole list from innerHTML = "",
@@ -957,7 +959,16 @@ function renderLines(lines, total, truncated, progress) {
       markBtn.addEventListener("click", () => openBoughtForm(row, l));
       actions.appendChild(markBtn);
     }
-    if (l.status === "pending" || l.status === "pool") {
+    if ((l.status === "pending" || l.status === "pool") && l.retailer === "target" && ["running", "paused"].includes(queueStatus)) {
+      // B-1458 (v2.0.96): its own labelled Cancel, with a confirm.
+      const cb = document.createElement("button");
+      cb.className = "mini-btn";
+      cb.textContent = "Cancel item";
+      cb.addEventListener("click", () => {
+        if (confirm(`Cancel ${l.asin}? It will not be ordered; the rest of the run goes on.`)) sendCommand("cancelTargetItem", { lineId: l.lineId, asin: l.asin });
+      });
+      actions.appendChild(cb);
+    } else if (l.status === "pending" || l.status === "pool") {
       actions.appendChild(lineBtn("Skip", "skipPlannedLine", { lineId: l.lineId, asin: l.asin }));
     }
     // B-772 (v2.0.9): up / down, the same move rule as the laptop's drag.
@@ -1722,6 +1733,14 @@ async function invPrintLabels(answers = null) {
   }
 }
 if (els.invPrintLabelsBtn) els.invPrintLabelsBtn.addEventListener("click", () => invPrintLabels());
+// B-1457 / B-1458 (v2.0.96): the statuses a Target line can still be switched / cancelled in.
+const TARGET_DEST_STATUSES_PHONE = new Set(["pending", "pool", "partial", "failed", "out_of_stock", "not_attempted"]);
+els.targetDestHouseBtn.addEventListener("click", () => {
+  if (confirm("Target orders still to come will ship to the HOUSE. Orders already placed keep where they went. Shopper picks the saved house address at Target checkout. Switch?")) sendCommand("targetDestHouse");
+});
+els.targetDestPrepBtn.addEventListener("click", () => {
+  if (confirm("Target orders still to come will ship to the PREP CENTER. Orders already placed keep where they went. Shopper picks the saved prep center address at Target checkout. Switch?")) sendCommand("targetDestPrep");
+});
 els.abortBtn.addEventListener("click", () => {
   if (confirm("Abort the run? Whatever is mid-purchase is interrupted.")) sendCommand("abort");
 });

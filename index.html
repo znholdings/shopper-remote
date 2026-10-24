@@ -229,6 +229,12 @@
           <button id="finishNowBtn" class="secondary-btn" hidden>Finish now</button>
           <button id="abortBtn" class="danger-btn">Abort</button>
         </div>
+        <!-- B-1457 (v2.0.96): where the Target orders still to come ship; orders already placed keep theirs. -->
+        <div id="targetDestRow" class="controls" hidden>
+          <span class="muted small">Target orders still to come:</span>
+          <button id="targetDestHouseBtn" class="secondary-btn">Ship to the house</button>
+          <button id="targetDestPrepBtn" class="secondary-btn">Ship to the prep center</button>
+        </div>
 
         <!-- Honesty, not an omission. See the note in the setup page. -->
         <p id="unstickNote" class="muted small" hidden>

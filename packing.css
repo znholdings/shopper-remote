@@ -77,6 +77,8 @@
 .pk-realw { display: flex; flex-direction: column; gap: 6px; padding: 8px 0; }
 .pk-viewtabs { gap: 6px; }
 .pk-viewtabs .pk-tab { flex: 1 1 auto; min-height: 36px; padding: 6px 8px; font-size: 13px; }
+.pk-pair { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; max-width: 100%; align-items: flex-start; }
+.pk-pair > .pk-svg { flex: 1 1 300px; min-width: 0; }
 .pk-svg { display: block; margin: 4px 0 10px; border: 1px solid var(--s-line); background: var(--s-paper, #fbfaf4); min-width: 0; }
 .pk-note-in { min-height: 56px; resize: vertical; font-family: inherit; }
 .pk-cmp-grid { display: grid; grid-template-columns: minmax(70px, 0.8fr) 1fr 1fr; gap: 4px 8px; font-size: 13px; min-width: 0; }
