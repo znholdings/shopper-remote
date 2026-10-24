@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.97";
+const APP_BUILD = "v2.0.99";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -2855,6 +2855,17 @@ function glTile(t) {
     }
     n.appendChild(row);
   }
+  // B-1479 (v2.0.99): Sustainable Spend - what is missing, and its own labelled Apply (old -> new in the confirmation).
+  if (Array.isArray(t.missing) && t.missing.length) n.appendChild(invNode("span", "sustain-missing", "Missing: " + t.missing.join("; ")));
+  if (t.apply) {
+    const ap = invNode("button", "primary-btn sustain-apply", t.apply.label + " $" + t.apply.toDollars + "/day");
+    ap.type = "button";
+    ap.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (confirm(t.apply.confirm + " (This changes the goal on the main computer.)")) sendCommand("sustainApply", { dailyCents: t.apply.dailyCents });
+    });
+    n.appendChild(ap);
+  }
   return glTap(n, () => glGo(t.target));
 }
 
@@ -2972,6 +2983,7 @@ function renderDashboard(d, p) {
     now: Date.now(),
     stranded: ex.stranded || null,
     cash: ex.cash || null,
+    sustain: ex.sustain || null, // B-1479
     stock: {
       house: money ? money.house : null,
       prep: money ? money.prep : null,

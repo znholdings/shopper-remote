@@ -646,6 +646,28 @@ function buildSbCards(cash, now) {
 //   cash  the Cash Flow summary (days [B-858], payoutNext30?, next30?); now (ms) also picks the cards' days
 //   stock { house, prep, inTransit, fba }  dollars at cost, null = unknown
 // -> [{ id, label, value, sub, tone, target, split? }]
+const SUSTAIN_STATUS_WORDS = { "on-track": "On track", tight: "Tight", overspending: "Overspending", "not-ready": "Not ready" };
+const centsDollars = (c, floor = false) => (num(c) == null ? null : floor ? Math.floor(num(c) / 100) : Math.round(num(c) / 100));
+// g = lib/sustain-glance.js sustainGlance(). The Apply button only shows when there is a real difference in whole dollars.
+function sustainTile(g) {
+  const sug = centsDollars(g.suggestedDailyCents, true); // Apply rounds DOWN (lib/sustainable-spend.js goalDollarsFor)
+  const cur = centsDollars(g.currentDailyCents);
+  const ready = g.status !== "not-ready" && sug != null;
+  const missing = Array.isArray(g.missing) ? g.missing.filter(Boolean) : [];
+  const tile = {
+    id: "sustain",
+    label: "Sustainable Spend",
+    value: ready ? `${money0(sug)}/day` : "-",
+    sub: [SUSTAIN_STATUS_WORDS[g.status] || "", ready && cur != null ? `goal ${money0(cur)}/day` : "", g.reason || ""].filter(Boolean).join(" · "),
+    tone: g.status === "overspending" ? "down" : g.status === "tight" ? "warn" : g.status === "on-track" ? "up" : "flat",
+    target: "cashflow",
+    status: g.status,
+    missing,
+  };
+  if (ready && cur != null && sug !== cur) tile.apply = { label: "Apply", dailyCents: num(g.suggestedDailyCents), fromDollars: cur, toDollars: sug, confirm: `Change the daily goal from ${money0(cur)} to ${money0(sug)}?` };
+  return tile;
+}
+
 function buildTiles(input = {}) {
   const i = input || {};
   const spend = i.spend || {};
@@ -692,6 +714,9 @@ function buildTiles(input = {}) {
     tone: "flat",
     target: "cashflow",
   });
+
+  // B-1479 (v2.0.99): Sustainable Spend - suggested vs current daily goal, with its own Apply.
+  if (i.sustain) out.push(sustainTile(i.sustain));
 
   const st = i.stock || {};
   const parts = [["House", num(st.house)], ["Prep", num(st.prep)], ["In transit", num(st.inTransit)], ["FBA", num(st.fba)]];
@@ -834,7 +859,7 @@ function fbaStockValue(tiles) {
   }
   return any ? Math.round(total * 100) / 100 : null;
 }
-__m["dashboard-todo.js"] = { TARGETS, DO_NEXT_ORDER, SHIPMENT_NOTIFICATION_TYPE, RPSB_HAND_NOTIFICATION_TYPE, COGS_NOTIFICATION_TYPE, DO_NEXT_LINE_MAX, shortTitle, strandedLineText, pricingOfferText, pricingLineText, belowMinLineText, money0, money2, changeLine, topSeverity, buildDoNext, SB_DAY_ROLLOVER_HOUR, chicagoClock, dayKeyAdd, usDate, sbCardRange, sumSbDays, buildSbCards, buildTiles, BG_CHECK_STALE_MS, BG_CHECK_LABELS, bgCheckStatusWords, bgCheckLines, accountHealthLine, ageText, BANK_BALANCE_ROWS, matchBankAccount, bankBalanceRows, plaidTile, fbaStockValue };
+__m["dashboard-todo.js"] = { TARGETS, DO_NEXT_ORDER, SHIPMENT_NOTIFICATION_TYPE, RPSB_HAND_NOTIFICATION_TYPE, COGS_NOTIFICATION_TYPE, DO_NEXT_LINE_MAX, shortTitle, strandedLineText, pricingOfferText, pricingLineText, belowMinLineText, money0, money2, changeLine, topSeverity, buildDoNext, SB_DAY_ROLLOVER_HOUR, chicagoClock, dayKeyAdd, usDate, sbCardRange, sumSbDays, buildSbCards, sustainTile, buildTiles, BG_CHECK_STALE_MS, BG_CHECK_LABELS, bgCheckStatusWords, bgCheckLines, accountHealthLine, ageText, BANK_BALANCE_ROWS, matchBankAccount, bankBalanceRows, plaidTile, fbaStockValue };
 })();
 // ---- lib/unit-fraction.js ----
 (function () {

@@ -266,3 +266,11 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input:not(
 :root[data-theme="retro"] .bka-q { border: var(--rt-line) !important; min-height: var(--rt-ctl-h); }
 :root[data-theme="retro"] .bka-box { border-top: var(--rt-line); }
 :root[data-theme="retro"] .bka-card .bka-box { border-top: 0; }
+
+/* ── B-1479 (v2.0.99): Sustainable Spend (card, tile, Cash Flow section) ── */
+:root[data-theme="retro"] :is(.sus-h, .sus-label) { font-family: var(--s-pixel, var(--s-font)); text-transform: uppercase; font-size: var(--rt-label); letter-spacing: 0.04em; }
+:root[data-theme="retro"] .sus-card { border: var(--rt-line); box-shadow: var(--rt-raise); border-radius: 0; }
+:root[data-theme="retro"] .sus-block { border-left: var(--rt-line); padding-left: var(--rt-2); }
+:root[data-theme="retro"] .sus-big .sus-val { font-family: var(--s-font); font-size: var(--rt-num); }
+:root[data-theme="retro"] :is(.sustain-apply, .sus-apply) { min-height: var(--rt-ctl-h); border: var(--rt-line); box-shadow: var(--rt-raise-sm); border-radius: 0; }
+:root[data-theme="retro"] .sustain-missing { border: var(--rt-line); border-radius: 0; font-size: var(--rt-small); }

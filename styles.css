@@ -1252,4 +1252,8 @@ html, body { overscroll-behavior: none; }
 :root[data-theme="retro"] .mp-card .rc-ask { border: 2px solid var(--s-n7); }
 :root[data-theme="retro"] .mp-card .rc-ask-text { font-size: 14px !important; line-height: 1.35 !important; }
 
+/* B-1479 (v2.0.99): Sustainable Spend tile */
+.gl-tile .sustain-missing { display: block; font-size: 12px; color: var(--s-yellow-ink); background: var(--s-yellow-bg); border-radius: var(--s-r-sm); padding: 2px 8px; margin-top: 4px; }
+.gl-tile .sustain-apply { margin-top: 8px; }
+
 [hidden] { display: none !important; }
