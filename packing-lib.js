@@ -1850,8 +1850,10 @@ function drawPlanTab(body, o) {
       const sel = el("select", "pk-in");
       for (const b of bl.batches) { const op = el("option", "", `${b.name || b.batchId}${b.archived ? " (archived)" : ""}`); op.value = b.batchId; sel.appendChild(op); }
       const go = btn("Plan this shipment", "", () => { const b = bl.batches.find((x) => x.batchId === sel.value); run(withSimp({ batchId: sel.value, name: b ? b.name : "" }), msg, go); });
+      // B-1531: the same batch, minus the units already in boxes (Box contents - ScanPower boxes, dictated boxes, saved words)
+      const goRest = btn("Plan the rest (skip what's packed)", "", () => { const b = bl.batches.find((x) => x.batchId === sel.value); run(withSimp({ rest: true, batchId: sel.value, name: b ? b.name : "" }), msg, goRest); });
       card.appendChild(el("div", "pk-lab", "Or a ScanPower batch (a live shipment)"));
-      card.append(sel, go);
+      card.append(sel, go, goRest, el("p", "pk-hint", "Plan the rest: leaves out the units already in boxes - in ScanPower, dictated in Box contents, or saved words for a batch not at the Pack step yet. Nothing is sent to Box contents."));
     } else if (!bl.ok) card.appendChild(el("p", "pk-hint", (bl.error || "Could not read the batches.") + (bl.loginRequired ? " Sign in at unity.scanpower.com on the laptop." : "")));
     card.appendChild(msg);
     into.appendChild(card);
@@ -1879,6 +1881,7 @@ function drawPlanTab(body, o) {
     const head = el("div", "pk-card pk-plan-head");
     head.appendChild(el("div", "pk-card-t", `${r.replay ? "Replay: " : ""}${r.name}`));
     if (r.onHand) head.appendChild(el("div", "pk-meta pk-msg-ok", r.onHand));
+    if (r.rest) head.appendChild(el("div", "pk-meta pk-msg-ok", r.rest)); // B-1531
     head.appendChild(el("div", "pk-plan-line", r.headline));
     if (r.simplicity) head.appendChild(el("div", "pk-meta", "Packing: " + r.simplicity));
     if (r.provisional) head.appendChild(el("div", "pk-tag pk-tag-warn", "PROVISIONAL RULES - " + r.provisional));
