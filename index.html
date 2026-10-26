@@ -183,6 +183,12 @@
               <option value="per-order">Per-order - ask every time</option>
             </select>
           </label>
+          <!-- B-1535: which computer runs it - the Main (Optiplex) is preselected. -->
+          <label class="mode-row">
+            <span>Run on</span>
+            <select id="runOnSelect"></select>
+            <span id="runOnNote" class="muted" role="status"></span>
+          </label>
           <button id="startBtn" class="primary-btn big">Start Buy Queue</button>
           <button id="resumeSavedBtn" class="secondary-btn" hidden>Resume saved queue</button>
           <button id="discardSavedBtn" class="ghost-btn" hidden>Discard saved queue</button>
@@ -654,6 +660,7 @@
   <script src="topbar-view.js"></script>
   <!-- B-1137 (v2.0.60): the Walmart pack-rank editor (app.js renderPrompt draws it). -->
   <script src="pack-rank-view.js"></script>
+  <script src="start-picker.js"></script><!-- B-1535 -->
   <script src="app.js"></script>
   <!-- B-1233 (v2.0.73): the sidebar navigation (after app.js, which wires each tab button). -->
   <script src="phone-nav.js"></script>

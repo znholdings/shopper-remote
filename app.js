@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.110";
+const APP_BUILD = "v2.0.111";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -27,7 +27,7 @@ for (const id of [
   "pickerView","deviceList","mainView","tabRun","tabBuylist","runPane","buylistPane",
   "promptCard","promptTitle","promptDetail","promptExpiry","promptFields","promptActions",
   "runStatus","currentStep","tSpent","tNeeded","tToday","tBought","tDefaultNote",
-  "startRow","modeSelect","startBtn","resumeSavedBtn","controlRow","pauseBtn","resumeBtn",
+  "startRow","modeSelect","runOnSelect","runOnNote","startBtn","resumeSavedBtn","controlRow","pauseBtn","resumeBtn",
   "retryFailedBtn","finishNowBtn","abortBtn","targetDestRow","targetDestHouseBtn","targetDestPrepBtn","unstickNote","addAsin","addQty","addPriority","addBtn",
   "lineCount","lines","log","generateBtn","approveAllBtn","buylistMeta","buylistApproved",
   "buylistApprovedBar","buylistApprovedFill","buylistItems","toast","installHint",
@@ -162,7 +162,13 @@ async function sb(path, { method = "GET", body, prefer } = {}) {
 // laptop, even as a Viewer). The Main names it in its payload (labelPrinter:
 // deviceId + the command names that go there); everything else goes to the
 // Main as before.
-function commandTarget(name) {
+function commandTarget(name, payload) {
+  // B-1535: an explicit pick of the other computer while the paired Main is offline goes straight to that computer.
+  const SP = globalThis.ShopperPhoneStartPicker;
+  if (SP && name === "start") {
+    const dev = SP.commandDevice(name, payload, currentStartList(), deviceId);
+    if (dev) return dev;
+  }
   const lp = lastPayload && lastPayload.labelPrinter;
   if (lp && lp.deviceId && Array.isArray(lp.commands) && lp.commands.includes(name)) return String(lp.deviceId);
   return deviceId;
@@ -179,7 +185,7 @@ async function sendCommand(name, payload = {}, opts = {}) {
     prefer: "return=representation",
     body: [{
       v: 1,
-      device_id: commandTarget(name),
+      device_id: commandTarget(name, payload),
       name,
       payload,
       issued_at: new Date().toISOString(),
@@ -298,7 +304,7 @@ async function pollCommandOutcomes() {
   if (!inFlight.size) return;
   const ids = [...inFlight.keys()];
   const res = await sb(
-    `commands?id=in.(${ids.map(encodeURIComponent).join(",")})&select=id,name,status,reason`
+    `commands?id=in.(${ids.map(encodeURIComponent).join(",")})&select=id,name,status,reason,result`
   );
   if (!res.ok || !Array.isArray(res.json)) return;
 
@@ -314,6 +320,10 @@ async function pollCommandOutcomes() {
     if (row.status === "done") {
       // A success is already visible in the state that came back with it -
       // saying so again for every tap would be noise. Stay quiet.
+      // B-1535: ... except where a Start ran (or waits) on the other computer.
+      const SP = globalThis.ShopperPhoneStartPicker;
+      const hand = SP && (pending.name === "start" || pending.name === "resumeSaved") ? SP.handoverToast(row.result) : "";
+      if (hand) toast(hand);
     } else if (fmt) {
       toast(fmt(label, row.reason), true);
     } else {
@@ -333,8 +343,52 @@ async function pollCommandOutcomes() {
   renderInFlight();
 }
 
+// ---------------------------------------------- B-1535: the "Run on" picker
+// The registry is read every 30 s (fresh online / offline for every computer, so a Main that went silent shows
+// offline even though its last payload still says online); the Main's payload list is the fallback.
+let phoneRegistry = null;
+let phoneRegistryAt = 0;
+let startBuilt = null;
+async function refreshPhoneRegistry() {
+  const SP = globalThis.ShopperPhoneStartPicker;
+  if (!SP || !session || !deviceId || Date.now() - phoneRegistryAt < 30000) return;
+  phoneRegistryAt = Date.now();
+  const res = await sb("device_state?device_id=like.shared:computer:*&select=payload");
+  if (res.ok && Array.isArray(res.json)) {
+    phoneRegistry = SP.fromRegistry(res.json, Date.now());
+    fillRunOn(lastPayload && lastPayload.startTargets);
+  }
+}
+function currentStartList() {
+  const SP = globalThis.ShopperPhoneStartPicker;
+  return SP ? SP.pickList(phoneRegistry, lastPayload && lastPayload.startTargets, deviceId, Date.now()) : null;
+}
+function fillRunOn(payloadTargets) {
+  const SP = globalThis.ShopperPhoneStartPicker;
+  if (!SP || !els.runOnSelect) return;
+  const list = SP.pickList(phoneRegistry, payloadTargets, deviceId, Date.now());
+  const built = SP.build(list, els.runOnSelect.value, Date.now());
+  startBuilt = built;
+  const sig = built.options.map((o) => o.value + o.text).join("|");
+  if (els.runOnSelect.dataset.sig !== sig) {
+    els.runOnSelect.innerHTML = "";
+    for (const o of built.options) {
+      const el = document.createElement("option");
+      el.value = o.value;
+      el.textContent = o.text;
+      els.runOnSelect.appendChild(el);
+    }
+    els.runOnSelect.dataset.sig = sig;
+  }
+  els.runOnSelect.value = built.value;
+  els.runOnNote.textContent = built.note;
+  els.runOnNote.hidden = !built.note;
+}
+els.runOnSelect.addEventListener("change", () => fillRunOn(lastPayload && lastPayload.startTargets));
+
 // ------------------------------------------------------------- polling
 async function poll() {
+  refreshPhoneRegistry().catch(() => {});
   if (!session || !deviceId) return;
   const res = await sb(`device_state?device_id=eq.${encodeURIComponent(deviceId)}&select=payload,updated_at,device_name&limit=1`);
   if (res.ok && Array.isArray(res.json) && res.json[0]) {
@@ -548,6 +602,7 @@ function renderPayload() {
   els.controlRow.hidden = !live;
   els.unstickNote.hidden = !(p.liveness && (p.liveness.status === "offline" || p.liveness.status === "stalled"));
   els.resumeSavedBtn.hidden = !(p.savedQueue && p.savedQueue.exists) || live;
+  fillRunOn(p.startTargets);
   if (p.savedQueue && p.savedQueue.exists) {
     els.resumeSavedBtn.textContent = `Resume saved queue (${p.savedQueue.lineCount} lines)`;
   }
@@ -1619,8 +1674,17 @@ function decisionSuffix(i) {
 els.signInBtn.addEventListener("click", signIn);
 els.signOutBtn.addEventListener("click", signOut);
 // v2.0.73 review (M3): the list signature this phone was shown - the laptop refuses a list that moved.
-els.startBtn.addEventListener("click", () => sendCommand("start", { approvalMode: els.modeSelect.value, listSig: (lastPayload && lastPayload.buylistSig) || null }));
-els.resumeSavedBtn.addEventListener("click", () => sendCommand("resumeSaved"));
+els.startBtn.addEventListener("click", () => {
+  const pick = els.runOnSelect.value || null;
+  // B-1535: an offline pick is refused here - never a silent run on the other computer.
+  if (pick && startBuilt && !startBuilt.online) { toast(startBuilt.note || "That computer is offline.", true); return; }
+  sendCommand("start", { approvalMode: els.modeSelect.value, listSig: (lastPayload && lastPayload.buylistSig) || null, ...(pick ? { targetId: pick } : {}) });
+});
+els.resumeSavedBtn.addEventListener("click", () => {
+  const pick = els.runOnSelect.value || null;
+  if (pick && startBuilt && !startBuilt.online) { toast(startBuilt.note || "That computer is offline.", true); return; }
+  sendCommand("resumeSaved", pick ? { targetId: pick } : {});
+});
 els.pauseBtn.addEventListener("click", () => sendCommand("pause"));
 els.resumeBtn.addEventListener("click", () => sendCommand("resume"));
 els.retryFailedBtn.addEventListener("click", () => sendCommand("retryFailed"));
