@@ -52,8 +52,10 @@
 .pk-row3 { display: flex; gap: 8px; min-width: 0; }
 .pk-row3 > .pk-field { min-width: 0; }
 .pk-row3 [hidden], .pk-field[hidden] { display: none !important; }
-.pk-checks { display: flex; flex-wrap: wrap; gap: 6px 16px; }
-.pk-check { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; font-size: 14px; }
+.pk-checks { display: flex; flex-direction: column; gap: 4px; }
+.pk-check { display: flex; align-items: flex-start; gap: 8px; min-height: 36px; font-size: 14px; }
+.pk-check-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.pk-check-name { font-weight: 600; }
 .pk-check input { width: 20px; height: 20px; flex: none; }
 .pk-save { padding: 8px 0; }
 .pk-phone .pk-save { position: sticky; bottom: 0; background: var(--s-bg, #fff); }

@@ -33,7 +33,7 @@
   // B-843 (v2.0.22): when each tally was last CLEARED (or confirmed), per ASIN, so a clear on one
   // device beats an older tally on the other. { "<ASIN>": <ms> }
   var CLEARS_KEY = "shopperReceiveTallyClears";
-  var MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
+  var MAX_AGE_MS = 45 * 24 * 60 * 60 * 1000;
   var MAX_ENTRIES = 200;
 
   function has(obj, key) { return Object.prototype.hasOwnProperty.call(obj, key); }
@@ -281,7 +281,7 @@
   //   { "<ASIN>": { chunks: [12, 12, 11], updatedAt: <ms> } }
   // Every storage call is wrapped: a private window, a blocked store or a full
   // one never breaks counting - the page falls back to memory for the rest of
-  // its life. Entries older than 14 days are dropped; at most 200 are kept.
+  // its life. Entries older than 45 days are dropped (B-1529: was 14); at most 200 are kept.
   var memory = {};
   var degraded = false;
 
@@ -337,20 +337,40 @@
     }
   }
 
-  // B-1415 (v2.0.89): a count belongs to the batch / day it was made for. Zach 10/22: "Counted 25"
-  // chips from a PREVIOUS shipment showed on products not counted today. A stored tally is SHOWN and
-  // USED (chip, Receive button label, Set-all) only if it was last edited today (this device's
-  // calendar day) (day rule only, same on the phone; the House anchor is NOT used, it moves on
-  // every partial count and would hide in-progress tallies). Older tallies stay in storage (sync, history) - they just do not
-  // count for the new batch. Opening the pop-up on one starts a fresh tally that replaces it.
+  // B-1415 (v2.0.89) / B-1529 (v2.0.108): a count belongs to the SHIPMENT it was made for, not to a
+  // calendar day. Zach 10/22: "Counted 25" chips from a PREVIOUS shipment showed on products not
+  // counted since. v2.0.89 hid every tally last edited before local midnight - so at 00:00 on 10/26
+  // every count Zach made the evening of 10/25 turned into "Not counted yet" (B-1528 / B-1529).
+  // NOW: a stored tally is SHOWN and USED (chip, Receive button label, Set-all, the pop-up) unless a
+  // House shipment left AFTER it was last edited. The host (Pipeline page / phone) hands that moment
+  // to setSessionStart(ms) - the created time of the newest House ScanPower batch that reached the
+  // shipped step (lib/count-session.js). When the host does not know it, a rolling 7-day window is
+  // used; it is NEVER calendar midnight. Older tallies stay in storage and sync (45 days) either way.
+  // Only the House is counted with Receive (the button is on House rows only); Prep has no counter.
+  var FALLBACK_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+  var hostSessionStart = null;
+  // Returns true when the start changed (the host then repaints its chips / buttons).
+  function setSessionStart(ms) {
+    var n = Number(ms);
+    var next = ms != null && ms !== "" && isFinite(n) && n > 0 ? n : null;
+    var changed = next !== hostSessionStart;
+    hostSessionStart = next;
+    return changed;
+  }
   function sessionStart(now) {
-    var d = new Date(typeof now === "number" ? now : Date.now());
-    d.setHours(0, 0, 0, 0);
-    return d.getTime();
+    var t = typeof now === "number" ? now : Date.now();
+    if (hostSessionStart != null && hostSessionStart <= t) return hostSessionStart;
+    return t - FALLBACK_WINDOW_MS;
   }
   function isCurrentSession(updatedAt, now) {
     var u = Number(updatedAt);
     return isFinite(u) && u >= sessionStart(now);
+  }
+  // How many counts in progress are on screen (current), for "34 counts in progress".
+  function countInProgress(now) {
+    var map = readMap(now), n = 0;
+    for (var k in map) if (has(map, k) && isCurrentSession(map[k].updatedAt, now)) n++;
+    return n;
   }
 
   function getChunks(asin, now) {
@@ -1394,7 +1414,7 @@
   function isOpen() { return !!current; }
 
   // Test hook: forget what the memory fallback holds and re-try real storage.
-  function _reset() { memory = {}; degraded = false; memoryClears = {}; clearsDegraded = false; storeListeners = []; openWatchers = []; badgeClearWatchers = []; }
+  function _reset() { hostSessionStart = null; memory = {}; degraded = false; memoryClears = {}; clearsDegraded = false; storeListeners = []; openWatchers = []; badgeClearWatchers = []; }
 
   self.ShopperReceive = Object.freeze({
     QUICK: QUICK,
@@ -1425,6 +1445,10 @@
     prune: prune,
     getChunks: getChunks,
     isCurrentSession: isCurrentSession,
+    setSessionStart: setSessionStart,
+    sessionStart: sessionStart,
+    countInProgress: countInProgress,
+    FALLBACK_WINDOW_MS: FALLBACK_WINDOW_MS,
     setChunks: setChunks,
     clearFor: clearFor,
     totalFor: totalFor,

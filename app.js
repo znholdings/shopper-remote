@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.107";
+const APP_BUILD = "v2.0.108";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -2400,7 +2400,13 @@ function rcLiveWords(st, now) {
   return st.ok === false ? "Not syncing with the other computer - last synced " + age : "Synced" + (st.withName ? " with " + st.withName : "") + " " + age;
 }
 function rcLivePaint() {
-  if (els.invLiveSync) els.invLiveSync.textContent = rcLiveWords(rcLive, Date.now());
+  if (!els.invLiveSync) return;
+  // B-1528 (v2.0.108): "... - 34 counts in progress" (what this phone holds on screen), to compare with the laptop's line.
+  const RC = self.ShopperReceive;
+  const n = RC && RC.countInProgress ? RC.countInProgress() : null;
+  const words = rcLiveWords(rcLive, Date.now());
+  const extra = n == null ? "" : n + (n === 1 ? " count" : " counts") + " in progress";
+  els.invLiveSync.textContent = words && extra ? words + " \u00b7 " + extra : (words || extra);
 }
 let rcLiveTimer = null;
 function rcSyncApply(inv) {
@@ -2410,10 +2416,14 @@ function rcSyncApply(inv) {
   const RC = self.ShopperReceive;
   if (!RC || !RC.applyRemote) return;
   rcSyncStart();
-  if (!inv || !inv.receiveTallies) return;
+  // B-1529: the moment the last House shipment left (null/absent = the counter's rolling 7-day window).
+  // B-1529 review #9: a changed start repaints the chips / buttons even when no tally changed.
+  if (RC.setSessionStart && inv && Object.prototype.hasOwnProperty.call(inv, "countSessionStart") && RC.setSessionStart(inv.countSessionStart)) invRefreshReceiveButtons();
+  if (!inv || !inv.receiveTallies) { rcLivePaint(); return; }
   const changed = RC.applyRemote(inv.receiveTallies);
   if (changed.length) invRefreshReceiveButtons();
   invPaintReceiveAll(inv);
+  rcLivePaint();
   // Anything counted here that the laptop does not have yet (a command that never arrived) goes again,
   // at most every 30 s per product.
   for (const e of RC.diffNewer(inv.receiveTallies)) {
