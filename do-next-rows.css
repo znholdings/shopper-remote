@@ -1,0 +1,26 @@
+/* B-1500 (v2.0.104): a Do next card's Details on the phone - one row per item (= dashboard/dashboard.css .dnr-*). */
+.gl-expand .dnr-list { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 6px; min-width: 0; }
+.dnr-row { display: grid; gap: 2px; padding: 8px 10px; border: 1px solid var(--s-line); border-radius: var(--s-r-sm, 8px); background: var(--s-surface); color: var(--s-text); font-size: 13px; min-width: 0; }
+.dnr-new { border-left: 4px solid var(--s-red); background: var(--s-red-bg); }
+.dnr-changed { border-left: 4px solid var(--s-orange); background: var(--s-orange-bg); }
+.dnr-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; min-width: 0; }
+.dnr-badge { flex: none; font-size: 11px; font-weight: 800; padding: 1px 8px; border-radius: 999px; }
+.dnr-badge-new { background: var(--s-red); color: var(--s-surface); }
+.dnr-badge-changed { background: var(--s-orange); color: var(--s-surface); }
+.dnr-dir { font-weight: 800; }
+.dnr-asin { font-weight: 800; font-variant-numeric: tabular-nums; }
+.dnr-title { min-width: 0; overflow-wrap: anywhere; }
+.dnr-figs, .dnr-tags { display: flex; flex-wrap: wrap; gap: 2px 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.dnr-tags { gap: 2px 8px; }
+.dnr-chip { display: inline-block; padding: 0 8px; border-radius: 999px; font-size: 12px; font-weight: 800; }
+.dnr-chip-grade-bad { background: var(--s-red-bg); color: var(--s-red-ink); }
+.dnr-chip-grade-warn { background: var(--s-yellow-bg); color: var(--s-yellow-ink); }
+.dnr-chip-grade-ok { background: var(--s-green-bg); color: var(--s-green-ink); }
+.dnr-chip-risk { background: var(--s-orange-bg); color: var(--s-orange-ink); }
+.dnr-reason, .dnr-meta, .dnr-foot, .dnr-more { color: var(--s-text-muted); overflow-wrap: anywhere; }
+.dnr-more { list-style: none; padding: 2px 4px; }
+.dnr-foot { margin-top: 6px; font-size: 12px; }
+.dnr-sku { color: var(--s-text-muted); font-variant-numeric: tabular-nums; }
+.dnr-link { font-weight: 700; justify-self: start; }
+
+[hidden] { display: none !important; }

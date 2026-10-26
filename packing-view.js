@@ -44,20 +44,19 @@
     cur = null;
   }
 
-  function open() {
+  // The full-screen sheet (head + Close + Esc); returns the body to draw into.
+  function openSheet(label) {
     if (cur) close();
-    const P = root.ShopperPacking;
-    if (!P || typeof P.mountPackingUi !== "function") return;
     const overlay = el("div", "pk-overlay");
     const sheet = el("div", "pk-sheet");
     sheet.setAttribute("role", "dialog");
     sheet.setAttribute("aria-modal", "true");
-    sheet.setAttribute("aria-label", "Packing data");
+    sheet.setAttribute("aria-label", label);
     const head = el("div", "pk-sheet-head");
     const x = el("button", "pk-sheet-x", "Close");
     x.type = "button";
     x.addEventListener("click", close);
-    head.append(el("div", "pk-sheet-title", "Packing data"), x);
+    head.append(el("div", "pk-sheet-title", label), x);
     const host = el("div", "pk-sheet-body");
     sheet.append(head, host);
     overlay.appendChild(sheet);
@@ -66,7 +65,36 @@
     const onKey = (e) => { if (e.key === "Escape") close(); };
     document.addEventListener("keydown", onKey);
     cur = { overlay, onKey };
+    return host;
+  }
+
+  function open() {
+    const P = root.ShopperPacking;
+    if (!P || typeof P.mountPackingUi !== "function") return;
+    const host = openSheet("Packing data");
     P.mountPackingUi(host, { api, surface: "phone", canSeed: true });
+  }
+
+  // B-1512 (v2.0.106): the Inventory row's "Packing" button - the one-product form (lib/packing-product-form.js) for that ASIN.
+  // `apiFn` is injectable for a test; the default is the laptop command line above.
+  function openProduct(p, apiFn) {
+    const P = root.ShopperPacking;
+    if (!P || typeof P.drawProductForm !== "function" || !p || !p.asin) return null;
+    const call = apiFn || api;
+    const sheet = openSheet("Packing data");
+    const host = el("div", "pk-root pk-phone");
+    sheet.appendChild(host);
+    host.appendChild(el("div", "pk-note", "Asking the laptop..."));
+    Promise.resolve().then(() => call("packingProduct", { asin: p.asin, msku: p.msku || "", title: p.title || "" })).then((r) => {
+      if (!cur || !host.isConnected) return;
+      host.textContent = "";
+      if (!r || !r.ok || !r.row) { host.appendChild(el("div", "pk-msg pk-msg-bad", (r && r.error) || "Could not read this product's packing data.")); return; }
+      P.drawProductForm(host, { api: call, surface: "phone", doc: document, row: r.row, onSaved: close, onCancel: close });
+    }).catch((err) => {
+      host.textContent = "";
+      host.appendChild(el("div", "pk-msg pk-msg-bad", String((err && err.message) || err)));
+    });
+    return host;
   }
 
   function mount(host) {
@@ -85,6 +113,6 @@
     const t = typeof document !== "undefined" && document.getElementById ? document.getElementById("tabPacking") : null;
     if (t && !t.__pk) { t.__pk = true; t.addEventListener("click", open); }
   }
-  root.ShopperPackingView = Object.freeze({ open, close, mount, api, _current: () => cur });
+  root.ShopperPackingView = Object.freeze({ open, openProduct, close, mount, api, _current: () => cur });
   if (typeof document !== "undefined" && document.getElementById) { mount(document.getElementById("packingHost")); wireMenu(); }
 })(typeof self !== "undefined" ? self : globalThis);

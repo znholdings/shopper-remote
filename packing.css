@@ -25,6 +25,8 @@
 .pk-msg { font-size: 13px; min-height: 0; overflow-wrap: anywhere; }
 .pk-msg-bad, .pk-err { color: var(--s-red-ink, #7a1a2b); }
 .pk-msg-ok { color: var(--s-green-ink, #14612d); }
+.pk-msg-list { margin: 2px 0 0; padding-left: 18px; }
+.pk-msg-more { list-style: none; margin-left: -18px; color: var(--s-text-muted, #5b6270); }
 .pk-err { font-size: 13px; font-weight: 600; }
 .pk-err:empty { display: none; }
 .pk-headrow { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; min-width: 0; }

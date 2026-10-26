@@ -940,6 +940,39 @@ function lhAgedLine(r) {
   return "";
 }
 
+// B-1499 (v2.0.104): is an aged row selling? r = an aged view row (shipped30 from Amazon's inventory age
+// report; lastSale / sb30u / salesFrom from lib/listing-health-store.js lhAgedSales). today = Central today.
+// -> { sold30, sold30From: "amazon"|"sellerboard"|null, lastSale, sinceText, state: "selling"|"slow"|"none"|"unknown", verdict }
+function lhAgedSelling(r, today = null) {
+  const row = r || {};
+  const ship = numOrNull(row.shipped30), sb = numOrNull(row.sb30u);
+  const sold30 = ship != null ? ship : sb;
+  const sold30From = ship != null ? "amazon" : sb != null ? "sellerboard" : null;
+  const lastSale = DAY_RE.test(String(row.lastSale || "")) ? row.lastSale : null;
+  const days = lastSale && today ? lhDayDiff(today, lastSale) : null;
+  let sinceText;
+  if (lastSale) sinceText = days == null ? `last sale ${lhShortDay(lastSale)}` : (days === 0 ? "today" : `${days} day${days === 1 ? "" : "s"}`) + ` (last sale ${lhShortDay(lastSale)})`;
+  else if (row.salesFrom) sinceText = `none since ${lhShortDay(row.salesFrom)}`;
+  else sinceText = "no sales data";
+  const units = lhAgedUnits(row);
+  let state, verdict;
+  if (sold30 == null) { state = "unknown"; verdict = "Sales not on file yet"; }
+  else if (sold30 === 0) {
+    // The orders store can be newer than the report's snapshot: a recent sale there beats the report's zero.
+    if (lastSale && (days == null || days <= 30)) { state = "slow"; verdict = `Slow: none in the report, but a sale on ${lhShortDay(lastSale)}`; }
+    else { state = "none"; verdict = "No sales - drop the price or remove"; }
+  } else if (units > 0 && sold30 < units / 3) { state = "slow"; verdict = `Slow: ${sold30} sold in 30 days vs ${units} aged unit${units === 1 ? "" : "s"}`; }
+  else { state = "selling"; verdict = "Selling"; }
+  return { sold30, sold30From, lastSale, sinceText, state, verdict };
+}
+// "FBA $12.40 · FBM $13.99" (a dash for a missing one); the note when Seller Snap's API gave no offers.
+function lhOfferLine(sp) {
+  if (!sp || typeof sp !== "object") return "";
+  const a = numOrNull(sp.lowestFba), m = numOrNull(sp.lowestFbm);
+  if (a == null && m == null) return sp.at ? "offers not read (Seller Snap API)" : "";
+  return `FBA ${lhMoney(a)} · FBM ${lhMoney(m)}`;
+}
+
 // The report's state in words, for the section head. state = the stored
 // lib/aged-inventory.js record (or its phone copy). Never "all good" unless
 // Amazon's report was read.
@@ -959,7 +992,7 @@ function lhAgedStatus(state, nowMs) {
   if (st.readAt) return { known: true, bad: false, text: `Amazon's inventory age report${st.snapshotDate ? ` for ${lhShortDay(st.snapshotDate)}` : ""}, read ${ago(st.readAt)}. Asked for at most once a day.` };
   return { known: false, bad: true, text: "Amazon didn't give Shopper this report yet." };
 }
-__m["listing-health.js"] = { NO_SALES_WINDOWS, NO_SALES_WINDOW_KEY, NO_SALES_DEFAULT_WINDOW, NO_SALES_REMOTE_MAX, AGED_REMOTE_MAX, AGED_LEVELS, AGED_LEVEL_LABEL, AGED_LEVEL_HOW, lhAddDays, lhDayDiff, lhShortDay, lhNormalizeWindow, lhMoney, lhWindowStart, lhWindowRange, noSalesFor, lhSortNoSales, lhPriceVsBb, lhAgedByLevel, lhAgedUnits, lhAgedLine, lhAgedStatus };
+__m["listing-health.js"] = { NO_SALES_WINDOWS, NO_SALES_WINDOW_KEY, NO_SALES_DEFAULT_WINDOW, NO_SALES_REMOTE_MAX, AGED_REMOTE_MAX, AGED_LEVELS, AGED_LEVEL_LABEL, AGED_LEVEL_HOW, lhAddDays, lhDayDiff, lhShortDay, lhNormalizeWindow, lhMoney, lhWindowStart, lhWindowRange, noSalesFor, lhSortNoSales, lhPriceVsBb, lhAgedByLevel, lhAgedUnits, lhAgedLine, lhAgedSelling, lhOfferLine, lhAgedStatus };
 })();
 // ---- lib/copy-button.js ----
 (function () {
@@ -1346,7 +1379,7 @@ function prValidate({ min, max, preset, cur } = {}) {
 // what a row send set (fromOverlay), else the Catalog's Seller Snap read;
 // result = that send's answer ("confirmed" / "pending"), "" otherwise.
 // null = not in Seller Snap.
-const PR_COMPACT_KEYS = Object.freeze(["sku", "min", "max", "listed", "bb", "preset", "at", "fromOverlay", "result"]);
+const PR_COMPACT_KEYS = Object.freeze(["sku", "min", "max", "listed", "bb", "lowestFba", "lowestFbm", "preset", "at", "fromOverlay", "result"]);
 function prCompact(sp) {
   if (!sp || typeof sp !== "object") return null;
   const over = !!sp.fromOverlay;
@@ -1356,6 +1389,8 @@ function prCompact(sp) {
     max: prNum(sp.max),
     listed: prNum(sp.listed),
     bb: prNum(sp.bb),
+    lowestFba: prNum(sp.lowestFba), // B-1499 (v2.0.104): the lowest FBA / FBM offers Seller Snap showed (null when the read fell back to its API)
+    lowestFbm: prNum(sp.lowestFbm),
     preset: sp.preset == null ? null : String(sp.preset).slice(0, 60),
     at: prNum(over ? sp.sentAt : sp.at),
     fromOverlay: over,

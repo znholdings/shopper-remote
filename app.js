@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.99";
+const APP_BUILD = "v2.0.106";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -64,6 +64,8 @@ for (const id of [
   "tabCatalog","catalogPane",
   // B-1232 (v2.0.73): the Books tab (remote/books-view.js draws it).
   "tabBooks","booksPane",
+  // B-1501 (v2.0.104): the Settings tab (remote/settings-view.js draws it).
+  "tabSettings","settingsPane",
   // B-662 (v4.85): the Bank view, opened from the Bank balance tile.
   "bankPane","bankBack","bankBal","bankAsOf","bankCount","bankRows",
   // B-776 (v2.0.9): the report card's heading (it also shows the LAST run's report).
@@ -266,7 +268,7 @@ async function cancelPending(id, reason) {
   });
   return !!(res.ok && Array.isArray(res.json) && res.json.length === 1);
 }
-self.ShopperRemote = Object.freeze({ sendCommand: (name, payload) => sendCommand(name, payload), waitFor, commandRow: readCommand, sendQuiet: (name, payload) => sendCommand(name, payload, { quiet: true }), readCommand, cancelPending, laptopOnline });
+self.ShopperRemote = Object.freeze({ sendCommand: (name, payload) => sendCommand(name, payload), sb: (p, o) => sb(p, o), waitFor, commandRow: readCommand, sendQuiet: (name, payload) => sendCommand(name, payload, { quiet: true }), readCommand, cancelPending, laptopOnline });
 
 // ------------------------------------------------------- command outcomes
 //
@@ -1705,7 +1707,7 @@ function invLabelsText(status, r, res) {
   else if (res && res.error) text = `Not printed: ${res.error}`;
   else if (r && r.reason) text = `Not printed: ${r.reason}`;
   if (res && Number(res.declined) > 0) text += ` Skipped on your answer: ${res.declined}.`;
-  if (res && res.held && res.held.length) text += " Held (over the cap - print from the laptop): " + res.held.map((h) => (h.title || h.fnsku) + " x" + h.total).join(", ") + ".";
+  if (res && res.held && res.held.length) text += " Held (over the cap - print from the laptop):"; // B-1500: the names are a list under it (invHeldList)
   return text;
 }
 async function invPrintLabels(answers = null) {
@@ -1717,14 +1719,22 @@ async function invPrintLabels(answers = null) {
     const status = await waitFor(id);
     let text = status === "done" ? "Printed." : `Not printed (${status}).`;
     let ask = null;
+    let heldItems = [];
     if (id) {
       const row = await sb(`commands?id=eq.${encodeURIComponent(id)}&select=result,reason`);
       const r = row.ok && Array.isArray(row.json) && row.json[0] ? row.json[0] : null;
       const res = r && r.result;
       text = invLabelsText(status, r, res);
+      heldItems = res && Array.isArray(res.held) ? res.held : [];
       ask = res && res.askPrompt && Array.isArray(res.askPrompt.items) && res.askPrompt.items.length ? res.askPrompt : null;
     }
     note.textContent = text;
+    if (heldItems.length) { // B-1500 (v2.0.104): one line per held product, not a comma wall
+      const ul = invNode("ul", "dash-ex");
+      for (const h of heldItems.slice(0, 10)) ul.appendChild(invNode("li", null, (h.title || h.fnsku) + " x" + h.total));
+      if (heldItems.length > 10) ul.appendChild(invNode("li", null, "+" + (heldItems.length - 10) + " more"));
+      note.appendChild(ul);
+    }
     if (ask) invLabelCapAsk(note, ask, (a) => invPrintLabels(a));
   } catch (err) {
     note.textContent = `Not printed: ${err.message}`;
@@ -1816,6 +1826,7 @@ els.tabWizard.addEventListener("click", () => switchTab("wizard"));
 els.tabCashFlow.addEventListener("click", () => switchTab("cashflow"));
 els.tabCatalog.addEventListener("click", () => switchTab("catalog"));
 els.tabBooks.addEventListener("click", () => switchTab("books"));
+els.tabSettings.addEventListener("click", () => switchTab("settings"));
 if (self.ShopperBooksView) self.ShopperBooksView.wire();
 if (self.ShopperBelowMinView) self.ShopperBelowMinView.wire();
 if (self.ShopperCashFlowView) self.ShopperCashFlowView.wire();
@@ -2095,7 +2106,7 @@ function maybePlaySounds(p) {
 // 30 minutes, where he had scrolled to) - remembered on THIS phone only
 // (localStorage through store, which is try/catch'd: private mode = default tab).
 const LAST_VIEW_KEY = "shopperLastView";
-const LAST_VIEW_TABS = ["dashboard", "run", "buylist", "inventory", "fba", "wizard", "belowmin", "catalog", "cashflow", "books"];
+const LAST_VIEW_TABS = ["dashboard", "run", "buylist", "inventory", "fba", "wizard", "belowmin", "catalog", "cashflow", "books", "settings"];
 const LAST_VIEW_SCROLL_MS = 30 * 60000;
 let currentTab = "run";
 let pendingScrollY = null;
@@ -2145,6 +2156,10 @@ function switchTab(which) {
   els.booksPane.hidden = which !== "books";
   els.tabBooks.classList.toggle("active", which === "books");
   if (which === "books" && self.ShopperBooksView) self.ShopperBooksView.shown();
+  // B-1501 (v2.0.104): the Settings tab.
+  els.settingsPane.hidden = which !== "settings";
+  els.tabSettings.classList.toggle("active", which === "settings");
+  if (which === "settings" && self.ShopperSettingsView) self.ShopperSettingsView.shown();
   // B-662 (v4.85): the Bank view is part of the Dashboard (no tab button of its own).
   els.bankPane.hidden = which !== "bank";
   if (which === "bank") scrollAppTop();
@@ -2308,7 +2323,7 @@ function renderInventory(inv) {
   for (const r of ss ? inv.rows : rows) {
     // B-1076 (v2.0.55): one line per product; its controls open on a tap (remote/stock-sections.js).
     if (self.ShopperStockSections) {
-      els.invRows.appendChild(self.ShopperStockSections.productRow(r, { units: invUnits, receiveButton: invReceiveButton }));
+      els.invRows.appendChild(self.ShopperStockSections.productRow(r, { units: invUnits, receiveButton: invReceiveButton, packingButton: invPackingButton }));
       continue;
     }
     const row = invNode("div", "line inv-product");
@@ -2454,6 +2469,17 @@ function invReceiveButton(r) {
   b.dataset.asin = r.asin;
   b.setAttribute("aria-label", "Receive count for " + (r.title || r.asin));
   b.addEventListener("click", () => invOpenReceive(r));
+  return b;
+}
+
+// B-1512 (v2.0.106): "Packing" on each Products row - the one-product packing form in the phone's packing sheet.
+function invPackingButton(r) {
+  const b = invNode("button", "rc-row-btn inv-packing-btn", "Packing");
+  b.type = "button";
+  b.dataset.asin = r.asin;
+  b.title = "Packing data - size, weight, prep";
+  b.setAttribute("aria-label", "Packing data for " + (r.title || r.asin));
+  b.addEventListener("click", () => { if (self.ShopperPackingView && self.ShopperPackingView.openProduct) self.ShopperPackingView.openProduct({ asin: r.asin, title: r.title || "" }); });
   return b;
 }
 
@@ -2711,6 +2737,7 @@ function urlBase64ToUint8Array(base64String) {
 // here recomputes a figure). textContent only. Rebuilt only when the
 // projection changes, so the 3-second poll costs nothing on a quiet day.
 let lastDashboardKey = "";
+let lastGlInput = null; // B-1500: the input buildDoNext was last given (glRow draws its detail rows from it)
 
 function dashMoney(v) {
   if (v == null || !Number.isFinite(Number(v))) return "-";
@@ -2891,7 +2918,11 @@ function glRow(r) {
   const fill = () => {
     body.textContent = "";
     if (r.short && r.short !== r.title) body.appendChild(invNode("div", "gl-full", r.title));
-    if (r.detail) body.appendChild(invNode("div", "l-meta", r.detail));
+    // B-1500 (v2.0.104): one row per item (remote/do-next-rows-view.js) instead of one wall of text; the text stays as the fallback.
+    const DR = self.ShopperDoNextRows, GG = self.ShopperGlance;
+    const dRows = DR && GG && GG.detailRowsFor && lastGlInput ? GG.detailRowsFor(r, lastGlInput) : [];
+    if (dRows.length) body.appendChild(DR.node(dRows, { moreWhere: r.go && r.go.label, footer: GG.detailFooterFor ? GG.detailFooterFor(r, lastGlInput) : "" }));
+    else if (r.detail) body.appendChild(invNode("div", "l-meta", r.detail));
     for (const n of r.notifs || []) {
       const c = invNode("div", "line dash-notif sev-" + n.severity);
       const t = invNode("div", "inv-row-top");
@@ -2991,7 +3022,7 @@ function renderDashboard(d, p) {
       fba: fba.ok && !fba.empty ? G.fbaStockValue(fba.tiles) : null,
     },
   });
-  const allRows = G.buildDoNext({
+  const glInput = {
     loaded: true,
     notifications: d.notifications,
     notificationCount: d.openCount,
@@ -3021,7 +3052,9 @@ function renderDashboard(d, p) {
     // B-862 (v2.0.23): listings deactivated for a pricing error.
     pricingErrors: ex.pricingErrors || null,
     now: Date.now(),
-  });
+  };
+  lastGlInput = glInput;
+  const allRows = G.buildDoNext(glInput);
   // B-1257 (v2.0.73): The Daily (remote/daily-view.js) - a step ignored there
   // (on this phone or the laptop) is off Do next until its time is up.
   const DV = self.ShopperDailyView;
@@ -3046,7 +3079,7 @@ function renderDashboard(d, p) {
     },
   }) : null;
   const rows = dvOut ? dvOut.rows : allRows;
-  const key = JSON.stringify([tiles, rows.map((r) => [r.id, r.title, r.detail, r.severity, r.go.label, (r.notifs || []).map((n) => n.key)]), d.lastRun, ex.nightly, d.remoteBuiltAt, d.stale, d.spend.bankRecent, ex.bgChecks || null, ex.accountHealth || null, d.resolvedHand || null]);
+  const key = JSON.stringify([tiles, rows.map((r) => [r.id, r.title, r.detail, r.severity, r.go.label, (r.notifs || []).map((n) => n.key)]), d.lastRun, ex.nightly, d.remoteBuiltAt, d.stale, d.spend.bankRecent, ex.bgChecks || null, ex.accountHealth || null, d.resolvedHand || null, ex.voc || null, ex.agedInventory || null]);
   if (key === lastDashboardKey) return;
   lastDashboardKey = key;
   for (const k of ["dashTiles", "dashDoNext"]) els[k].textContent = "";

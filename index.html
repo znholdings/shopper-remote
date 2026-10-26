@@ -22,6 +22,7 @@
   <link rel="stylesheet" href="claude-learning.css" />
   <!-- B-1071 (v2.0.54): Process returns on the Ship tab (remote/returns-view.js). -->
   <link rel="stylesheet" href="returns.css" />
+  <link rel="stylesheet" href="settings.css" /><!-- B-1501 (v2.0.104): the shared Settings screen -->
   <link rel="stylesheet" href="packing.css" /><!-- B-1426 (v2.0.92): Packing data on the Ship tab (= lib/packing-ui.css) -->
   <!-- v2.0.55 builder A (B-1073 / B-1076 / B-1077 / B-1079): Stock + Ship on the phone. -->
   <link rel="stylesheet" href="ui55-a.css" />
@@ -38,6 +39,7 @@
   <link rel="stylesheet" href="ui58-c.css" />
   <link rel="stylesheet" href="ui60-c.css" /><!-- B-1137 (v2.0.60): the pack-rank editor -->
   <link rel="stylesheet" href="buy-shots.css" /><!-- B-1173 (v2.0.64): buy-tab snapshots on the lines -->
+  <link rel="stylesheet" href="do-next-rows.css" /><!-- B-1500 (v2.0.104) -->
   <link rel="stylesheet" href="daily.css" /><!-- B-1257 (v2.0.73): The Daily (Home) + B-1256 short Do next cards -->
   <link rel="stylesheet" href="phone-nav.css" /><!-- B-1233 (v2.0.73): the sidebar navigation -->
   <link rel="stylesheet" href="books.css" /><!-- B-1232 (v2.0.73): the Books section -->
@@ -112,7 +114,7 @@
 
     <section id="mainView" class="view" hidden>
       <!-- B-1233 (v2.0.73): the phone's navigation is a SIDEBAR like the laptop's - the same
-           sections in the same order as lib/sidenav.js NAV (Settings stays on the laptop) - that
+           sections in the same order as lib/sidenav.js NAV (Settings: the shared ones, remote/settings-view.js) - that
            hides itself: the menu button in the top bar (it floats once the bar scrolls away) or a
            swipe in from the left edge opens it, a pick / the scrim / a swipe back / Esc closes it
            (remote/phone-nav.js). It replaced the bottom tab bar.
@@ -145,7 +147,9 @@
           <!-- B-742 (v2.0.7): the Shipment Wizard (+ B-1071 Process returns). -->
           <button id="tabWizard" class="tab"><svg class="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h11v9H3z"/><path d="M14 10h4l3 3v3h-7"/><circle cx="7" cy="18" r="1.6"/><circle cx="17" cy="18" r="1.6"/></svg><span class="tab-label">Ship to Amazon</span><span class="pn-alias">Ship</span></button>
           <!-- B-1451 (v2.0.93): Packing planner straight from the menu - not a pane: remote/packing-view.js opens the packing sheet on tap (no Ship tab steps). -->
-          <button id="tabPacking" class="tab"><svg class="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg><span class="tab-label">Packing planner</span><span class="pn-alias">Pack</span></button>
+          <button id="tabPacking" class="tab"><svg class="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg><span class="tab-label">Packing data</span><span class="pn-alias">Pack</span></button>
+          <!-- B-1501 (v2.0.104): the shared Settings (remote/settings-view.js); last, as in lib/sidenav.js NAV. -->
+          <button id="tabSettings" class="tab"><svg class="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg><span class="tab-label">Settings</span></button>
         </div>
         <div class="pn-foot"><span id="pnBuild" class="pn-version"></span></div>
       </nav>
@@ -492,6 +496,11 @@
         </div>
       </div>
 
+      <!-- B-1501 (v2.0.104): the shared Settings - the same values on both computers and here (remote/settings-view.js draws it). -->
+      <div id="settingsPane" hidden>
+        <div id="stgBody"></div>
+      </div>
+
       <!-- B-1023 (v2.0.49): the laptop's Catalog - products with stock, built on
            the laptop on each refresh (remote/catalog-view.js draws it). -->
       <div id="catalogPane" hidden>
@@ -612,6 +621,7 @@
   <script src="dash-lib.js"></script>
   <!-- B-1257 (v2.0.73): The Daily on Home (before app.js, which calls it). -->
   <script src="daily-view.js"></script>
+  <script src="do-next-rows-view.js"></script><!-- B-1500 (v2.0.104): a Do next card's detail rows (before app.js) -->
   <!-- B-1287 (v2.0.75): Mark done / Dismiss on Home's Do next notifications (before app.js). -->
   <script src="notif-actions.js"></script>
   <script src="belowmin-lib.js"></script>
@@ -674,6 +684,9 @@
   <script src="stock-sections.js"></script>
   <!-- B-1309 (v2.0.78): the Stock tab's search box filters every list as he types. -->
   <script src="stock-search.js"></script>
+  <!-- B-1501 (v2.0.104): the shared Settings screen. -->
+  <script src="settings-lib.js"></script>
+  <script src="settings-view.js"></script>
   <script>
     // Shopper 2 (v2.00, B-732): the top-bar theme button - system -> light -> dark.
     // B-802 (v2.0.11): light -> dark -> retro -> light; the icon shows the NEXT one.

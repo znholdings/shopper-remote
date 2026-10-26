@@ -40,4 +40,8 @@
 
 .bmm-ss { display: grid; gap: 4px; min-width: 0; }
 .bmm-ss-strategy { font-weight: 600; overflow-wrap: anywhere; }
+/* B-1499 (v2.0.104): the aged row's one-line "is it selling?" verdict. */
+.lhm-verdict { font-size: 13px; font-weight: 700; }
+.lhm-verdict.is-none { color: var(--s-red-ink); }
+.lhm-verdict.is-good { color: var(--s-green-ink); }
 [hidden] { display: none !important; }

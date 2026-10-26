@@ -270,6 +270,22 @@
       const line = el("div", "lhm-line");
       line.append(el("span", "s-pill lhm-pill-" + r.level, P.AGED_LEVEL_LABEL[r.level] || r.level), el("span", "muted small", " " + P.lhAgedLine(r)));
       row.append(line);
+      if (P.lhAgedSelling) { // B-1499 (v2.0.104): is it selling? + the lowest FBA / FBM offers - all from stored data
+        const sell = P.lhAgedSelling(r, data && data.base ? data.base.today : null);
+        const sp = r.sp || null;
+        const nums = el("div", "lhm-nums");
+        const cell = (label, value, title) => { const c = el("div", "lhm-num"); const v = el("div", "lhm-v", value); if (title) v.title = title; c.append(el("div", "t-label", label), v); return c; };
+        nums.append(
+          cell("Sold 30d", sell.sold30 == null ? "-" : String(sell.sold30) + (sell.sold30From === "sellerboard" ? " (SB)" : "")),
+          cell("Last sale", sell.sinceText, "Last sale of this ASIN"),
+          cell("Available", r.avail == null ? "-" : String(r.avail)),
+        );
+        if (sp) nums.append(cell("Lowest FBA", P.lhMoney(sp.lowestFba)), cell("Lowest FBM", P.lhMoney(sp.lowestFbm)));
+        row.append(nums);
+        const cls = sell.state === "none" ? "lhm-verdict is-none" : sell.state === "slow" ? "lhm-verdict warn-text" : sell.state === "selling" ? "lhm-verdict is-good" : "lhm-verdict muted";
+        row.append(el("div", cls, sell.verdict));
+        if (sp && sp.lowestFba == null && sp.lowestFbm == null && P.lhOfferLine) { const note = P.lhOfferLine(sp); if (note) row.append(el("div", "muted small", note)); }
+      }
       if ("sp" in r) row.append(ssBlock(r)); // B-1198 (v2.0.68); an older laptop sends no sp
       list.append(row);
     }

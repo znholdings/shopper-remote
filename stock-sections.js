@@ -200,7 +200,7 @@
 
   // ---- Products: one line each (B-1076) ------------------------------------------
   const openProducts = new Set();
-  // app.js renderInventory calls this per product. h = { units, receiveButton }.
+  // app.js renderInventory calls this per product. h = { units, receiveButton, packingButton }.
   function productRow(r, h) {
     const units = (h && h.units) || ((v) => String(v));
     const row = node("div", "line inv-product s55-prod");
@@ -248,6 +248,7 @@
       mp.append(node("span", "s55-mp-t", "Print"));
       tools.append(mp);
     }
+    if (h && typeof h.packingButton === "function") tools.append(h.packingButton(r)); // B-1512 (v2.0.106)
     if (tools.firstChild) body.append(tools);
     // v4.74 (B-570/B-571): ✎ Count + the house expiry date (parity.js, unchanged).
     if (root.ShopperParity) root.ShopperParity.decorateProduct(body, r);

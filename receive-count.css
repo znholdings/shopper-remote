@@ -201,4 +201,7 @@
    now carry the red (lib/shopper-ui.css, remote/styles.css), so the B-961 rules above paint it. */
 .rc-badge.rc-badge-none { background: var(--s-count-off); color: var(--s-count-off-ink); border-color: var(--s-count-off); }
 
+/* B-1500 (v2.0.104): the names under a headline sentence are a short list, not a comma wall. */
+.rc-all-names, .rc-msg-list { margin: 2px 0 0; padding-left: 18px; }
+.rc-all-more { list-style: none; margin-left: -18px; color: var(--s-text-muted); }
 [hidden] { display: none !important; }

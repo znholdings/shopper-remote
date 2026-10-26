@@ -1206,6 +1206,8 @@
     var msg = h("div", "rc-msg", "");
     msg.setAttribute("role", "status");
     msg.setAttribute("aria-live", "polite");
+    var msgList = h("ul", "rc-msg-list"); // B-1500: "Not set:" names, one per line
+    msgList.hidden = true;
     var foot = h("div", "rc-foot");
     var yesBtn = h("button", "rc-btn rc-primary rc-all-yes", "");
     yesBtn.type = "button";
@@ -1219,6 +1221,7 @@
     card.appendChild(restEl);
     card.appendChild(sameEl);
     card.appendChild(msg);
+    card.appendChild(msgList);
     card.appendChild(foot);
     overlay.appendChild(card);
     var statusEls = {};
@@ -1227,6 +1230,8 @@
     function say(text, kind) {
       msg.textContent = text || "";
       msg.className = "rc-msg" + (kind ? " rc-msg-" + kind : "");
+      msgList.textContent = "";
+      msgList.hidden = true;
     }
 
     function draw() {
@@ -1257,14 +1262,23 @@
         statusEls[c.asin] = st;
       }
       listEl.hidden = !n;
+      // B-1500 (v2.0.104): the headline stays one sentence; the names are a short list under it (not a comma wall).
+      var nameList = function (host, items) {
+        var ul = h("ul", "rc-all-names");
+        for (var q = 0; q < items.length && q < 10; q++) ul.appendChild(h("li", "", items[q]));
+        if (items.length > 10) ul.appendChild(h("li", "rc-all-more", "+" + (items.length - 10) + " more"));
+        host.appendChild(ul);
+      };
       var rest = [];
       for (var k = 0; k < plan.notListed.length; k++) rest.push(plan.notListed[k].asin + " (" + fmtNum(plan.notListed[k].counted) + ")");
-      restEl.textContent = rest.length ? "Counted but not on this list, so left alone: " + rest.join(", ") + "." : "";
+      restEl.textContent = rest.length ? "Counted but not on this list, so left alone:" : "";
+      if (rest.length) nameList(restEl, rest);
       restEl.hidden = !rest.length;
       var same = plan.same || [];
       var sameNames = [];
       for (var s = 0; s < same.length; s++) sameNames.push(same[s].asin + " (" + fmtNum(same[s].counted) + ")");
-      sameEl.textContent = same.length ? same.length + " already match their " + where + " count, so they are left out: " + sameNames.join(", ") + "." : "";
+      sameEl.textContent = same.length ? same.length + " already match their " + where + " count, so they are left out:" : "";
+      if (same.length) nameList(sameEl, sameNames);
       sameEl.hidden = !same.length;
       yesBtn.textContent = "Yes - set " + n + " " + where + " count" + (n === 1 ? "" : "s");
       yesBtn.hidden = finished || !n;
@@ -1306,7 +1320,12 @@
           finished = true;
           draw();
           if (!bad.length) say("Set " + okCount + " of " + list.length + ". Each counted product's tally is cleared.", "ok");
-          else say("Set " + okCount + " of " + list.length + ". Not set: " + bad.join("; ") + ". Those counts are kept.", "bad");
+          else {
+            say("Set " + okCount + " of " + list.length + ". " + bad.length + " not set - those counts are kept:", "bad");
+            for (var bi = 0; bi < bad.length && bi < 10; bi++) msgList.appendChild(h("li", "", bad[bi]));
+            if (bad.length > 10) msgList.appendChild(h("li", "rc-all-more", "+" + (bad.length - 10) + " more"));
+            msgList.hidden = false;
+          }
           if (typeof opts.onDone === "function") { try { opts.onDone({ set: okCount, failed: bad.length }); } catch (e) { /* the host redraw must never break this */ } }
           if (!closed) focusEl(cancelBtn);
           return;
