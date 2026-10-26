@@ -76,6 +76,7 @@
   }
 
   // B-1512 (v2.0.106): the Inventory row's "Packing" button - the one-product form (lib/packing-product-form.js) for that ASIN.
+  // B-1515 (v2.0.107): p.onSaved() runs after a save closes the sheet (the Stock rows refresh their badges).
   // `apiFn` is injectable for a test; the default is the laptop command line above.
   function openProduct(p, apiFn) {
     const P = root.ShopperPacking;
@@ -89,7 +90,7 @@
       if (!cur || !host.isConnected) return;
       host.textContent = "";
       if (!r || !r.ok || !r.row) { host.appendChild(el("div", "pk-msg pk-msg-bad", (r && r.error) || "Could not read this product's packing data.")); return; }
-      P.drawProductForm(host, { api: call, surface: "phone", doc: document, row: r.row, onSaved: close, onCancel: close });
+      P.drawProductForm(host, { api: call, surface: "phone", doc: document, row: r.row, onSaved: () => { close(); if (typeof p.onSaved === "function") { try { p.onSaved(); } catch (e) { /* the badge refresh must never break the sheet */ } } }, onCancel: close });
     }).catch((err) => {
       host.textContent = "";
       host.appendChild(el("div", "pk-msg pk-msg-bad", String((err && err.message) || err)));

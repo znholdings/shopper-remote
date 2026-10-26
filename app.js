@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.106";
+const APP_BUILD = "v2.0.107";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -2472,6 +2472,53 @@ function invReceiveButton(r) {
   return b;
 }
 
+// B-1515 (v2.0.107): the entered / missing / estimate-only state on every Packing button (icon + text), from ONE
+// packingStatuses call per render for all ASINs shown (same words as the laptop Pipeline: lib/packing-dialog.js
+// packingButtonState). Laptop offline or the call fails -> no badge, no error.
+const INV_PK_STATES = {
+  ok: { cls: "inv-pk-ok", badge: "\u2713", word: "entered" },
+  estimated: { cls: "inv-pk-est", badge: "~", word: "estimate only" },
+  partial: { cls: "inv-pk-miss", badge: "", word: "missing" },
+  missing: { cls: "inv-pk-miss", badge: "", word: "missing" },
+};
+const invPkCache = {};
+let invPkScheduled = false;
+function invPkPaint(btn) {
+  const asin = String(btn.dataset.asin || "").toUpperCase();
+  const st = INV_PK_STATES[invPkCache[asin]];
+  btn.classList.remove("inv-pk-ok", "inv-pk-est", "inv-pk-miss");
+  for (const old of btn.querySelectorAll(".inv-pk-badge")) old.remove();
+  const name = btn.dataset.pkTitle || asin;
+  btn.title = "Packing data - size, weight, prep" + (st ? " (" + st.word + ")" : "");
+  btn.setAttribute("aria-label", "Packing data for " + name + (st ? " - " + st.word : ""));
+  if (!st) return;
+  btn.classList.add(st.cls);
+  const badge = invNode("span", "inv-pk-badge", st.badge);
+  badge.setAttribute("aria-hidden", "true");
+  btn.appendChild(badge);
+}
+function invPkPaintAll() {
+  for (const b of document.querySelectorAll(".inv-pk-btn, .inv-packing-btn")) invPkPaint(b);
+}
+async function invPkRefresh() {
+  const PV = self.ShopperPackingView;
+  const asins = [...new Set([...document.querySelectorAll(".inv-pk-btn, .inv-packing-btn")].map((b) => String(b.dataset.asin || "").toUpperCase()).filter(Boolean))];
+  if (!asins.length || !PV || typeof PV.api !== "function") return;
+  try {
+    const r = await PV.api("packingStatuses", { asins });
+    if (r && r.ok && r.statuses && typeof r.statuses === "object") {
+      for (const a of Object.keys(r.statuses)) invPkCache[String(a).toUpperCase()] = r.statuses[a];
+      invPkPaintAll();
+    }
+  } catch (err) { /* offline: buttons stay as they are, no badge, no error */ }
+}
+// Called by each render; the microtask lets renderInventory finish drawing every row first, so one call covers them all.
+function invPkSchedule() {
+  if (invPkScheduled) return;
+  invPkScheduled = true;
+  Promise.resolve().then(() => { invPkScheduled = false; return invPkRefresh(); });
+}
+
 // B-1512 (v2.0.106): "Packing" on each Products row - the one-product packing form in the phone's packing sheet.
 function invPackingButton(r) {
   const b = invNode("button", "rc-row-btn inv-packing-btn", "Packing");
@@ -2479,7 +2526,40 @@ function invPackingButton(r) {
   b.dataset.asin = r.asin;
   b.title = "Packing data - size, weight, prep";
   b.setAttribute("aria-label", "Packing data for " + (r.title || r.asin));
-  b.addEventListener("click", () => { if (self.ShopperPackingView && self.ShopperPackingView.openProduct) self.ShopperPackingView.openProduct({ asin: r.asin, title: r.title || "" }); });
+  b.dataset.pkTitle = r.title || r.asin;
+  b.addEventListener("click", () => { if (self.ShopperPackingView && self.ShopperPackingView.openProduct) self.ShopperPackingView.openProduct({ asin: r.asin, title: r.title || "", onSaved: invPkRefresh }); });
+  invPkPaint(b);
+  return b;
+}
+
+// B-1515 (v2.0.107): the Packing icon button beside the printer on every Stock bucket row (House, Prep,
+// In transit) - same size as the printer, a box icon; opens the same one-product packing sheet as the
+// text "Packing" button. Works with or without ShopperManualPrint.
+function invPackingIconButton(r) {
+  const b = invNode("button", "inv-pk-btn");
+  b.type = "button";
+  b.dataset.asin = r.asin;
+  b.title = "Packing data - size, weight, prep";
+  b.setAttribute("aria-label", "Packing data for " + (r.title || r.asin));
+  const NS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("width", "16");
+  svg.setAttribute("height", "16");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "1.8");
+  svg.setAttribute("stroke-linejoin", "round");
+  svg.setAttribute("aria-hidden", "true");
+  for (const d of ["M3 8l9-5 9 5v8l-9 5-9-5z", "M3 8l9 5 9-5", "M12 13v8"]) {
+    const path = document.createElementNS(NS, "path");
+    path.setAttribute("d", d);
+    svg.appendChild(path);
+  }
+  b.appendChild(svg);
+  b.dataset.pkTitle = r.title || r.asin;
+  b.addEventListener("click", () => { if (self.ShopperPackingView && self.ShopperPackingView.openProduct) self.ShopperPackingView.openProduct({ asin: r.asin, title: r.title || "", onSaved: invPkRefresh }); });
+  invPkPaint(b);
   return b;
 }
 
@@ -2537,12 +2617,17 @@ function renderInvBucket(inv) {
     tr.appendChild(asinCell);
     const numCell = invNode("td", "inv-num" + (Number(r[b.field]) < 0 ? " inv-neg" : ""), invUnits(r[b.field]));
     // B-1057 (v2.0.53): Manual Print - the laptop Pipeline row's printer, under the units (remote/manual-print-view.js).
-    if (self.ShopperManualPrint) numCell.appendChild(self.ShopperManualPrint.button(r));
+    // B-1515 (v2.0.107): the printer and the Packing icon side by side in one small group.
+    const tools = invNode("span", "inv-row-tools");
+    if (self.ShopperManualPrint) tools.appendChild(self.ShopperManualPrint.button(r));
+    tools.appendChild(invPackingIconButton(r));
+    numCell.appendChild(tools);
     tr.appendChild(numCell);
     tbody.appendChild(tr);
   }
   els.invBucketTable.appendChild(thead);
   els.invBucketTable.appendChild(tbody);
+  invPkSchedule();
 }
 
 // B-875 (v2.0.25): every product on the House list with a Receive tally -> its House count, in one

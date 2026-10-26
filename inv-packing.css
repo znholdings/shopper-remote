@@ -1,0 +1,15 @@
+/* B-1515 (v2.0.107): Packing icon button beside the printer on the phone Stock rows. */
+.inv-table td.inv-num .inv-row-tools { display: flex; justify-content: flex-end; align-items: center; gap: 6px; margin-top: 6px; }
+.inv-table td.inv-num .inv-row-tools .mp-row-btn { margin-top: 0; }
+.inv-table td.inv-num .inv-pk-btn { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 28px; min-height: 0; margin: 0; padding: 0; font: inherit; line-height: 1; color: var(--s-accent); background: transparent; border: 1px solid var(--s-accent); border-radius: var(--s-r-sm); cursor: pointer; }
+.inv-table td.inv-num .inv-pk-btn svg { display: block; flex: none; }
+:root[data-theme="retro"] .inv-table td.inv-num .inv-pk-btn { width: 30px; height: 28px; min-height: 0 !important; padding: 0 !important; box-shadow: none !important; background: transparent !important; color: var(--s-accent) !important; border: 2px solid var(--s-n7) !important; }
+
+/* B-1515 (v2.0.107): entered / missing / estimate-only state on the Packing buttons (icon + text). */
+.inv-pk-btn, .inv-packing-btn { position: relative; }
+.inv-pk-badge { position: absolute; top: -6px; right: -6px; min-width: 13px; height: 13px; padding: 0 2px; border-radius: 7px; font-size: 9px; font-weight: 800; line-height: 13px; text-align: center; color: #fff; pointer-events: none; }
+.inv-pk-ok { color: var(--s-green-ink) !important; background: var(--s-green-bg) !important; border-color: var(--s-green) !important; }
+.inv-pk-ok .inv-pk-badge { background: var(--s-green); }
+.inv-pk-est { border-color: var(--s-yellow) !important; }
+.inv-pk-est .inv-pk-badge { background: var(--s-yellow-ink); }
+.inv-pk-miss .inv-pk-badge { background: var(--s-red); min-width: 8px; width: 8px; height: 8px; top: -3px; right: -3px; padding: 0; border-radius: 50%; font-size: 0; }
