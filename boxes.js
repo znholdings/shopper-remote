@@ -393,6 +393,25 @@
     box.appendChild(note);
   }
 
+  // B-1554 (v2.0.114): the final check (boxed + planned = the batch, per product) and the "Plan the rest" boxes waiting to land.
+  // Same fields the laptop draws (b.final / b.staged from lib/box-contents-final.js). shortAsk = the differences the phone showed
+  // after the Upload press; the second press (Upload anyway) sends exactly those (shortSig).
+  let shortAsk = "";
+  let checkShown = false;
+  function renderStaged(b, box) {
+    if (b && b.staged && b.staged.text) box.appendChild(node("p", "muted bx-staged", b.staged.text));
+  }
+  function renderFinalRows(f, box, cls) {
+    box.appendChild(node("p", cls, f.ok ? "✓ " + f.words : "⚠ " + f.words));
+    for (const t of f.rows || []) box.appendChild(node("p", "warn-text bx-final-row", "• " + t));
+  }
+  function renderCheck(b, box) {
+    const f = b.final;
+    if (!f) return;
+    box.appendChild(btn("Check boxed vs batch", "ghost-btn bx-check", () => { checkShown = !checkShown; render({ boxes: last }); }));
+    if (checkShown) renderFinalRows(f, box, f.ok ? "bx-ok bx-final" : "warn-text bx-final");
+  }
+
   function renderDraft(b, box) {
     const d = b.draft;
     box.appendChild(node("div", "bx-head", (b.batch ? b.batch.name : "?") + " · Pack group " + (b.packGroup || "?")));
@@ -403,8 +422,10 @@
       box.appendChild(node("p", "muted", "The box list is kept. Check it in ScanPower; to send it again, tap Re-check with ScanPower and choose Replace."));
     }
     renderPrior(b, box);
+    renderStaged(b, box);
     renderDupes(b, box);
     renderCards(b, box, true);
+    renderCheck(b, box);
     if (b.pending) renderPending(b, box, true);
 
     if (d.questions.length) {
@@ -462,7 +483,29 @@
       const label = replacing
         ? "I'm done — replace ScanPower's boxes with these " + d.boxes.length
         : "I'm done — upload " + (kept ? total + " boxes (" + kept + " kept + " + d.boxes.length + " new)" : d.boxes.length + " boxes") + " to ScanPower";
+      const fin = b.final && b.final.ok === false ? b.final : null;
+      if (fin && shortAsk && shortAsk === fin.sig) {
+        // second step: the differences, and its own two buttons
+        const pan = node("div", "bx-short");
+        pan.appendChild(node("p", "warn-text", "Boxed + planned does not equal the batch - nothing has been sent to ScanPower."));
+        for (const t of fin.rows || []) pan.appendChild(node("p", "warn-text bx-final-row", "• " + t));
+        const row2 = node("div", "bx-row");
+        row2.appendChild(btn("Fix first", "ghost-btn bx-short-fix", () => { shortAsk = ""; render({ boxes: last }); }));
+        const anyShort = btn("Upload anyway", "secondary-btn bx-short-go", () => {
+          const late2 = unsentFor(b);
+          if (late2.length) { say(late2.length + " message(s) on this phone are not on the laptop yet - they go first, then upload."); return; }
+          anyShort.disabled = true;
+          const sig = shortAsk;
+          shortAsk = "";
+          R().sendCommand("boxesUploadShort", { id: b.id, mode, shortSig: sig });
+        });
+        row2.appendChild(anyShort);
+        pan.appendChild(row2);
+        box.appendChild(pan);
+        return;
+      }
       const go = btn(label, "primary-btn bx-upload", () => {
+        if (fin) { shortAsk = fin.sig; render({ boxes: last }); return; }
         const where = b.batch ? b.batch.name : "ScanPower";
         const ask = replacing
           ? "Replace ScanPower's " + b.existing.boxes + " box(es) (" + b.existing.units + " units) in " + where + " with these " + d.boxes.length + " boxes?"
@@ -496,11 +539,14 @@
           const lines = ["Upload anyway to " + where + "?", "The boxes go up as read (" + a.units + " units). Fix the rest in ScanPower.", "", "Passed over:"].concat((a.warnings || []).map((t) => "• " + t));
           if ((a.trims || []).length) lines.push("", "ScanPower takes only what is expected:", ...(a.trims || []).map((t) => "• " + t));
           if ((a.empty || []).length) lines.push("", ...(a.empty || []).map((t) => "• " + t));
+          // Review fix: a boxed-vs-batch difference is shown here too, and answered by this same press.
+          const fin = b.final && b.final.ok === false ? b.final : null;
+          if (fin) lines.push("", "Boxed + planned does not equal the batch:", ...(fin.rows || []).map((t) => "• " + t));
           if (!confirm(lines.join("\n"))) return;
           const late = unsentFor(b);
           if (late.length) { say(late.length + " message(s) on this phone are not on the laptop yet - they go first, then Upload anyway."); return; }
           any.disabled = true;
-          R().sendCommand("boxesUploadAnyway", { id: b.id, mode, warnSig: a.sig });
+          R().sendCommand("boxesUploadAnyway", fin ? { id: b.id, mode, warnSig: a.sig, shortOk: true, shortSig: fin.sig } : { id: b.id, mode, warnSig: a.sig });
         });
         box.appendChild(any);
       }
@@ -524,6 +570,7 @@
     const phase = b ? b.phase : "idle";
     // B-1089: Read is never locked while the laptop works - the words queue.
     readBtn.disabled = false;
+    if (b && phase !== "review") renderStaged(b, statusEl);
     if (!b || phase === "idle") return;
     if (phase === "reading" || phase === "uploading") {
       statusEl.appendChild(node("p", "bx-working", (phase === "reading" ? "Reading boxes… " : "Uploading… ") + (b.step || "")));

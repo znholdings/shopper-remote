@@ -136,3 +136,16 @@ body.pk-open { overflow: hidden; }
 .pk-realw .pk-in { max-width: 100%; box-sizing: border-box; }
 :root[data-theme="retro"] .pk-rcrow { border-bottom: 2px solid var(--s-n7); }
 :root[data-theme="retro"] .pk-rc-needs { border-left-width: 8px; }
+
+/* B-1566 (v2.0.114): Copy to ASIN (lib/packing-copy-view.js) */
+.pk-copy { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--s-line); min-width: 0; }
+.pk-copy-open { align-self: flex-start; }
+.pk-copy-panel { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.pk-copy-panel .pk-tools .pk-in { flex: 1 1 200px; width: auto; }
+.pk-copy-list { display: flex; flex-direction: column; gap: 4px; }
+.pk-copy-pick { text-align: left; font-weight: 500; white-space: normal; overflow-wrap: anywhere; }
+.pk-copy-lines { margin: 2px 0 0; padding-left: 18px; font-size: 13px; line-height: 1.4; overflow-wrap: anywhere; }
+.pk-copy-old { color: var(--s-text-muted); }
+.pk-copy-warn { color: var(--s-red-ink, #7a1a2b); }
+.pk-copy-go { align-self: flex-start; white-space: normal; text-align: left; margin-top: 6px; }
+.pk-copy-preview { display: flex; flex-direction: column; min-width: 0; }

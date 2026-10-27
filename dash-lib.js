@@ -35,7 +35,7 @@ const __m = {};
 // B-1163 (v2.0.61): "books" = the Books pages (laptop: SHOPPER_OPEN_BOOKS_TAB;
 // the phone has no Books tab and is never handed a `books` input).
 const TARGETS = Object.freeze(["buylist", "buyqueue", "pipeline", "arrivals", "belowmin", "runreviews", "fba", "wizard", "cashflow", "bank", "expand", "plaid", "voc", "health", "books", "updatebatch", "catalog"]);
-// B-1369 (v2.0.82): "catalog" = the Catalog page (the COGS check card; laptop: SHOPPER_OPEN_CATALOG_TAB, phone: its Catalog tab).
+// B-1369 (v2.0.82): "catalog" = the Catalog page (no longer used by the COGS row - B-1567 moved the COGS check to the Pricing page).
 // B-1319 (v2.0.78, builder D): "updatebatch" = the Pipeline page's Update ScanPower batch
 // pop-up (laptop: SHOPPER_OPEN_PIPELINE_TAB view "updatebatch"; the phone, which never
 // writes to ScanPower, opens its House list).
@@ -455,7 +455,7 @@ function buildDoNext(input = {}) {
       short: `COGS check: ${plural(cgCount, "cost")} to fix`,
       detail: bits.join(", ") + ". " + linesDetail(cgItems.map((x) => String(x.line || x.asin)), cgCount, "Catalog") + ". Nothing changes until you say Yes on the Catalog page.",
       lines: cgItems.map((x) => ({ asin: String(x.asin || ""), title: String(x.title || ""), text: String(x.line || x.asin || "") })),
-      go: { label: "Catalog", target: "catalog" },
+      go: { label: "COGS check", target: "belowmin" },
       count: cgCount,
     });
   }
@@ -1689,7 +1689,7 @@ function detailFooterFor(row, input = {}) {
       return (fee > 0 ? `Amazon's estimate for the next monthly charge: ${money2(fee)}. ` : "") + "Lower the price or send a removal - the list is on the Pricing page.";
     }
     case "stranded": return "No active listing - Amazon holds them but cannot sell them. Fix the listing or send a removal.";
-    case "cogs": return "Nothing changes until you say Yes on the Catalog page.";
+    case "cogs": return "Nothing changes until you say Yes on the Pricing page (COGS check tab).";
     case "voc": {
       const pcx = num((input.voc || {}).pcxBadCount);
       return pcx ? `Its PCX grade puts ${pcx} at Poor / Very poor - not alerted on.` : "";

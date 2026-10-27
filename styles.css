@@ -390,6 +390,7 @@ button { font: inherit; cursor: pointer; }
 
 /* P-63: the reason first, the boilerplate behind a disclosure. */
 .prompt-reason { margin: 4px 0 6px; font-size: 14px; font-weight: 800; color: var(--warn); }
+.prompt-second-look { margin: 0 0 6px; font-size: 13px; font-weight: 600; color: var(--muted, #666); overflow-wrap: anywhere; }
 .prompt-details { margin: 0 0 8px; }
 .prompt-details > summary { font-size: 12px; color: var(--muted); cursor: pointer; }
 

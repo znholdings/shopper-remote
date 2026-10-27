@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.113";
+const APP_BUILD = "v2.0.114";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -38,7 +38,7 @@ for (const id of [
   "pushRow","pushBtn","refreshBtn","reloadBtn","buildStamp",
   // v2.98: P-63 (promptReason/promptDetails), P-53 (skipFailedBtn),
   // P-64 (nowStrip), P-67 (densityRow), P-65 (report*), P-58 (soundBtn).
-  "promptReason","promptDetails","skipFailedBtn","nowStrip","nowAsin","nowStep",
+  "promptReason","promptSecondLook","promptDetails","skipFailedBtn","nowStrip","nowAsin","nowStep",
   "densityRow","logSection","reportCard","reportUrgent","reportSummary","reportBuckets","soundBtn",
   // B-459 (v4.49): the read-only Inventory tab.
   "tabInventory","inventoryPane","invAsOf","invLiveSync","invHouse","invPrep","invTransit",
@@ -429,12 +429,13 @@ const REMOTE_LABELS = {
   // B-1089 (v2.0.55)
   boxesSend: "Send box words", boxesDupe: "Box said twice", boxesSwitch: "Switch back", boxesRestore: "Restore boxes", boxesReread: "Re-read all words",
   boxesUploadAnyway: "Upload boxes anyway", // B-1326 (v2.0.79)
+  boxesUploadShort: "Upload boxes anyway (differs from the batch)", // B-1554 (v2.0.114)
   screenAsk: "Ask Claude", screenSummaryWrite: "Write the summary again",
   pricingRowSend: "Send a Pricing row", // B-1198 (v2.0.68)
   booksLineSet: "Book a Needs you line", // B-1232 (v2.0.73)
   booksLineClear: "Card line - nothing", booksReload: "Reload the Books", // B-1278 / B-1277 (v2.0.74)
   // B-1426 / B-1429 (v2.0.92): packing data (remote/packing-view.js)
-  packingSave: "Save packing data", packingTraits: "Claude's packing traits", packingBoxSave: "Save a box", packingBoxesSeed: "Add box sizes", packingReplayBatch: "Replay a batch", packingReplayClear: "Clear the replay", packingReplayLast: "Read the last replay", packingReplayReload: "Reload the last replay",
+  packingSave: "Save packing data", packingCopyFind: "Find a product to copy packing data to", packingCopy: "Copy packing data to another ASIN", packingTraits: "Claude's packing traits", packingBoxSave: "Save a box", packingBoxesSeed: "Add box sizes", packingReplayBatch: "Replay a batch", packingReplayClear: "Clear the replay", packingReplayLast: "Read the last replay", packingReplayReload: "Reload the last replay",
   // B-1427 / B-1428 (v2.0.92): the planner
   packingPlan: "Make a packing plan", packingApprove: "Approve the packing plan", packingReject: "Reject the packing plan", packingRuleConfirm: "Add the packing rule", packingRuleDelete: "Delete a packing rule", packingRealWeight: "Save a real box weight", packingDraft: "Send boxes to Box contents (draft)",
 };
@@ -1254,6 +1255,11 @@ function renderPrompt(prompt) {
   const reason = shortReason(detail);
   els.promptReason.textContent = reason;
   els.promptReason.hidden = !reason;
+  // B-1557 (v2.0.114): the second look's own line (a buy-failure pause only).
+  if (els.promptSecondLook) {
+    els.promptSecondLook.textContent = prompt.secondLook || "";
+    els.promptSecondLook.hidden = !prompt.secondLook;
+  }
   els.promptDetail.textContent = detail;
   // No point offering "Details" when the details are just the reason again.
   els.promptDetails.hidden = !detail || detail === reason;
