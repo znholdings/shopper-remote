@@ -1881,6 +1881,9 @@ __m["packing-draw.js"] = { DRAW_W, RESULT_LIMIT, PALETTE, colorFor, keyNo, textW
 //     call(name, payload) -> Promise<result>  (never throws: {ok:false, error} instead)
 //       names: packingPlan packingPlanGet packingPlanBox packingPlanDraw packingCompare packingApprove packingReject
 //              packingRuleConfirm packingRealWeight packingDraft packingBatches packingReplayGet
+//   v2.0.113: o.getBatch() -> { batchId, name } | null - the batch picked on the Shipment tab (B-1544: the Plan tab starts there, not on the last
+//   stored plan); o.statusShowsLow - the page already shows "Running low" above the tabs (B-1553: once, not twice).
+//   more names: packingRestAnswer (B-1554) packingReplanClaude (B-1547) packingBoxes (the real-size list, B-1551)
 //   drawRulesTab(body, { doc, call })   names: packingRules packingRuleDelete
 const { stepView, sideView, isoView, drawSvg, assembleDraw } = __m["packing-draw.js"];
 const { SIMPLICITY_LEVELS, SIMPLICITY_HINT, simplicityLevel } = __m["packing-simple.js"];
@@ -1890,7 +1893,7 @@ function drawPlanTab(body, o) {
   const call = o.call;
   const drawCache = new Map(); // "<planId>|<boxId>" -> { plan, bp }
   const view = new Map(); // boxId -> "steps" | "side" | "iso"
-  const S = { simp: "", r: null, open: new Set(), reject: new Set(), msg: "" };
+  const S = { simp: "", r: null, open: new Set(), reject: new Set(), msg: "", stored: null, pick: null, check: null, edit: new Set(), replanOpen: false };
 
   function el(tag, cls, text) { const n = doc.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = String(text); return n; }
   function clear(n) { while (n.firstChild) n.removeChild(n.firstChild); return n; }
@@ -1915,13 +1918,20 @@ function drawPlanTab(body, o) {
     const r = await call("packingPlanGet");
     if (!r.ok) { clear(host); host.appendChild(el("div", "pk-msg pk-msg-bad", r.error || "The laptop did not answer.")); host.appendChild(btn("Try again", "", load)); return; }
     S.simp = r.simplicitySetting || S.simp;
-    S.r = r.plan === null ? null : r;
+    // B-1544: the Shipment tab's batch is where this tab starts; a stored plan for another batch (a 10-22 replay ...) waits behind one tap
+    const def = o.getBatch ? o.getBatch() : null;
+    S.pick = def && def.batchId ? def : null;
+    S.stored = null;
+    if (r.plan !== null && S.pick && ppBatch(r) !== S.pick.batchId) { S.stored = r; S.r = null; }
+    else S.r = r.plan === null ? null : r;
     render();
   }
 
+  const ppBatch = (r) => String((r && r.batchId) || "");
   function render() {
     clear(host);
     if (S.msg) host.appendChild(el("div", "pk-msg pk-msg-ok", S.msg));
+    if (S.check) { drawRestCheck(host); return; }
     if (!S.r) { drawMake(host, null); return; }
     drawSummary(host, S.r);
   }
@@ -1930,6 +1940,12 @@ function drawPlanTab(body, o) {
   async function drawMake(into, existing) {
     const card = el("div", "pk-card");
     card.appendChild(el("div", "pk-card-t", existing ? "Plan again" : "Make a plan"));
+    if (S.stored) {
+      const st = el("div", "pk-meta");
+      st.append(doc.createTextNode(`The last stored plan is for ${S.stored.name || "another batch"}. This page starts with the batch you picked on the Shipment tab (${S.pick ? S.pick.name || S.pick.batchId : ""}). `));
+      st.appendChild(btn("Show the stored plan", "pk-quiet", () => { S.r = S.stored; S.stored = null; render(); }));
+      card.appendChild(st);
+    }
     card.appendChild(el("p", "pk-note", "Shopper packs by code and proves the plan before showing it. Products need a size and weight (Amazon's estimate is fine in Replay)."));
     const msg = el("div", "pk-msg");
     // B-1453: Packing: simple vs cheap. Changing it does not re-plan; the next Plan / Re-plan uses it.
@@ -1962,12 +1978,16 @@ function drawPlanTab(body, o) {
     const bl = await call("packingBatches");
     if (bl.ok && bl.batches.length) {
       const sel = el("select", "pk-in");
-      for (const b of bl.batches) { const op = el("option", "", `${b.name || b.batchId}${b.archived ? " (archived)" : ""}`); op.value = b.batchId; sel.appendChild(op); }
-      const go = btn("Plan this shipment", "", () => { const b = bl.batches.find((x) => x.batchId === sel.value); run(withSimp({ batchId: sel.value, name: b ? b.name : "" }), msg, go); });
+      sel.setAttribute("aria-label", "ScanPower batch");
+      const pickId = S.pick ? S.pick.batchId : "";
+      const batchList = pickId && !bl.batches.some((b) => b.batchId === pickId) ? [{ batchId: pickId, name: S.pick.name }, ...bl.batches] : bl.batches;
+      for (const b of batchList) { const op = el("option", "", `${b.name || b.batchId}${b.archived ? " (archived)" : ""}`); op.value = b.batchId; sel.appendChild(op); }
+      if (pickId) sel.value = pickId;
+      const go = btn("Plan this shipment", "", () => { const b = batchList.find((x) => x.batchId === sel.value); run(withSimp({ batchId: sel.value, name: b ? b.name : "" }), msg, go); });
       // B-1531: the same batch, minus the units already in boxes (Box contents - ScanPower boxes, dictated boxes, saved words)
-      const goRest = btn("Plan the rest (skip what's packed)", "", () => { const b = bl.batches.find((x) => x.batchId === sel.value); run(withSimp({ rest: true, batchId: sel.value, name: b ? b.name : "" }), msg, goRest); });
+      const goRest = btn("Plan the rest (skip what's packed)", "", () => { const b = batchList.find((x) => x.batchId === sel.value); run(withSimp({ rest: true, batchId: sel.value, name: b ? b.name : "" }), msg, goRest); });
       card.appendChild(el("div", "pk-lab", "Or a ScanPower batch (a live shipment)"));
-      card.append(sel, go, goRest, el("p", "pk-hint", "Plan the rest: leaves out the units already in boxes - in ScanPower, dictated in Box contents, or saved words for a batch not at the Pack step yet. Nothing is sent to Box contents."));
+      card.append(sel, go, goRest, el("p", "pk-hint", "Plan the rest: leaves out the units already in boxes - in ScanPower, dictated in Box contents, or saved words for a batch not at the Pack step yet. First it shows what it is leaving out, per product, so you can check it. Approving its boxes ADDS them to the batch's Box contents, after the boxes already there."));
     } else if (!bl.ok) card.appendChild(el("p", "pk-hint", (bl.error || "Could not read the batches.") + (bl.loginRequired ? " Sign in at unity.scanpower.com on the laptop." : "")));
     card.appendChild(msg);
     into.appendChild(card);
@@ -1985,10 +2005,56 @@ function drawPlanTab(body, o) {
       if (miss) msg.appendChild(missingList(miss, r.missing && r.missing.length));
       return;
     }
-    S.r = r; S.msg = ""; S.open.clear(); S.reject.clear(); drawCache.clear();
+    if (r.restCheck) { S.check = { rc: r.restCheck, payload }; S.msg = ""; render(); return; } // B-1554
+    S.r = r; S.msg = ""; S.open.clear(); S.reject.clear(); drawCache.clear(); S.check = null; S.stored = null;
     render();
     if (o.onChange) o.onChange();
   }
+
+  // ------------------------------------------------------------ B-1554: what "Plan the rest" is leaving out, per product
+  function drawRestCheck(into) {
+    const { rc, payload } = S.check;
+    const card = el("div", "pk-card pk-restcheck");
+    card.appendChild(el("div", "pk-card-t", `Check what is already packed: ${rc.name}`));
+    card.appendChild(el("div", "pk-meta", `${rc.units} of ${rc.of} units are in ${rc.boxes} box${rc.boxes === 1 ? "" : "es"}. This is what the plan will leave out, per product.`));
+    card.appendChild(el("div", "pk-meta " + (rc.needs ? "pk-msg-bad" : "pk-msg-ok"), rc.words));
+    const msg = el("div", "pk-msg");
+    const answer = async (key, use) => {
+      say(msg, "Saving...");
+      const x = await call("packingRestAnswer", { batchId: rc.batchId, name: rc.name, key, use });
+      if (!x.ok || !x.restCheck) { say(msg, x.error || "Not saved.", "bad"); return; }
+      S.check.rc = x.restCheck; S.edit.delete(key); render();
+    };
+    if (!rc.rows.length) card.appendChild(el("p", "pk-note", "Nothing is in boxes for this batch - the plan covers all of it."));
+    for (const r of rc.rows) {
+      const row = el("div", "pk-rcrow pk-rc-" + r.state);
+      row.appendChild(el("div", "pk-item-t", r.text));
+      if (r.flagged) for (const why of r.reasons) row.appendChild(el("div", "pk-meta pk-msg-bad", why));
+      if (r.state === "answered" && !S.edit.has(r.key)) {
+        const a = el("div", "pk-tools");
+        a.append(el("span", "pk-tag", r.answer === r.placed ? "You said: yes, as dictated" : `You said: leave out ${r.answer}`), btn("Change", "pk-quiet", () => { S.edit.add(r.key); render(); }));
+        row.appendChild(a);
+      } else if (r.flagged) {
+        const a = el("div", "pk-tools");
+        const num = el("input", "pk-in"); num.type = "text"; num.inputMode = "numeric"; num.placeholder = "how many"; num.setAttribute("aria-label", `How many ${r.text} to leave out`);
+        a.append(
+          btn(`Yes, leave out ${r.placed}`, "pk-primary", () => answer(r.key, "yes")),
+          btn("Plan all of it (leave out 0)", "", () => answer(r.key, 0)),
+          num, btn("Use this number", "pk-quiet", () => { if (num.value.trim() === "") { say(msg, "Type how many to leave out.", "bad"); return; } answer(r.key, num.value); }),
+        );
+        row.appendChild(a);
+      }
+      card.appendChild(row);
+    }
+    if (rc.cut) card.appendChild(el("div", "pk-meta", "(The list is shortened here; the rest are not doubtful.)"));
+    const acts = el("div", "pk-tools");
+    const go = btn("Plan the rest", "pk-primary", () => run({ ...payload, checked: true }, msg, go));
+    go.disabled = rc.needs > 0;
+    acts.append(go, btn("Cancel", "pk-quiet", () => { S.check = null; render(); }));
+    card.append(acts, msg);
+    into.appendChild(card);
+  }
+
 
   // ------------------------------------------------------------ the plan
   function drawSummary(into, r) {
@@ -2005,7 +2071,7 @@ function drawPlanTab(body, o) {
     head.appendChild(el("div", "pk-meta pk-msg-ok", r.proof));
     if (r.estimated) head.appendChild(el("div", "pk-meta", r.estimated));
     if (r.stock) head.appendChild(el("div", "pk-meta pk-msg-bad", r.stock));
-    if (r.lowStock) head.appendChild(el("div", "pk-low", r.lowStock));
+    if (r.lowStock && !o.statusShowsLow) head.appendChild(el("div", "pk-low", r.lowStock)); // B-1553: shown once - the page's status line has it
     if (r.draft && r.draft.text) head.appendChild(el("div", "pk-meta", r.draft.text));
     const rowMsg = el("div", "pk-msg");
     if (r.draft && r.draft.state === "waiting") head.appendChild(btn("Send to Box contents", "", async () => { const x = await call("packingDraft"); if (x.ok) { S.r = x; S.msg = x.message || ""; render(); } else say(rowMsg, x.error, "bad"); }));
@@ -2018,8 +2084,11 @@ function drawPlanTab(body, o) {
     const allDone = r.boxes.every((b) => b.status === "approved");
     if (!allDone) acts.appendChild(btn(r.noSend ? r.approveLabel : "Approve all boxes", "pk-primary", () => act("packingApprove", { boxId: "all" }, rowMsg)));
     acts.appendChild(btn("Reject the plan", "pk-quiet", () => { if (S.reject.has("all")) S.reject.delete("all"); else S.reject.add("all"); render(); }));
-    acts.appendChild(btn("Plan again", "pk-quiet", () => { S.r = null; render(); }));
+    acts.appendChild(btn("Plan again", "pk-quiet", () => { S.r = null; S.check = null; render(); }));
+    // B-1547: the same one Claude call (the daily cap applies), with an optional note
+    if (!r.boxes.some((b) => b.status === "approved")) acts.appendChild(btn("Re-plan with Claude", "pk-quiet", () => { S.replanOpen = !S.replanOpen; render(); }));
     into.appendChild(acts);
+    if (S.replanOpen) into.appendChild(replanForm(rowMsg));
     if (S.reject.has("all")) into.appendChild(rejectForm("all", rowMsg));
     into.appendChild(rowMsg);
 
@@ -2044,6 +2113,25 @@ function drawPlanTab(body, o) {
     S.reject.clear();
     render();
     if (o.onChange) o.onChange();
+  }
+
+  function replanForm(msgBox) {
+    const c = el("div", "pk-card pk-reject");
+    c.appendChild(el("div", "pk-lab", "What should Claude do differently? (optional)"));
+    const t = el("textarea", "pk-in pk-note-in"); t.rows = 2; t.placeholder = "e.g. keep the Barbie boxes light and put the heavy bottles in the other box";
+    const acts = el("div", "pk-tools");
+    const go = btn("Re-plan with Claude", "pk-primary", async () => {
+      go.disabled = true; say(msgBox, "Asking Claude... this can take a few minutes.");
+      const x = await call("packingReplanClaude", { note: t.value });
+      go.disabled = false;
+      if (!x.ok) { say(msgBox, x.error || "Did not work.", "bad"); return; }
+      if (x.restCheck) { S.check = { rc: x.restCheck, payload: { rest: true, batchId: x.restCheck.batchId, name: x.restCheck.name } }; S.replanOpen = false; render(); return; }
+      S.r = x; S.msg = x.message || ""; S.replanOpen = false; S.open.clear(); S.reject.clear(); drawCache.clear(); render();
+      if (o.onChange) o.onChange();
+    });
+    acts.append(go, btn("Cancel", "pk-quiet", () => { S.replanOpen = false; render(); }));
+    c.append(t, el("div", "pk-hint", "Claude lays the plan out once (6 plans a day is the cap); the code checks every box. Nothing already approved can be re-planned."), acts);
+    return c;
   }
 
   function proposalCard(p) {
@@ -2106,18 +2194,8 @@ function drawPlanTab(body, o) {
     const co = el("ul", "pk-callouts");
     for (const c of x.callouts) co.appendChild(el("li", "", c));
     det.appendChild(co);
-    // real weight (live boxes once approved)
-    if (b.status === "approved" && !r.replay) {
-      const w = el("div", "pk-realw");
-      const inp = el("input", "pk-in"); inp.type = "text"; inp.inputMode = "decimal"; inp.placeholder = "lb on the scale"; inp.value = x.real ? x.real.lb : "";
-      const m = el("div", "pk-msg");
-      w.append(el("div", "pk-lab", "Real weight after packing"), inp, btn("Save weight", "", async () => {
-        say(m, "Checking...");
-        const y = await call("packingRealWeight", { boxId: b.id, lb: inp.value });
-        say(m, y.ok ? y.words : (y.error || "Not saved."), y.ok ? (y.flagged ? "bad" : "ok") : "bad");
-      }), m);
-      det.appendChild(w);
-    }
+    // real weight AND real box size (live boxes once approved) - B-1551
+    if (b.status === "approved" && !r.replay) drawRealBox(det, b, x, r);
     // drawings. v2.0.97: the tabs repaint only the stage (the page keeps its place), the side view shows the front AND the side,
     // the 3D view shows two angles, and "Layers" became "Pack steps".
     const tabs = el("div", "pk-tools pk-viewtabs");
@@ -2156,6 +2234,38 @@ function drawPlanTab(body, o) {
     det.append(tabs, stage);
     stage.appendChild(el("p", "pk-note", "Drawing..."));
     paint();
+  }
+  // B-1551: after packing - the weight on the scale and the box really used. Save updates the plan box, the Packed Boxes row, learning, the
+  // box stock (a reused delivery box takes none) and, for a batch plan, the Box contents box.
+  function drawRealBox(det, b, x, r) {
+    const w = el("div", "pk-realw");
+    const sizeNow = (x.real && x.real.box) || x.box || {};
+    const num = (v, label) => { const i = el("input", "pk-in"); i.type = "text"; i.inputMode = "decimal"; i.value = v == null ? "" : String(v); i.setAttribute("aria-label", label); return i; };
+    const inp = num(x.real ? x.real.lb : "", "Weight on the scale in pounds");
+    inp.placeholder = "lb on the scale";
+    const dl = num(sizeNow.L, "Box length in inches"), dw = num(sizeNow.W, "Box width in inches"), dh = num(sizeNow.H, "Box height in inches");
+    const row3 = el("div", "pk-row3");
+    for (const [i, t] of [[dl, "Length (in)"], [dw, "Width (in)"], [dh, "Height (in)"]]) { const f = el("label", "pk-field"); f.append(el("div", "pk-lab", t), i); row3.appendChild(f); }
+    const sel = el("select", "pk-in"); sel.setAttribute("aria-label", "Use another box size from the library");
+    const op0 = el("option", "", `As planned: ${x.box ? x.box.name : b.name}`); op0.value = ""; sel.appendChild(op0);
+    let lib = [];
+    call("packingBoxes").then((y) => {
+      if (!y.ok) return;
+      lib = y.boxes || [];
+      for (const bx of lib) { if (x.box && bx.name === x.box.name) continue; const op = el("option", "", `${bx.name} (${bx.L} x ${bx.W} x ${bx.H})`); op.value = bx.name; sel.appendChild(op); }
+    });
+    const reused = el("input"); reused.type = "checkbox";
+    const rl = el("label", "pk-check"); rl.append(reused, doc.createTextNode(" Reused delivery box (not taken from stock)"));
+    sel.addEventListener("change", () => { const bx = lib.find((q) => q.name === sel.value); if (bx) { dl.value = bx.L; dw.value = bx.W; dh.value = bx.H; reused.checked = false; } else if (!sel.value && x.box) { dl.value = x.box.L; dw.value = x.box.W; dh.value = x.box.H; } });
+    const m = el("div", "pk-msg");
+    const save = btn("Save weight and box size", "", async () => {
+      say(m, "Checking...");
+      const y = await call("packingRealWeight", { boxId: b.id, lb: inp.value, dims: { L: dl.value, W: dw.value, H: dh.value }, reused: reused.checked, sizeName: reused.checked ? "" : sel.value });
+      say(m, y.ok ? y.words : (y.error || "Not saved."), y.ok ? (y.flagged ? "bad" : "ok") : "bad");
+    });
+    w.append(el("div", "pk-lab", "After packing: the weight on the scale and the box you really used"), inp, el("div", "pk-lab", "Box size (change it if you used a different box)"), row3, sel, rl, save, m);
+    if (x.letter) w.appendChild(el("div", "pk-hint", `Box ${x.letter} in Box contents gets this weight and size too.`));
+    det.appendChild(w);
   }
   async function loadDraw(boxId, planId) {
     const key = planId + "|" + boxId;
@@ -2560,7 +2670,7 @@ function mountPackingUi(host, opts) {
     clear(body);
     if (S.mode === "live") return S.form ? drawForm() : S.batch ? drawWorklist() : drawBatchPicker(false);
     if (S.mode === "replay") return S.form ? drawForm() : drawReplay();
-    if (S.mode === "plan") return drawPlanTab(body, { doc, call, surface, onChange: drawStatus });
+    if (S.mode === "plan") return drawPlanTab(body, { doc, call, surface, onChange: drawStatus, getBatch: () => S.batch, statusShowsLow: true }); // v2.0.113: B-1544 the Shipment tab's batch; B-1553 "Running low" once
     if (S.mode === "rules") return drawRulesTab(body, { doc, call });
     return drawBoxes();
   }
@@ -2749,11 +2859,33 @@ function mountPackingUi(host, opts) {
     const row3 = el("div", "pk-row3"); for (const k of ["L", "W", "H"]) row3.appendChild(field(k === "L" ? "Length" : k === "W" ? "Width" : "Height", d3[k]));
     const am = el("div", "pk-msg");
     add.append(el("div", "pk-card-t", "Add a box size"), field("Name", nm), row3, btn("Add box", "pk-primary", async () => {
-      const x = await call("packingBoxSave", { box: { name: nm.value, L: d3.L.value, W: d3.W.value, H: d3.H.value, source: "you" } });
+      const x = await call("packingBoxSave", { box: { name: nm.value, L: d3.L.value, W: d3.W.value, H: d3.H.value, source: "you", readd: true } }); // readd: a size removed earlier comes back
       if (!x.ok) { say(am, x.error || "Not saved.", "bad"); return; }
       clear(body); drawBoxes();
     }), am);
     body.appendChild(add);
+  }
+  // v2.0.113 (B-1545): Remove a box size - its own labelled button, with a confirmation (no modifier keys). The removal syncs (a shared tombstone).
+  function removeRow(b, card) {
+    const row = el("div", "pk-tools pk-removerow");
+    const m = el("div", "pk-msg");
+    const ask = btn("Remove this box size", "pk-quiet pk-remove", () => {
+      clear(row);
+      row.appendChild(el("div", "pk-msg pk-msg-bad", `Remove ${b.name} from the box library? Plans will no longer use it, on either computer or the phone.`));
+      row.append(
+        btn(`Yes, remove ${b.name}`, "pk-primary pk-remove-yes", async () => {
+          say(m, "Removing...");
+          const x = await call("packingBoxRemove", { key: b.key, name: b.name });
+          if (!x.ok) { say(m, x.error || "Not removed.", "bad"); return; }
+          clear(body); drawBoxes(); drawStatus();
+        }),
+        btn("Keep it", "pk-quiet pk-remove-no", () => { clear(row); row.append(ask, m); }),
+        m,
+      );
+    });
+    ask.setAttribute("aria-label", `Remove the box size ${b.name}`);
+    row.append(ask, m);
+    return row;
   }
   function boxCard(b) {
     const card = el("div", "pk-card pk-boxcard");
@@ -2767,6 +2899,7 @@ function mountPackingUi(host, opts) {
       const x = await call("packingBoxSave", { box: { name: b.name, L: b.L, W: b.W, H: b.H, emptyLb: wt.value, onHand: oh.value, lowAt: low.value, source: b.source } });
       say(m, x.ok ? (x.sheetError ? "Saved on the laptop (sheet refused it)." : "Saved.") : (x.error || "Not saved."), x.ok ? "ok" : "bad");
     }), m);
+    card.appendChild(removeRow(b, card));
     return card;
   }
 

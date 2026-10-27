@@ -56,7 +56,18 @@
     const x = el("button", "pk-sheet-x", "Close");
     x.type = "button";
     x.addEventListener("click", close);
-    head.append(el("div", "pk-sheet-title", label), x);
+    // v2.0.113 (B-1553): the app menu stays reachable on every packing tab - this header never scrolls away; "Menu" closes the sheet and opens the sidebar.
+    const menu = el("button", "pk-sheet-x pk-sheet-menu", "Menu");
+    menu.type = "button";
+    menu.setAttribute("aria-label", "Open the app menu");
+    menu.addEventListener("click", () => {
+      close();
+      const burger = document.getElementById("navBtn");
+      if (burger && typeof burger.click === "function") burger.click();
+    });
+    const btns = el("div", "pk-sheet-btns");
+    btns.append(menu, x);
+    head.append(el("div", "pk-sheet-title", label), btns);
     const host = el("div", "pk-sheet-body");
     sheet.append(head, host);
     overlay.appendChild(sheet);

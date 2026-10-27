@@ -111,7 +111,9 @@
 .pk-overlay { position: fixed; inset: 0; z-index: 1000; background: var(--s-bg, #fff); display: flex; flex-direction: column; }
 .pk-sheet { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; max-width: 100%; }
 .pk-sheet-head { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--s-line); }
-.pk-sheet-title { font-weight: 800; font-size: 16px; }
+.pk-sheet-title { font-weight: 800; font-size: 16px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pk-sheet-btns { display: flex; gap: 8px; flex: none; }
+.pk-sheet-head { position: sticky; top: 0; z-index: 2; background: var(--s-bg, #fff); }
 .pk-sheet-x { min-height: 40px; padding: 6px 14px; border: 1px solid var(--s-line); background: var(--s-surface); color: var(--s-text); font: inherit; font-weight: 700; border-radius: var(--s-r-sm, 6px); }
 .pk-sheet-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 12px 16px 24px; }
 body.pk-open { overflow: hidden; }
@@ -123,3 +125,14 @@ body.pk-open { overflow: hidden; }
 :root[data-theme="retro"] :is(.pk-item, .pk-callouts, .pk-cmp-grid, .pk-plan-line) { font-size: 13px !important; line-height: 1.35 !important; }
 :root[data-theme="retro"] .pk-rule, :root[data-theme="retro"] .pk-item { border-bottom: 2px solid var(--s-n7); }
 :root[data-theme="retro"] .pk-svg { border: 2px solid var(--s-n7); }
+
+/* v2.0.113: B-1554 the "Plan the rest" check, B-1545 remove a box size, B-1551 the real box size */
+.pk-rcrow { padding: 8px 0; border-bottom: 1px solid var(--s-line); }
+.pk-rcrow .pk-tools { margin-top: 6px; }
+.pk-rcrow .pk-in { width: 110px; max-width: 100%; }
+.pk-rc-needs { border-left: 4px solid var(--s-red, #b3261e); padding-left: 8px; }
+.pk-removerow { margin-top: 8px; flex-wrap: wrap; }
+.pk-realw .pk-row3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.pk-realw .pk-in { max-width: 100%; box-sizing: border-box; }
+:root[data-theme="retro"] .pk-rcrow { border-bottom: 2px solid var(--s-n7); }
+:root[data-theme="retro"] .pk-rc-needs { border-left-width: 8px; }
