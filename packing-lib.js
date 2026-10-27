@@ -1196,7 +1196,7 @@ const { boxPenalty } = __m["packing-simple.js"];
 const { weakColumnOk, spansWall, fitTolFor, bearingWhy } = __m["packing-bearing.js"];
 
 const SHEET_IN = 0.2; // one cardboard sheet / strip thickness (corrugated)
-const SHEET_LB_PER_SQIN = 0.003; // ~0.43 lb per square foot
+const SHEET_LB_PER_SQIN = 0.0007; // B-1549 (g), v2.0.112: ~0.1 lb per square foot, measured from a 32 ECT box (Uline S-21546 18x16x12 = 1.33 lb for a ~13.5 sq ft blank). Was 0.003 (~0.43 lb/sq ft, 4x too heavy - 4-7.6 lb of "cardboard" per box)
 const DUNNAGE_LB_PER_CUIN = 0.0004; // crumpled paper
 const EMPTY_LB_PER_SQIN = 0.0012; // assumed empty-box weight per square inch of surface when the box library has none
 const DIM_DIVISOR = 139; // UPS dimensional divisor (domestic)
@@ -1517,6 +1517,7 @@ function legendPrims(plan, asins, entries, x, y) {
 const unitsPerAsin = (bp) => {
   const m = new Map();
   for (const b of blocksOf(bp)) m.set(b.asin, (m.get(b.asin) || 0) + blockUnits(b));
+  for (const l of bp.loose || []) m.set(l.asin, (m.get(l.asin) || 0) + l.n); // B-1549: loose on top
   return [...m.entries()].map(([a, n]) => ({ a, n }));
 };
 // the pack steps of a box: the plan's own `layers` (derived) or derived here from the blocks
@@ -1610,6 +1611,25 @@ function sideView(plan, bp, { which = "front", scale = null } = {}) {
     const bar = Math.max(3, SHEET_IN * s);
     const sx = front ? sh.x : sh.y, sl = front ? sh.l : sh.w;
     prims.push({ t: "rect", x: ox + sx * s, y: base - (sh.z + SHEET_IN) * s - (bar - SHEET_IN * s) / 2, w: sl * s, h: bar, fill: SHEET, stroke: INK, sw: 0.6, role: "sheet", kind: sh.kind });
+  }
+  // B-1549 (v2.0.112): LOOSE items - thrown on top of the base, no positions; a dashed band over the base, dunnage round them
+  if ((bp.loose || []).length) {
+    let zb = 0;
+    for (const b of blocksOf(bp)) zb = Math.max(zb, b.z + b.levels * b.uh);
+    for (const sh of bp.sheets || []) if (sh.kind === "lid") zb = Math.max(zb, sh.z + SHEET_IN);
+    const bandH = Math.max(0, H - zb);
+    if (bandH > 0.2) {
+      prims.push({ t: "rect", x: ox + 1, y: oy + 1, w: span * s - 2, h: bandH * s - 2, fill: "#fff7e0", stroke: INK, sw: 0.8, dash: "4 3", role: "loose" });
+      const words = `Loose on top: ${bp.loose.map((l) => `${shortName(plan, l.asin, 12)} x${l.n}`).join(", ")}`;
+      const size = 8;
+      const maxChars = Math.max(8, Math.floor((span * s - 8) / (0.55 * size)));
+      const lines = [];
+      let cur = "";
+      for (const w of words.split(" ")) { if ((cur + " " + w).trim().length > maxChars) { lines.push(cur.trim()); cur = w; } else cur += " " + w; }
+      if (cur.trim()) lines.push(cur.trim());
+      const room = Math.max(1, Math.floor((bandH * s - 4) / (size + 2)));
+      lines.slice(0, room).forEach((ln, i) => prims.push({ t: "text", x: ox + span * s / 2, y: oy + 4 + (i + 1) * (size + 2), text: ln, size, anchor: "middle", role: "loose" }));
+    }
   }
   prims.push({ t: "text", x: ox + span * s + 4, y: oy + 8, text: "sheet =", size: 7, anchor: "start", role: "sheetlabel" });
   prims.push({ t: "text", x: ox + span * s + 4, y: oy + 17, text: "brown bar", size: 7, anchor: "start", role: "sheetlabel" });
@@ -1766,6 +1786,7 @@ function drawChunk(rec, boxId, from = 0) {
     out.strips = bp.strips.map((s) => [s.side[0], num(s.x), num(s.y), num(s.l), num(s.w), num(s.h)]);
     out.names = asins.map((a) => cutT((plan.titles[a] || {}).title || a, 40));
     out.asins = asins;
+    if ((bp.loose || []).length) out.loose = bp.loose.map((l) => [asins.indexOf(l.asin), l.n]); // B-1549
   }
   out.blocks = [];
   for (let k = from; k < blocks.length; k++) {
@@ -1793,6 +1814,7 @@ function assembleDraw(chunks) {
     box: first.box, inner: first.inner, blocks, layers: deriveSteps(blocks, sheets),
     sheets,
     strips: first.strips.map((s) => ({ side: sideWord[s[0]] || s[0], x: s[1], y: s[2], l: s[3], w: s[4], h: s[5] })),
+    loose: (first.loose || []).map((x) => ({ asin: asins[x[0]], n: x[1] })), // B-1549
   };
   return { plan, bp };
 }
@@ -2528,7 +2550,7 @@ function mountPackingUi(host, opts) {
     if (r.estimated) parts.push(`${r.estimated} estimated`);
     parts.push(`${r.boxes} box size${r.boxes === 1 ? "" : "s"}`);
     if (r.boxesMissingWeight) parts.push(`${r.boxesMissingWeight} without an empty weight`);
-    status.textContent = parts.join(" · ") + (r.sheetError ? " · workbook not reachable - saved on the laptop" : "");
+    status.textContent = parts.join(" · ") + (r.sheetError ? ` · workbook not reachable - from this computer (${r.fromComputer || "the computer that answered"})` : "");
     status.className = "pk-status" + (r.sheetError ? " pk-msg-bad" : "");
     if (r.lowStock) { const l = el("div", "pk-low", r.lowStock); status.appendChild(l); }
   }
