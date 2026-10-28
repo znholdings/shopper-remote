@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.115";
+const APP_BUILD = "v2.0.116";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -437,6 +437,7 @@ const REMOTE_LABELS = {
   boxesUploadShort: "Upload boxes anyway (differs from the batch)", // B-1554 (v2.0.114)
   screenAsk: "Ask Claude", screenSummaryWrite: "Write the summary again",
   pricingRowSend: "Send a Pricing row", // B-1198 (v2.0.68)
+  pricingFixPlan: "Fix this one: show the plan", pricingFixApply: "Fix this one: approve and start", // B-1599 (v2.0.116)
   booksLineSet: "Book a Needs you line", // B-1232 (v2.0.73)
   booksLineClear: "Card line - nothing", booksReload: "Reload the Books", // B-1278 / B-1277 (v2.0.74)
   // B-1426 / B-1429 (v2.0.92): packing data (remote/packing-view.js)
@@ -3091,7 +3092,7 @@ function glRow(r) {
     // B-1500 (v2.0.104): one row per item (remote/do-next-rows-view.js) instead of one wall of text; the text stays as the fallback.
     const DR = self.ShopperDoNextRows, GG = self.ShopperGlance;
     const dRows = DR && GG && GG.detailRowsFor && lastGlInput ? GG.detailRowsFor(r, lastGlInput) : [];
-    if (dRows.length) body.appendChild(DR.node(dRows, { moreWhere: r.go && r.go.label, footer: GG.detailFooterFor ? GG.detailFooterFor(r, lastGlInput) : "" }));
+    if (dRows.length) body.appendChild(DR.node(dRows, { moreWhere: r.go && r.go.label, footer: GG.detailFooterFor ? GG.detailFooterFor(r, lastGlInput) : "", rowExtra: r.id === "pricingErrors" && self.ShopperPhoneFix ? (x) => (x.sku ? self.ShopperPhoneFix.build(x.sku) : null) : null })); // B-1599 (v2.0.116): Fix this one on a pricing-error row
     else if (r.detail) body.appendChild(invNode("div", "l-meta", r.detail));
     for (const n of r.notifs || []) {
       const c = invNode("div", "line dash-notif sev-" + n.severity);

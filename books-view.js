@@ -54,6 +54,16 @@
     const abs = (Math.abs(c) / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     return (c < 0 ? "-$" : "$") + abs;
   }
+  // B-1600 (v2.0.116): the pick's payload - with the picked row's own amount (rowCents, Dr + cents) like the Books page
+  // (books/books.js lineSetMessage, B-1580), so only the row picked moves. Only a feed tab's row carries one (never Bank Lines).
+  // <booksPickPayload>
+  function pickPayload(r, code, remember) {
+    const p = { lineId: r.lineId, entryId: r.entryId || "", sourceTab: r.sourceTab || "", month: r.month || "", account: code, remember: !!remember && (!r.sourceTab || r.sourceTab === "Bank Lines") };
+    const rc = Number(r.rowCents);
+    if (r.sourceTab && r.sourceTab !== "Bank Lines" && Number.isInteger(rc) && rc !== 0) p.rowCents = rc;
+    return p;
+  }
+  // </booksPickPayload>
   const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   function monthLabel(m) {
     const x = /^(\d{4})-(\d{2})$/.exec(String(m || ""));
@@ -297,7 +307,7 @@
       // B-1278: "Nothing" is its own command (the laptop fixes clear / account / remember).
       id = nothing
         ? await R.sendCommand("booksLineClear", { lineId: r.lineId, entryId: r.entryId || "", sourceTab: r.sourceTab || "", month: r.month || "" })
-        : await R.sendCommand("booksLineSet", { lineId: r.lineId, entryId: r.entryId || "", sourceTab: r.sourceTab || "", month: r.month || "", account: code, remember: rememberOn() && (!r.sourceTab || r.sourceTab === "Bank Lines") });
+        : await R.sendCommand("booksLineSet", pickPayload(r, code, rememberOn()));
     } catch (e) { id = null; }
     if (!id) {
       sending = "";

@@ -23,4 +23,12 @@
 .dnr-sku { color: var(--s-text-muted); font-variant-numeric: tabular-nums; }
 .dnr-link { font-weight: 700; justify-self: start; }
 
+/* B-1599 (v2.0.116): the phone's Fix this one on a pricing-error row */
+.dnr-fix { display: grid; gap: 6px; margin-top: 4px; min-width: 0; }
+.dnr-fix-head { font-weight: 800; }
+.dnr-fix-plan, .dnr-fix-note { overflow-wrap: anywhere; }
+.dnr-fix-bad { color: var(--s-red-ink); }
+.dnr-fix-del { display: flex; gap: 6px; align-items: flex-start; font-size: 13px; }
+.dnr-fix-bar { display: flex; flex-wrap: wrap; gap: 8px; }
+
 [hidden] { display: none !important; }

@@ -1599,7 +1599,7 @@ function detailRowsFor(row, input = {}) {
     case "pricingErrors":
       out = ((input.pricingErrors && input.pricingErrors.items) || []).filter(Boolean).map((it) => {
         const p = num(it.price);
-        return line({ asin: it.asin || it.sku, title: it.title, figures: [p == null ? "price not on file" : `ours ${money2(p)}`], reason: "Deactivated for a suspected pricing error - fix the price, then mark it fixed" });
+        return line({ asin: it.asin || it.sku, sku: it.sku, title: it.title, figures: [p == null ? "price not on file" : `ours ${money2(p)}`], reason: "Deactivated for a suspected pricing error - fix the price, then mark it fixed" }); // B-1599: the SKU rides on the row (the phone's Fix button)
       });
       break;
     case "aged":
