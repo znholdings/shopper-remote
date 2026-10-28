@@ -49,7 +49,11 @@
     } else if (line) {
       $("rhTitle").textContent = line.title || line.asin;
       const done = lines.filter((l) => !["pending", "pool", "buying", "confirming"].includes(l.status)).length;
-      $("rhMeta").textContent = `${line.asin} · line ${Math.min(p.lineCount || lines.length, done + 1)} of ${p.lineCount || lines.length}${line.retailer ? " · " + line.retailer : ""}`;
+      // B-1570 (v2.0.115): the line's own place (as the header's Line N of M) -
+      // a paused line counts as done, so done + 1 named the NEXT line.
+      const idx = lines.indexOf(line);
+      const total = p.lineCount || lines.length;
+      $("rhMeta").textContent = `${line.asin} · line ${idx >= 0 ? idx + 1 : Math.min(total, done + 1)} of ${total}${line.retailer ? " · " + line.retailer : ""}`;
     } else {
       $("rhTitle").textContent = status === "running" ? "Between lines" : status === "paused" ? "Paused" : status || "-";
       $("rhMeta").textContent = "";

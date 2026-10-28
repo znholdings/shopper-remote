@@ -41,6 +41,12 @@ function shortDay(d) {
 //   band: { low: [], high: [] }, ref: number (horizontal line), height, yFormat,
 //   yMin (default 0), split: index where the forecast starts, title }
 function drawChart(container, opts) {
+  // B-1589: a container that is not laid out yet (width 0: hidden, or drawn before the page measured it) would bake the 900px fallback
+  // into the viewBox and the text would scale wrong once it shows. Wait one frame and measure again (once).
+  if (container.clientWidth === 0 && !opts._retried && typeof requestAnimationFrame === "function") {
+    requestAnimationFrame(() => drawChart(container, { ...opts, _retried: true }));
+    return null;
+  }
   const W = Math.max(320, container.clientWidth || 900);
   const H = opts.height || 260;
   const pad = { l: 56, r: 12, t: 12, b: 28 };

@@ -885,7 +885,8 @@ __m["packing-simple.js"] = { SPLIT_LB, MIX_LB, FRAG_LB, LAYER_LB, GAP_LB, SIMPLI
 //   block  { asin, x, y, z, nx, ny, levels, ux, uy, uh, pad, o, gap? }  ONE product, nx x ny x levels units in ONE orientation: a solid
 //          cuboid whose bottom is at ABSOLUTE height z. Unit footprint ux x uy, height uh; `pad` = free margin round each unit (Very Fragile
 //          cell); the cell is (ux+2pad) x (uy+2pad). `gap` = it was placed by the gap-fill pass.
-//   sheet  { z, kind: "between"|"lid", x, y, l, w, why }  (box coordinates) a cardboard sheet just under a block (or over the top).
+//   sheet  { z, kind: "between"|"lid", x, y, l, w, why, negligible? }  (box coordinates) a cardboard sheet just under a block (or over the top).
+//          negligible (lid only, v2.0.115): the top layer reaches the box height, so the sheet lies under the flaps and takes no room (it is drawn and weighed, never counted in volume).
 //
 // PLACEMENT. The floor is a 0.25 in grid of heights. A block may go where its whole footprint is flat at one height (the extreme
 // points / skyline corners of the surface), under the box height. Lowest z first (a Very Fragile or top-only product: highest z first - it belongs
@@ -897,6 +898,7 @@ __m["packing-simple.js"] = { SPLIT_LB, MIX_LB, FRAG_LB, LAYER_LB, GAP_LB, SIMPLI
 // The independent checker is lib/packing-prove.js.
 
 const GRID_IN = 0.25;
+const STAND_TOL_IN = 0.5; // B-1596: a side within this of the box height counts as "fills the height"
 const STEP_IN = 0.5; // blocks whose bottoms are within this of each other are ONE pack step
 const SHEET_T = 0.2; // = SHEET_IN of lib/packing-pack.js (a test keeps them equal)
 const Q = GRID_IN;
@@ -939,7 +941,7 @@ function packHeightmap(box, groupsIn, cfg, H) {
   let best = null;
   // B-1513 (v2.0.108): H.bear = the BEARING variant (a weak carton's wall-to-wall layer is load-bearing; anchors first). It is its own pass
   // (lib/packing-pack.js packBox), so the two standard variants below behave exactly as they did before.
-  for (const variant of H.bear ? [2] : [0, 1]) {
+  for (const variant of H.bear ? [2] : H.stand ? [3] : [0, 1]) {
     const r = runVariant(box, base.map((g) => ({ ...g })), cfg, H, variant);
     if (r.ok) return r;
     const left = r.unplaced.reduce((t, u) => t + u.n, 0);
@@ -955,7 +957,7 @@ function runVariant(box, groups, cfg, H, variant) {
   const t = strips ? SHEET_T : 0;
   const A = box.L - 2 * t, B = box.W - 2 * t;
   const lidWanted = groups.some((g) => (cfg.fragileSheetOver && H.tierOf(g, cfg) >= 1) || (cfg.softLayerSheet && H.softFragile(g)) || g.sheetOver);
-  const C = box.H - (lidWanted ? SHEET_T : 0);
+  const C = box.H; // v2.0.115 B-1568 (Zach 10/27: "cardboard can be skipped or considered negligible"): the lid sheet never costs height; when the top layer is full height the sheet lies under the flaps (negligible)
   // B-1516 (v2.0.108): a rigid unit may be a hair over the inside (the walls give) - only on the retry packBox makes with H.fit
   const tolOf = (g) => (H.fit && H.fitTolFor ? H.fitTolFor(g) : 0);
   const maxTol = groups.reduce((m, g) => Math.max(m, tolOf(g)), 0);
@@ -973,7 +975,14 @@ function runVariant(box, groups, cfg, H, variant) {
     p.stack = p.tOrd < 1 || p.weak;
     p.minFoot = Math.min(...p.ors.map((o) => Math.min(o.fl, o.fw) + 2 * p.pad));
     p.minH = Math.min(...p.ors.map((o) => o.h));
-    p.tip = p.g.liquid || p.g.soft || p.g.fragility !== "none" || p.g.fill ? 8 : 1.5; // a soft / liquid / fragile / fill product is practically never tipped; the rest only when it clearly pays
+    // B-1596 (v2.0.115) variant 3, "stand tall first": a rigid product with a side that fills the box height (within STAND_TOL_IN) is placed FIRST and ONLY standing on
+    // that side, and is never charged for being "tipped" (that is how Zach packs the 14 in Barbie playsets in a 14 in box). Everything else is packed round it as usual.
+    p.stand = false;
+    if (variant === 3 && H.standOk && H.standOk(p.g) && p.n >= 2) {
+      const tall = p.ors.filter((o) => o.h >= box.H - STAND_TOL_IN - EPS && o.h <= box.H + EPS);
+      if (tall.length && tall.length < p.ors.length) { p.ors = tall; p.stand = true; }
+    }
+    p.tip = p.stand ? 0 : p.g.liquid || p.g.soft || p.g.fragility !== "none" || p.g.fill ? 8 : 1.5; // a soft / liquid / fragile / fill product is practically never tipped; the rest only when it clearly pays
     // can its units make a row that spans the box wall to wall, at least two rows deep? Then it is placed FIRST (an anchor) so the rest can be fitted round it
     p.bearCap = false;
     if (p.weak) for (const o of p.ors) for (const [len, side] of [[o.fl, A], [o.fw, B]]) {
@@ -982,7 +991,7 @@ function runVariant(box, groups, cfg, H, variant) {
     }
     if (p.bearCap) p.eT = 0;
   }
-  const order = prods.slice().sort((a, b) => (a.g.late ? 1 : 0) - (b.g.late ? 1 : 0) || (a.g.ord || 0) - (b.g.ord || 0) || (b.bearCap ? 1 : 0) - (a.bearCap ? 1 : 0) || (variant !== 1
+  const order = prods.slice().sort((a, b) => (a.g.late ? 1 : 0) - (b.g.late ? 1 : 0) || (a.g.ord || 0) - (b.g.ord || 0) || (b.stand ? 1 : 0) - (a.stand ? 1 : 0) || (b.bearCap ? 1 : 0) - (a.bearCap ? 1 : 0) || (variant !== 1
     ? a.eT - b.eT || (cfg.heavyBelowLight ? H.weightBand(b.g.w) - H.weightBand(a.g.w) : 0) || (cfg.floorFirst.has(b.g.asin) ? 1 : 0) - (cfg.floorFirst.has(a.g.asin) ? 1 : 0)
       || (b.g.baseOk ? 1 : 0) - (a.g.baseOk ? 1 : 0) || b.vol - a.vol || (a.g.asin < b.g.asin ? -1 : a.g.asin > b.g.asin ? 1 : 0)
     : a.eT - b.eT || (cfg.floorFirst.has(b.g.asin) ? 1 : 0) - (cfg.floorFirst.has(a.g.asin) ? 1 : 0) || b.vol - a.vol || b.g.w - a.g.w || (a.g.asin < b.g.asin ? -1 : 1)));
@@ -1248,12 +1257,12 @@ function runVariant(box, groups, cfg, H, variant) {
   if (blocks.length && lidWanted) {
     const topProds = [...new Set(blocks.filter((b) => b.z + b.levels * b.uh >= zTop - STEP_IN).map((b) => b.pi))].map((k) => prods[k].g);
     const why = H.lidReason(topProds, cfg);
-    if (why && zTop + SHEET_T <= box.H + EPS) sheets.push({ z: zTop, kind: "lid", x: t, y: t, l: A, w: B, why });
+    if (why) sheets.push({ z: zTop, kind: "lid", x: t, y: t, l: A, w: B, why, ...(zTop + SHEET_T > box.H + EPS ? { negligible: true } : {}) });
   }
   // B-1513 (e): the top of a bearing column gets a cardboard sheet (the lid then sits on a flat, strong surface) - when it fits
-  if (blocks.length && !sheets.some((s) => s.kind === "lid") && zTop + SHEET_T <= box.H + EPS) {
+  if (blocks.length && !sheets.some((s) => s.kind === "lid")) {
     const k = blocks.findIndex((b, i) => bearIdx[i] && b.z + b.levels * b.uh >= zTop - STEP_IN);
-    if (k >= 0) sheets.push({ z: zTop, kind: "lid", x: t, y: t, l: A, w: B, why: H.bearingWhy(String(prods[blocks[k].pi].g.title || prods[blocks[k].pi].g.asin).replace(/\s+/g, " ").slice(0, 28)) });
+    if (k >= 0) sheets.push({ z: zTop, kind: "lid", x: t, y: t, l: A, w: B, why: H.bearingWhy(String(prods[blocks[k].pi].g.title || prods[blocks[k].pi].g.asin).replace(/\s+/g, " ").slice(0, 28)), ...(zTop + SHEET_T > box.H + EPS ? { negligible: true } : {}) });
   }
   const unplaced = prods.filter((p) => p.n > 0).map((p) => ({ asin: p.g.asin, n: p.n }));
   const stripList = strips ? [
@@ -1263,7 +1272,7 @@ function runVariant(box, groups, cfg, H, variant) {
   const outBlocks = blocks.map(({ pi, ...b }) => b);
   return { ok: unplaced.length === 0, widths, blocks: outBlocks, sheets, strips: stripList, unplaced, inner: { A, B, C: box.H, x0: t, y0: t, zTop } };
 }
-__m["packing-heightmap.js"] = { GRID_IN, STEP_IN, FRAG_COST, TIP_GAIN, SMALL_END_COST, DEAD_COST, deriveSteps, packHeightmap };
+__m["packing-heightmap.js"] = { GRID_IN, STAND_TOL_IN, STEP_IN, FRAG_COST, TIP_GAIN, SMALL_END_COST, DEAD_COST, deriveSteps, packHeightmap };
 })();
 // ---- lib/packing-bearing.js ----
 (function () {
@@ -1320,7 +1329,7 @@ __m["packing-bearing.js"] = { FIT_TOL_IN, WALL_TOL_IN, weakColumnOk, fitTolFor, 
 //           bottom is at absolute height z; unit footprint ux x uy and height uh; `pad` = free margin around each unit
 //           (Very Fragile cell); the grid starts at (x,y); cell = (ux+2pad) x (uy+2pad); o = orientation words
 //   layers  DERIVED pack steps for the drawings: [{ index, z, h, sheet, blocks[] }] (blocks whose bottoms are within 0.5 in)
-//   sheets  [{ z, kind: "between"|"lid", x, y, l, w, why }]   strips [{ side, x, y, l, w, h }]
+//   sheets  [{ z, kind: "between"|"lid", x, y, l, w, why, negligible? }]   strips [{ side, x, y, l, w, h }]
 //
 // lib/packing-prove.js checks the result from the numbers alone: every unit is supported, nothing overlaps.
 //
@@ -1329,7 +1338,7 @@ __m["packing-bearing.js"] = { FIT_TOL_IN, WALL_TOL_IN, weakColumnOk, fitTolFor, 
 // Compression (minL/minW/minH) is used ONLY to close a gap: packBox retries with squeezed sizes
 // when the normal sizes leave units unplaced, and reports which products it squeezed.
 
-const { packHeightmap, deriveSteps } = __m["packing-heightmap.js"];
+const { packHeightmap, deriveSteps, STAND_TOL_IN } = __m["packing-heightmap.js"];
 const { boxPenalty } = __m["packing-simple.js"];
 const { weakColumnOk, spansWall, fitTolFor, bearingWhy } = __m["packing-bearing.js"];
 
@@ -1438,13 +1447,17 @@ const HELPERS = { orientations, orderTier, tierOf, softFragile, heavierThan, wei
 const HELPERS_FIT = { ...HELPERS, fit: true }; // B-1516: the retry in which a rigid unit may be a hair over the inside of the box
 const HELPERS_BEAR = { ...HELPERS, bear: true }; // B-1513: the pass in which a weak carton's wall-to-wall layer carries the load
 const HELPERS_BOTH = { ...HELPERS, fit: true, bear: true };
-function packOnce(box, groups, cfg, fit = false, bear = false, picks = null) {
-  const H = fit ? (bear ? HELPERS_BOTH : HELPERS_FIT) : bear ? HELPERS_BEAR : HELPERS;
+// B-1596 (v2.0.115): the "stand tall first" pass - only for a rigid, box-shaped product that is not a liquid / fill / soft carton
+const standOk = (g) => !!g.rigid && !g.soft && !g.liquid && !g.fill && !g.thisWayUp;
+const HELPERS_STAND = { ...HELPERS, stand: true, standOk };
+const HELPERS_STAND_FIT = { ...HELPERS_STAND, fit: true };
+function packOnce(box, groups, cfg, fit = false, bear = false, picks = null, stand = false) {
+  const H = stand ? (fit ? HELPERS_STAND_FIT : HELPERS_STAND) : fit ? (bear ? HELPERS_BOTH : HELPERS_FIT) : bear ? HELPERS_BEAR : HELPERS;
   const r = packHeightmap(box, groups, cfg, picks ? { ...H, picks } : H);
   return { ...r, layers: deriveSteps(r.blocks, r.sheets) };
 }
 // B-1568: one pack in which block number k takes the picks[k]-th ranked candidate (0 = the greedy choice) - the rescue pass branches on this
-function packPicked(box, groups, cfg, picks, fit = false) { return packOnce(box, groups, cfg, fit, false, picks); }
+function packPicked(box, groups, cfg, picks, fit = false, stand = false) { return packOnce(box, groups, cfg, fit, false, picks, stand); }
 // B-1513 (v2.0.108): the standard pass, plus - only when a weak product has enough units to make a wall-to-wall layer - the bearing pass.
 // The bearing pass wins when the standard one fails, or when it packs with a smaller simplicity penalty (stacked in aligned columns, fewer pieces).
 const BEAR_MIN_UNITS = 4;
@@ -1479,10 +1492,10 @@ const RESCUE_RUNS = 160;
 const RESCUE_BRANCH = 6;
 const RESCUE_BEAM = 4;
 const leftOf = (r) => r.unplaced.reduce((t, u) => t + u.n, 0);
-function rescuePack(box, groups, cfg, { maxRuns = RESCUE_RUNS, branch = RESCUE_BRANCH, beam = RESCUE_BEAM, fit = false, budget = null } = {}) {
+function rescuePack(box, groups, cfg, { maxRuns = RESCUE_RUNS, branch = RESCUE_BRANCH, beam = RESCUE_BEAM, fit = false, budget = null, stand = false } = {}) {
   let runs = 0;
   if (budget) maxRuns = Math.min(maxRuns, budget.runs); // a shared allowance for a whole search: the runs used come off it
-  const ev = (picks) => { runs++; const r = packOnce(box, groups, cfg, fit, false, picks); return { picks, r, left: leftOf(r) }; };
+  const ev = (picks) => { runs++; const r = packOnce(box, groups, cfg, fit, false, picks, stand); return { picks, r, left: leftOf(r) }; };
   const cmp = (a, b) => a.left - b.left || (a.picks.join(",") < b.picks.join(",") ? -1 : a.picks.join(",") > b.picks.join(",") ? 1 : 0);
   let states = [ev([])];
   let best = states[0];
@@ -1510,6 +1523,11 @@ function rescuePack(box, groups, cfg, { maxRuns = RESCUE_RUNS, branch = RESCUE_B
   r.rescued = true;
   return r;
 }
+// B-1596: is there a product that could stand tall in this box (rigid, a side within STAND_TOL_IN of the box height, at least 2 units)?
+const STAND_RUNS = 300;
+function canStand(box, groups, cfg) {
+  return groups.some((g) => g.n >= 2 && standOk(g) && orientations(g, cfg).some((o) => o.h >= box.H - STAND_TOL_IN - EPS && o.h <= box.H + EPS) && orientations(g, cfg).some((o) => o.h < box.H - STAND_TOL_IN - EPS));
+}
 // worth a rescue only when the contents are not hopelessly big: units under 92% of the box and not more than a third of them left out
 function couldRescue(box, groups, r) {
   let vol = 0, n = 0;
@@ -1522,6 +1540,13 @@ function packBox(box, groups, cfg, { allowSqueeze = true, rescue = false } = {})
   let r = packBest(box, groups, cfg, false);
   r.squeezed = [];
   if (r.ok) return r;
+  // B-1596 (v2.0.115): a rigid product with a side that fills the box height (the 14 in Barbie playsets in a 14 in box) is tried STANDING, first, before the packer gives up
+  if (canStand(box, groups, cfg)) {
+    const rs = packOnce(box, groups, cfg, false, false, null, true);
+    if (rs.ok) { rs.squeezed = []; return rs; }
+    const rr = rescuePack(box, groups, cfg, { stand: true, maxRuns: STAND_RUNS });
+    if (rr.ok) return rr;
+  }
   // B-1568: a consolidation attempt (merge / move filler into an anchor box) asks for the rescue pass before it gives up
   if (rescue && couldRescue(box, groups, r) && (rescue === true || rescue.runs > 0)) { const rr = rescuePack(box, groups, cfg, { budget: rescue === true ? null : rescue }); if (rr.ok) return rr; }
   // B-1516 (v2.0.108): the outer box's walls give a little - a rigid unit up to FIT_TOL_IN over a strip or gap still goes in. Tried before squeezing.
@@ -1575,7 +1600,7 @@ function boxMetrics(box, groupsPlaced, packed) {
   const sheetsLb = packed.sheets.reduce((t, s) => t + sheetLb(s), 0);
   const stripsLb = packed.strips.reduce((t, s) => t + stripLb(s), 0);
   const boxVol = box.L * box.W * box.H;
-  const sheetVol = packed.sheets.reduce((t, s) => t + s.l * s.w * SHEET_IN, 0);
+  const sheetVol = packed.sheets.reduce((t, s) => t + (s.kind === "lid" && s.negligible ? 0 : s.l * s.w * SHEET_IN), 0); // v2.0.115: a negligible lid takes no room
   const stripVol = packed.strips.reduce((t, s) => t + (s.l >= s.w ? s.l : s.w) * s.h * SHEET_IN, 0);
   const voidIn3 = Math.max(0, boxVol - unitsVol - sheetVol - stripVol);
   const dunnageLb = voidIn3 * DUNNAGE_LB_PER_CUIN;
@@ -1583,7 +1608,7 @@ function boxMetrics(box, groupsPlaced, packed) {
   const total = unitsLb + sheetsLb + stripsLb + dunnageLb + e.lb;
   return { units: count, unitsLb: r2(unitsLb), sheetsLb: r2(sheetsLb), stripsLb: r2(stripsLb), dunnageLb: r2(dunnageLb), emptyLb: e.lb, emptyAssumed: e.assumed, totalLb: r2(total), voidIn3: Math.round(voidIn3), fillPct: Math.round(100 * (unitsVol / boxVol)), billableLb: r2(billable(box, total)), dimLb: r2((boxVol) / DIM_DIVISOR) };
 }
-__m["packing-pack.js"] = { SHEET_IN, SHEET_LB_PER_SQIN, DUNNAGE_LB_PER_CUIN, EMPTY_LB_PER_SQIN, DIM_DIVISOR, r2, FILL_SHAPES, makeUnitProduct, softFragile, tierOf, orderTier, isUpright, squeezed, sheetReason, lidReason, short, orientations, HEAVY_RATIO, HEAVY_GAP_LB, weightBand, heavierThan, packPicked, BEAR_MIN_UNITS, RESCUE_RUNS, RESCUE_BRANCH, RESCUE_BEAM, rescuePack, packBox, blocksOf, expandUnits, blockCount, sheetLb, stripLb, emptyLbOf, billable, boxMetrics };
+__m["packing-pack.js"] = { SHEET_IN, SHEET_LB_PER_SQIN, DUNNAGE_LB_PER_CUIN, EMPTY_LB_PER_SQIN, DIM_DIVISOR, r2, FILL_SHAPES, makeUnitProduct, softFragile, tierOf, orderTier, isUpright, squeezed, sheetReason, lidReason, short, orientations, HEAVY_RATIO, HEAVY_GAP_LB, weightBand, heavierThan, packPicked, BEAR_MIN_UNITS, RESCUE_RUNS, RESCUE_BRANCH, RESCUE_BEAM, rescuePack, STAND_RUNS, packBox, blocksOf, expandUnits, blockCount, sheetLb, stripLb, emptyLbOf, billable, boxMetrics };
 })();
 // ---- lib/packing-draw.js ----
 (function () {
@@ -1799,13 +1824,14 @@ function sideView(plan, bp, { which = "front", scale = null } = {}) {
   for (const sh of bp.sheets || []) {
     const bar = Math.max(3, SHEET_IN * s);
     const sx = front ? sh.x : sh.y, sl = front ? sh.l : sh.w;
-    prims.push({ t: "rect", x: ox + sx * s, y: base - (sh.z + SHEET_IN) * s - (bar - SHEET_IN * s) / 2, w: sl * s, h: bar, fill: SHEET, stroke: INK, sw: 0.6, role: "sheet", kind: sh.kind });
+    const shz = sh.kind === "lid" ? Math.min(sh.z, H - SHEET_IN) : sh.z; // v2.0.115: a negligible lid is drawn inside the box top
+    prims.push({ t: "rect", x: ox + sx * s, y: base - (shz + SHEET_IN) * s - (bar - SHEET_IN * s) / 2, w: sl * s, h: bar, fill: SHEET, stroke: INK, sw: 0.6, role: "sheet", kind: sh.kind });
   }
   // B-1549 (v2.0.112): LOOSE items - thrown on top of the base, no positions; a dashed band over the base, dunnage round them
   if ((bp.loose || []).length) {
     let zb = 0;
     for (const b of blocksOf(bp)) zb = Math.max(zb, b.z + b.levels * b.uh);
-    for (const sh of bp.sheets || []) if (sh.kind === "lid") zb = Math.max(zb, sh.z + SHEET_IN);
+    for (const sh of bp.sheets || []) if (sh.kind === "lid" && !sh.negligible) zb = Math.max(zb, sh.z + SHEET_IN);
     const bandH = Math.max(0, H - zb);
     if (bandH > 0.2) {
       prims.push({ t: "rect", x: ox + 1, y: oy + 1, w: span * s - 2, h: bandH * s - 2, fill: "#fff7e0", stroke: INK, sw: 0.8, dash: "4 3", role: "loose" });
@@ -1876,7 +1902,7 @@ function isoView(plan, bp, { angle = 0, explode = null } = {}) {
     const up = sh.kind === "lid" ? -1 : blocks.findIndex((b) => Math.abs(b.z - SHEET_IN - sh.z) < 0.011 && Math.abs(x0 + b.x - sh.x) < 0.011 && Math.abs(y0 + b.y - sh.y) < 0.011);
     const k = sh.kind === "lid" ? nSteps - 1 : up >= 0 ? stepOf[up] : 0;
     const dz = lift(k) + (sh.kind === "lid" ? 0.3 : -0.3);
-    items.push({ ...prism(sh.x, sh.y, sh.z + dz, sh.l, sh.w, SHEET_IN, { fill: SHEET, side: SHEET, top: "#c9a468" }, "sheet", { kind: sh.kind, op: 0.5 }), kind: "sheet" });
+    items.push({ ...prism(sh.x, sh.y, (sh.kind === "lid" ? Math.min(sh.z, bp.box.H - SHEET_IN) : sh.z) + dz, sh.l, sh.w, SHEET_IN, { fill: SHEET, side: SHEET, top: "#c9a468" }, "sheet", { kind: sh.kind, op: 0.5 }), kind: "sheet" });
   }
   // painter's order: A is drawn before B when B is in front of A on some axis (B.min >= A.max); no constraint when both or neither
   const n = items.length;
@@ -2073,6 +2099,8 @@ __m["packing-draw.js"] = { DRAW_W, RESULT_LIMIT, PALETTE, colorFor, keyNo, textW
 //   v2.0.113: o.getBatch() -> { batchId, name } | null - the batch picked on the Shipment tab (B-1544: the Plan tab starts there, not on the last
 //   stored plan); o.statusShowsLow - the page already shows "Running low" above the tabs (B-1553: once, not twice).
 //   more names: packingRestAnswer (B-1554) packingReplanClaude (B-1547) packingBoxes (the real-size list, B-1551)
+//   v2.0.115: packingPacked packingUnpack packingReplanRest (B-1574 - Packed locks a box; Re-plan remaining keeps the packed ones),
+//             and packingPlan { arrivingBy: "YYYY-MM-DDTHH:MM" } (B-1573 - "Arriving by"; the batch is picked at Approve or later)
 //   drawRulesTab(body, { doc, call })   names: packingRules packingRuleDelete
 const { stepView, sideView, isoView, drawSvg, assembleDraw } = __m["packing-draw.js"];
 const { SIMPLICITY_LEVELS, SIMPLICITY_HINT, simplicityLevel } = __m["packing-simple.js"];
@@ -2082,7 +2110,7 @@ function drawPlanTab(body, o) {
   const call = o.call;
   const drawCache = new Map(); // "<planId>|<boxId>" -> { plan, bp }
   const view = new Map(); // boxId -> "steps" | "side" | "iso"
-  const S = { simp: "", r: null, open: new Set(), reject: new Set(), msg: "", stored: null, pick: null, check: null, edit: new Set(), replanOpen: false };
+  const S = { simp: "", r: null, open: new Set(), reject: new Set(), msg: "", stored: null, pick: null, check: null, edit: new Set(), replanOpen: false, restOpen: false, batchPick: "" };
 
   function el(tag, cls, text) { const n = doc.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = String(text); return n; }
   function clear(n) { while (n.firstChild) n.removeChild(n.firstChild); return n; }
@@ -2164,6 +2192,21 @@ function drawPlanTab(body, o) {
     const goOh = btn("Plan from on hand", "", () => run(withSimp({ onHand: true, shipDay: day.value }), msg, goOh));
     oh.append(day, goOh, el("p", "pk-hint", "Counts House and Prep. Units that arrive before the ship time are counted, and the boxes waiting for them are marked held open. Nothing is sent to Box contents."));
     card.appendChild(oh);
+    // B-1573 (v2.0.115): everything that is on hand or arrives by a day + time. Approve adds the boxes to a batch (picked then, or later).
+    const ar = el("div", "pk-field");
+    ar.appendChild(el("div", "pk-lab", "Or everything arriving by a day and time"));
+    const dt = el("input", "pk-in"); dt.type = "date"; dt.setAttribute("aria-label", "Arriving by (day)");
+    const tmr = new Date(Date.now() + 24 * 3600 * 1000); const pad2 = (n) => String(n).padStart(2, "0");
+    dt.value = `${tmr.getFullYear()}-${pad2(tmr.getMonth() + 1)}-${pad2(tmr.getDate())}`;
+    const hr = el("select", "pk-in"); hr.setAttribute("aria-label", "Arriving by (time)");
+    for (let h = 7; h <= 19; h++) { const op = el("option", "", `${h % 12 === 0 ? 12 : h % 12} ${h < 12 ? "AM" : "PM"}`); op.value = pad2(h) + ":00"; hr.appendChild(op); }
+    hr.value = "15:00";
+    const goAr = btn("Plan what arrives by then", "", () => {
+      if (!dt.value) { say(msg, "Pick the day first.", "bad"); return; }
+      run(withSimp({ arrivingBy: `${dt.value}T${hr.value}` }), msg, goAr);
+    });
+    ar.append(dt, hr, goAr, el("p", "pk-hint", "House + Prep + every arrival dated before that moment (an arrival counts by its day, at noon). It says when the Pipeline was last read. Approve adds the boxes to the batch you pick - or keeps them here until you pick one."));
+    card.appendChild(ar);
     const bl = await call("packingBatches");
     if (bl.ok && bl.batches.length) {
       const sel = el("select", "pk-in");
@@ -2195,7 +2238,7 @@ function drawPlanTab(body, o) {
       return;
     }
     if (r.restCheck) { S.check = { rc: r.restCheck, payload }; S.msg = ""; render(); return; } // B-1554
-    S.r = r; S.msg = ""; S.open.clear(); S.reject.clear(); drawCache.clear(); S.check = null; S.stored = null;
+    S.r = r; S.msg = r.message || ""; S.open.clear(); S.reject.clear(); drawCache.clear(); S.check = null; S.stored = null; S.restOpen = false;
     render();
     if (o.onChange) o.onChange();
   }
@@ -2249,7 +2292,9 @@ function drawPlanTab(body, o) {
   function drawSummary(into, r) {
     const head = el("div", "pk-card pk-plan-head");
     head.appendChild(el("div", "pk-card-t", `${r.replay ? "Replay: " : ""}${r.name}`));
+    if (r.asOf) head.appendChild(el("div", "pk-meta " + (r.asOf.stale ? "pk-msg-bad" : "pk-msg-ok"), r.asOf.text)); // B-1573
     if (r.onHand) head.appendChild(el("div", "pk-meta pk-msg-ok", r.onHand));
+    if (r.packed) head.appendChild(el("div", "pk-meta pk-msg-ok", `${r.packed} box${r.packed === 1 ? " is" : "es are"} packed and locked.`)); // B-1574
     if (r.rest) head.appendChild(el("div", "pk-meta pk-msg-ok", r.rest)); // B-1531
     head.appendChild(el("div", "pk-plan-line", r.headline));
     if (r.simplicity) head.appendChild(el("div", "pk-meta", "Packing: " + r.simplicity));
@@ -2269,14 +2314,22 @@ function drawPlanTab(body, o) {
 
     if (r.proposal) into.appendChild(proposalCard(r.proposal));
 
+    // B-1573: an "Arriving by" plan has no batch of its own - pick one here (or keep the boxes on the plan and link a batch later)
+    const batchSel = r.kind === "arriving" && r.needsBatch ? batchPicker(rowMsg) : null;
+    if (batchSel) into.appendChild(batchSel.card);
+    const withBatch = (p) => (batchSel && batchSel.value() ? { ...p, batchId: batchSel.value() } : p);
     const acts = el("div", "pk-tools");
     const allDone = r.boxes.every((b) => b.status === "approved");
-    if (!allDone) acts.appendChild(btn(r.noSend ? r.approveLabel : "Approve all boxes", "pk-primary", () => act("packingApprove", { boxId: "all" }, rowMsg)));
-    acts.appendChild(btn("Reject the plan", "pk-quiet", () => { if (S.reject.has("all")) S.reject.delete("all"); else S.reject.add("all"); render(); }));
-    acts.appendChild(btn("Plan again", "pk-quiet", () => { S.r = null; S.check = null; render(); }));
+    if (!allDone) acts.appendChild(btn(r.noSend ? r.approveLabel : "Approve all boxes", "pk-primary", () => act("packingApprove", withBatch({ boxId: "all" }), rowMsg)));
+    if (!r.packed) { // B-1574: a packed box is locked - the plan as a whole is no longer rejected or planned again, it is re-planned from the remaining
+      acts.appendChild(btn("Reject the plan", "pk-quiet", () => { if (S.reject.has("all")) S.reject.delete("all"); else S.reject.add("all"); render(); }));
+      acts.appendChild(btn("Plan again", "pk-quiet", () => { S.r = null; S.check = null; render(); }));
+    }
+    acts.appendChild(btn("Re-plan remaining", "pk-quiet", () => { S.restOpen = !S.restOpen; render(); }));
     // B-1547: the same one Claude call (the daily cap applies), with an optional note
-    if (!r.boxes.some((b) => b.status === "approved")) acts.appendChild(btn("Re-plan with Claude", "pk-quiet", () => { S.replanOpen = !S.replanOpen; render(); }));
+    if (!r.boxes.some((b) => b.status === "approved") || r.packed) acts.appendChild(btn("Re-plan with Claude", "pk-quiet", () => { S.replanOpen = !S.replanOpen; render(); }));
     into.appendChild(acts);
+    if (S.restOpen) into.appendChild(replanRestForm(r, rowMsg));
     if (S.replanOpen) into.appendChild(replanForm(rowMsg));
     if (S.reject.has("all")) into.appendChild(rejectForm("all", rowMsg));
     into.appendChild(rowMsg);
@@ -2284,6 +2337,44 @@ function drawPlanTab(body, o) {
     if (r.replay) { const cmp = el("div", "pk-card pk-cmp"); into.appendChild(cmp); drawCompare(cmp); }
 
     for (const b of r.boxes) into.appendChild(boxCard(b, r, rowMsg));
+  }
+
+  // B-1573: the batch picker of an "Arriving by" plan. value() = "" means: keep the boxes on the plan, link a batch later.
+  function batchPicker(msgBox) {
+    const card = el("div", "pk-card");
+    card.appendChild(el("div", "pk-lab", "Which batch do these boxes go to?"));
+    const sel = el("select", "pk-in"); sel.setAttribute("aria-label", "Batch for the approved boxes");
+    const none = el("option", "", "No batch yet - keep them on the plan"); none.value = ""; sel.appendChild(none);
+    sel.addEventListener("change", () => { S.batchPick = sel.value; });
+    call("packingBatches").then((bl) => {
+      if (!bl || !bl.ok) return;
+      for (const b of bl.batches || []) { const op = el("option", "", `${b.name || b.batchId}${b.archived ? " (archived)" : ""}`); op.value = b.batchId; sel.appendChild(op); }
+      if (S.batchPick) sel.value = S.batchPick;
+    });
+    const acts = el("div", "pk-tools");
+    acts.appendChild(btn("Send approved boxes to Box contents", "pk-quiet", () => { if (!sel.value) { say(msgBox, "Pick the batch first.", "bad"); return; } act("packingDraft", { batchId: sel.value }, msgBox); }));
+    card.append(sel, acts, el("div", "pk-hint", "Approved boxes wait on this plan until a batch is linked. Nothing is uploaded."));
+    return { card, value: () => sel.value };
+  }
+
+  // B-1574: Re-plan remaining - one confirm, then the handler re-reads the batch and plans every box that is not packed again
+  function replanRestForm(r, msgBox) {
+    const c = el("div", "pk-card pk-reject");
+    const keep = r.packed || 0;
+    c.appendChild(el("div", "pk-lab", "Re-plan remaining"));
+    c.appendChild(el("div", "pk-hint", `${keep ? `Keeps the ${keep} packed box${keep === 1 ? "" : "es"}.` : "No box is packed yet, so every box is planned again."} Every other box (approved ones too) is planned again from the batch as it is NOW - change ScanPower or the Pipeline first if the counts moved. The new boxes come back for you to approve.`));
+    const acts = el("div", "pk-tools");
+    const go = btn("Re-plan remaining", "pk-primary", async () => {
+      go.disabled = true; say(msgBox, "Re-planning the rest... this can take a minute.");
+      const x = await call("packingReplanRest", {});
+      go.disabled = false;
+      if (!x.ok) { say(msgBox, x.error || "Did not work.", "bad"); return; }
+      S.r = x; S.msg = x.message || ""; S.restOpen = false; S.open.clear(); S.reject.clear(); drawCache.clear(); render();
+      if (o.onChange) o.onChange();
+    });
+    acts.append(go, btn("Cancel", "pk-quiet", () => { S.restOpen = false; render(); }));
+    c.appendChild(acts);
+    return c;
   }
 
   async function act(name, payload, msgBox) {
@@ -2352,14 +2443,20 @@ function drawPlanTab(body, o) {
     const words = el("div", "pk-batch-words");
     words.append(el("div", "pk-card-t", `Box ${b.num} · ${b.name}`), el("div", "pk-meta", `${b.size} · ${b.lb} lb · ${b.units} units · ${b.fill}% full`));
     if (b.hold) words.appendChild(el("div", "pk-meta " + (b.hold.state === "open" ? "pk-msg-bad" : "pk-msg-ok"), b.hold.text));
-    top.append(words, el("div", "pk-badge pk-badge-" + (b.status === "approved" ? "ok" : b.status === "rejected" ? "missing" : "estimated"), b.status === "approved" ? (r.replay ? "Approved (replay)" : "Approved") : b.status === "rejected" ? "Rejected" : "Proposed"));
+    top.append(words, el("div", "pk-badge pk-badge-" + (b.status === "approved" ? "ok" : b.status === "rejected" ? "missing" : "estimated"), b.packed ? "PACKED" : b.status === "approved" ? (r.replay ? "Approved (replay)" : "Approved") : b.status === "rejected" ? "Rejected" : "Proposed"));
     card.appendChild(top);
     const acts = el("div", "pk-tools");
     const open = S.open.has(b.id);
     acts.appendChild(btn(open ? "Hide" : "Contents and drawings", "", () => { if (open) S.open.delete(b.id); else S.open.add(b.id); render(); }));
-    if (b.status !== "approved") acts.appendChild(btn(r.noSend ? "Approve (nothing sent)" : "Approve", "pk-primary", () => act("packingApprove", { boxId: b.id }, msgBox)));
-    acts.appendChild(btn("Reject box", "pk-quiet", () => { if (S.reject.has(b.id)) S.reject.delete(b.id); else S.reject.add(b.id); render(); }));
+    if (b.status !== "approved" && !b.packed) acts.appendChild(btn(r.noSend ? "Approve (nothing sent)" : "Approve", "pk-primary", () => act("packingApprove", { boxId: b.id }, msgBox)));
+    // B-1574: Packed locks the box (Reject, Plan again and every re-plan leave it alone); the weight is saved in the form under "Contents and drawings"
+    if (b.packed) acts.appendChild(btn("Unpack", "pk-quiet", () => act("packingUnpack", { boxId: b.id }, msgBox)));
+    else {
+      acts.appendChild(btn("Packed", "", () => act("packingPacked", { boxId: b.id }, msgBox)));
+      acts.appendChild(btn("Reject box", "pk-quiet", () => { if (S.reject.has(b.id)) S.reject.delete(b.id); else S.reject.add(b.id); render(); }));
+    }
     card.appendChild(acts);
+    if (b.packed && !b.real) card.appendChild(el("div", "pk-meta", "Packed, no weight yet - open the box and save the weight on the scale."));
     if (S.reject.has(b.id)) card.appendChild(rejectForm(b.id, msgBox));
     if (open) { const det = el("div", "pk-det"); card.appendChild(det); drawDetails(det, b, r); }
     return card;
@@ -2452,7 +2549,19 @@ function drawPlanTab(body, o) {
       const y = await call("packingRealWeight", { boxId: b.id, lb: inp.value, dims: { L: dl.value, W: dw.value, H: dh.value }, reused: reused.checked, sizeName: reused.checked ? "" : sel.value });
       say(m, y.ok ? y.words : (y.error || "Not saved."), y.ok ? (y.flagged ? "bad" : "ok") : "bad");
     });
-    w.append(el("div", "pk-lab", "After packing: the weight on the scale and the box you really used"), inp, el("div", "pk-lab", "Box size (change it if you used a different box)"), row3, sel, rl, save, m);
+    // B-1574: the same payload, and the box is LOCKED (packed) as well
+    const payload = () => ({ boxId: b.id, lb: inp.value, dims: { L: dl.value, W: dw.value, H: dh.value }, reused: reused.checked, sizeName: reused.checked ? "" : sel.value });
+    const packBtn = b.packed ? null : btn("Packed - save weight and lock", "pk-primary", async () => {
+      say(m, "Checking...");
+      const y = await call("packingPacked", payload());
+      if (!y.ok) { say(m, y.error || "Not saved.", "bad"); return; }
+      if (y.confirmReplace) { say(m, y.message || "Box contents already has boxes in progress.", "bad"); return; }
+      S.r = y; S.msg = y.message || ""; drawCache.clear(); render();
+      if (o.onChange) o.onChange();
+    });
+    w.append(el("div", "pk-lab", "After packing: the weight on the scale and the box you really used"), inp, el("div", "pk-lab", "Box size (change it if you used a different box)"), row3, sel, rl, save);
+    if (packBtn) w.appendChild(packBtn);
+    w.appendChild(m);
     if (x.letter) w.appendChild(el("div", "pk-hint", `Box ${x.letter} in Box contents gets this weight and size too.`));
     det.appendChild(w);
   }

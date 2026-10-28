@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.114";
+const APP_BUILD = "v2.0.115";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -298,6 +298,8 @@ const OUTCOME_LABEL = {
   done: (n) => `${n}: done`,
   error: (n, why) => `${n} failed - ${why || "no reason given"}`,
   rejected: (n, why) => `${n} refused - ${why || "not allowed"}`,
+  // B-1569 (v2.0.115): the bridge writes "failed" for a refused command.
+  failed: (n, why) => `${n} failed - ${why || "no reason given"}`,
 };
 
 async function pollCommandOutcomes() {
@@ -318,6 +320,9 @@ async function pollCommandOutcomes() {
     const label = (REMOTE_LABELS[pending.name] || pending.name);
     const fmt = OUTCOME_LABEL[row.status];
     if (row.status === "done") {
+      // B-1569 (v2.0.115): an approve that was saved but could not resume the
+      // run says so - otherwise the phone looked like nothing happened.
+      if (row.result && row.result.resumed === false) toast(`${label}: ${row.result.note || "approved, but the run is still paused - press Resume"}`, true);
       // A success is already visible in the state that came back with it -
       // saying so again for every tap would be noise. Stay quiet.
       // B-1535: ... except where a Start ran (or waits) on the other computer.
@@ -437,7 +442,7 @@ const REMOTE_LABELS = {
   // B-1426 / B-1429 (v2.0.92): packing data (remote/packing-view.js)
   packingSave: "Save packing data", packingCopyFind: "Find a product to copy packing data to", packingCopy: "Copy packing data to another ASIN", packingTraits: "Claude's packing traits", packingBoxSave: "Save a box", packingBoxesSeed: "Add box sizes", packingReplayBatch: "Replay a batch", packingReplayClear: "Clear the replay", packingReplayLast: "Read the last replay", packingReplayReload: "Reload the last replay",
   // B-1427 / B-1428 (v2.0.92): the planner
-  packingPlan: "Make a packing plan", packingApprove: "Approve the packing plan", packingReject: "Reject the packing plan", packingRuleConfirm: "Add the packing rule", packingRuleDelete: "Delete a packing rule", packingRealWeight: "Save a real box weight", packingDraft: "Send boxes to Box contents (draft)",
+  packingPlan: "Make a packing plan", packingApprove: "Approve the packing plan", packingReject: "Reject the packing plan", packingRuleConfirm: "Add the packing rule", packingRuleDelete: "Delete a packing rule", packingRealWeight: "Save a real box weight", packingDraft: "Send boxes to Box contents (draft)", packingPacked: "Mark a box packed", packingUnpack: "Unpack a box", packingReplanRest: "Re-plan the remaining boxes",
 };
 
 // P-25, half one: proof the tap landed. A command that is still pending or

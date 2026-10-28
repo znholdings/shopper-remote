@@ -109,7 +109,9 @@ function activityDisplay(state, nowMs) {
 function activityLine(d) {
   if (!d || d.mode !== "run") return { head: "READY", rest: d && d.lastLine ? d.lastLine : "", warn: "" };
   const parts = [d.text];
-  if (d.stepText) parts.push(d.stepText);
+  // B-1570 (v2.0.115): the Buy Queue's step IS its line number - "Line 3 of 7 ·
+  // step 3 of 7" said it twice.
+  if (d.stepText && !/\bLine \d+ of \d+\b/.test(d.text || "")) parts.push(d.stepText);
   if (d.moreCount > 0) parts.push(`+${d.moreCount} more running`);
   return {
     head: d.pct === null ? "WORKING" : `${d.pct}%`,
