@@ -29,7 +29,7 @@ const __m = {};
 //   polybag            "" or one of POLYBAG_SIZES (only when prep has "polybag")
 //   prepNotes          free text
 //   fragility          "none" | "fragile" | "very"
-//   thisWayUp          boolean (always true when fragility is "very")
+//   thisWayUp          boolean (the product must stay upright; v2.0.118: no longer implied by Very Fragile)
 //   traits             { rigidity: "rigid"|"soft"|"", shape: ""|box|softFirm|softLoose|round|irregular (B-1454), crushable, hardCorners, liquid,
 //                        goodBase, sheetOver }  (booleans) - see normalizeTraits
 //   traitsSource       "" | "claude" (proposed, not corrected) | "you" (corrected on the form)
@@ -273,7 +273,7 @@ function validateProduct(input, { now = Date.now(), prior = null } = {}) {
   } else polybag = "";
   let fragility = str(i.fragility).toLowerCase();
   if (!FRAGILITY_LEVELS.includes(fragility)) fragility = "none";
-  const thisWayUp = fragility === "very" ? true : yes(i.thisWayUp);
+  const thisWayUp = yes(i.thisWayUp); // v2.0.118 (B-1603): Very Fragile no longer forces This Way Up - only a product marked so is kept upright
   let prepNotes = str(i.prepNotes);
   let suffocationAdded = false;
   if (polybag && polybagNeedsWarning(polybag) && !/suffocat/i.test(prepNotes)) {
@@ -909,6 +909,7 @@ const WALL_TOL = 0.25; // = WALL_TOL_IN of lib/packing-bearing.js (a test keeps 
 const FRAG_COST = 1; // one more block of the same product, in pounds-equivalent
 const TIP_GAIN = 3; // inches of height a tipped (not upright) block must gain to be chosen over an upright one
 const SMALL_END_COST = 0.05; // B-1513 (b): cost of a weak carton lying on its large face rather than standing on a small end (a soft preference)
+const HEAVY_COST = 0.5; // v2.0.118 (B-1603): a heavier block on a lighter one - a preference, in pounds-equivalent (less than one more block)
 const DEAD_COST = 0.01; // one cubic inch of space too small for any remaining unit, in pounds-equivalent
 const near = (a, b) => Math.abs(a - b) <= TOL;
 
@@ -1000,8 +1001,7 @@ function runVariant(box, groups, cfg, H, variant) {
     if (b.g.fragility === "very") return false; // nothing rests on a Very Fragile item
     if (a.tOrd < b.tOrd && !b.weak) return false; // fill under robust, robust under fragile, ... (a weak carton's BEARING layer is the exception: needBear, per block)
     if (cfg.topOnly.has(b.g.asin) && !cfg.topOnly.has(a.g.asin) && H.tierOf(a.g, cfg) < 2) return false;
-    if (cfg.heavyBelowLight && a.tOrd <= b.tOrd && H.heavierThan(a.g.w, b.g.w)) return false;
-    return true;
+    return true; // v2.0.118 (B-1603): heavy-below-light is a preference now (it orders the products and ranks the spots), not a limit
   }));
   const needBear = prods.map((a) => prods.map((b) => a.tOrd < b.tOrd && b.weak)); // a rests on b only if b's block is a bearing layer (and a sheet lies between)
   const apart = (a, b) => cfg.sheetBetween.some(([x, y]) => (a === x && b === y) || (a === y && b === x));
@@ -1098,7 +1098,7 @@ function runVariant(box, groups, cfg, H, variant) {
       if (a.i + wc > gx || a.j + dc > gy || dc > a.wmin.length || a.wmin[dc - 1] < wc) return;
       const l = nx * cl, w = ny * cw, x = a.i * Q, y = a.j * Q;
       if (x + l > A + p.tol + EPS || y + w > B + p.tol + EPS) return;
-      if (lv > 1 && p.weak && !H.spansWall(l, w, A, B)) return; // a weak product stacks on itself only as a wall-to-wall (bearing) layer
+      if (lv > 1 && p.weak && !(H.spansFor ? H.spansFor(p.g, l, w, A, B) : H.spansWall(l, w, A, B))) return; // a weak product stacks on itself only as a wall-to-wall (bearing) layer
       const key = `${oi}|${nx}|${ny}|${lv}|${a.i}|${a.j}`;
       if (seen.has(key)) return;
       seen.add(key);
@@ -1127,7 +1127,8 @@ function runVariant(box, groups, cfg, H, variant) {
         if (z + th + hb > C + EPS) return;
       }
       if (cfg.sheetBetween.length && touchesPartner(p, x, y, l, w, z + th, hb)) return;
-      cands.push({ oi, o, nx, ny, lv, c: nx * ny * lv, i: a.i, j: a.j, wc, dc, x, y, l, w, z, th, why, hb, cl, cw });
+      const hv = cfg.heavyBelowLight && lower.some((q) => p.tOrd <= prods[q].tOrd && H.heavierThan(p.g.w, prods[q].g.w)) ? 1 : 0;
+      cands.push({ oi, o, nx, ny, lv, hv, c: nx * ny * lv, i: a.i, j: a.j, wc, dc, x, y, l, w, z, th, why, hb, cl, cw });
     };
     // exact: every unit of the product in ONE block (every orientation and every nx x ny x levels that holds them)
     p.ors.forEach((o, oi) => {
@@ -1205,7 +1206,7 @@ function runVariant(box, groups, cfg, H, variant) {
       // B-1513 (b): a weak carton is generally stronger standing on its SMALLER ends - a soft preference, never a rule
       let ends = 0;
       if (p.weak) { const d = [p.g.L, p.g.W, p.g.H], face = Math.max(d[0] * d[1], d[0] * d[2], d[1] * d[2]); ends = SMALL_END_COST * (c.o.fl * c.o.fw) / Math.max(face, 1e-9); }
-      c.cost = (left > 0 ? FRAG_COST * (1 + left / c.c) : 0) + DEAD_COST * dead + p.tip * c.tip + 0.002 * (c.z + c.hb) - 1e-4 * c.c + ends;
+      c.cost = (left > 0 ? FRAG_COST * (1 + left / c.c) : 0) + DEAD_COST * dead + p.tip * c.tip + 0.002 * (c.z + c.hb) - 1e-4 * c.c + ends + HEAVY_COST * c.hv;
       c.contact = contact;
     }
     const off = (c) => (Math.abs(c.z - zBest) <= TOL ? 0 : 1);
@@ -1229,7 +1230,7 @@ function runVariant(box, groups, cfg, H, variant) {
     const k = blocks.length;
     blocks.push({ ...blk, pi: p.pi });
     const topZ = zb + c.hb;
-    const bear = p.weak && H.spansWall(c.l, c.w, A, B); // B-1513: a wall-to-wall block of a weak product carries the load (with a sheet on it)
+    const bear = p.weak && (H.spansFor ? H.spansFor(p.g, c.l, c.w, A, B) : H.spansWall(c.l, c.w, A, B)); // B-1513: a wall-to-wall block of a weak product carries the load (with a sheet on it)
     rects.push({ x: c.x, y: c.y, l: c.l, w: c.w, top: topZ, pi: p.pi, bear });
     bearIdx.push(bear);
     if (c.th) sheets.push({ z: c.z, kind: "between", x: t + c.x, y: t + c.y, l: c.l, w: c.w, why: c.why });
@@ -1272,7 +1273,7 @@ function runVariant(box, groups, cfg, H, variant) {
   const outBlocks = blocks.map(({ pi, ...b }) => b);
   return { ok: unplaced.length === 0, widths, blocks: outBlocks, sheets, strips: stripList, unplaced, inner: { A, B, C: box.H, x0: t, y0: t, zTop } };
 }
-__m["packing-heightmap.js"] = { GRID_IN, STAND_TOL_IN, STEP_IN, FRAG_COST, TIP_GAIN, SMALL_END_COST, DEAD_COST, deriveSteps, packHeightmap };
+__m["packing-heightmap.js"] = { GRID_IN, STAND_TOL_IN, STEP_IN, FRAG_COST, TIP_GAIN, SMALL_END_COST, HEAVY_COST, DEAD_COST, deriveSteps, packHeightmap };
 })();
 // ---- lib/packing-bearing.js ----
 (function () {
@@ -1296,7 +1297,7 @@ function weakColumnOk(p) {
   if (!p || p.fragility === "very" || p.liquid || p.thisWayUp) return false;
   if (p.fill) return false; // round / irregular / loose things are never a base
   // v2.0.111 review: Sheet Over makes a FIRM item a bearing layer only - a soft item still ticked under the old meaning ("soft, needs a sheet") does not carry load.
-  return !!(p.crushable || (p.sheetOver && !p.soft) || (p.soft && p.shape === "softFirm"));
+  return !!(p.crushable || (p.fragility === "fragile" && !p.soft) || (p.sheetOver && !p.soft) || (p.soft && p.shape === "softFirm")); // v2.0.118 (B-1603): a snug full layer of a Fragile product is strong too
 }
 // the slack a unit may have against the walls: rigid items only (a soft pack uses its compress-to sizes instead)
 const fitTolFor = (p) => (p && p.rigid ? FIT_TOL_IN : 0);
@@ -1305,14 +1306,21 @@ const fitTolFor = (p) => (p && p.rigid ? FIT_TOL_IN : 0);
 function spansWall(l, w, A, B) {
   return A - l <= WALL_TOL_IN + 1e-9 || B - w <= WALL_TOL_IN + 1e-9;
 }
+// v2.0.118 (B-1603, review M1): a product that bears weight ONLY because it is Fragile (not crushable / firm Sheet Over / softFirm) must be a
+// full layer: wall to wall in BOTH directions. The carton kinds keep the one-direction test above.
+const fragileOnly = (p) => !!p && p.fragility === "fragile" && !p.soft && !p.crushable && !p.sheetOver;
+function spansFor(p, l, w, A, B) {
+  if (fragileOnly(p)) return A - l <= WALL_TOL_IN + 1e-9 && B - w <= WALL_TOL_IN + 1e-9;
+  return spansWall(l, w, A, B);
+}
 // block = { nx, ny, ux, uy, pad } as the packer writes it. inner = { A, B }.
 function bearingBlock(block, prod, inner) {
   if (!block || !prod || !inner || !weakColumnOk(prod)) return false;
   if (block.pad > 0) return false;
-  return spansWall(block.nx * block.ux, block.ny * block.uy, inner.A, inner.B);
+  return spansFor(prod, block.nx * block.ux, block.ny * block.uy, inner.A, inner.B);
 }
 const bearingWhy = (title) => `${title} is a full weak layer wall to wall - cardboard sheet, then it carries the load`;
-__m["packing-bearing.js"] = { FIT_TOL_IN, WALL_TOL_IN, weakColumnOk, fitTolFor, spansWall, bearingBlock, bearingWhy };
+__m["packing-bearing.js"] = { FIT_TOL_IN, WALL_TOL_IN, weakColumnOk, fitTolFor, spansWall, fragileOnly, spansFor, bearingBlock, bearingWhy };
 })();
 // ---- lib/packing-pockets.js ----
 (function () {
@@ -1366,7 +1374,7 @@ function pocketPack(box, groupsIn, cfg, H, { verify = null, maxNodes = POCKET_NO
   const legal = prods.map((a) => prods.map((b) => {
     if (b.g.fragility === "very") return false;
     if (a.tOrd < b.tOrd) return false;
-    if (cfg.heavyBelowLight && a.tOrd <= b.tOrd && H.heavierThan(a.g.w, b.g.w)) return false;
+    // v2.0.118 (B-1603): heavy-below-light is a preference (the order of the products), not a limit
     return true;
   }));
   const reasonMemo = new Map();
@@ -1610,7 +1618,7 @@ __m["packing-pockets.js"] = { POCKET_NODES, pocketPack };
 const { packHeightmap, deriveSteps, STAND_TOL_IN } = __m["packing-heightmap.js"];
 const { pocketPack } = __m["packing-pockets.js"];
 const { boxPenalty } = __m["packing-simple.js"];
-const { weakColumnOk, spansWall, fitTolFor, bearingWhy } = __m["packing-bearing.js"];
+const { weakColumnOk, spansWall, spansFor, fitTolFor, bearingWhy } = __m["packing-bearing.js"];
 
 const SHEET_IN = 0.2; // one cardboard sheet / strip thickness (corrugated)
 const SHEET_LB_PER_SQIN = 0.0007; // B-1549 (g), v2.0.112: ~0.1 lb per square foot, measured from a 32 ECT box (Uline S-21546 18x16x12 = 1.33 lb for a ~13.5 sq ft blank). Was 0.003 (~0.43 lb/sq ft, 4x too heavy - 4-7.6 lb of "cardboard" per box)
@@ -1633,7 +1641,7 @@ function makeUnitProduct(rec, qty) {
     L: num(rec.L), W: num(rec.W), H: num(rec.H),
     minL: rec.minL != null ? num(rec.minL) : null, minW: rec.minW != null ? num(rec.minW) : null, minH: rec.minH != null ? num(rec.minH) : null,
     w: num(rec.weightLb), n: Math.max(0, Math.floor(num(qty))),
-    fragility: rec.fragility || "none", thisWayUp: !!rec.thisWayUp || rec.fragility === "very",
+    fragility: rec.fragility || "none", thisWayUp: !!rec.thisWayUp, // v2.0.118 (B-1603): only a product marked This Way Up is kept upright (Very Fragile no longer implies it)
     rigid: tr.rigidity === "rigid", soft: tr.rigidity === "soft", crushable: !!tr.crushable, hard: !!tr.hardCorners,
     liquid: !!tr.liquid, goodBase: !!tr.goodBase, sheetOver: !!tr.sheetOver,
     shape: tr.shape || "", fill: FILL_SHAPES.has(tr.shape), baseOk: !!tr.goodBase || tr.shape === "softFirm",
@@ -1664,6 +1672,8 @@ function squeezed(p) {
 // Why does a sheet have to lie between a lower layer (products) and an upper product? "" = none needed.
 function sheetReason(lower, upper, cfg) {
   for (const lo of lower) {
+    // v2.0.118 (B-1603): soft on soft of the SAME product (Kotex on Kotex) needs no sheet between
+    if (lo.asin === upper.asin && softFragile(lo)) continue;
     if (lo.sheetOver) return `sheet over ${short(lo)} spreads the weight`;
     if (cfg.fragileSheetOver && tierOf(lo, cfg) >= 1) return `Fragile layer (${short(lo)})`;
     if (cfg.softLayerSheet && softFragile(lo)) return `soft Fragile layer (${short(lo)})`;
@@ -1713,7 +1723,7 @@ const HEAVY_GAP_LB = 0.3;
 const weightBand = (w) => Math.floor(Math.log(Math.max(w, 0.05) / 0.05) / Math.log(HEAVY_RATIO) + 1e-9);
 const heavierThan = (wUp, wLow) => wUp > wLow * HEAVY_RATIO + 1e-9 && wUp - wLow > HEAVY_GAP_LB + 1e-9;
 // B-1463 (v2.0.97): the geometry is a HEIGHT MAP of solid blocks (lib/packing-heightmap.js); `layers` is only the derived pack-step grouping.
-const HELPERS = { orientations, orderTier, tierOf, softFragile, heavierThan, weightBand, sheetReason, lidReason, SHEET_IN, weakColumnOk, spansWall, fitTolFor, bearingWhy };
+const HELPERS = { orientations, orderTier, tierOf, softFragile, heavierThan, weightBand, sheetReason, lidReason, SHEET_IN, weakColumnOk, spansWall, spansFor, fitTolFor, bearingWhy };
 const HELPERS_FIT = { ...HELPERS, fit: true }; // B-1516: the retry in which a rigid unit may be a hair over the inside of the box
 const HELPERS_BEAR = { ...HELPERS, bear: true }; // B-1513: the pass in which a weak carton's wall-to-wall layer carries the load
 const HELPERS_BOTH = { ...HELPERS, fit: true, bear: true };
@@ -2594,7 +2604,6 @@ function drawPlanTab(body, o) {
     if (r.rest) head.appendChild(el("div", "pk-meta pk-msg-ok", r.rest)); // B-1531
     head.appendChild(el("div", "pk-plan-line", r.headline));
     if (r.simplicity) head.appendChild(el("div", "pk-meta", "Packing: " + r.simplicity));
-    if (r.provisional) head.appendChild(el("div", "pk-tag pk-tag-warn", "PROVISIONAL RULES - " + r.provisional));
     head.appendChild(el("div", "pk-meta", r.advisor));
     for (const t of r.dropped || []) head.appendChild(el("div", "pk-meta pk-msg-bad", t));
     for (const t of r.unknown || []) head.appendChild(el("div", "pk-meta pk-msg-bad", t));
@@ -2913,7 +2922,7 @@ function drawRulesTab(body, o) {
   const call = o.call;
   function el(tag, cls, text) { const n = doc.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = String(text); return n; }
   function btn(label, cls, onClick) { const b = el("button", "pk-btn " + (cls || ""), label); b.type = "button"; b.addEventListener("click", onClick); return b; }
-  body.append(el("h2", "pk-h", "Packing rules"), el("p", "pk-note", "The planner follows these. The starting set comes from your examples and is provisional - delete any you do not want. Rules Claude proposes from your rejection notes land here after you confirm."));
+  body.append(el("h2", "pk-h", "Packing rules"), el("p", "pk-note", "The planner follows these. The starting set is the one you confirmed on 10/28 - delete any you do not want. Rules Claude proposes from your rejection notes land here after you confirm."));
   const msg = el("div", "pk-msg");
   const list = el("div", "pk-list");
   body.append(msg, list);
@@ -2925,7 +2934,7 @@ function drawRulesTab(body, o) {
     for (const x of r.rules) {
       const row = el("div", "pk-rule");
       const w = el("div", "pk-batch-words");
-      w.append(el("div", "pk-batch-name", x.text), el("div", "pk-meta", `${x.scope} · ${x.provisional ? "provisional starting rule" : x.source === "claude" ? "suggested by Claude, you confirmed" : "yours"}`));
+      w.append(el("div", "pk-batch-name", x.text), el("div", "pk-meta", `${x.scope} · ${x.start ? "yours - the starting set you confirmed" : x.source === "claude" ? "suggested by Claude, you confirmed" : "yours"}`));
       const del = btn("Delete", "pk-quiet", async () => {
         del.disabled = true;
         const y = await call("packingRuleDelete", { id: x.id });
@@ -3185,7 +3194,7 @@ function drawProductForm(body, o) {
   const up = el("input"); up.type = "checkbox"; up.checked = m.thisWayUp;
   const upLab = el("label", "pk-check"); upLab.append(up, doc.createTextNode(" This way up"));
   const upHint = el("span", "pk-hint");
-  function showFrag() { if (frag.value === "very") { up.checked = true; up.disabled = true; upHint.textContent = " (always, for very fragile)"; } else { up.disabled = false; upHint.textContent = ""; } }
+  function showFrag() { up.disabled = false; upHint.textContent = ""; } // v2.0.118 (B-1603): Very Fragile no longer forces This Way Up
   frag.addEventListener("change", showFrag);
   showFrag();
   upLab.appendChild(upHint);
