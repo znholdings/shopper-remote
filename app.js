@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.118";
+const APP_BUILD = "v2.0.119";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -667,6 +667,8 @@ function renderPayload() {
       dictate: self.ShopperBoxOutbox ? self.ShopperBoxOutbox.dictateFor("phone-ship") : null,
     });
   }
+  // v2.0.119 (B-1606): a packing plan being made -> the open Plan tab's progress bar.
+  if (self.ShopperPackingView && typeof self.ShopperPackingView.pushProgress === "function") self.ShopperPackingView.pushProgress(p.packingProgress || null);
   // B-765 (v2.0.8): the Cash tab.
   if (self.ShopperCashFlowView) self.ShopperCashFlowView.render(p.cashFlow);
   // B-1058 / B-1059 (v2.0.53): Claude's box on the FBA and Cash tabs (remote/claude-screens.js).

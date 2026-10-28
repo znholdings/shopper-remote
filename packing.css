@@ -75,6 +75,9 @@
 .pk-item { display: flex; gap: 8px; align-items: baseline; min-width: 0; font-size: 14px; border-bottom: 1px solid var(--s-line); padding: 3px 0; }
 .pk-item-n { flex: none; min-width: 44px; font-weight: 700; text-align: right; }
 .pk-item-t { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.pk-item-t { display: flex; flex-direction: column; gap: 1px; }
+.pk-item-name { overflow-wrap: anywhere; }
+.pk-item-id { font-size: 12px; color: var(--s-text-muted); overflow-wrap: anywhere; }
 .pk-item-l { flex: none; font-size: 12px; color: var(--s-text-muted); }
 .pk-callouts { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.4; overflow-wrap: anywhere; }
 .pk-callouts li { margin: 2px 0; }
@@ -136,6 +139,22 @@ body.pk-open { overflow: hidden; }
 .pk-realw .pk-in { max-width: 100%; box-sizing: border-box; }
 :root[data-theme="retro"] .pk-rcrow { border-bottom: 2px solid var(--s-n7); }
 :root[data-theme="retro"] .pk-rc-needs { border-left-width: 8px; }
+
+/* B-1606 (v2.0.119): the progress bar of a plan being made (lib/packing-plan-view.js) */
+.pk-prog-host { min-width: 0; max-width: 100%; }
+.pk-prog { display: flex; flex-direction: column; gap: 6px; min-width: 0; max-width: 100%; margin: 4px 0 10px; padding: 10px 12px; border: 1px solid var(--s-line); background: var(--s-surface); border-radius: var(--s-r-sm, 6px); }
+.pk-prog-t { font-weight: 700; font-size: 14px; }
+.pk-prog-bar { height: 14px; border: 1px solid var(--s-line); background: var(--s-surface-2, var(--s-bg)); border-radius: 7px; overflow: hidden; }
+.pk-prog-fill { height: 100%; background: var(--s-accent, #3b5bdb); transition: width 0.5s ease; }
+.pk-prog-s { font-size: 13px; overflow-wrap: anywhere; color: var(--s-text-muted); }
+.pk-prog-n { font-size: 13px; overflow-wrap: anywhere; color: var(--s-red-ink, #7a1a2b); }
+.pk-prog-done .pk-prog-fill { background: var(--s-green, #2f9e44); }
+.pk-prog-failed .pk-prog-fill { background: var(--s-red, #c92a2a); }
+:root[data-theme="retro"] .pk-prog { border: 2px solid var(--s-n7); border-radius: 0; box-shadow: 3px 3px 0 var(--s-n7); }
+:root[data-theme="retro"] .pk-prog-bar { border: 2px solid var(--s-n7); border-radius: 0; height: 18px; }
+:root[data-theme="retro"] .pk-prog-fill { background: var(--s-accent, #3b5bdb); }
+:root[data-theme="retro"] .pk-prog-s { font-size: 13px !important; }
+@media (prefers-reduced-motion: reduce) { .pk-prog-fill { transition: none; } }
 
 /* B-1566 (v2.0.114): Copy to ASIN (lib/packing-copy-view.js) */
 .pk-copy { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--s-line); min-width: 0; }

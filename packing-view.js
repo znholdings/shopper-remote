@@ -22,6 +22,12 @@
     return n;
   }
   const mp = () => root.ShopperManualPrint || null;
+  // v2.0.119 (B-1606): the progress of a plan being made arrives in the state the app already polls (projection field packingProgress);
+  // app.js hands it to pushProgress and the open Plan tab draws it. (The relay runs one command at a time, so a "progress" command could not answer mid-plan.)
+  const feed = new Set();
+  let lastProgress = null;
+  function progressFeed(fn) { feed.add(fn); if (lastProgress) { try { fn(lastProgress); } catch (e) { /* a screen that is gone */ } } return () => { feed.delete(fn); }; }
+  function pushProgress(p) { lastProgress = p && typeof p === "object" ? p : null; for (const fn of [...feed]) { try { fn(lastProgress); } catch (e) { feed.delete(fn); } } }
 
   // name, payload -> the laptop's answer object; throws Error(plain words) when there is none.
   async function api(name, payload) {
@@ -83,7 +89,7 @@
     const P = root.ShopperPacking;
     if (!P || typeof P.mountPackingUi !== "function") return;
     const host = openSheet("Packing data");
-    P.mountPackingUi(host, { api, surface: "phone", canSeed: true });
+    P.mountPackingUi(host, { api, surface: "phone", canSeed: true, progressFeed });
   }
 
   // B-1512 (v2.0.106): the Inventory row's "Packing" button - the one-product form (lib/packing-product-form.js) for that ASIN.
@@ -125,6 +131,6 @@
     const t = typeof document !== "undefined" && document.getElementById ? document.getElementById("tabPacking") : null;
     if (t && !t.__pk) { t.__pk = true; t.addEventListener("click", open); }
   }
-  root.ShopperPackingView = Object.freeze({ open, openProduct, close, mount, api, _current: () => cur });
+  root.ShopperPackingView = Object.freeze({ open, openProduct, close, mount, api, pushProgress, _current: () => cur });
   if (typeof document !== "undefined" && document.getElementById) { mount(document.getElementById("packingHost")); wireMenu(); }
 })(typeof self !== "undefined" ? self : globalThis);
