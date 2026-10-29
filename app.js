@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.119";
+const APP_BUILD = "v2.0.120";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -545,7 +545,7 @@ function laptopStaleness(updatedAtIso, nowMs) {
   const m = Math.round((nowMs - t) / 60000);
   const h = Math.round(m / 60);
   const ago = m < 60 ? m + " min ago" : h < 48 ? h + " h ago" : Math.round(h / 24) + " days ago";
-  return "Laptop not heard from since " + when + " (" + ago + ") - what you see is its last update.";
+  return (deviceName || "The computer") + " has not published since " + when + " (" + ago + ") - it reconnects by itself (B-1642); what you see is its last update.";
 }
 
 // The banner Zach asked for: "running" and "go to the machine" must never
@@ -636,7 +636,7 @@ function renderPayload() {
   // isBeingEdited() for the full reasoning.
   if (!isBeingEdited(els.lines)) renderLines(p.lines || [], p.lineCount || 0, p.truncated, p.progress);
   // B-1173 (v2.0.64): the newest buy-tab snapshot on each line (or the "Snapshots off" hint).
-  if (self.ShopperBuyShotsPhone) self.ShopperBuyShotsPhone.render(p);
+  if (self.ShopperBuyShotsPhone) { self.ShopperBuyShotsPhone.render(p, bsDeps()); bsAgeStart(); }
   // P-51: entries arrive pre-formatted as strings now (they were objects,
   // which join() turned into "[object Object]" for the whole log).
   els.log.textContent = (p.log || []).join("\n");
@@ -818,7 +818,7 @@ function setDensity(next) {
   // has to invalidate it by hand or the list would not re-render at all.
   lastRenderedLinesFp = undefined;
   if (lastPayload) renderLines(lastPayload.lines || [], lastPayload.lineCount || 0, lastPayload.truncated);
-  if (lastPayload && self.ShopperBuyShotsPhone) self.ShopperBuyShotsPhone.render(lastPayload); // B-1173
+  if (lastPayload && self.ShopperBuyShotsPhone) self.ShopperBuyShotsPhone.render(lastPayload, bsDeps()); // B-1173
 }
 
 function renderDensityButtons() {
@@ -2487,6 +2487,18 @@ function rcLivePaint() {
   els.invLiveSync.textContent = words && extra ? words + " \u00b7 " + extra : (words || extra);
 }
 let rcLiveTimer = null;
+// B-1642: the buy-tab pictures' age words (computer quiet / "Last picture - N min ago") recount every 5 s.
+function bsDeps() {
+  const stale = !!laptopStaleness(lastUpdatedAt, Date.now());
+  const t = Date.parse(lastUpdatedAt || "");
+  return { stale, deviceName, staleMin: Number.isFinite(t) ? Math.max(1, Math.round((Date.now() - t) / 60000)) : 0 };
+}
+let bsAgeTimer = null;
+function bsAgeStart() {
+  if (!bsAgeTimer && typeof setInterval === "function") {
+    bsAgeTimer = setInterval(() => { if (lastPayload && self.ShopperBuyShotsPhone && !document.hidden) self.ShopperBuyShotsPhone.render(lastPayload, bsDeps()); }, 5000);
+  }
+}
 function rcSyncApply(inv) {
   rcLive = (inv && inv.liveSync) || rcLive;
   rcLivePaint();
@@ -3227,7 +3239,8 @@ function renderDashboard(d, p) {
     now: Date.now(),
   };
   lastGlInput = glInput;
-  const allRows = G.buildDoNext(glInput);
+  // B-1632 (v2.0.120): a row whose every item he snoozed / dismissed (on the laptop) is not listed (until the PWA push, the phone shows it).
+  const allRows = G.rowsWithoutSnoozed ? G.rowsWithoutSnoozed(G.buildDoNext(glInput), ex.snoozed || []) : G.buildDoNext(glInput);
   // B-1257 (v2.0.73): The Daily (remote/daily-view.js) - a step ignored there
   // (on this phone or the laptop) is off Do next until its time is up.
   const DV = self.ShopperDailyView;

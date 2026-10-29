@@ -63,12 +63,27 @@
     const c = cache.get(path);
     return !c || c.exp - RESIGN_BEFORE_MS <= nowMs;
   }
-  function caption(e) {
-    const kind = KIND_LABELS[e && e.kind] || "Snapshot";
+  // B-1642: a picture older than a minute says so ("Last picture - 7 min ago"), and when the
+  // computer has not published for a while says that too - never a live-looking time.
+  function caption(e, deps) {
+    let kind = KIND_LABELS[e && e.kind] || "Snapshot";
     const at = Number(e && e.at);
     if (!at) return kind;
     const d = new Date(at);
-    return kind + " · " + d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" });
+    const nowMs = deps && deps.now != null ? Number(deps.now) : Date.now();
+    const age = nowMs - at;
+    let text;
+    if (age > 60000) {
+      const m = Math.max(1, Math.round(age / 60000));
+      const ago = m < 60 ? m + " min ago" : Math.round(m / 60) + " h ago";
+      text = "Last picture · " + ago;
+    } else {
+      text = kind + " · " + d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" });
+    }
+    if (deps && deps.stale) {
+      text += " - no update for " + (deps.staleMin || Math.max(1, Math.round(age / 60000))) + " min, waiting for " + (deps.deviceName || "the computer") + " to reconnect";
+    }
+    return text;
   }
 
   // ------------------------------------------------------------ signing
@@ -181,7 +196,7 @@
     const cellularBlocked = !!(bs && bs.wifiOnly && onCellular(nav));
     if (hint) {
       if (hasRun && mode === "off") {
-        hint.textContent = "Snapshots off - turn them on in the laptop's Settings → Phone Remote.";
+        hint.textContent = "Snapshots off - turn them on in Settings → Phone Remote on either computer (one shared setting).";
         hint.hidden = false;
       } else if (hasRun && cellularBlocked) {
         hint.textContent = "Snapshots paused on cellular (Wi-Fi only).";
@@ -232,7 +247,7 @@
         btn.setAttribute("data-path", e.path);
         btn.querySelector("img").src = url;
       }
-      const text = caption(e);
+      const text = caption(e, { now: nowMs, stale: deps.stale, staleMin: deps.staleMin, deviceName: deps.deviceName });
       btn.setAttribute("data-url", url);
       btn.setAttribute("data-cap", text);
       btn.querySelector(".bs-cap").textContent = text;

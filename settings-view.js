@@ -68,7 +68,7 @@
     const out = [];
     for (const r of res.json) {
       const v = r && r.payload && r.payload.value;
-      if (v && v.id) out.push({ id: String(v.id), name: String(v.name || "computer"), role: v.role === "viewer" ? "viewer" : "main", seenAt: Number(v.seenAt) || 0, settingsV: Number(v.settingsV) || 0, settingsAt: Number(v.settingsAt) || 0 });
+      if (v && v.id) out.push({ id: String(v.id), name: String(v.name || "computer"), role: v.role === "viewer" ? "viewer" : "main", seenAt: Number(v.seenAt) || 0, settingsV: Number(v.settingsV) || 0, settingsAt: Number(v.settingsAt) || 0, settingsFps: isObj(v.settingsFps) ? v.settingsFps : null });
     }
     out.sort((a, b) => (a.name < b.name ? -1 : 1));
     return out;
@@ -92,6 +92,16 @@
       const silent = now - c.seenAt >= STALE_MS;
       return `${c.name}: ${SPEC.settingsSyncWords({ settingsV: c.settingsV, settingsAt: c.settingsAt, seenAt: c.seenAt, silent, isMe: false }, rowV, now).replace(/^Settings: /, "")}`;
     });
+  }
+  // B-1641: how many shared settings hold a different value on the two computers right now (their heartbeat fingerprints), null = not known.
+  function differCount() {
+    const now = Date.now();
+    const live = computers.filter((c) => c.settingsFps && now - c.seenAt < STALE_MS);
+    if (live.length < 2) return null;
+    const a = live[0].settingsFps, b = live[1].settingsFps;
+    let n = 0;
+    for (const k of new Set([...Object.keys(a), ...Object.keys(b)])) if (a[k] !== b[k]) n++;
+    return n;
   }
   function waitingFor() {
     if (!sent || !row) return [];
@@ -202,7 +212,8 @@
     if (!host) return;
     const waiting = waitingFor();
     const lines = syncLines();
-    const sig = JSON.stringify([row && row.v, row && row.entries, lines, waiting, status, Object.keys(notes).map((k) => notes[k].text)]);
+    const differ = differCount();
+    const sig = JSON.stringify([row && row.v, row && row.entries, lines, differ, waiting, status, Object.keys(notes).map((k) => notes[k].text)]);
     if (!force && sig === drawnSig) return;
     // Never redraw under a finger: a focused control keeps the screen until it is released.
     const ae = document.activeElement;
@@ -216,6 +227,8 @@
     else if (sent) sync.appendChild(el("p", "stg-ok", "Saved - every computer has it"));
     for (const l of lines) sync.appendChild(el("p", "small stg-line", l));
     if (!lines.length) sync.appendChild(el("p", "muted small", "No computer has reported in yet."));
+    if (differ === 0) sync.appendChild(el("p", "stg-ok small", "All shared settings match on both computers."));
+    else if (differ > 0) sync.appendChild(el("p", "stg-wait small", `${differ} setting${differ === 1 ? "" : "s"} differ between the computers - Settings → Data & logs → This computer lists them.`));
     host.appendChild(sync);
     if (row && !row.exists) host.appendChild(el("p", "muted small", "Not shared yet - open Shopper on a computer and give it a minute."));
     for (const [gid, glabel] of SPEC.SETTINGS_GROUPS) {

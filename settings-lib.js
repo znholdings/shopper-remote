@@ -87,7 +87,9 @@ const SHARED_SETTINGS_SPEC = Object.freeze([
   // ---- Appearance / misc -------------------------------------------------
   S({ key: "shopperTheme", group: "appearance", label: "Computers' theme", kind: "enum", options: [["light", "Light"], ["dark", "Dark"], ["retro", "Retro"]], phone: true }),
   S({ key: "shopperBuyShots", group: "appearance", label: "Buy snapshots", kind: "object", phone: [
-    { path: "mode", label: "Snapshot mode", kind: "enum", options: [["off", "Off"], ["failures", "Failures"], ["all", "All"]] },
+    // B-1641: the modes lib/buy-shots.js really has (the old Failures/All stored {mode:"all"} = OFF).
+    { path: "mode", label: "Snapshot mode", kind: "enum", options: [["off", "Off"], ["key", "Key points"], ["every10", "Every 10 seconds"], ["every5", "Every 5 seconds"], ["every3", "Every 3 seconds"]] },
+    { path: "wifiOnly", label: "Wi-Fi only on the phone", kind: "bool" },
   ] }),
   S({ key: "shopperClaudeRecoveryEnabled", group: "appearance", label: "Claude recovery", kind: "bool", phone: true }),
   // B-1577 (v2.0.115): the Catalog table's widths, picked columns, filters and sort - one set for both computers (last save wins whole). Not on the phone.
@@ -99,11 +101,13 @@ const SHARED_SETTINGS_SPEC = Object.freeze([
   X({ key: "shopperSpApiClientSecret", group: "secrets", label: "SP-API client secret", kind: "any" }),
   X({ key: "shopperSpApiRefreshToken", group: "secrets", label: "SP-API refresh token", kind: "any" }),
   X({ key: "shopperFedexApiCreds", group: "secrets", label: "FedEx API", kind: "any" }),
+  X({ key: "shopperUpsApiCreds", group: "secrets", label: "UPS API", kind: "any" }),
   X({ key: "shopperRpCreds", group: "secrets", label: "Replen Pulse sign-in", kind: "any" }),
   X({ key: "shopperPetsmartCreds", group: "secrets", label: "PetSmart sign-in", kind: "any" }),
   X({ key: "shopperWalmartApiCreds", group: "secrets", label: "Walmart API", kind: "any" }),
   X({ key: "shopperOpenAiKey", group: "secrets", label: "OpenAI key", kind: "any" }),
   X({ key: "shopperGeminiKey", group: "secrets", label: "Gemini key", kind: "any" }),
+  X({ key: "shopperRemoteSignIn", group: "secrets", label: "Supabase sign-in (email + password)", kind: "any" }), // B-1642
 ]);
 
 const SETTINGS_GROUPS = Object.freeze([
