@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.120";
+const APP_BUILD = "v2.0.121";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -3269,7 +3269,8 @@ function renderDashboard(d, p) {
   if (key === lastDashboardKey) return;
   lastDashboardKey = key;
   for (const k of ["dashTiles", "dashDoNext"]) els[k].textContent = "";
-  const dashAsOfText = "Figures from the laptop's last Dashboard refresh, " + dashAgoMs(d.remoteBuiltAt) + "." +
+  const nyLine = ex.needsYou && ex.needsYou.at && ex.needsYou.counts ? " " + ex.needsYou.counts.total + (ex.needsYou.counts.total === 1 ? " thing needs" : " things need") + " you (Optiplex, " + dashAgoMs(ex.needsYou.at) + ")." : ""; // B-1653
+  const dashAsOfText = "Figures from the laptop's last Dashboard refresh, " + dashAgoMs(d.remoteBuiltAt) + "." + nyLine +
     (d.stale ? " Refresh on the laptop for live figures." : "") + " Read-only.";
   // B-1088 (v2.0.55): one "Updated N min ago" line (stale figures still say so); the sentence behind its ⓘ.
   if (self.ShopperUpdated) self.ShopperUpdated.set(els.dashAsOf, { at: d.remoteBuiltAt, warn: d.stale ? "refresh on the laptop" : "", detail: dashAsOfText });

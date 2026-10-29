@@ -1905,12 +1905,12 @@ const DAILY_ITEM_HOUR = 6; // Central: The Daily item shows from 6 AM until the 
 
 // The sidebar's groups (B-1631 reads these names).
 const NEEDS_GROUPS = Object.freeze(["today", "buy", "receive", "sell", "money", "settings"]);
-const NEEDS_NEW_TYPES = Object.freeze(["overdueOrder", "booksNeeds", "bankLow", "daily"]);
+const NEEDS_NEW_TYPES = Object.freeze(["overdueOrder", "booksNeeds", "bankLow", "daily", "listingIssue"]);
 const TYPE_GROUP = Object.freeze({
   daily: "today", urgent: "today", checks: "today",
   owed: "buy", rpsbHand: "buy", runReviews: "buy",
   needsYou: "receive", overdueOrder: "receive", arrivals: "receive", batchOffer: "receive", shipment: "receive",
-  belowMin: "sell", pricingErrors: "sell", voc: "sell", health: "sell", fba: "sell", aged: "sell", stranded: "sell", cogs: "sell",
+  belowMin: "sell", pricingErrors: "sell", voc: "sell", health: "sell", fba: "sell", aged: "sell", stranded: "sell", cogs: "sell", listingIssue: "sell",
   booksNeeds: "money", bankLow: "money", taxDates: "money", tax1099: "money", ownerDraw: "money",
 });
 // Rows whose count is UNITS (the item's own count adds up).
@@ -1991,6 +1991,16 @@ function booksNeedsItem(glance, now = Date.now()) {
   return mk("booksNeeds", `count:${n}`, {
     severity: "medium", title: `${plural(n, "Books line")} waiting on you`, text: `Books lines that need a category or an answer${age != null ? ` (as of ${age <= 0 ? "under an hour" : age + " h"} ago)` : ""}.`,
     count: n, target: "books", rowTitle: "Books",
+  });
+}
+
+// B-1655: listings Amazon flags with a NON-pricing ERROR (lib/listing-other-issues.js loiGlance). One item per SKU.
+function listingIssueItems(glance, now = Date.now()) {
+  const g = glance && glance.known ? glance : null;
+  if (!g) return [];
+  return (g.items || []).filter((l) => l && l.sku).map((l) => {
+    const why = str((l.codes && l.codes[0]) || l.message).slice(0, 80) || "an Amazon error";
+    return mk("listingIssue", l.sku, { severity: "high", title: `${str(l.title || l.asin || l.sku).slice(0, 100)} - deactivated: ${why}`, text: str(l.message || "Amazon reports an error on this listing."), count: 1, target: "belowmin", rowTitle: "Deactivated listings" });
   });
 }
 
@@ -2154,6 +2164,7 @@ const NOUN = Object.freeze({
   aged: ["unit paying (or about to pay) the aged-inventory fee", "units paying (or about to pay) the aged-inventory fee"],
   stranded: ["unit stranded at Amazon", "units stranded at Amazon"],
   cogs: ["product with a Sellerboard cost to fix", "products with a Sellerboard cost to fix"],
+  listingIssue: ["listing deactivated for another reason", "listings deactivated for another reason"],
   checks: ["background check needs a look", "background checks need a look"],
   taxDates: ["tax date in the next 30 days", "tax dates in the next 30 days"],
   tax1099: ["contractor paid $600 or more", "contractors paid $600 or more"],
@@ -2204,6 +2215,11 @@ function extraRowsFor(items) {
   if (o.length) {
     const t = `${plural(o.length, "order")} overdue`;
     out.push({ id: "overdueOrder", severity: "high", title: t, short: t, detail: o.slice(0, 3).map((i) => i.title).join(" · ") + (o.length > 3 ? ` · +${o.length - 3} more` : ""), lines: o.map((i) => ({ id: i.key, text: i.title })), go: { label: "Pipeline", target: "arrivals" }, count: o.length, itemIds: o.map((i) => i.id) });
+  }
+  const li = by("listingIssue");
+  if (li.length) {
+    const t = `${plural(li.length, "listing")} deactivated for another reason`;
+    out.push({ id: "listingIssues", severity: "high", title: t, short: t, detail: li.slice(0, 3).map((i) => i.title).join(" · ") + (li.length > 3 ? ` · +${li.length - 3} more` : ""), lines: li.map((i) => ({ id: i.key, text: i.title })), go: { label: "Pricing", target: "belowmin" }, count: li.length, itemIds: li.map((i) => i.id) });
   }
   const k = by("booksNeeds")[0];
   if (k) out.push({ id: "booksNeeds", severity: k.severity, title: k.title, short: k.title, detail: k.text, go: { label: "Books", target: "books" }, count: k.count, itemIds: [k.id] });
@@ -2294,7 +2310,7 @@ function needsYouCounts(items, now = Date.now()) {
 
 // The order Do next ranks its rows in, extended with the four new kinds (for tests / docs).
 const NEEDS_YOU_TYPES = Object.freeze([...DO_NEXT_ORDER, ...NEEDS_NEW_TYPES]);
-__m["needs-you-inbox.js"] = { NEEDS_YOU_SNOOZE_KEY, NEEDS_YOU_SNOOZE_MAX, NEEDS_YOU_ABSENT_MS, NEEDS_YOU_DETAIL_MAX, DAILY_ITEM_HOUR, NEEDS_GROUPS, NEEDS_NEW_TYPES, TYPE_GROUP, itemId, pipelineNeedItems, booksNeedsItem, bankLowItem, dailyItem, explodeRows, snoozeEntry, snoozeActive, snoozeWords, applySnoozes, pruneSnoozes, activeSnoozedIds, rowsFromItems, extraRowsFor, dailyRowsFromInbox, mergeExtraRows, attachDetail, rowsWithoutSnoozed, needsYouCounts, NEEDS_YOU_TYPES };
+__m["needs-you-inbox.js"] = { NEEDS_YOU_SNOOZE_KEY, NEEDS_YOU_SNOOZE_MAX, NEEDS_YOU_ABSENT_MS, NEEDS_YOU_DETAIL_MAX, DAILY_ITEM_HOUR, NEEDS_GROUPS, NEEDS_NEW_TYPES, TYPE_GROUP, itemId, pipelineNeedItems, booksNeedsItem, listingIssueItems, bankLowItem, dailyItem, explodeRows, snoozeEntry, snoozeActive, snoozeWords, applySnoozes, pruneSnoozes, activeSnoozedIds, rowsFromItems, extraRowsFor, dailyRowsFromInbox, mergeExtraRows, attachDetail, rowsWithoutSnoozed, needsYouCounts, NEEDS_YOU_TYPES };
 })();
 root.ShopperGlance = Object.freeze(Object.assign({}, ...Object.values(__m)));
 })(self);

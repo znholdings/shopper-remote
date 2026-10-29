@@ -185,6 +185,16 @@
     for (const n of doc.querySelectorAll("#lines .bs-shot")) n.remove();
   }
 
+  // B-1641: the newest skip is under 2 min old and no picture is newer than it.
+  function freshSkip(bs, deps) {
+    const sk = bs && bs.skip;
+    if (!sk || !sk.at) return false;
+    const nowMs = deps && deps.now ? deps.now() : Date.now();
+    if (nowMs - sk.at > 120000) return false;
+    for (const id of Object.keys((bs && bs.lines) || {})) if (Number(bs.lines[id].at) >= sk.at) return false;
+    return true;
+  }
+
   function render(p, deps = {}) {
     const doc = deps.doc || document;
     const nav = deps.nav || (typeof navigator !== "undefined" ? navigator : null);
@@ -197,6 +207,9 @@
     if (hint) {
       if (hasRun && mode === "off") {
         hint.textContent = "Snapshots off - turn them on in Settings → Phone Remote on either computer (one shared setting).";
+        hint.hidden = false;
+      } else if (hasRun && mode !== "off" && freshSkip(bs, deps)) {
+        hint.textContent = "No fresh picture: " + bs.skip.why + " on " + (deps.deviceName || "the computer") + " - bring the buy tab to the front there.";
         hint.hidden = false;
       } else if (hasRun && cellularBlocked) {
         hint.textContent = "Snapshots paused on cellular (Wi-Fi only).";
