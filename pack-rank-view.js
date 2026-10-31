@@ -67,6 +67,9 @@
     const vars = new Map((q.variations || []).map((v) => [v.key, v]));
     const wrap = el("div", "prp");
     if (q.amazonTitle) wrap.appendChild(el("p", "prp-product", "Amazon: " + q.amazonTitle));
+    if (q.walmartTitle) wrap.appendChild(el("p", "prp-product", "Walmart: " + q.walmartTitle));
+    if (q.titleDoubt) wrap.appendChild(el("p", "prp-doubt", q.titleDoubt));
+    if (q.landedNote) wrap.appendChild(el("p", "prp-doubt", q.landedNote));
     wrap.appendChild(el("p", "prp-help", "Drag (or ▲▼) into buying order. Pieces = Amazon units in ONE Walmart checkout unit (4/3 is fine). One pack per Walmart order."));
     const list = el("ol", "prp-list");
     wrap.appendChild(list);
