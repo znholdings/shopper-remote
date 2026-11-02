@@ -24,6 +24,7 @@
   let i = 0;
   let steps = null; // this run's step list (fixed while open)
   let doneToday = [];
+  let autoReviewed = []; // B-1694 #32: reviewed before, nothing new since
   const session = new Map(); // step id -> "reviewed" | "done" | "ignored"
   const showAll = new Set();
   const shown = new Map(); // B-1271: step id -> how many listings are on screen ("Show N more")
@@ -98,6 +99,7 @@
     const m = G.buildDailySteps(ctx.rows, effectiveState(), Date.now(), { fresh: (ctx.daily && ctx.daily.fresh) || {}, listings: (ctx.daily && ctx.daily.lists) || {} });
     steps = m.steps;
     doneToday = m.doneToday;
+    autoReviewed = m.autoReviewed || [];
     session.clear();
     showAll.clear();
     shown.clear();
@@ -247,7 +249,7 @@
     const c = { reviewed: 0, done: 0, ignored: 0 };
     for (const v of session.values()) c[v]++;
     const left = steps.filter((s) => !session.has(s.id)).length;
-    wrap.appendChild(node("p", null, c.reviewed + " reviewed · " + c.done + " done for today · " + c.ignored + " ignored" + (left ? " · " + left + " not looked at yet" : "") + "."));
+    wrap.appendChild(node("p", null, c.reviewed + " reviewed · " + c.done + " done for today · " + c.ignored + " ignored" + (left ? " · " + left + " not looked at yet" : "") + (autoReviewed.length ? " · " + autoReviewed.length + " skipped (nothing new)" : "") + "."));
     if (doneToday.length) {
       wrap.appendChild(node("b", "dy-sum-head", "Done for today earlier"));
       for (const s of doneToday) {
@@ -256,6 +258,19 @@
         li.appendChild(button("Review again", "linkish", () => {
           send({ action: "undone", step: s.id });
           doneToday = doneToday.filter((x) => x.id !== s.id);
+          steps.push(s);
+          draw();
+        }));
+        wrap.appendChild(li);
+      }
+    }
+    if (autoReviewed.length) {
+      wrap.appendChild(node("b", "dy-sum-head", "Skipped - nothing new since you last looked"));
+      for (const s of autoReviewed) {
+        const li = node("div", "dy-sum-item");
+        li.appendChild(node("span", null, s.label + " - " + s.autoWhy));
+        li.appendChild(button("Look anyway", "linkish", () => {
+          autoReviewed = autoReviewed.filter((x) => x.id !== s.id);
           steps.push(s);
           draw();
         }));

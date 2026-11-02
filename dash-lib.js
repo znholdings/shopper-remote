@@ -1250,12 +1250,13 @@ function dailyRowProducts(r, items, listings) {
 // opts.listings = { [step]: [{ key, text, asin, title }] } (the laptop's full
 // lists; default = the row's own lines); opts.fresh = { [step]: { keys, count } }
 // (the phone: the laptop worked out which listings are new).
-// -> { steps: [{ id, label, kind, row?, items?, freshItems?, freshCount?, allCount?, reviewedAt? }], doneToday: [...], hidden: [...] }
+// -> { steps: [{ id, label, kind, row?, items?, freshItems?, freshCount?, allCount?, reviewedAt? }], doneToday: [...], autoReviewed: [...], hidden: [...] }
 function buildDailySteps(rows, state, now, opts = {}) {
   const st = normalizeDailyState(state);
   const o = opts || {};
   const steps = [];
   const doneToday = [];
+  const autoReviewed = [];
   const hidden = [];
   if (isDailyIgnored(st, "overview", now)) hidden.push({ id: "overview", label: dailyStepLabel("overview") });
   else steps.push({ id: "overview", label: dailyStepLabel("overview"), kind: "overview", reviewedAt: (st.steps.overview || {}).reviewedAt || null });
@@ -1276,9 +1277,16 @@ function buildDailySteps(rows, state, now, opts = {}) {
       s.freshCount = f && numOr(f.count) != null ? Math.max(numOr(f.count), s.freshItems.length) : s.freshItems.length;
     }
     if (isDailyDoneToday(st, r.id, now)) doneToday.push(s);
-    else steps.push(s);
+    else if (s.kind === "listing" && s.reviewedAt != null && s.freshCount === 0 && s.allCount > 0) {
+      // B-1694 #32 (v2.0.125): reviewed before and nothing new since = skipped. The
+      // stored state is NOT touched (reviewedAt stays Zach's last look), so a new
+      // listing tomorrow brings the step straight back.
+      s.auto = true;
+      s.autoWhy = `nothing new since ${dailyWhenText(s.reviewedAt)}`;
+      autoReviewed.push(s);
+    } else steps.push(s);
   }
-  return { steps, doneToday, hidden };
+  return { steps, doneToday, autoReviewed, hidden };
 }
 
 // What the laptop sends the phone (lib/remote-dashboard.js shapeDaily trims
@@ -1799,13 +1807,19 @@ function dismissedSet(stored) {
 }
 
 // Adds one id, keeping the newest DISMISSED_CHECKS_MAX. Returns a new object.
-function withDismissal(stored, id, now = Date.now()) {
+// B-1689 (v2.0.125): `why` marks a dismissal Shopper made from the data - stored { at, why, auto:true }
+// (a hand dismissal stays the bare timestamp). Readers that want the time use dismissalAt().
+function dismissalAt(v) {
+  const t = v && typeof v === "object" ? Number(v.at) : Number(v);
+  return Number.isFinite(t) ? t : 0;
+}
+function withDismissal(stored, id, now = Date.now(), why = "") {
   const prev = stored && typeof stored === "object" && stored.ids && typeof stored.ids === "object" ? stored.ids : {};
   if (!id) return { ids: { ...prev } };
-  const ids = { ...prev, [id]: now };
+  const ids = { ...prev, [id]: why ? { at: now, why: String(why).slice(0, 300), auto: true } : now };
   const keys = Object.keys(ids);
   if (keys.length > DISMISSED_CHECKS_MAX) {
-    keys.sort((a, b) => (Number(ids[b]) || 0) - (Number(ids[a]) || 0));
+    keys.sort((a, b) => dismissalAt(ids[b]) - dismissalAt(ids[a]));
     for (const k of keys.slice(DISMISSED_CHECKS_MAX)) delete ids[k];
   }
   return { ids };
@@ -1874,7 +1888,7 @@ function applyDismissals(lists, set) {
     dismissed,
   };
 }
-__m["dismissed-checks.js"] = { DISMISSED_CHECKS_KEY, DISMISSED_CHECKS_MAX, checkIdentity, stayedRowIdentity, dismissedSet, withDismissal, mismatchIdentity, markDismissedMismatches, applyDismissals };
+__m["dismissed-checks.js"] = { DISMISSED_CHECKS_KEY, DISMISSED_CHECKS_MAX, checkIdentity, stayedRowIdentity, dismissedSet, dismissalAt, withDismissal, mismatchIdentity, markDismissedMismatches, applyDismissals };
 })();
 // ---- lib/needs-you-inbox.js ----
 (function () {
