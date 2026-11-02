@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.125";
+const APP_BUILD = "v2.0.126";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -1524,6 +1524,7 @@ function buylistCard(i) {
     statCell("Buy qty", fmtQty(i.qty)) +
     statCell("SB rec", fmtQty(i.sbQty)) +
     statCell("RP rec", fmtQty(i.rpQtyRaw)) +
+    (i.v3Cover != null ? statCell("Cover", fmtQty(i.v3Cover) + "d") : "") + // B-1717 (v2.0.126): Quantity v3 days of cover
     statCell("SB mgn", fmtPct(i.sbMarginPct)) +
     statCell("RP mgn", fmtPct(i.rpMarginPct));
   row.appendChild(stats);
