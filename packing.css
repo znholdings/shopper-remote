@@ -24,6 +24,7 @@
 .pk-meta { font-size: 12px; }
 .pk-msg { font-size: 13px; min-height: 0; overflow-wrap: anywhere; }
 .pk-msg-bad, .pk-err { color: var(--s-red-ink, #7a1a2b); }
+.pk-status-warn { color: var(--s-orange-ink); }
 .pk-msg-ok { color: var(--s-green-ink, #14612d); }
 .pk-msg-list { margin: 2px 0 0; padding-left: 18px; }
 .pk-msg-more { list-style: none; margin-left: -18px; color: var(--s-text-muted, #5b6270); }
@@ -168,3 +169,13 @@ body.pk-open { overflow: hidden; }
 .pk-copy-warn { color: var(--s-red-ink, #7a1a2b); }
 .pk-copy-go { align-self: flex-start; white-space: normal; text-align: left; margin-top: 6px; }
 .pk-copy-preview { display: flex; flex-direction: column; min-width: 0; }
+/* B-1754 (v2.0.130): box head opens the contents; Approve + "..." on the card; plan details fold. */
+.pk-box > .pk-headrow.pk-box-head { flex-wrap: nowrap; align-items: flex-start; cursor: pointer; border-radius: 8px; }
+.pk-box > .pk-box-head:focus-visible { outline: 2px solid var(--s-accent, #3b5bdb); outline-offset: 2px; }
+.pk-box .pk-hold { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pk-more-toggle { min-width: 36px; font-size: 16px; line-height: 1; }
+.pk-more-toggle[aria-expanded="true"] { background: var(--s-accent-bg, #e8edff); color: var(--s-accent, #3b5bdb); }
+.pk-more { padding-left: 4px; border-left: 2px solid var(--s-line); }
+.pk-danger { color: var(--s-red-ink, #7a1a2b); }
+.pk-plan-details { font-size: 13px; }
+.pk-plan-details > summary { cursor: pointer; font-weight: 700; color: var(--s-text-muted); }

@@ -3113,7 +3113,7 @@ function drawPlanTab(body, o) {
   const call = o.call;
   const drawCache = new Map(); // "<planId>|<boxId>" -> { plan, bp }
   const view = new Map(); // boxId -> "steps" | "side" | "iso"
-  const S = { simp: "", r: null, open: new Set(), reject: new Set(), msg: "", stored: null, pick: null, check: null, edit: new Set(), replanOpen: false, restOpen: false, batchPick: "" };
+  const S = { simp: "", r: null, open: new Set(), reject: new Set(), more: new Set(), replanMenu: false, msg: "", stored: null, pick: null, check: null, edit: new Set(), replanOpen: false, restOpen: false, batchPick: "" };
 
   function el(tag, cls, text) { const n = doc.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = String(text); return n; }
   function clear(n) { while (n.firstChild) n.removeChild(n.firstChild); return n; }
@@ -3380,37 +3380,47 @@ function drawPlanTab(body, o) {
     if (r.packed) head.appendChild(el("div", "pk-meta pk-msg-ok", `${r.packed} box${r.packed === 1 ? " is" : "es are"} packed and locked.`)); // B-1574
     if (r.rest) head.appendChild(el("div", "pk-meta pk-msg-ok", r.rest)); // B-1531
     head.appendChild(el("div", "pk-plan-line", r.headline));
-    if (r.simplicity) head.appendChild(el("div", "pk-meta", "Packing: " + r.simplicity));
-    head.appendChild(el("div", "pk-meta", r.advisor));
-    for (const t of r.dropped || []) head.appendChild(el("div", "pk-meta pk-msg-bad", t));
-    for (const t of r.unknown || []) head.appendChild(el("div", "pk-meta pk-msg-bad", t));
+    // B-1754 (v2.0.130): the long explanation lines fold into "Plan details"; the headline and the proof stay in view.
     head.appendChild(el("div", "pk-meta pk-msg-ok", r.proof));
-    if (r.estimated) head.appendChild(el("div", "pk-meta", r.estimated));
-    if (r.stock) head.appendChild(el("div", "pk-meta pk-msg-bad", r.stock));
-    if (r.lowStock && !o.statusShowsLow) head.appendChild(el("div", "pk-low", r.lowStock)); // B-1553: shown once - the page's status line has it
-    if (r.draft && r.draft.text) head.appendChild(el("div", "pk-meta", r.draft.text));
+    const det = el("details", "pk-plan-details");
+    det.appendChild(el("summary", "", "Plan details"));
+    if (r.simplicity) det.appendChild(el("div", "pk-meta", "Packing: " + r.simplicity));
+    det.appendChild(el("div", "pk-meta", r.advisor));
+    for (const t of r.dropped || []) det.appendChild(el("div", "pk-meta pk-msg-bad", t));
+    for (const t of r.unknown || []) det.appendChild(el("div", "pk-meta pk-msg-bad", t));
+    if (r.estimated) det.appendChild(el("div", "pk-meta", r.estimated));
+    if (r.stock) det.appendChild(el("div", "pk-meta pk-msg-bad", r.stock));
+    if (r.lowStock && !o.statusShowsLow) det.appendChild(el("div", "pk-low", r.lowStock)); // B-1553: shown once - the page's status line has it
+    if (r.draft && r.draft.text) det.appendChild(el("div", "pk-meta", r.draft.text));
+    if (r.cut) det.appendChild(el("div", "pk-meta", "(Some boxes are left off this list to keep it short.)"));
+    if ((r.dropped || []).length || (r.unknown || []).length || r.stock || r.lowStock || (r.draft && r.draft.state === "waiting")) det.open = true;
+    head.appendChild(det);
     const rowMsg = el("div", "pk-msg");
     if (r.draft && r.draft.state === "waiting") head.appendChild(btn("Send to Box contents", "", async () => { const x = await call("packingDraft"); if (x.ok) { S.r = x; S.msg = x.message || ""; render(); } else say(rowMsg, x.error, "bad"); }));
-    if (r.cut) head.appendChild(el("div", "pk-meta", "(Some boxes are left off this list to keep it short.)"));
     into.appendChild(head);
 
     if (r.proposal) into.appendChild(proposalCard(r.proposal));
 
     // B-1573: an "Arriving by" plan has no batch of its own - pick one here (or keep the boxes on the plan and link a batch later)
     const batchSel = r.kind === "arriving" && r.needsBatch ? batchPicker(rowMsg) : null;
-    if (batchSel) into.appendChild(batchSel.card);
     const withBatch = (p) => (batchSel && batchSel.value() ? { ...p, batchId: batchSel.value() } : p);
     const acts = el("div", "pk-tools");
     const allDone = r.boxes.every((b) => b.status === "approved");
     if (!allDone) acts.appendChild(btn(r.noSend ? r.approveLabel : "Approve all boxes", "pk-primary", () => act("packingApprove", withBatch({ boxId: "all" }), rowMsg)));
-    if (!r.packed) { // B-1574: a packed box is locked - the plan as a whole is no longer rejected or planned again, it is re-planned from the remaining
-      acts.appendChild(btn("Reject the plan", "pk-quiet", () => { if (S.reject.has("all")) S.reject.delete("all"); else S.reject.add("all"); render(); }));
-      acts.appendChild(btn("Plan again", "pk-quiet", () => { S.r = null; S.check = null; render(); }));
-    }
-    acts.appendChild(btn("Re-plan remaining", "pk-quiet", () => { S.restOpen = !S.restOpen; render(); }));
-    // B-1547: the same one Claude call (the daily cap applies), with an optional note
-    if (!r.boxes.some((b) => b.status === "approved") || r.packed) acts.appendChild(btn("Re-plan with Claude", "pk-quiet", () => { S.replanOpen = !S.replanOpen; render(); }));
+    // B-1754 (v2.0.130): Approve all stays; Plan again / Re-plan / Reject the plan sit behind "Re-plan".
+    const rt = btn("Re-plan \u25BE", "pk-quiet pk-more-toggle", () => { S.replanMenu = !S.replanMenu; render(); });
+    rt.setAttribute("aria-expanded", S.replanMenu ? "true" : "false");
+    acts.appendChild(rt);
     into.appendChild(acts);
+    if (S.replanMenu) {
+      const menu = el("div", "pk-tools pk-more");
+      if (!r.packed) menu.appendChild(btn("Plan again", "pk-quiet", () => { S.r = null; S.check = null; render(); })); // B-1574: a packed box is locked - the plan as a whole is no longer rejected or planned again, it is re-planned from the remaining
+      menu.appendChild(btn("Re-plan remaining", "pk-quiet", () => { S.restOpen = !S.restOpen; render(); }));
+      // B-1547: the same one Claude call (the daily cap applies), with an optional note
+      if (!r.boxes.some((b) => b.status === "approved") || r.packed) menu.appendChild(btn("Re-plan with Claude", "pk-quiet", () => { S.replanOpen = !S.replanOpen; render(); }));
+      if (!r.packed) menu.appendChild(btn("Reject the plan", "pk-quiet pk-danger", () => { if (S.reject.has("all")) S.reject.delete("all"); else S.reject.add("all"); render(); }));
+      into.appendChild(menu);
+    }
     if (S.restOpen) into.appendChild(replanRestForm(r, rowMsg));
     if (S.replanOpen) into.appendChild(replanForm(rowMsg));
     if (S.reject.has("all")) into.appendChild(rejectForm("all", rowMsg));
@@ -3419,6 +3429,7 @@ function drawPlanTab(body, o) {
     if (r.replay) { const cmp = el("div", "pk-card pk-cmp"); into.appendChild(cmp); drawCompare(cmp); }
 
     for (const b of r.boxes) into.appendChild(boxCard(b, r, rowMsg));
+    if (batchSel) into.appendChild(batchSel.card); // B-1754: after the boxes (value() is read when Approve is pressed)
   }
 
   // B-1573: the batch picker of an "Arriving by" plan. value() = "" means: keep the boxes on the plan, link a batch later.
@@ -3528,20 +3539,37 @@ function drawPlanTab(body, o) {
     const top = el("div", "pk-headrow");
     const words = el("div", "pk-batch-words");
     words.append(el("div", "pk-card-t", `Box ${b.num} · ${b.name}`), el("div", "pk-meta", `${b.size} · ${b.lb} lb · ${b.units} units · ${b.fill}% full`));
-    if (b.hold) words.appendChild(el("div", "pk-meta " + (b.hold.state === "open" ? "pk-msg-bad" : "pk-msg-ok"), b.hold.text));
+    if (b.hold) { const hl = el("div", "pk-meta pk-hold " + (b.hold.state === "open" ? "pk-msg-bad" : "pk-msg-ok"), b.hold.text); hl.title = b.hold.text; words.appendChild(hl); }
     top.append(words, el("div", "pk-badge pk-badge-" + (b.status === "approved" ? "ok" : b.status === "rejected" ? "missing" : "estimated"), b.packed ? "PACKED" : b.status === "approved" ? (r.replay ? "Approved (replay)" : "Approved") : b.status === "rejected" ? "Rejected" : "Proposed"));
+    // B-1754 (v2.0.130): the head opens the contents; Approve stays on the card, the rest sits behind a "..." toggle.
+    const open = S.open.has(b.id);
+    top.classList.add("pk-box-head");
+    top.tabIndex = 0;
+    top.setAttribute("role", "button");
+    top.setAttribute("aria-expanded", open ? "true" : "false");
+    const flipOpen = () => { if (S.open.has(b.id)) S.open.delete(b.id); else S.open.add(b.id); render(); };
+    top.addEventListener("click", flipOpen);
+    top.addEventListener("keydown", (ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); flipOpen(); } });
     card.appendChild(top);
     const acts = el("div", "pk-tools");
-    const open = S.open.has(b.id);
-    acts.appendChild(btn(open ? "Hide" : "Contents and drawings", "", () => { if (open) S.open.delete(b.id); else S.open.add(b.id); render(); }));
     if (b.status !== "approved" && !b.packed) acts.appendChild(btn(r.noSend ? "Approve (nothing sent)" : "Approve", "pk-primary", () => act("packingApprove", { boxId: b.id }, msgBox)));
-    // B-1574: Packed locks the box (Reject, Plan again and every re-plan leave it alone); the weight is saved in the form under "Contents and drawings"
-    if (b.packed) acts.appendChild(btn("Unpack", "pk-quiet", () => act("packingUnpack", { boxId: b.id }, msgBox)));
-    else {
-      acts.appendChild(btn("Packed", "", () => act("packingPacked", { boxId: b.id }, msgBox)));
-      acts.appendChild(btn("Reject box", "pk-quiet", () => { if (S.reject.has(b.id)) S.reject.delete(b.id); else S.reject.add(b.id); render(); }));
-    }
+    const moreOpen = S.more.has(b.id);
+    const mt = btn("...", "pk-quiet pk-more-toggle", () => { if (S.more.has(b.id)) S.more.delete(b.id); else S.more.add(b.id); render(); });
+    mt.setAttribute("aria-label", `More actions for box ${b.num}`);
+    mt.setAttribute("aria-expanded", moreOpen ? "true" : "false");
+    acts.appendChild(mt);
     card.appendChild(acts);
+    if (moreOpen) {
+      const more = el("div", "pk-tools pk-more");
+      more.appendChild(btn(open ? "Hide" : "Contents and drawings", "", flipOpen));
+      // B-1574: Packed locks the box (Reject, Plan again and every re-plan leave it alone); the weight is saved in the form under "Contents and drawings"
+      if (b.packed) more.appendChild(btn("Unpack", "pk-quiet", () => act("packingUnpack", { boxId: b.id }, msgBox)));
+      else {
+        more.appendChild(btn("Packed", "", () => act("packingPacked", { boxId: b.id }, msgBox)));
+        more.appendChild(btn("Reject box", "pk-quiet", () => { if (S.reject.has(b.id)) S.reject.delete(b.id); else S.reject.add(b.id); render(); }));
+      }
+      card.appendChild(more);
+    }
     if (b.packed && !b.real) card.appendChild(el("div", "pk-meta", "Packed, no weight yet - open the box and save the weight on the scale."));
     if (S.reject.has(b.id)) card.appendChild(rejectForm(b.id, msgBox));
     if (open) { const det = el("div", "pk-det"); card.appendChild(det); drawDetails(det, b, r); }
@@ -4113,6 +4141,7 @@ __m["packing-product-form.js"] = { makeFormUi, drawProductForm };
 //     surface: "phone" | "laptop" (saved on every record as enteredOn)
 //     loadPackFile(file) -> Promise<{ok, packList, name, error}>  (laptop: the file route)
 //     modes: subset of the tab ids (live replay plan rules boxes) to show; mode: the tab to start on;
+//     drawBoxes(body, { doc, api, canSeed, onChange }): optional replacement for the Boxes tab (Settings > Shipping draws a table).
 //     batch: { batchId, name } preset (the Ship to Amazon step's batch) - the Shipment tab opens it, Plan sees it.
 //   Returns { refresh }.
 const { drawPlanTab, drawRulesTab } = __m["packing-plan-view.js"];
@@ -4166,8 +4195,9 @@ function mountPackingUi(host, opts) {
     if (r.estimated) parts.push(`${r.estimated} estimated`);
     parts.push(`${r.boxes} box size${r.boxes === 1 ? "" : "s"}`);
     if (r.boxesMissingWeight) parts.push(`${r.boxesMissingWeight} without an empty weight`);
-    status.textContent = parts.join(" · ") + (r.sheetError ? ` · workbook not reachable - from this computer (${r.fromComputer || "the computer that answered"})` : "");
-    status.className = "pk-status" + (r.sheetError ? " pk-msg-bad" : "");
+    status.textContent = parts.join(" · ");
+    status.className = "pk-status";
+    if (r.sheetError) status.appendChild(el("span", "pk-status-warn", ` · workbook not reachable - from this computer (${r.fromComputer || "the computer that answered"})`));
     if (r.lowStock) { const l = el("div", "pk-low", r.lowStock); status.appendChild(l); }
   }
 
@@ -4185,7 +4215,7 @@ function mountPackingUi(host, opts) {
     if (S.mode === "replay") return S.form ? drawForm() : drawReplay();
     if (S.mode === "plan") return drawPlanTab(body, { doc, call, surface, onChange: drawStatus, getBatch: () => S.batch, statusShowsLow: true, progressFeed: o.progressFeed }); // v2.0.113: B-1544 the Shipment tab's batch; B-1553 "Running low" once
     if (S.mode === "rules") return drawRulesTab(body, { doc, call });
-    return drawBoxes();
+    return typeof o.drawBoxes === "function" ? o.drawBoxes(body, { doc, api, canSeed: !!o.canSeed, onChange: drawStatus }) : drawBoxes();
   }
 
   // ------------------------------------------------------------ batch picker

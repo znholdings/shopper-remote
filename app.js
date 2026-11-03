@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.129";
+const APP_BUILD = "v2.0.130";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -3288,7 +3288,9 @@ function renderDashboard(d, p) {
       overdue: arrCounts ? arrCounts.overdue : null,
     },
   }) : null;
-  const rows = dvOut ? dvOut.rows : allRows;
+  // B-1759 (v2.0.130): quiet VoC / Account Health ids leave Do next only; The Daily (above) keeps the full set.
+  const doNextRows0 = dvOut ? dvOut.rows : allRows;
+  const rows = G.rowsWithoutSnoozed && (ex.quietIds || []).length ? G.rowsWithoutSnoozed(doNextRows0, ex.quietIds) : doNextRows0;
   const key = JSON.stringify([tiles, rows.map((r) => [r.id, r.title, r.detail, r.severity, r.go.label, (r.notifs || []).map((n) => n.key)]), d.lastRun, ex.nightly, d.remoteBuiltAt, d.stale, d.spend.bankRecent, ex.bgChecks || null, ex.accountHealth || null, d.resolvedHand || null, ex.voc || null, ex.agedInventory || null]);
   if (key === lastDashboardKey) return;
   lastDashboardKey = key;

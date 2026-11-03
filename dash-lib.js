@@ -318,8 +318,8 @@ function buildDoNext(input = {}) {
   const overdue = num(input.overdue) || 0;
   if (today > 0 || overdue > 0) {
     const bits = [];
-    if (today > 0) bits.push(`${plural(today, "order")} arriving today`);
-    if (overdue > 0) bits.push(`${overdue} overdue`);
+    if (today > 0) bits.push(`${plural(today, "order line")} arriving today`);
+    if (overdue > 0) bits.push(`${plural(overdue, "product")} overdue`);
     add({
       id: "arrivals",
       severity: overdue > 0 ? "high" : "medium",
@@ -1449,8 +1449,8 @@ function dailyOverview(input = {}) {
     id: "arrivals",
     title: "Arrivals",
     rows: [
-      { label: "Arriving today", value: t == null ? NR : `${t} order${t === 1 ? "" : "s"}` },
-      { label: "Overdue", value: od == null ? NR : `${od} order${od === 1 ? "" : "s"}`, dir: od ? "down" : "flat" },
+      { label: "Arriving today", value: t == null ? NR : `${t} order line${t === 1 ? "" : "s"}` },
+      { label: "Overdue", value: od == null ? NR : `${od} product${od === 1 ? "" : "s"}`, dir: od ? "down" : "flat" },
     ],
     note: "",
   });
