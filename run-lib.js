@@ -486,7 +486,7 @@ const STEP_RULES = [
   [/^paused\b|^waiting for you:/, null],
   [/waiting for your approval/, "approve"],
   [/orders placed sheet|logging run to orders placed|updating replen pulse|updating sellerboard|order complete\b|recording /, "record"],
-  [/verifying order #|waiting for order confirmation|confirmation page/, "verify"],
+  [/verifying order #|waiting for order confirmation|confirmation page|looking for the order number/, "verify"],
   [/placing order/, "place"],
   [/checkout|order review page|payment method|sms order updates/, "checkout"],
   [/reopening the product page|opening |required tabs|purchase-history tab|clearing .*cart|checking product page|^order \d+ of \d+/, "open"],
