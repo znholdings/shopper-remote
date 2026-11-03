@@ -64,7 +64,7 @@
 .pk-calc:empty { display: none; }
 
 /* B-1427 / B-1428 (v2.0.92): the Plan and Rules tabs (lib/packing-plan-view.js). */
-.pk-bar .pk-tab { flex: 1 1 auto; padding: 8px 10px; }
+.pk-bar .pk-tab { flex: 1 1 0; padding: 8px 10px; }
 .pk-plan, .pk-stage, .pk-det, .pk-items, .pk-box { display: flex; flex-direction: column; gap: 8px; min-width: 0; max-width: 100%; }
 .pk-plan-line { font-size: 15px; font-weight: 700; overflow-wrap: anywhere; }
 .pk-tag { align-self: flex-start; max-width: 100%; padding: 4px 8px; font-size: 12px; font-weight: 800; border-radius: var(--s-r-sm, 6px); overflow-wrap: anywhere; }

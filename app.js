@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.127";
+const APP_BUILD = "v2.0.128";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -1140,7 +1140,7 @@ function openSourceUrlForm(row, l) {
   if (row.querySelector(".src-form")) return;
   const form = document.createElement("div");
   form.className = "bought-form src-form";
-  form.innerHTML = `<input class="sf-url" type="url" inputmode="url" placeholder="https://business.walmart.com/ip/..." />`;
+  form.innerHTML = `<input class="sf-url" type="url" inputmode="url" placeholder="https://business.walmart.com/ip/..." /><div class="l-meta">Sets (2+ listings) are entered on the laptop.</div>`; // B-1712
   const save = document.createElement("button");
   save.className = "primary-btn mini-btn";
   save.textContent = "Save URL";
@@ -1300,6 +1300,8 @@ function renderPrompt(prompt) {
   if (prompt.kind === "sourceUrl") {
     const url = field("pUrl", "Source URL", { type: "url", placeholder: "https://business.walmart.com/ip/..." });
     const ipu = field("pIpu", "Pieces per Amazon unit", { type: "number", min: "1", value: "1" });
+    // B-1712 (v2.0.128): a set is entered on the laptop only.
+    els.promptFields.appendChild(Object.assign(document.createElement("div"), { className: "l-meta", textContent: "A set of 2+ listings is entered on the laptop (Buy Queue - Set form), not here." }));
     getPayload = () => ({ asin: prompt.asin, lineId: prompt.lineId, url: url.value.trim(), itemsPerUnit: Number(ipu.value) || 1 });
   } else if (prompt.kind === "filler") {
     const fa = field("pFillerAsin", "Filler ASIN (optional)", { type: "text" });
@@ -1524,6 +1526,7 @@ function buylistCard(i) {
   // B-1741 (v2.0.127): the adjusted quantity first (0 on a line past 3x goal).
   if (i.pastGoal) row.classList.add("bl-past-goal");
   stats.innerHTML =
+    statCell("Qty v3", fmtQty(i.recommendedQty)) + // B-1742
     statCell("Adjusted", i.adjustedQty != null ? fmtQty(i.adjustedQty) : "-") +
     statCell("Buy qty", fmtQty(i.qty)) +
     statCell("SB rec", fmtQty(i.sbQty)) +

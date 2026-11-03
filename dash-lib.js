@@ -1973,7 +1973,7 @@ function pipelineNeedItems(lists) {
   for (const s of arr(l.stayedBehind)) {
     for (const r of arr(s.rows)) {
       if (!(r.remaining > 0)) continue;
-      add(stayedRowIdentity(s, r), `${str(r.title || r.asin)}: did anything stay behind?`, `Shipped ${str(r.units)}, ${str(r.remaining)} left at ${str(s.location)}.`);
+      add(stayedRowIdentity(s, r), `${str(r.title || r.asin)}: did anything stay behind?`, `Shipped ${str(r.units)}${r.intakeKnown ? `, built with ${str(r.intake)}` : ""}, ${str(r.remaining)} ${r.intakeKnown ? "not sent" : "left"} at ${str(s.location)}.`);
     }
   }
   return out;
