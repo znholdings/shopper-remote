@@ -277,6 +277,7 @@ button { font: inherit; cursor: pointer; }
 
 .line.bl-approved { border-left: 3px solid var(--s-green); }
 .line.bl-rejected, .line.bl-blocked { border-left: 3px solid var(--s-red); opacity: .75; }
+.line.bl-past-goal .bl-stats, .line.bl-past-goal .bl-headtext { opacity: .6; } /* B-1741 (v2.0.127) */
 
 .l-src { color: var(--s-blue-soft); }
 

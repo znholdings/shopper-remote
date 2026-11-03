@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.126";
+const APP_BUILD = "v2.0.127";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -425,7 +425,7 @@ const REMOTE_LABELS = {
   retryLine: "Try again", skipLine: "Skip line", skipPlannedLine: "Skip planned line",
   markBought: "Mark as bought", markNotBought: "Mark not bought", addSourceUrl: "Add source URL",
   addManualLine: "Add ASIN to queue", generateBuylist: "Generate buylist",
-  buylistAction: "Buylist action", buylistApproveAll: "Approve all",
+  buylistAction: "Buylist action", buylistApproveAll: "Approve Adjusted", // B-1741 (v2.0.127)
   claudeScenarioAnswer: "Answer Claude's question", // B-1063 (v2.0.53)
   targetPlanChoice: "Target plan: roll in or keep separate", // B-1103 (v2.0.57)
   preview: "Refresh preview",
@@ -838,9 +838,10 @@ function fmtPct(n) { return typeof n === "number" && Number.isFinite(n) ? `${n.t
 // SECTION_META (title + order) rather than inventing a second copy of the
 // section names - internal key "offbeat" / label "Old Meat" is
 // intentional, see that file's own comment on the 2026 rename.
+// B-1740 / B-1741 (v2.0.127): one ranked list - the adjusted list, then past 3x goal.
 const BUYLIST_SECTIONS = [
-  { key: "confirmed", title: "Confirmed Buys" },
-  { key: "contingency", title: "Contingency" },
+  { key: "confirmed", title: "Adjusted list (3\u00d7 today's goal)" },
+  { key: "contingency", title: "Past 3\u00d7 goal" },
   { key: "offbeat", title: "Old Meat" },
 ];
 
@@ -1513,14 +1514,17 @@ function buylistCard(i) {
     `<div class="l-top"><span class="l-asin">${escapeHtml(i.asin)}</span>` +
     // P-40: "there's no indication if something is prep center or not."
     `${i.prepCenter ? `<span class="pc-badge">Prep Center</span>` : ""}` +
-    `<span class="l-status">${escapeHtml(i.section)}${decisionSuffix(i)}</span></div>` +
+    `<span class="l-status">${i.pastGoal ? "past 3\u00d7 goal" : i.section === "confirmed" ? "adjusted list" : escapeHtml(i.section)}${decisionSuffix(i)}</span></div>` +
     `<div class="l-title">${escapeHtml(i.title)}</div>`;
   head.appendChild(headText);
   row.appendChild(head);
 
   const stats = document.createElement("div");
   stats.className = "bl-stats";
+  // B-1741 (v2.0.127): the adjusted quantity first (0 on a line past 3x goal).
+  if (i.pastGoal) row.classList.add("bl-past-goal");
   stats.innerHTML =
+    statCell("Adjusted", i.adjustedQty != null ? fmtQty(i.adjustedQty) : "-") +
     statCell("Buy qty", fmtQty(i.qty)) +
     statCell("SB rec", fmtQty(i.sbQty)) +
     statCell("RP rec", fmtQty(i.rpQtyRaw)) +
@@ -1532,7 +1536,7 @@ function buylistCard(i) {
   const more = document.createElement("div");
   more.className = "bl-more";
   more.innerHTML =
-    statCell("Score", i.score != null ? i.score.toFixed(2) : "-") +
+    statCell("Rank", Number.isFinite(i.rank) ? String(Math.round(i.rank)) : "-") + // B-1740 (v2.0.127)
     statCell("Unit cost", i.unitCost != null ? money(i.unitCost) : "-") +
     statCell("SB ROI", fmtPct(i.sbRoiPct)) +
     statCell("RP ROI", fmtPct(i.rpRoiPct)) +
@@ -1846,7 +1850,23 @@ els.addBtn.addEventListener("click", () => {
   els.addQty.value = "";
 });
 els.generateBtn.addEventListener("click", () => sendCommand("generateBuylist"));
-els.approveAllBtn.addEventListener("click", () => sendCommand("buylistApproveAll"));
+// B-1741 (v2.0.127): Approve Adjusted - every undecided line in the adjusted list, after a confirm.
+els.approveAllBtn.textContent = "Approve Adjusted";
+els.approveAllBtn.addEventListener("click", () => {
+  const items = (lastPayload && lastPayload.buylist && lastPayload.buylist.items) || [];
+  const inList = items.filter((i) => i.section === "confirmed" && !i.decision && !i.pastGoal && Number(i.adjustedQty) > 0);
+  if (!inList.length) { toast("Nothing in this list has an adjusted quantity - generate a new list first."); return; }
+  const n = inList.length;
+  const costed = inList.every((i) => i.unitCost != null);
+  const dollars = inList.reduce((sum, i) => sum + (Number(i.adjustedQty) > 0 && i.unitCost != null ? i.adjustedQty * i.unitCost : 0), 0);
+  const bl = (lastPayload && lastPayload.buylist) || {};
+  const goal = Number(bl.listGoal) || Number(lastPayload && lastPayload.day && lastPayload.day.neededToday) || 0;
+  const mult = Number(bl.adjustedMultiple) || 3;
+  const goalText = goal > 0 ? ` ${money(goal)}` : "";
+  const msg = costed ? `Approve ${n} line${n === 1 ? "" : "s"}, ${money(dollars)} total (${mult}\u00d7 today's goal${goalText})?` : `Approve ${n} line${n === 1 ? "" : "s"} in the adjusted list?`;
+  if (!confirm(msg)) return;
+  sendCommand("buylistApproveAll");
+});
 
 // P-29. Four commands the laptop has always accepted with nothing on the
 // phone to send them.

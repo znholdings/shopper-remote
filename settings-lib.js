@@ -38,6 +38,9 @@ const SHARED_SETTINGS_SPEC = Object.freeze([
   S({ key: "shopperScoreV2Params", group: "buying", label: "Buy score weights", kind: "object" }),
   // B-1715 (v2.0.126): Quantity v3 settings (lib/qty-v3.js).
   S({ key: "shopperQtyV3Params", group: "buying", label: "Quantity v3", kind: "object" }),
+  // B-1740 / B-1741 (v2.0.127): Ranking v3 numbers and the adjusted list's multiple (3x today's goal).
+  S({ key: "shopperRankV3Params", group: "buying", label: "Ranking v3", kind: "object" }),
+  S({ key: "shopperAdjustedQtyParams", group: "buying", label: "Adjusted list", kind: "object" }),
   S({ key: "shopperAmazonBuyMode", group: "buying", label: "Amazon buy mode", kind: "enum", options: [["link", "Link only"], ["button", "Button"], ["auto_tab", "Auto tab"], ["full", "Full"]], phone: true }),
   S({ key: "shopperTargetFiller", group: "buying", label: "Target filler", kind: "object" }),
   S({ key: "shopperFollowTheBuy", group: "buying", label: "Follow the buy", kind: "bool", phone: true }),
