@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.132";
+const APP_BUILD = "v2.0.133";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -840,8 +840,7 @@ function fmtPct(n) { return typeof n === "number" && Number.isFinite(n) ? `${n.t
 // intentional, see that file's own comment on the 2026 rename.
 // B-1740 / B-1741 (v2.0.127): one ranked list - the adjusted list, then past 3x goal.
 const BUYLIST_SECTIONS = [
-  { key: "confirmed", title: "Adjusted list (3\u00d7 today's goal)" },
-  { key: "contingency", title: "Past 3\u00d7 goal" },
+  { key: "list", title: "Adjusted list (3\u00d7 today's goal)" }, // B-1770 (v2.0.133): one list; past-goal lines sit under a divider
   { key: "offbeat", title: "Old Meat" },
 ];
 
@@ -1191,7 +1190,6 @@ const OPTIMISTIC_DECISION = {
   approve: "approved",
   unapprove: null,
   block: "blocked",
-  contingency: null,
   push: "pushed",
   // promote moves SECTION, not decision - left alone deliberately rather
   // than guessed at, since guessing the wrong field is this feature's
@@ -1441,9 +1439,10 @@ function renderBuylist(bl) {
   // sections like the desktop." Grouped in the desktop's own fixed order
   // (SECTION_META), each with a line count and $ total.
   for (const sec of BUYLIST_SECTIONS) {
-    const items = (bl.items || []).filter((i) => i.section === sec.key);
+    const items = (bl.items || []).filter((i) => (sec.key === "list" ? i.section !== "offbeat" : i.section === sec.key));
     if (!items.length) continue;
-    const total = items.reduce((sum, i) => sum + lineCostPhone(i), 0);
+    const counted = sec.key === "list" ? items.filter((i) => !i.pastGoal) : items; // the header counts the adjusted list itself
+    const total = counted.reduce((sum, i) => sum + lineCostPhone(i), 0);
     // P-48: "a bold yellow line around each section... to make it more
     // obvious." One wrapper per section so the border can go around the
     // whole group, not just the heading.
@@ -1452,7 +1451,7 @@ function renderBuylist(bl) {
     const head = document.createElement("h2");
     head.className = "section-head bl-section-head";
     head.innerHTML =
-      `${escapeHtml(sec.title)} <span class="count">${items.length} line${items.length === 1 ? "" : "s"} · ${money(total)}</span>`;
+      `${escapeHtml(sec.title)} <span class="count">${counted.length} line${counted.length === 1 ? "" : "s"} · ${money(total)}</span>`;
     sectionWrap.appendChild(head);
 
     // P-45: Claude's plain-English read on the Old Meat pool - shown on
@@ -1465,14 +1464,26 @@ function renderBuylist(bl) {
       sectionWrap.appendChild(box);
     }
 
-    for (const i of items) sectionWrap.appendChild(buylistCard(i));
+    let dividerDone = sec.key !== "list";
+    for (const i of items) {
+      if (!dividerDone && i.pastGoal) {
+        const divider = document.createElement("div");
+        divider.className = "list-divider";
+        const mult = Number(bl.adjustedMultiple) > 0 ? Number(bl.adjustedMultiple) : 3;
+        divider.textContent = `Past ${mult}\u00d7 goal from here - every other line, best rank first, at adjusted 0. Nothing below is bought unless you approve it. Rank 0 lines sit at the bottom.`;
+        sectionWrap.appendChild(divider);
+        dividerDone = true;
+      }
+      sectionWrap.appendChild(buylistCard(i));
+    }
     els.buylistItems.appendChild(sectionWrap);
   }
 
   // A grouped view must never silently DROP a line. shapeBuylistItem()
   // always sets one of the three keys above, so this should stay empty -
   // it exists so a future section value doesn't just vanish from the UI.
-  const grouped = new Set(BUYLIST_SECTIONS.map((s) => s.key));
+  // B-1770: the list section draws every non-Old-Meat line whatever its stored section word, so a list saved by an older version is already drawn above.
+  const grouped = { has: (section) => section === "offbeat" || BUYLIST_SECTIONS.some((s) => s.key === "list") };
   const ungrouped = (bl.items || []).filter((i) => !grouped.has(i.section));
   if (ungrouped.length) {
     const sectionWrap = document.createElement("div");
@@ -1516,7 +1527,7 @@ function buylistCard(i) {
     `<div class="l-top"><span class="l-asin">${escapeHtml(i.asin)}</span>` +
     // P-40: "there's no indication if something is prep center or not."
     `${i.prepCenter ? `<span class="pc-badge">Prep Center</span>` : ""}` +
-    `<span class="l-status">${i.pastGoal ? "past 3\u00d7 goal" : i.section === "confirmed" ? "adjusted list" : escapeHtml(i.section)}${decisionSuffix(i)}</span></div>` +
+    `<span class="l-status">${i.pastGoal ? "past 3\u00d7 goal" : i.section === "offbeat" ? "Old Meat" : "adjusted list"}${decisionSuffix(i)}</span></div>` +
     `<div class="l-title">${escapeHtml(i.title)}</div>`;
   head.appendChild(headText);
   row.appendChild(head);
@@ -1622,8 +1633,7 @@ function buylistCard(i) {
   // approve, promote (up), demote to contingency (down), push (right),
   // block (no symbol). The phone now offers that same set and no
   // invented ones.
-  moves.appendChild(sheetMove("Promote", "promote"));
-  moves.appendChild(sheetMove("Demote", "contingency"));
+  if (i.section === "offbeat") moves.appendChild(sheetMove("Promote", "promote")); // B-1770: only Old Meat is promoted
   moves.appendChild(sheetMove("Push", "push"));
   moves.appendChild(sheetMove("Block", "block"));
 
@@ -1857,7 +1867,7 @@ els.generateBtn.addEventListener("click", () => sendCommand("generateBuylist"));
 els.approveAllBtn.textContent = "Approve Adjusted";
 els.approveAllBtn.addEventListener("click", () => {
   const items = (lastPayload && lastPayload.buylist && lastPayload.buylist.items) || [];
-  const inList = items.filter((i) => i.section === "confirmed" && !i.decision && !i.pastGoal && Number(i.adjustedQty) > 0);
+  const inList = items.filter((i) => i.section !== "offbeat" && !i.decision && !i.pastGoal && Number(i.adjustedQty) > 0);
   if (!inList.length) { toast("Nothing in this list has an adjusted quantity - generate a new list first."); return; }
   const n = inList.length;
   const costed = inList.every((i) => i.unitCost != null);
@@ -3036,6 +3046,8 @@ function glGo(target) {
     books: () => switchTab("books"),
     bank: () => switchTab("bank"),
     plaid: () => switchTab("bank"),
+    accounts: () => switchTab("settings"), // B-1773
+    setup: () => switchTab("settings"),
     // B-941 (v2.0.35): Seller Central's Voice of the Customer page.
     voc: () => window.open("https://sellercentral.amazon.com/voice-of-the-customer", "_blank", "noopener"),
     // B-1101 (v2.0.57): Seller Central's Account Health page.
@@ -3046,6 +3058,9 @@ function glGo(target) {
   }[target];
   if (go) go();
 }
+// B-1773: the notification targets that have a phone page (the rest: the row is Mark done / Dismiss only).
+const GL_NOTIF_GO = ["voc", "pipeline", "arrivals", "buyqueue", "runreviews", "wizard", "accounts", "setup", "plaid"];
+const glGoHas = (target) => GL_NOTIF_GO.indexOf(target) >= 0;
 
 function glTap(node, fn) {
   node.classList.add("dash-tap");
@@ -3108,17 +3123,19 @@ function glTile(t) {
 // B-1256 (v2.0.73): Zach - "way too much on the Do Next list": each card is ONE
 // short line with its count; the detail (ASIN lists, titles, reasons) opens in
 // place from the small "Details" button (the card itself still goes to its tab).
-const GL_COUNT_HIDDEN = ["owed", "ownerDraw"];
+const GL_COUNT_HIDDEN = ["ownerDraw"];
 function glRow(r) {
   const row = invNode("div", "line gl-row gl-sev-" + r.severity);
   row.dataset.row = r.id;
+  const notif = r.kind === "notif" && r.notifs && r.notifs[0] ? r.notifs[0] : null; // B-1773: one notification = one row
   const top = invNode("div", "gl-row-top");
   top.appendChild(invNode("span", "gl-rank", r.rank));
   const main = invNode("div", "gl-main");
   const head = invNode("div", "gl-line");
   head.appendChild(invNode("b", "gl-title", r.short || r.title));
-  if (GL_COUNT_HIDDEN.indexOf(r.id) < 0 && Number(r.count) > 0) head.appendChild(invNode("span", "gl-cnt", r.count));
+  if (GL_COUNT_HIDDEN.indexOf(r.id) < 0 && Number(r.count) > 0 && !new RegExp("^\\s*" + Number(r.count) + "(\\D|$)").test(r.short || r.title)) head.appendChild(invNode("span", "gl-cnt", r.count));
   main.appendChild(head);
+  if (notif && self.ShopperNotifActions) main.appendChild(self.ShopperNotifActions.build(notif, () => { lastDashboardKey = ""; if (lastPayload) renderDashboard(lastPayload.dashboard, lastPayload); })); // B-1773: Mark done / Dismiss on the row
   top.appendChild(main);
   row.appendChild(top);
   const body = invNode("div", "gl-expand");
@@ -3129,10 +3146,17 @@ function glRow(r) {
     if (r.short && r.short !== r.title) body.appendChild(invNode("div", "gl-full", r.title));
     // B-1500 (v2.0.104): one row per item (remote/do-next-rows-view.js) instead of one wall of text; the text stays as the fallback.
     const DR = self.ShopperDoNextRows, GG = self.ShopperGlance;
-    const dRows = DR && GG && GG.detailRowsFor && lastGlInput ? GG.detailRowsFor(r, lastGlInput) : [];
-    if (dRows.length) body.appendChild(DR.node(dRows, { moreWhere: r.go && r.go.label, footer: GG.detailFooterFor ? GG.detailFooterFor(r, lastGlInput) : "", rowExtra: (r.id === "pricingErrors" || r.id === "pricing") && self.ShopperPhoneFix ? (x) => (x.sku ? self.ShopperPhoneFix.build(x.sku) : null) : null })); // B-1599 (v2.0.116): Fix this one on a pricing-error row
+    const dRows = Array.isArray(r.detailRows) ? r.detailRows : [];
+    if (dRows.length) body.appendChild(DR.node(dRows, { moreWhere: r.go && r.go.label, footer: r.detailFooter || "", more: r.detailMore || 0, rowExtra: (r.id === "pricingErrors" || r.id === "pricing") && self.ShopperPhoneFix ? (x) => (x.sku ? self.ShopperPhoneFix.build(x.sku) : null) : null })); // B-1599 (v2.0.116): Fix this one on a pricing-error row
     else if (r.detail) body.appendChild(invNode("div", "l-meta", r.detail));
-    for (const n of r.notifs || []) {
+    if (notif) {
+      if (notif.examples && notif.examples.length) {
+        const ul = invNode("ul", "dash-ex");
+        for (const e of notif.examples) ul.appendChild(invNode("li", null, e));
+        if (notif.count > notif.examples.length) ul.appendChild(invNode("li", null, "+" + (notif.count - notif.examples.length) + " more"));
+        body.appendChild(ul);
+      }
+    } else for (const n of r.notifs || []) {
       const c = invNode("div", "line dash-notif sev-" + n.severity);
       const t = invNode("div", "inv-row-top");
       t.appendChild(invNode("span", "dash-sev", n.severity));
@@ -3150,7 +3174,7 @@ function glRow(r) {
       if (self.ShopperNotifActions) c.appendChild(self.ShopperNotifActions.build(n, fill));
       body.appendChild(c);
     }
-    if (r.notifs && r.notifs.length && !self.ShopperNotifActions) body.appendChild(invNode("div", "muted small", "Mark done / Dismiss are on the laptop."));
+    if (!notif && r.notifs && r.notifs.length && !self.ShopperNotifActions) body.appendChild(invNode("div", "muted small", "Mark done / Dismiss are on the laptop."));
   };
   if (!body.hidden) fill();
   // B-1083 (v2.0.55): the whole card is the button - a "›" at its right edge
@@ -3158,6 +3182,7 @@ function glRow(r) {
   // label, e.g. "Pricing" / "Run tab", is the card's accessible name);
   // "expand" rows open in place, and a tap inside the opened part does not
   // fold them again.
+  const canGo = !notif || (!!r.go.label && glGoHas(r.go.target)); // B-1773: a notification with no phone page just opens its details
   const label = r.go.target === "runreviews" ? "Run tab" : r.go.label;
   const openState = () => {
     row.classList.toggle("gl-open", !body.hidden);
@@ -3182,12 +3207,13 @@ function glRow(r) {
   }
   const chev = invNode("span", "gl-chev", "\u203A");
   chev.setAttribute("aria-hidden", "true");
-  top.appendChild(chev);
+  if (canGo) top.appendChild(chev);
   row.classList.add("gl-tap");
-  row.setAttribute("aria-label", (r.short || r.title) + " - " + label);
+  row.setAttribute("aria-label", (r.short || r.title) + " - " + (canGo ? label : "details"));
   if (r.go.target === "expand") row.setAttribute("aria-expanded", String(!body.hidden));
   openState();
   const act = () => {
+    if (!canGo) return flip();
     if (r.go.target !== "expand") return glGo(r.go.target);
     flip();
   };
@@ -3264,7 +3290,7 @@ function renderDashboard(d, p) {
   };
   lastGlInput = glInput;
   // B-1632 (v2.0.120): a row whose every item he snoozed / dismissed (on the laptop) is not listed (until the PWA push, the phone shows it).
-  const allRows = G.rowsWithoutSnoozed ? G.rowsWithoutSnoozed(G.buildDoNext(glInput), ex.snoozed || []) : G.buildDoNext(glInput);
+  const allRows = G.buildDoNext(glInput); // The Daily's own steps (remote/daily-view.js); Do next below is Main's list (B-1776)
   // B-1257 (v2.0.73): The Daily (remote/daily-view.js) - a step ignored there
   // (on this phone or the laptop) is off Do next until its time is up.
   const DV = self.ShopperDailyView;
@@ -3289,10 +3315,13 @@ function renderDashboard(d, p) {
     },
   }) : null;
   // B-1759 (v2.0.130): quiet VoC / Account Health ids leave Do next only; The Daily (above) keeps the full set.
-  const doNextRows0 = dvOut ? dvOut.rows : allRows;
-  const rows0 = G.rowsWithoutSnoozed && (ex.quietIds || []).length ? G.rowsWithoutSnoozed(doNextRows0, ex.quietIds) : doNextRows0;
-  const rows = G.mergeDoNextRows ? G.mergeDoNextRows(rows0) : rows0; // B-1765 / B-1766 (v2.0.131): Pricing and Pipeline are one row each (The Daily above keeps every step)
-  const key = JSON.stringify([tiles, rows.map((r) => [r.id, r.title, r.detail, r.severity, r.go.label, (r.notifs || []).map((n) => n.key)]), d.lastRun, ex.nightly, d.remoteBuiltAt, d.stale, d.spend.bankRecent, ex.bgChecks || null, ex.accountHealth || null, d.resolvedHand || null, ex.voc || null, ex.agedInventory || null]);
+  const dn = ex.doNext && Array.isArray(ex.doNext.rows) ? ex.doNext : null; // B-1776 (v2.0.133): the ONE Do next list, built on the main computer
+  // An "Ignore for" just pressed in The Daily on this phone shows at once; Main's next list already leaves it out.
+  const dvKeep = dvOut && Array.isArray(dvOut.rows) ? new Set(dvOut.rows.map((r) => r.id)) : null;
+  const dvStep = new Set(allRows.map((r) => r.id));
+  const dvOff = (id) => !!dvKeep && dvStep.has(id) && !dvKeep.has(id);
+  const rows = dn ? dn.rows.filter((r) => !(dvOff(r.id) || (r.id === "pricing" && Array.isArray(r.parts) && r.parts.length && r.parts.every((x) => dvOff(x.id))))) : [];
+  const key = JSON.stringify([tiles, rows.map((r) => [r.id, r.title, r.detail, r.severity, r.go.label, (r.notifs || []).map((n) => n.key)]), d.lastRun, ex.nightly, d.remoteBuiltAt, d.stale, d.spend.bankRecent, ex.bgChecks || null, ex.accountHealth || null, d.resolvedHand || null, ex.voc || null, ex.agedInventory || null, dn ? dn.at : null]);
   if (key === lastDashboardKey) return;
   lastDashboardKey = key;
   for (const k of ["dashTiles", "dashDoNext"]) els[k].textContent = "";
@@ -3307,11 +3336,15 @@ function renderDashboard(d, p) {
   renderBank(d.spend);
 
   els.dashDoCount.textContent = "(" + rows.length + ")";
-  if (!rows.length) {
+  if (!dn) {
+    els.dashDoCount.textContent = "";
+    els.dashDoNext.appendChild(invNode("div", "muted", "Do next comes from the main computer - it needs Shopper v2.0.133 there."));
+  } else if (!rows.length) {
     const unknown = !d.nextRun || d.nextRun.state === "unknown";
     els.dashDoNext.appendChild(invNode("div", "muted", unknown ? "Nothing flagged - but today's spend figures are not loaded (refresh the Dashboard on the laptop)." : "All caught up. Nothing needs you right now."));
   }
   for (const r of rows) els.dashDoNext.appendChild(glRow(r));
+  if (dn && dn.more > 0) els.dashDoNext.appendChild(invNode("div", "muted small", "+" + dn.more + " more on the laptop's Dashboard."));
   // B-1347 (v2.0.82): closed "check by hand" items, with Undo.
   if (self.ShopperNotifActions && self.ShopperNotifActions.buildResolved) {
     const closed = self.ShopperNotifActions.buildResolved(d.resolvedHand, () => { lastDashboardKey = ""; if (lastPayload) renderDashboard(lastPayload.dashboard, lastPayload); });

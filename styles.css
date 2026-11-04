@@ -1258,4 +1258,8 @@ html, body { overscroll-behavior: none; }
 .gl-tile .sustain-missing { display: block; font-size: 12px; color: var(--s-yellow-ink); background: var(--s-yellow-bg); border-radius: var(--s-r-sm); padding: 2px 8px; margin-top: 4px; }
 .gl-tile .sustain-apply { margin-top: 8px; }
 
+/* B-1770: the one divider where the adjusted list ends */
+.list-divider { padding: 8px 12px; margin: 6px 0; font-size: 12px; font-weight: 600; line-height: 1.5; color: var(--s-violet); background: color-mix(in srgb, var(--s-violet) 9%, transparent); border-radius: var(--s-r-sm); overflow-wrap: anywhere; }
+.gl-row .gl-main > .gl-notif-actions { margin-top: 6px; } /* B-1773 (v2.0.133) */
+
 [hidden] { display: none !important; }

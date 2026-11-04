@@ -214,49 +214,57 @@ function countAddressSwitches(ordered) {
 // stored order stops applying, and the page SAYS SO rather than quietly
 // half-applying yesterday's arrangement to today's lines.
 
-const MANUAL_ORDER_VERSION = 1;
+const MANUAL_ORDER_VERSION = 2;
 
-function buildManualOrder({ generationId, confirmed, contingency, savedAt = Date.now() }) {
+// B-1770 (v2.0.133): ONE list, so one `order`. A v1 record (confirmed + contingency arrays) still reads:
+// it is treated as [...confirmed, ...contingency].
+function orderOf(stored) {
+  if (!stored || typeof stored !== "object") return null;
+  if (stored.v === 2) return Array.isArray(stored.order) ? stored.order : null;
+  if (stored.v === 1) {
+    if (!Array.isArray(stored.confirmed) || !Array.isArray(stored.contingency)) return null;
+    return [...stored.confirmed, ...stored.contingency];
+  }
+  return null;
+}
+
+function buildManualOrder({ generationId, order, savedAt = Date.now() }) {
   const clean = (xs) =>
     [...new Set((Array.isArray(xs) ? xs : []).map((a) => String(a || "")).filter(Boolean))];
   return {
     v: MANUAL_ORDER_VERSION,
     generationId: generationId == null ? null : generationId,
-    confirmed: clean(confirmed),
-    contingency: clean(contingency),
+    order: clean(order),
     savedAt,
   };
 }
 
 // ⚠ Declines rather than guessing, in four separate places. A stored order
 // that cannot be trusted must read as "no manual order", never as a partial
-// one — a half-applied arrangement is worse than none, because it looks
+// one — a half-applying arrangement is worse than none, because it looks
 // deliberate.
 function manualOrderState(stored, generationId) {
   if (!stored || typeof stored !== "object") return { usable: false, reason: "none" };
-  if (stored.v !== MANUAL_ORDER_VERSION) return { usable: false, reason: "version" };
-  if (!Array.isArray(stored.confirmed) || !Array.isArray(stored.contingency)) {
-    return { usable: false, reason: "shape" };
-  }
+  if (stored.v !== 1 && stored.v !== 2) return { usable: false, reason: "version" };
+  const order = orderOf(stored);
+  if (!order) return { usable: false, reason: "shape" };
   if (stored.generationId == null || generationId == null) {
     return { usable: false, reason: "no-generation" };
   }
   if (String(stored.generationId) !== String(generationId)) {
     return { usable: false, reason: "regenerated" };
   }
-  if (!stored.confirmed.length && !stored.contingency.length) {
-    return { usable: false, reason: "empty" };
-  }
+  if (!order.length) return { usable: false, reason: "empty" };
   return { usable: true, reason: "ok" };
 }
 
-// Reorder one already-score-sorted block by a stored list of ASINs.
+// Reorder the already-score-sorted list by a stored list of ASINs.
 //
-// ⚠ A line the stored order does not name goes to the END of its block, not
-// into the middle by score. It is almost always a line approved AFTER the
-// drag, and letting a new high scorer jump ahead of an arrangement Zach made
-// by hand would silently overrule him. The count is reported so the page can
-// say it out loud rather than leaving him to notice.
+// ⚠ A line the stored order does not name goes to the END, not into the
+// middle by score. It is almost always a line approved AFTER the drag, and
+// letting a new high scorer jump ahead of an arrangement Zach made by hand
+// would silently overrule him. The count is reported so the page can say it
+// out loud rather than leaving him to notice.
 function applyOne(block, order) {
   const byAsin = new Map();
   for (const line of block || []) if (line && line.asin) byAsin.set(line.asin, line);
@@ -269,26 +277,13 @@ function applyOne(block, order) {
   return { lines: [...out, ...unnamed], unnamed: unnamed.length };
 }
 
-function applyManualOrder(confirmed, contingency, stored, generationId) {
+function applyManualOrder(lines, stored, generationId) {
   const state = manualOrderState(stored, generationId);
   if (!state.usable) {
-    return {
-      confirmed: [...(confirmed || [])],
-      contingency: [...(contingency || [])],
-      orderSource: QUEUE_ORDER_AUTOMATIC,
-      orderReason: state.reason,
-      unnamed: 0,
-    };
+    return { lines: [...(lines || [])], orderSource: QUEUE_ORDER_AUTOMATIC, orderReason: state.reason, unnamed: 0 };
   }
-  const c = applyOne(confirmed, stored.confirmed);
-  const p = applyOne(contingency, stored.contingency);
-  return {
-    confirmed: c.lines,
-    contingency: p.lines,
-    orderSource: QUEUE_ORDER_MANUAL,
-    orderReason: "ok",
-    unnamed: c.unnamed + p.unnamed,
-  };
+  const r = applyOne(lines, orderOf(stored));
+  return { lines: r.lines, orderSource: QUEUE_ORDER_MANUAL, orderReason: "ok", unnamed: r.unnamed };
 }
 
 // One list move, pure, used by the page's keyboard/tap fallback and by the
@@ -304,7 +299,7 @@ function moveAsin(list, asin, toIndex) {
   without.splice(at, 0, arr[from]);
   return without;
 }
-__m["queue-order.js"] = { QUEUE_ORDER_AUTOMATIC, QUEUE_ORDER_MANUAL, assignQueueOrder, queueOrderOf, queueOrderBefore, compareQueueOrder, describeQueueOrder, MANUAL_ORDER_VERSION, buildManualOrder, manualOrderState, applyManualOrder, moveAsin };
+__m["queue-order.js"] = { QUEUE_ORDER_AUTOMATIC, QUEUE_ORDER_MANUAL, assignQueueOrder, queueOrderOf, queueOrderBefore, compareQueueOrder, describeQueueOrder, MANUAL_ORDER_VERSION, orderOf, buildManualOrder, manualOrderState, applyManualOrder, moveAsin };
 })();
 // ---- lib/line-outcome.js ----
 (function () {

@@ -64,7 +64,8 @@
       }
       ul.append(li);
     }
-    if (sp.more) ul.append(mk("li", "dnr-more", "+" + sp.more + " more" + (o.moreWhere ? " on the " + o.moreWhere + " page" : "")));
+    const moreN = sp.more + (Number(o.more) || 0); // o.more = rows the laptop cut before sending (B-1776)
+    if (moreN) ul.append(mk("li", "dnr-more", "+" + moreN + " more" + (o.moreWhere ? " on the " + o.moreWhere + " page" : "")));
     wrap.append(ul);
     if (o.footer) wrap.append(mk("div", "dnr-foot", o.footer));
     return wrap;
