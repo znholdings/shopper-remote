@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.130";
+const APP_BUILD = "v2.0.131";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -3130,7 +3130,7 @@ function glRow(r) {
     // B-1500 (v2.0.104): one row per item (remote/do-next-rows-view.js) instead of one wall of text; the text stays as the fallback.
     const DR = self.ShopperDoNextRows, GG = self.ShopperGlance;
     const dRows = DR && GG && GG.detailRowsFor && lastGlInput ? GG.detailRowsFor(r, lastGlInput) : [];
-    if (dRows.length) body.appendChild(DR.node(dRows, { moreWhere: r.go && r.go.label, footer: GG.detailFooterFor ? GG.detailFooterFor(r, lastGlInput) : "", rowExtra: r.id === "pricingErrors" && self.ShopperPhoneFix ? (x) => (x.sku ? self.ShopperPhoneFix.build(x.sku) : null) : null })); // B-1599 (v2.0.116): Fix this one on a pricing-error row
+    if (dRows.length) body.appendChild(DR.node(dRows, { moreWhere: r.go && r.go.label, footer: GG.detailFooterFor ? GG.detailFooterFor(r, lastGlInput) : "", rowExtra: (r.id === "pricingErrors" || r.id === "pricing") && self.ShopperPhoneFix ? (x) => (x.sku ? self.ShopperPhoneFix.build(x.sku) : null) : null })); // B-1599 (v2.0.116): Fix this one on a pricing-error row
     else if (r.detail) body.appendChild(invNode("div", "l-meta", r.detail));
     for (const n of r.notifs || []) {
       const c = invNode("div", "line dash-notif sev-" + n.severity);
@@ -3290,7 +3290,8 @@ function renderDashboard(d, p) {
   }) : null;
   // B-1759 (v2.0.130): quiet VoC / Account Health ids leave Do next only; The Daily (above) keeps the full set.
   const doNextRows0 = dvOut ? dvOut.rows : allRows;
-  const rows = G.rowsWithoutSnoozed && (ex.quietIds || []).length ? G.rowsWithoutSnoozed(doNextRows0, ex.quietIds) : doNextRows0;
+  const rows0 = G.rowsWithoutSnoozed && (ex.quietIds || []).length ? G.rowsWithoutSnoozed(doNextRows0, ex.quietIds) : doNextRows0;
+  const rows = G.mergeDoNextRows ? G.mergeDoNextRows(rows0) : rows0; // B-1765 / B-1766 (v2.0.131): Pricing and Pipeline are one row each (The Daily above keeps every step)
   const key = JSON.stringify([tiles, rows.map((r) => [r.id, r.title, r.detail, r.severity, r.go.label, (r.notifs || []).map((n) => n.key)]), d.lastRun, ex.nightly, d.remoteBuiltAt, d.stale, d.spend.bankRecent, ex.bgChecks || null, ex.accountHealth || null, d.resolvedHand || null, ex.voc || null, ex.agedInventory || null]);
   if (key === lastDashboardKey) return;
   lastDashboardKey = key;
