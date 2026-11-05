@@ -594,7 +594,8 @@
       // it's really easy to see which ones I haven't yet received". A product with units at the
       // house (data-house > 0) and NO count in progress shows a solid red "Not counted yet" chip,
       // with no x (there is nothing to clear). No House figure / House 0 = no chip, as before.
-      if (t == null && houseAbove0(nodes[i].getAttribute("data-house"))) { paintNotCounted(nodes[i]); continue; }
+      var anyHouse = nodes[i].getAttribute("data-count-any") === "1"; // B-1789 (v2.0.134): pipeline chips count any non-zero House
+      if (t == null && (anyHouse ? houseNonZero(nodes[i].getAttribute("data-house")) : houseAbove0(nodes[i].getAttribute("data-house")))) { paintNotCounted(nodes[i]); continue; }
       if (nodes[i].classList && typeof nodes[i].classList.toggle === "function") nodes[i].classList.toggle("rc-badge-none", false);
       if (t == null) { nodes[i].hidden = true; nodes[i].textContent = ""; }
       else {
@@ -626,6 +627,11 @@
     var h = Number(house);
     return isFinite(h) && h > 0.0005;
   }
+  function houseNonZero(house) {
+    if (house == null || house === "") return false;
+    var h = Number(house);
+    return isFinite(h) && Math.abs(h) > 0.0005;
+  }
   function paintNotCounted(node) {
     node.hidden = false;
     if (typeof document !== "undefined" && typeof document.createElement === "function" && typeof node.appendChild === "function") {
@@ -641,6 +647,7 @@
       node.classList.toggle("rc-badge-off", false);
       node.classList.toggle("rc-badge-none", true);
     }
+    if (node.getAttribute("data-count-any") === "1") { node.title = "Not counted yet - click to count it (Receive)"; return; }
     node.title = "Not counted yet - " + (node.getAttribute("data-house-text") || fmtNum(Number(node.getAttribute("data-house")))) + " at the house, none received with Receive";
   }
   // "match" | "off" | null (no House figure). Same thousandth-of-a-unit test as openSetAll's

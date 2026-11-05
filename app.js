@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.133";
+const APP_BUILD = "v2.0.134";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -2570,10 +2570,9 @@ function invSetReceiveLabel(b, asin) {
 // The pop-up calls this on every change of a tally.
 function invRefreshReceiveButtons() {
   if (!self.ShopperReceive) return;
-  for (const b of els.invBucketTable.querySelectorAll(".rc-row-btn")) invSetReceiveLabel(b, b.dataset.asin);
-  // B-1076 (v2.0.55): an open Products row has the same Receive button.
-  for (const b of els.invRows.querySelectorAll(".rc-row-btn")) invSetReceiveLabel(b, b.dataset.asin);
+  // B-1789 (v2.0.134): the chips are the Receive buttons - repaint them in the House list and the open Products rows.
   self.ShopperReceive.paintBadges(els.invBucketTable);
+  self.ShopperReceive.paintBadges(els.invRows);
   invPaintReceiveAll(lastPayload && lastPayload.inventory);
 }
 
@@ -2596,13 +2595,26 @@ function invOpenReceive(r) {
   });
 }
 
+// B-1789 (v2.0.134, phone parity): no Receive button - the "Not counted yet" / "Counted N" chip IS the Receive
+// button (as on the laptop Pipeline). data-count-any: a negative House row gets the chip too. The x inside a
+// "Counted N" chip still clears (it stops its own click).
 function invReceiveButton(r) {
-  const b = invNode("button", "rc-row-btn");
-  invSetReceiveLabel(b, r.asin);
-  b.type = "button";
-  b.dataset.asin = r.asin;
+  const badge = invNode("span", "rc-badge");
+  badge.dataset.asin = r.asin;
+  if (r.house != null && r.house !== "") { badge.dataset.house = String(r.house); badge.dataset.houseText = invUnits(r.house); }
+  const b = badge;
+  b.classList.add("rc-chip-btn");
+  b.dataset.countAny = "1";
+  b.hidden = true;
+  b.setAttribute("role", "button");
+  b.tabIndex = 0;
   b.setAttribute("aria-label", "Receive count for " + (r.title || r.asin));
-  b.addEventListener("click", () => invOpenReceive(r));
+  b.style.cursor = "pointer";
+  b.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); invOpenReceive(r); });
+  b.addEventListener("keydown", (e) => {
+    if ((e.key === "Enter" || e.key === " ") && e.target === b) { e.preventDefault(); e.stopPropagation(); invOpenReceive(r); }
+  });
+  self.ShopperReceive.paintBadges(b);
   return b;
 }
 
@@ -2731,15 +2743,8 @@ function renderInvBucket(inv) {
     const tr = invNode("tr");
     const titleCell = invNode("td", "inv-title", r.title || r.asin);
     // B-844 (v2.0.22): a count in progress shows as a clear pill on the product's own line.
-    if (withReceive) {
-      const badge = invNode("span", "rc-badge");
-      badge.dataset.asin = r.asin;
-      // B-950 (v2.0.37): green when the count equals House, yellow when it doesn't.
-      if (r.house != null && r.house !== "") { badge.dataset.house = String(r.house); badge.dataset.houseText = invUnits(r.house); }
-      badge.hidden = true;
-      titleCell.appendChild(badge);
-      self.ShopperReceive.paintBadges(badge);
-    }
+    // B-1789 (v2.0.134): that pill is now also the Receive button (no separate button under the ASIN).
+    if (withReceive) titleCell.appendChild(invReceiveButton(r));
     // B-1056 (v2.0.52): the expiry date under the title (remote/house-expiry-view.js) - the laptop's
     // House on hand "Expires" date; tap to add / change, saved with houseExpirySet.
     if (invBucket === "house" && Number(r.house) > 0 && self.ShopperHouseExpiry) {
@@ -2747,7 +2752,6 @@ function renderInvBucket(inv) {
     }
     tr.appendChild(titleCell);
     const asinCell = invNode("td", "inv-asin", r.asin);
-    if (withReceive) asinCell.appendChild(invReceiveButton(r));
     tr.appendChild(asinCell);
     const numCell = invNode("td", "inv-num" + (Number(r[b.field]) < 0 ? " inv-neg" : ""), invUnits(r[b.field]));
     // B-1057 (v2.0.53): Manual Print - the laptop Pipeline row's printer, under the units (remote/manual-print-view.js).

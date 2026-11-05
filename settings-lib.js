@@ -99,6 +99,8 @@ const SHARED_SETTINGS_SPEC = Object.freeze([
   S({ key: "shopperClaudeRecoveryEnabled", group: "appearance", label: "Claude recovery", kind: "bool", phone: true }),
   // B-1577 (v2.0.115): the Catalog table's widths, picked columns, filters and sort - one set for both computers (last save wins whole). Not on the phone.
   S({ key: "shopperCatalogTable", group: "appearance", label: "Catalog table (columns, widths, filters)", kind: "object" }),
+  // B-1790 (v2.0.134): dragged column widths for every other table - one object, both computers.
+  S({ key: "shopperTableWidths", group: "appearance", label: "Table column widths", kind: "object" }),
   // ---- Secrets (own row; the phone never reads it) -----------------------
   X({ key: "shopperSecondaryGmail", group: "secrets", label: "Second Gmail", kind: "any" }),
   X({ key: "shopperSellerSnapCreds", group: "secrets", label: "Seller Snap sign-in", kind: "any" }),
