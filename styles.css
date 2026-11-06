@@ -1258,6 +1258,20 @@ html, body { overscroll-behavior: none; }
 .gl-tile .sustain-missing { display: block; font-size: 12px; color: var(--s-yellow-ink); background: var(--s-yellow-bg); border-radius: var(--s-r-sm); padding: 2px 8px; margin-top: 4px; }
 .gl-tile .sustain-apply { margin-top: 8px; }
 
+/* B-1806 (v2.0.137): the owned stages behind Quantity v3 under a Buylist line */
+.bl-owned { font-size: 12px; line-height: 1.35; margin: 2px 0 4px; overflow-wrap: anywhere; }
+/* B-1803 (v2.0.137): the carry-over card on the phone's Buylist */
+.co-card .co-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; align-items: center; }
+.co-card .co-custom { width: 70px; }
+.co-card .co-ignored { opacity: 0.6; }
+.co-card .co-day-head { margin: 10px 0 4px; font-weight: 600; }
+/* B-1804 (v2.0.137): ScanPower batch writes on the phone */
+.sp-card .sp-line { display: flex; gap: 8px; align-items: flex-start; }
+.sp-card .sp-main { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.sp-card .sp-qty { width: 70px; margin-top: 4px; }
+.sp-card .sp-part { margin-top: 10px; }
+.sp-card .sp-name, .sp-card .sp-target { width: 100%; margin: 6px 0; }
+
 /* B-1770: the one divider where the adjusted list ends */
 .list-divider { padding: 8px 12px; margin: 6px 0; font-size: 12px; font-weight: 600; line-height: 1.5; color: var(--s-violet); background: color-mix(in srgb, var(--s-violet) 9%, transparent); border-radius: var(--s-r-sm); overflow-wrap: anywhere; }
 .gl-row .gl-main > .gl-notif-actions { margin-top: 6px; } /* B-1773 (v2.0.133) */
