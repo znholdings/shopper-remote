@@ -41,6 +41,17 @@
   const timing = { now: () => Date.now(), sleep: (ms) => new Promise((r) => setTimeout(r, ms)) };
 
   let cur = null; // the open form
+  let labelsPages = null; // v2.0.135 (B-1795): pages.labels = { batches: [{ batchId, batchName, rows: [{ msku, asin, title, needed, printed, lastAt }] }] }
+  function setLabels(v) { labelsPages = v && typeof v === "object" ? v : null; }
+  // The open batch row for a listing (match on MSKU, the ASIN as a fallback) -> { batchId, batchName, row } | null
+  function batchFor(msku, asin) {
+    const bs = labelsPages && Array.isArray(labelsPages.batches) ? labelsPages.batches : [];
+    for (const b of bs) {
+      const r = (Array.isArray(b.rows) ? b.rows : []).find((x) => x && msku && x.msku === msku) || null;
+      if (r) return { batchId: String(b.batchId || ""), batchName: String(b.batchName || ""), row: r };
+    }
+    return null;
+  }
 
   function el(tag, cls, text) {
     const n = document.createElement(tag);
@@ -199,7 +210,10 @@
     cancel.type = "button";
     foot.append(go, cancel);
     const result = el("div", "rc-msg mp-result");
-    card.append(head, note, status, retry, form, foot, result);
+    // v2.0.135 (B-1795): the printed ledger for this listing in the open ScanPower batch - Mark printed / Forget (own buttons; Forget asks first).
+    const batchBox = el("div", "mp-batch");
+    batchBox.hidden = true;
+    card.append(head, note, status, retry, form, foot, result, batchBox);
     overlay.appendChild(card);
     document.body.appendChild(overlay);
 
@@ -211,10 +225,35 @@
     };
     const needsDate = () => { const l = listing(); return !!(l && l.expirationRequired); };
     const say = (box, text, tone) => { box.textContent = text || ""; box.className = box.className.replace(/\s*rc-msg-(ok|bad)/g, "") + (tone ? " rc-msg-" + tone : ""); };
+    const paintBatch = () => {
+      const A = root.ShopperOpsAct;
+      const l = listing();
+      const hit = l && A ? batchFor(l.msku, row.asin) : null;
+      const key = hit ? JSON.stringify([hit.batchId, l.msku, hit.row]) : "";
+      if (key === m.batchKey) return;
+      m.batchKey = key;
+      batchBox.textContent = "";
+      batchBox.hidden = !hit;
+      if (!hit) return;
+      const r = hit.row;
+      batchBox.appendChild(el("div", "mp-batch-line", "In batch " + (hit.batchName || hit.batchId) + ": " + Number(r.printed) + " of " + Number(r.needed) + " printed" + (r.lastAt ? " (last " + String(r.lastAt).slice(0, 30) + ")" : "") + "."));
+      const rowEl = el("div", "rc-foot mp-batch-btns");
+      const mark = A.btn("Mark printed", "rc-btn mp-mark");
+      mark.addEventListener("click", () => {
+        const q = Math.floor(Number(qty.value));
+        if (!(Number.isFinite(q) && q >= 1 && q <= MAX_QTY)) { A.toast("Type how many labels (1 to " + MAX_QTY + ").", true); return; }
+        A.run({ name: "labelsMarkPrinted", payload: { batchId: hit.batchId, batchName: hit.batchName, msku: l.msku, title: String(r.title || (m.facts && m.facts.title) || row.title || "").slice(0, 200), count: q }, btn: mark, ok: "Marked " + q + " printed" });
+      });
+      const forget = A.btn("Forget printed", "rc-btn mp-forget");
+      forget.addEventListener("click", () => A.run({ name: "labelsForget", payload: { batchId: hit.batchId, msku: l.msku }, confirm: "Forget the printed count for this listing in " + (hit.batchName || "the batch") + "?", btn: forget, ok: "Printed count forgotten" }));
+      rowEl.append(mark, forget);
+      batchBox.appendChild(rowEl);
+    };
     const paintGo = () => {
       const q = Math.floor(Number(qty.value));
       const good = Number.isFinite(q) && q > 0 && q <= MAX_QTY;
       go.textContent = m.busy ? "Printing…" : good ? "Print " + q + " label(s)" : "Print";
+      paintBatch();
       go.disabled = m.busy || !listing() || !good || (needsDate() && !date.value.trim());
       dateWrap.hidden = !needsDate();
       cancel.disabled = m.busy;
@@ -362,7 +401,7 @@
   }
 
   root.ShopperManualPrint = Object.freeze({
-    button, open, close, defaultQty, readDate, runCommand, printOutcome, lookupOutcome,
+    button, open, close, setLabels, batchFor, defaultQty, readDate, runCommand, printOutcome, lookupOutcome,
     OFFLINE_TEXT, PICKUP_MS, ANSWER_MS, _timing: timing, _current: () => cur,
   });
 })(typeof self !== "undefined" ? self : globalThis);

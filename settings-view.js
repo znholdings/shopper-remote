@@ -264,6 +264,7 @@
       host.appendChild(card);
     }
     host.appendChild(el("p", "muted small", "Passwords and API keys are never shown or changed here."));
+    if (pendingJump) { const h = pendingJump; pendingJump = ""; applyJump(h); }
   }
 
   async function load() {
@@ -292,7 +293,42 @@
     });
   }
 
+  // B-1791 (v2.0.135): a Settings row in the drawer -> its card. Accounts / Phone remote / Data & logs are computer-level: they land on the
+  // Computers card with one line saying so (the phone never reads the secrets row).
+  const JUMP_CARD = { buying: "buying", pipeline: "pipeline", labels: "labels" };
+  const JUMP_NOTE = { accounts: "Sign-ins and keys live on the computer.", phone: "This phone's pairing lives on the computer (Settings > Phone remote).", data: "This computer's logs and data tools live on the computer (Settings > Data & logs)." };
+  let pendingJump = "";
+  function applyJump(h) {
+    const host = $("stgBody");
+    if (!host) return false;
+    let target = null;
+    if (JUMP_CARD[h]) {
+      const labels = new Map(SPEC.SETTINGS_GROUPS);
+      const want = String(labels.get(JUMP_CARD[h]) || "").toLowerCase();
+      for (const c of host.querySelectorAll("details.stg-card")) {
+        const s = c.querySelector("summary");
+        if (s && s.textContent.toLowerCase() === want) { target = c; break; }
+      }
+      if (target) target.open = true;
+    } else {
+      target = host.querySelector(".stg-sync");
+      if (target && JUMP_NOTE[h]) {
+        let n = target.querySelector(".stg-jump-note");
+        if (!n) { n = el("p", "muted small stg-jump-note"); target.appendChild(n); }
+        n.textContent = JUMP_NOTE[h];
+      }
+    }
+    if (target && target.scrollIntoView) target.scrollIntoView({ block: "start" });
+    return !!target;
+  }
+  // The pane draws after it is shown (it reads the shared row first), so the jump is also applied once after the next draw.
+  function jump(hash) {
+    pendingJump = String(hash || "");
+    return applyJump(pendingJump);
+  }
+
   self.ShopperSettingsView = Object.freeze({
+    jump,
     shown() {
       if (timer) clearTimeout(timer);
       drawnSig = "";

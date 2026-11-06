@@ -1,0 +1,24 @@
+/* B-1792 (v2.0.135): the phone's new pages (Manual Buy, Blacklist, Run status, Run reviews, Books rules). Tokens only (--s-*). */
+.pg-sec { padding: 12px; }
+.pg-field { display: flex; flex-direction: column; gap: 4px; margin: 8px 0; }
+.pg-label { font-size: 12px; font-weight: 600; color: var(--s-text-muted); }
+.pg-input { box-sizing: border-box; width: 100%; min-height: 44px; padding: 0 10px; border: 1px solid var(--s-line); border-radius: var(--s-r-sm); background: var(--s-surface); color: var(--s-text); font: 16px/1.2 var(--s-font); }
+.pg-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
+.pg-row .pg-input { flex: 1 1 140px; width: auto; }
+.pg-row button { min-height: 44px; }
+.pg-sec > button { min-height: 44px; margin-top: 8px; }
+.pg-note { margin: 6px 0; color: var(--s-text-2); overflow-wrap: anywhere; }
+.pg-line { padding: 3px 0; overflow-wrap: anywhere; }
+.pg-plan { margin-top: 8px; }
+.pg-card { padding: 10px; margin: 8px 0; border: 1px solid var(--s-line-soft); border-radius: var(--s-r-sm); overflow-wrap: anywhere; }
+.pg-kv { padding: 2px 0; }
+.pg-log { max-height: 320px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; }
+.pg-bl-row, .pg-loan { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.pg-bl-main { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.pg-bl-row button, .pg-loan button { flex: none; min-height: 44px; }
+.pg-rule { overflow-wrap: anywhere; }
+.pg-sev-high, .pg-sev-critical { border-color: var(--s-danger, var(--s-line)); }
+/* The action views (builders D / E) draw buttons with long, changing words ("Restore from <date> (<n>)"): let them wrap, never push the page sideways. */
+.bax-box .l-actions, .l-actions.bax-tools, :root[data-theme] .l-actions.bax-tools { flex-wrap: wrap !important; }
+.bax-box button, .bax-tools button { white-space: normal; max-width: 100%; overflow-wrap: anywhere; }
+[hidden] { display: none !important; }

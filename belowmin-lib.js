@@ -502,7 +502,7 @@ __m["keepa-chart-svg.js"] = { KC_W, KC_PAD_L, KC_PAD_R, KC_PANELS, KC_RANGES, KC
 // B-813 (v2.0.16): the Below Min card's "Sold per day" column chart - the
 // last 30 days, units or dollars. Data = the Amazon orders report the Buy
 // Score already keeps (shopperAspDaily, lib/asp-daily-refresh.js: per ASIN,
-// per America/Chicago day, {units, sales}, 30 days kept). An ASIN with no
+// per America/Chicago day, {units, sales}, 90 days kept). An ASIN with no
 // sale on a day has no entry, so inside the store's covered days a missing
 // day is 0; a day outside them (before the first report, after the last
 // one) is "no data" - drawn as a faint stub, never as a real zero.
@@ -753,7 +753,7 @@ __m["seller-label.js"] = { formatRatingCount, looksLikeSellerId, sellerLabel };
 // The window: "no sales in N days" = no unit on today or the N-1 days before
 // it (Central days, the orders report's own days). A sale 8 days ago shows in
 // the 7-day list, not in the 14-day one. Never more than the data covers:
-// the orders report Shopper keeps (shopperAspDaily) reaches back at most ~30
+// the orders report Shopper keeps (shopperAspDaily) reaches back at most ~90 (B-1787)
 // days; a window it does not reach falls back to Sellerboard's 30 days (30
 // only) or says "not enough data" - never an empty "all good".
 

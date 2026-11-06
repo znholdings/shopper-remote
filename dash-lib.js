@@ -467,7 +467,7 @@ function buildDoNext(input = {}) {
       id: "checks",
       severity: checkRows.some((c) => c.failed) ? "high" : "medium",
       title: checkRows.length === 1
-        ? `${checkRows[0].label}: ${checkRows[0].failed ? "the last read failed" : checkRows[0].id === "mail" ? "not read for over an hour - the hourly refresh did not run" : "no read in 12 h"}`
+        ? `${checkRows[0].label}: ${checkRows[0].failed ? "the last read failed" : checkRows[0].id === "mail" ? "not read for over an hour - the hourly refresh did not run" : checkRows[0].id === "mailWatch" ? "quiet for over 6 min - Main may be off or the watch stopped" : "no read in 12 h"}`
         : `${checkRows.length} background checks need a look`,
       detail: checkRows.map((c) => c.line).join(" · ") + ". Every line is on the Pipeline page's Activity tab and in Drive (Shopper run logs).",
       lines: checkRows.map((c) => ({ id: c.id, text: c.line })),
@@ -719,14 +719,16 @@ function buildTiles(input = {}) {
 // lastSummary }, stranded: {...} }. One line per check, always both, e.g.
 // "Voice of the Customer: read 2h ago - 0 Poor / 1 Fair".
 const BG_CHECK_STALE_MS = 12 * 3600 * 1000;
-const BG_CHECK_LABELS = Object.freeze({ voc: "Voice of the Customer", stranded: "Stranded inventory", mail: "Delivery mail" });
+const BG_CHECK_LABELS = Object.freeze({ voc: "Voice of the Customer", stranded: "Stranded inventory", mail: "Delivery mail", mailWatch: "Order-mail watch" });
 // B-1620: the hourly refresh reads mail, so "quiet" is 75 min, not 12 h.
-const BG_CHECK_STALE_BY_ID = Object.freeze({ mail: 75 * 60 * 1000 });
+// B-1801 (v2.0.135): the order-mail watch polls every minute, so quiet is 6 min.
+const BG_CHECK_STALE_BY_ID = Object.freeze({ mail: 75 * 60 * 1000, mailWatch: 6 * 60 * 1000 });
 function bgCheckStatusWords(c, now) {
   const n = num(now);
   if (!c || typeof c !== "object" || !num(c.at)) return "not run yet";
   const ago = (t) => ageText(t, n) || "time not known";
   const last = c.readAt ? `; last read ${ago(c.readAt)}${c.lastSummary ? ` - ${c.lastSummary}` : ""}` : "";
+  if (c.off) return c.summary || "off (Settings -> Pipeline)"; // B-1801: switched off on purpose
   if (!c.ok) return `not read - ${c.error || "failed"} (tried ${ago(c.at)})${last}`;
   if (c.pending) return `${c.summary || "waiting"} (asked ${ago(c.at)})${last}`;
   return `read ${ago(c.readAt || c.at)} - ${c.summary || "done"}`;
@@ -744,7 +746,7 @@ function bgCheckLines(checks, now) {
     const failed = !!(c && num(c.at) && !c.ok);
     const limit = BG_CHECK_STALE_BY_ID[id] || BG_CHECK_STALE_MS;
     // mail: never read yet is not "stale" (a fresh install / before the first run).
-    const stale = !failed && n != null && (readAt == null ? id !== "mail" : n - readAt > limit);
+    const stale = !failed && !(c && c.off) && n != null && (readAt == null ? id !== "mail" && id !== "mailWatch" : n - readAt > limit);
     return { id, label, text, line: `${label}: ${text}`, failed, stale };
   });
 }

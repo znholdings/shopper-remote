@@ -47,11 +47,48 @@
       });
   }
 
+  // B-1794 (v2.0.135): Skip today / Don't skip / Cancel plan - the laptop card's own three buttons.
+  // Cancel is its own labelled button behind a confirm (the desktop's wording, target-plans-card.js).
+  function planCmd(name, p, btn, out, confirmText) {
+    const R = self.ShopperRemote;
+    if (!R) { out.textContent = "Not connected."; return; }
+    if (confirmText && !window.confirm(confirmText)) return;
+    btn.disabled = true;
+    out.className = "tpv-result";
+    out.textContent = "Sending to the laptop...";
+    Promise.resolve(R.sendCommand(name, { planId: p.planId }))
+      .then(function (id) { if (!id) throw new Error("not sent"); return R.waitFor(id).then(function (st) { return R.commandRow(id).then(function (row) { return [st, row]; }); }); })
+      .then(function (a) {
+        const row = a[1], res = row && row.result && typeof row.result === "object" ? row.result : null;
+        btn.disabled = false;
+        if (a[0] === "done" && !(res && res.ok === false)) { out.textContent = "Done."; return; }
+        out.className = "tpv-result tpv-bad";
+        out.textContent = String((res && (res.reason || res.error)) || (row && row.reason) || "Not done (" + a[0] + ").").slice(0, 160);
+      })
+      .catch(function (e) { btn.disabled = false; out.className = "tpv-result tpv-bad"; out.textContent = "Not sent: " + ((e && e.message) || "no connection") + "."; });
+  }
+  function planTools(p, row) {
+    const t = el("div", "tpv-btns tpv-tools");
+    const out = el("span", "tpv-result");
+    const skip = el("button", "secondary-btn tpv-skip", p.skippedToday ? "Don't skip today" : "Skip today");
+    skip.type = "button";
+    skip.addEventListener("click", function () { planCmd(p.skippedToday ? "targetPlanUnskip" : "targetPlanSkipToday", p, skip, out); });
+    const cancel = el("button", "secondary-btn danger-btn tpv-cancel", "Cancel plan");
+    cancel.type = "button";
+    cancel.addEventListener("click", function () { planCmd("targetPlanCancel", p, cancel, out, "Cancel this Target plan for " + (p.title || p.asin) + "? It will stop buying toward it."); });
+    t.appendChild(skip);
+    t.appendChild(cancel);
+    t.appendChild(out);
+    row.appendChild(t);
+  }
+
   function planRow(p) {
     const row = el("div", "tpv-row" + (p.onList ? " tpv-on-list" : ""));
     row.appendChild(el("div", "tpv-title", (p.title || p.asin) + " (" + p.asin + ")"));
     row.appendChild(el("div", "tpv-facts", p.text || ""));
     if (p.listText) row.appendChild(el("div", "tpv-onlist", p.listText));
+    if (p.skippedToday) row.appendChild(el("div", "tpv-onlist", "Skipped for today."));
+    if (p.planId) planTools(p, row);
     if (!p.onList) return row;
     const btns = el("div", "tpv-btns");
     // s-tab: the shared segmented choice (retro fills the pressed one).
@@ -89,5 +126,8 @@
     host.appendChild(box);
   }
 
+  try {
+    if (typeof REMOTE_LABELS !== "undefined") Object.assign(REMOTE_LABELS, { targetPlanCancel: "Cancel the Target plan", targetPlanSkipToday: "Skip the Target plan today", targetPlanUnskip: "Don't skip the Target plan today" });
+  } catch (e) { /* labels are cosmetic */ }
   self.ShopperTargetPlansView = Object.freeze({ render: render });
 })();

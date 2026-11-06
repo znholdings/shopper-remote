@@ -312,8 +312,21 @@
     if (data.historyUrl) { link.href = data.historyUrl; link.hidden = false; } else link.hidden = true;
   }
 
+  // v2.0.135 (B-1798): the "Refresh lead time" button, drawn by remote/settings-actions-view.js (this file sends nothing itself).
+  function ensureLeadTime() {
+    const A = self.ShopperSettingsActions;
+    const ref = $("fbaRefresh");
+    if (!A || !A.leadTimeButton || !ref || !ref.parentNode || $("fbaLeadTime")) return;
+    const w = document.createElement("div");
+    w.id = "fbaLeadTime";
+    w.className = "ops-row";
+    w.appendChild(A.leadTimeButton());
+    ref.parentNode.insertBefore(w, ref.nextSibling);
+  }
+
   function draw() {
     if (!F) return;
+    ensureLeadTime();
     renderHead();
     const has = !!(data && data.available);
     $("fbaBody").hidden = !has;

@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.134";
+const APP_BUILD = "v2.0.135";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -274,7 +274,7 @@ async function cancelPending(id, reason) {
   });
   return !!(res.ok && Array.isArray(res.json) && res.json.length === 1);
 }
-self.ShopperRemote = Object.freeze({ sendCommand: (name, payload) => sendCommand(name, payload), sb: (p, o) => sb(p, o), waitFor, commandRow: readCommand, sendQuiet: (name, payload) => sendCommand(name, payload, { quiet: true }), readCommand, cancelPending, laptopOnline });
+self.ShopperRemote = Object.freeze({ sendCommand: (name, payload) => sendCommand(name, payload), switchTab: (w) => switchTab(w), toast: (t, bad) => toast(t, !!bad), sb: (p, o) => sb(p, o), waitFor, commandRow: readCommand, sendQuiet: (name, payload) => sendCommand(name, payload, { quiet: true }), readCommand, cancelPending, laptopOnline });
 
 // ------------------------------------------------------- command outcomes
 //
@@ -679,6 +679,13 @@ function renderPayload() {
   if (self.ShopperBooksView) self.ShopperBooksView.render(p.books);
   // v4.74 (B-567 - B-574): refresh, Needs you, latest arrivals, goal.
   if (self.ShopperParity) self.ShopperParity.render(p);
+  // B-1792 / B-1791 (v2.0.135): the new pages read p.pages; the drawer's group badges read the Needs-you counts.
+  if (self.ShopperPhonePages) self.ShopperPhonePages.render(p);
+  // B-1793..B-1798 (v2.0.135): the action views that take the whole projection (the buy ones read lastPayload on their own timer).
+  for (const a of ["ShopperPipelineActions", "ShopperPricingActions", "ShopperBooksActions", "ShopperSettingsActions"]) {
+    if (self[a] && typeof self[a].render === "function") { try { self[a].render(p); } catch (e) { /* one view must not blank the poll */ } }
+  }
+  if (self.ShopperPhoneNavList) self.ShopperPhoneNavList.badges(p.dashboard && p.dashboard.extra && p.dashboard.extra.needsYou && p.dashboard.extra.needsYou.counts ? p.dashboard.extra.needsYou.counts.byGroup : null);
   // B-579 (v4.75): Box contents -> ScanPower (remote/boxes.js).
   if (self.ShopperBoxes) self.ShopperBoxes.render(p);
   // B-1073 (v2.0.55): Stock sections fold + jump row counts (remote/stock-sections.js).
@@ -888,6 +895,7 @@ function progressBarsHtml(l, progress) {
 // Only ever says something when there IS something to say: a sync that
 // failed, or a Prep Center row that didn't land. A clean line renders
 // nothing here at all, exactly like the desktop.
+const RPSB_RETRY_STALE_MS = 200000; // = lib/rpsb-retry-outcome.js RPSB_RETRY_STALE_MS (B-1785)
 function syncHtml(l) {
   const sync = l.sync;
   if (!sync) return "";
@@ -897,6 +905,16 @@ function syncHtml(l) {
     bits.push(
       `<div class="l-sync-bad">${escapeHtml(sys.label)} "Ordered" update failed - ${escapeHtml(sys.reason)}</div>`
     );
+    // B-1785 (v2.0.135): what the last "Try ... update again" did (line.rpsbRetry, summarised by the computer as sys.retry).
+    const rt = sys.retry;
+    if (rt && rt.kind) {
+      if (rt.kind === "running") {
+        if (Date.now() - rt.startedAt < RPSB_RETRY_STALE_MS) bits.push(`<div class="l-sync-warn">${escapeHtml(sys.label)} retry: Retrying…</div>`);
+        else bits.push(`<div class="l-sync-warn">${escapeHtml(sys.label)} retry: no answer - the retry may have stopped; press again</div>`);
+      } else if (rt.text) {
+        bits.push(`<div class="l-sync-warn">${escapeHtml(sys.label)} retry: ${escapeHtml(rt.text)}</div>`);
+      }
+    }
   }
   const pc = sync.prepCenter;
   if (pc && !pc.ok) {
@@ -992,6 +1010,8 @@ function renderLines(lines, total, truncated, progress) {
     for (const sys of (l.sync && l.sync.systems) || []) {
       if (sys.ok) continue;
       const b = lineBtn(`Retry ${sys.label}`, "retrySync", { lineId: l.lineId, asin: l.asin, system: sys.system });
+      // B-1785 (v2.0.135): a retry still running on the computer cannot be pressed again.
+      if (sys.retry && sys.retry.kind === "running" && Date.now() - sys.retry.startedAt < RPSB_RETRY_STALE_MS) b.disabled = true;
       b.title =
         `Retries the ${sys.label} "Ordered" write for this line's ${(l.sync && l.sync.qty) || 0} bought unit(s). ` +
         `If ${sys.label} recorded part of this before reporting failure, retrying could double it - check there first if a run ever looks off.`;
@@ -2218,7 +2238,7 @@ function maybePlaySounds(p) {
 // 30 minutes, where he had scrolled to) - remembered on THIS phone only
 // (localStorage through store, which is try/catch'd: private mode = default tab).
 const LAST_VIEW_KEY = "shopperLastView";
-const LAST_VIEW_TABS = ["dashboard", "run", "buylist", "inventory", "fba", "wizard", "belowmin", "catalog", "cashflow", "books", "settings"];
+const LAST_VIEW_TABS = ["dashboard", "run", "buylist", "inventory", "fba", "wizard", "belowmin", "catalog", "cashflow", "books", "settings", "daily", "manualbuy", "blacklist", "booksrules", "runstatus", "runreviews"]; // B-1792 (v2.0.135): + the pages the phone gained (bank stays out: it maps to Home)
 const LAST_VIEW_SCROLL_MS = 30 * 60000;
 let currentTab = "run";
 let pendingScrollY = null;
@@ -2283,6 +2303,9 @@ function switchTab(which) {
   els.tabRun.classList.toggle("active", which === "run");
   els.tabBuylist.classList.toggle("active", which === "buylist");
   els.tabInventory.classList.toggle("active", which === "inventory");
+  // B-1792 (v2.0.135): the new panes (remote/pages-view.js) and the generated drawer's marked row (remote/phone-nav-list.js).
+  if (self.ShopperPhonePages) self.ShopperPhonePages.switched(which);
+  if (self.ShopperPhoneNavList) self.ShopperPhoneNavList.setActive(which);
 }
 
 // ------------------------------------------------ B-459: Inventory (read-only)
@@ -3042,7 +3065,12 @@ function glGo(target) {
     pipeline: () => openInventoryView(null),
     arrivals: () => openArrivals(),
     belowmin: () => switchTab("belowmin"),
-    runreviews: () => switchTab("run"),
+    runreviews: () => switchTab("runreviews"), // B-1792: its own page now
+    daily: () => switchTab("daily"),
+    blacklist: () => switchTab("blacklist"),
+    manualbuy: () => switchTab("manualbuy"),
+    runstatus: () => switchTab("runstatus"),
+    booksrules: () => switchTab("booksrules"),
     fba: () => switchTab("fba"),
     wizard: () => switchTab("wizard"),
     cashflow: () => switchTab("cashflow"),

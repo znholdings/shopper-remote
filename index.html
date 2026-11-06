@@ -43,6 +43,7 @@
   <link rel="stylesheet" href="inv-packing.css" /><!-- B-1515 (v2.0.107): Packing icon beside the printer on Stock rows -->
   <link rel="stylesheet" href="daily.css" /><!-- B-1257 (v2.0.73): The Daily (Home) + B-1256 short Do next cards -->
   <link rel="stylesheet" href="phone-nav.css" /><!-- B-1233 (v2.0.73): the sidebar navigation -->
+  <link rel="stylesheet" href="phone-pages.css" /><!-- B-1792 (v2.0.135): the new pages -->
   <link rel="stylesheet" href="books.css" /><!-- B-1232 (v2.0.73): the Books section -->
   <!-- Shopper 2 (v2.00, B-732): light / dark before first paint. The phone
        follows its own setting unless the top-bar button picked one. -->
@@ -119,39 +120,15 @@
            hides itself: the menu button in the top bar (it floats once the bar scrolls away) or a
            swipe in from the left edge opens it, a pick / the scrim / a swipe back / Esc closes it
            (remote/phone-nav.js). It replaced the bottom tab bar.
-           THIS LIST IS THE ONE LIST: a new phone section = one more <button class="tab"> here
-           (+ its pane, its click line and its switchTab line in app.js) - phone-nav.js and
-           phone-nav.css need no change. -->
+           B-1791 (v2.0.135): THE LIST IS GENERATED. remote/nav-lib.js (node test/_phone-nav-bundle.mjs --write) copies lib/sidenav.js NAV;
+           remote/phone-nav-list.js draws it (six groups, badges, the laptop's names). A new laptop page = one PHONE_TABS line there. -->
       <div id="pnScrim" class="pn-scrim" aria-hidden="true"></div>
       <nav id="phoneNav" class="pn-drawer" aria-label="Shopper pages">
         <div class="pn-head">
           <span class="pn-brand"><img src="shoppy-64.png" alt="" class="pn-logo" /><span class="pn-word">Shopper</span></span>
           <button id="pnClose" class="pn-close" type="button" aria-label="Close navigation"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
         </div>
-        <div class="pn-list">
-          <!-- B-490 (v4.56): the desktop Dashboard, mirrored read-only. -->
-          <button id="tabDashboard" class="tab"><svg class="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg><span class="tab-label">Dashboard</span></button>
-          <button id="tabBuylist" class="tab"><svg class="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5h11M9 12h11M9 19h11"/><path d="M4 5l1 1 2-2M4 12l1 1 2-2M4 19l1 1 2-2"/></svg><span class="tab-label">Buylist</span></button>
-          <button id="tabRun" class="tab active"><svg class="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18l-2 9H6L4 3H2"/><circle cx="8" cy="20" r="1.5"/><circle cx="17" cy="20" r="1.5"/></svg><span class="tab-label">Buy Queue</span><span class="pn-alias">Run</span></button>
-          <!-- B-459 (v4.49): the laptop's Inventory Pipeline page (the Stock tab). -->
-          <button id="tabInventory" class="tab"><svg class="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h11"/><path d="M3 17h7"/><circle cx="17" cy="7" r="3"/><circle cx="13" cy="17" r="3"/><path d="M20 7h1M16 17h5"/></svg><span class="tab-label">Pipeline</span><span class="pn-alias">Stock</span></button>
-          <!-- B-742 (v2.0.7): the Shipment Wizard (+ B-1071 Process returns). -->
-          <button id="tabWizard" class="tab"><svg class="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h11v9H3z"/><path d="M14 10h4l3 3v3h-7"/><circle cx="7" cy="18" r="1.6"/><circle cx="17" cy="18" r="1.6"/></svg><span class="tab-label">Ship to Amazon</span><span class="pn-alias">Ship</span></button>
-          <!-- B-1451 (v2.0.93): Packing planner straight from the menu - not a pane: remote/packing-view.js opens the packing sheet on tap (no Ship tab steps). -->
-          <button id="tabPacking" class="tab"><svg class="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg><span class="tab-label">Plan boxes</span><span class="pn-alias">Pack</span></button>
-          <!-- B-1023 (v2.0.49): the laptop's Catalog (products with stock). -->
-          <button id="tabCatalog" class="tab"><svg class="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="5" height="5" rx="1"/><rect x="3" y="15" width="5" height="5" rx="1"/><path d="M11 5.5h10M11 8h6M11 16.5h10M11 19h6"/></svg><span class="tab-label">Catalog</span></button>
-          <!-- B-741 (v2.01): Buy Box under the Seller Snap min. -->
-          <button id="tabBelowMin" class="tab"><svg class="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12l-8 8-9-9V3h8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg><span class="tab-label">Pricing</span></button>
-          <!-- B-1232 (v2.0.73): the laptop's Books - overview + Needs you (remote/books-view.js); after Pricing (Money), as in lib/sidenav.js NAV. -->
-          <button id="tabBooks" class="tab"><svg class="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4.5A1.5 1.5 0 015.5 3H20v16H5.5A1.5 1.5 0 004 20.5z"/><path d="M4 20.5A1.5 1.5 0 005.5 22H20"/><path d="M8 8h8M8 12h5"/></svg><span class="tab-label">Books</span></button>
-          <!-- B-510 (v4.61): the laptop's FBA Inventory page, read-only. -->
-          <button id="tabFba" class="tab"><svg class="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg><span class="tab-label">FBA Inventory</span></button>
-          <!-- B-765 (v2.0.8): the laptop's Cash Flow page. -->
-          <button id="tabCashFlow" class="tab"><svg class="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l5-5 4 4 8-8"/><path d="M15 8h5v5"/></svg><span class="tab-label">Cash Flow</span></button>
-          <!-- B-1501 (v2.0.104): the shared Settings (remote/settings-view.js); last, as in lib/sidenav.js NAV. -->
-          <button id="tabSettings" class="tab"><svg class="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg><span class="tab-label">Settings</span></button>
-        </div>
+        <div class="pn-list"><!-- B-1791 (v2.0.135): built by phone-nav-list.js from nav-lib.js (= lib/sidenav.js NAV) --></div>
         <div class="pn-foot"><span id="pnBuild" class="pn-version"></span></div>
       </nav>
 
@@ -242,6 +219,7 @@
           <button id="finishNowBtn" class="secondary-btn" hidden>Finish now</button>
           <button id="abortBtn" class="danger-btn">Abort</button>
         </div>
+        <div id="queueActionsHost"></div><!-- B-1794: remote/queue-actions-view.js -->
         <!-- B-1457 (v2.0.96): where the Target orders still to come ship; orders already placed keep theirs. -->
         <div id="targetDestRow" class="controls" hidden>
           <span class="muted small">Target orders still to come:</span>
@@ -304,6 +282,7 @@
         <!-- P-65: the end-of-queue report. Everything in it is computed by
              the laptop already (buildBuyQueueReport); none of it had ever
              been sent to the phone. -->
+        <div id="waitingHost"></div><!-- B-1794: remote/waiting-rows-view.js -->
         <div id="reportCard" class="report-card" hidden>
           <h2 id="reportHead" class="section-head">Run report</h2>
           <div id="reportUrgent" class="report-urgent" hidden></div>
@@ -342,6 +321,7 @@
         <!-- B-1103 (v2.0.57): open Target plans - roll tonight's line in or keep it separate.
              remote/target-plans-view.js draws it. -->
         <div id="tpPlanHost" hidden></div>
+        <div id="blActionsHost"></div><!-- B-1793: remote/buylist-actions-view.js -->
         <div id="claudeLearnHost"></div>
         <div id="buylistItems" class="lines"></div>
       </div>
@@ -383,6 +363,12 @@
         </div>
       </div>
 
+      <!-- B-1792 (v2.0.135): the pages the phone lacked. Each is drawn by its own remote/*-view.js and shown by ShopperPhonePages. -->
+      <div id="manualBuyPane" hidden></div>
+      <div id="blacklistPane" hidden></div>
+      <div id="runStatusPane" hidden></div>
+      <div id="runReviewsPane" hidden></div>
+      <div id="booksRulesPane" hidden></div>
       <!-- B-662 (v4.85): the Bank view - opened from the Dashboard's Bank
            balance tile. Read-only: what the laptop's last Dashboard refresh
            read off the Bank tab. -->
@@ -442,6 +428,10 @@
           <h3>Arrivals <span id="invArrivalsCount" class="count"></span></h3>
           <div id="invArrivals"></div>
         </div>
+        <!-- B-1796 (v2.0.135): remote/pipeline-actions-view.js -->
+        <div id="shipmentsHost"></div>
+        <div id="unmatchedHost"></div>
+        <div id="editsHost"></div>
         <div id="invProductsSection" class="section">
           <h3>Products <span id="invProductCount" class="count"></span></h3>
           <div id="invRows" class="lines"></div>
@@ -468,6 +458,7 @@
         <div id="cfmBody"></div>
       </div>
       <div id="belowMinPane" hidden>
+        <div id="bmmActionsHost"></div><!-- B-1797: remote/pricing-actions-view.js -->
         <!-- B-1084 (v2.0.55): the explainer behind an ⓘ; the Keepa / sales-report notes once, in #bmmNotes. -->
         <div class="bmm-head"><button type="button" class="secondary-btn" id="bmmCheck">Check now</button><button type="button" class="c55-info" id="bmmInfoToggle" aria-expanded="false" aria-controls="bmmExplain" aria-label="What sending does" title="What sending does">&#9432;</button></div>
         <p id="bmmAsOf" class="muted"></p>
@@ -502,12 +493,14 @@
             <ul id="bkmNeeds" class="bkm-needs"></ul>
             <p id="bkmNeedsMore" class="muted small" hidden></p>
           </section>
+          <div id="bkmActionsHost"></div><!-- B-1797: remote/books-actions-view.js -->
         </div>
       </div>
 
       <!-- B-1501 (v2.0.104): the shared Settings - the same values on both computers and here (remote/settings-view.js draws it). -->
       <div id="settingsPane" hidden>
         <div id="stgBody"></div>
+        <div id="stgActionsHost"></div><!-- B-1798: remote/settings-actions-view.js (Actions card) -->
       </div>
 
       <!-- B-1023 (v2.0.49): the laptop's Catalog - products with stock, built on
@@ -663,9 +656,12 @@
   <script src="topbar-view.js"></script>
   <!-- B-1137 (v2.0.60): the Walmart pack-rank editor (app.js renderPrompt draws it). -->
   <script src="pack-rank-view.js"></script>
+  <script src="nav-lib.js"></script><!-- B-1791 (v2.0.135): GENERATED from lib/sidenav.js -->
+  <script src="phone-nav-list.js"></script><!-- B-1791: draws the drawer (the tab buttons must exist before the main script collects them) -->
   <script src="start-picker.js"></script><!-- B-1535 -->
   <script src="app.js"></script>
   <!-- B-1233 (v2.0.73): the sidebar navigation (after app.js, which wires each tab button). -->
+  <script src="pages-view.js"></script><!-- B-1792 (v2.0.135): the registry the new pages hang on -->
   <script src="phone-nav.js"></script>
   <!-- B-1062 / B-1063 (v2.0.53) -->
   <script src="claude-learn-view.js"></script>
@@ -698,6 +694,21 @@
   <!-- B-1501 (v2.0.104): the shared Settings screen. -->
   <script src="settings-lib.js"></script>
   <script src="settings-view.js"></script>
+  <!-- B-1792 (v2.0.135): the new pages, then the action views that need ShopperRemote / ShopperManualPrint / ShopperPhonePages / REMOTE_LABELS. -->
+  <script src="manual-buy-view.js"></script>
+  <script src="blacklist-view.js"></script>
+  <script src="run-status-view.js"></script>
+  <script src="run-reviews-view.js"></script>
+  <script src="books-rules-view.js"></script>
+  <script src="buylist-actions-view.js"></script>
+  <script src="queue-actions-view.js"></script>
+  <script src="waiting-rows-view.js"></script>
+  <script src="dash-actions-view.js"></script>
+  <script src="bank-actions-view.js"></script>
+  <script src="pipeline-actions-view.js"></script>
+  <script src="pricing-actions-view.js"></script>
+  <script src="books-actions-view.js"></script>
+  <script src="settings-actions-view.js"></script>
   <script>
     // Shopper 2 (v2.00, B-732): the top-bar theme button - system -> light -> dark.
     // B-802 (v2.0.11): light -> dark -> retro -> light; the icon shows the NEXT one.

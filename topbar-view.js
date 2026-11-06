@@ -9,7 +9,9 @@
 (function (root) {
   "use strict";
   var TAB_NAMES = { dashboard: "Dashboard", bank: "Virtual Bank", run: "Run", buylist: "Buylist", inventory: "Inventory",
-    fba: "FBA", wizard: "Ship", belowmin: "Pricing", cashflow: "Cash", catalog: "Catalog", books: "Books", settings: "Settings" };
+    fba: "FBA", wizard: "Ship", belowmin: "Pricing", cashflow: "Cash", catalog: "Catalog", books: "Books", settings: "Settings",
+    // B-1792 (v2.0.135): the pages the phone gained.
+    daily: "The Daily", manualbuy: "Manual Buy", blacklist: "Blacklist", booksrules: "Books rules", runstatus: "Run status", runreviews: "Run reviews" };
   var state = null;
   var timer = 0;
 
