@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.137";
+const APP_BUILD = "v2.0.138";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -1569,6 +1569,7 @@ function buylistCard(i) {
   if (i.v3Owned) stats.title = i.v3Owned; // B-1806: every owned stage behind Quantity v3
   row.appendChild(stats);
   if (i.v3Owned) { const own = document.createElement("div"); own.className = "bl-owned muted"; own.textContent = i.v3Owned; row.appendChild(own); }
+  if (i.v3LossPct != null) { const lo = document.createElement("div"); lo.className = "bl-owned bl-loss"; lo.textContent = "Amazon loss " + i.v3LossPct + "% of what it received (90 days) - check for a reimbursement"; row.appendChild(lo); } // B-1811
 
   const more = document.createElement("div");
   more.className = "bl-more";

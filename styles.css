@@ -1276,4 +1276,8 @@ html, body { overscroll-behavior: none; }
 .list-divider { padding: 8px 12px; margin: 6px 0; font-size: 12px; font-weight: 600; line-height: 1.5; color: var(--s-violet); background: color-mix(in srgb, var(--s-violet) 9%, transparent); border-radius: var(--s-r-sm); overflow-wrap: anywhere; }
 .gl-row .gl-main > .gl-notif-actions { margin-top: 6px; } /* B-1773 (v2.0.133) */
 
+/* B-1811 (v2.0.138): remote/fba-stock-view.js */
+.fs-card .fs-line { padding: 6px 0; border-top: 1px solid var(--s-line-soft); overflow-wrap: anywhere; }
+.fs-card .fs-flag b { color: var(--s-red-ink); }
+.bl-loss { color: var(--s-red-ink); }
 [hidden] { display: none !important; }
