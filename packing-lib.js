@@ -2310,7 +2310,7 @@ function couldRescue(box, groups, r) {
 // groups -> pack; if some units do not fit, retry with squeezed sizes for the products that compress (a gap closer, never the default).
 // R1-F6: counts the packs the layer pass replaced (lib/packing-plan.js attempt() re-plans without it when it could have cost a box)
 const layerStats = { used: 0 };
-function packBox(box, groups, cfg, { allowSqueeze = true, rescue = false, layers = null } = {}) {
+function packBox(box, groups, cfg, { allowSqueeze = true, rescue = false, layers = null, quick = false } = {}) { // B-1802: quick = one pass of each kind, no branching search (the open-box planner tries many contents; the chosen ones are re-packed in full)
   let r = packBest(box, groups, cfg, false);
   r.squeezed = [];
   // v2.0.120 (B-1621): the LAYER pass (lib/packing-layers.js) - the best layer, repeated. It only replaces the greedy pack when its stance is strictly better; a pack with no stacked
@@ -2324,6 +2324,7 @@ function packBox(box, groups, cfg, { allowSqueeze = true, rescue = false, layers
   if (canStand(box, groups, cfg)) {
     const rs = packOnce(box, groups, cfg, false, false, null, true);
     if (rs.ok) { rs.squeezed = []; return rs; }
+    if (quick) return r;
     const rr = rescuePack(box, groups, cfg, { stand: true, maxRuns: STAND_RUNS });
     if (rr.ok) return rr;
   }
