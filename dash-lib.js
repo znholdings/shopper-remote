@@ -680,7 +680,7 @@ function sustainTile(g) {
   };
   if (lines.length) tile.lines = lines.map((x) => String(x).slice(0, 200));
   const goals = Array.isArray(g.goals) ? g.goals.filter((x) => x && x.dailyCents != null) : [];
-  if (goals.length) tile.split = goals.slice(0, 4).map((x) => ({ label: x.label, value: `${money0(num(x.dailyCents) / 100)}/d · ${money0(num(x.weekdayCents) / 100)}/buy-day` }));
+  if (goals.length) tile.split = goals.slice(0, 4).map((x) => ({ label: x.label, value: x.weekdayCents == null ? `${money0(num(x.dailyCents) / 100)} today` : `${money0(num(x.dailyCents) / 100)}/d · ${money0(num(x.weekdayCents) / 100)}/buy-day` }));
   const cutC = g.tone === "bad" && g.cutToCents != null ? num(g.cutToCents) : null;
   if (ready && cur != null && cutC != null && Math.floor(cutC / 100) !== cur) {
     const to = Math.floor(cutC / 100);

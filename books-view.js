@@ -184,8 +184,8 @@
     if (!r.pick) {
       li.append(el("div", "bkm-lead", r.why || "Answer this one on the laptop."));
       // B-1853 (v2.0.141): a duplicate card line is voided / a card payment from ··0034 booked with one tap (the laptop does the work).
-      if (r.action && (r.action.type === "dupe-void" || r.action.type === "card-pay-book")) {
-        const ab = el("button", "primary-btn bkm-book", r.action.type === "dupe-void" ? "Void this line" : "Book it (Dr 2000 / Cr 3000)");
+      if (r.action && (r.action.type === "dupe-void" || r.action.type === "card-pay-book" || r.action.type === "card-gone-void")) {
+        const ab = el("button", "primary-btn bkm-book", r.action.type === "card-pay-book" ? "Book it (Dr 2000 / Cr 3000)" : "Void this line");
         ab.type = "button";
         ab.disabled = !!sending;
         ab.addEventListener("click", () => runAction(r));
@@ -373,13 +373,13 @@
       redraw();
       return;
     }
-    const void_ = r.action.type === "dupe-void";
+    const void_ = r.action.type === "dupe-void" || r.action.type === "card-gone-void";
     sending = r.key;
     notes[r.key] = { phase: "sending", text: void_ ? "Voiding the duplicate line..." : "Booking the card payment...", at: Date.now() };
     redraw();
     let id = null;
     try {
-      id = void_ ? await R.sendCommand("booksDupeVoid", { lineId: r.action.lineId, keepId: r.action.keepId }) : await R.sendCommand("booksCardPayBook", { hhId: r.action.hhId });
+      id = r.action.type === "card-gone-void" ? await R.sendCommand("booksCardGoneVoid", { lineId: r.action.lineId }) : void_ ? await R.sendCommand("booksDupeVoid", { lineId: r.action.lineId, keepId: r.action.keepId }) : await R.sendCommand("booksCardPayBook", { hhId: r.action.hhId });
     } catch (e) { id = null; }
     if (!id) {
       sending = "";
