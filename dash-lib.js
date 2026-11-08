@@ -662,6 +662,7 @@ function sustainTile(g) {
   }
   if (ready && g.rawDailyCents != null && g.suggestedDailyCents != null && Math.floor(g.rawDailyCents / 100) !== Math.floor(g.suggestedDailyCents / 100)) lines.push(`smoothed; today alone ${money0(Math.floor(g.rawDailyCents / 100))}`);
   const asOf = g.asOf && typeof g.asOf === "object" ? [["Books", g.asOf.books], ["Plaid", g.asOf.plaid], ["Sellerboard", g.asOf.sellerboard], ["spend", g.asOf.spend]].filter((x) => x[1]).map((x) => `${x[0]} ${mdShort(x[1])}`) : [];
+  if (g.payoutTiming && g.payoutTiming.words) lines.push("Payouts: " + g.payoutTiming.words);
   if (asOf.length) lines.push("Figures as of " + asOf.join(" · "));
   const tile = {
     id: "sustain",
