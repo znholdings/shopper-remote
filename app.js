@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.138";
+const APP_BUILD = "v2.0.139";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -2382,6 +2382,7 @@ function invArrivalBox(title, box, tone, kind) {
   head.appendChild(invNode("b", null, title));
   head.appendChild(invNode("span", "count", box.rowCount + " product(s) · " + invUnits(box.units) + "u"));
   wrap.appendChild(head);
+  if (box.why) wrap.appendChild(invNode("div", "muted inv-box-why", box.why)); // B-1817
   if (!box.rows.length) {
     wrap.appendChild(invNode("div", "muted", "Nothing."));
     return wrap;
@@ -2390,7 +2391,7 @@ function invArrivalBox(title, box, tone, kind) {
     const row = invNode("div", "line inv-arrival" + (r.destination === "prep" ? " dest-prep" : r.destination === "house" ? " dest-house" : "")); // B-801 (v2.0.10)
     const top = invNode("div", "inv-row-top");
     top.appendChild(invNode("span", "inv-title", r.title || r.asin));
-    top.appendChild(invNode("b", "inv-units", invUnits(r.units) + "u"));
+    top.appendChild(invNode("b", "inv-units", invUnits(r.units) + "u" + (r.itemsOpen != null && Math.abs(r.units - Math.round(r.units)) > 0.0005 ? " (" + invUnits(r.itemsOpen) + " items)" : ""))); // B-1820
     row.appendChild(top);
     const bits = [r.asin, r.retailer, r.destination === "prep" ? "to Prep" : r.destination === "house" ? "to House" : ""];
     if (r.date) bits.push((r.isGuess ? "~" : "") + invDay(r.date));
@@ -3115,7 +3116,7 @@ function glTap(node, fn) {
 }
 
 function glTile(t) {
-  const n = invNode("div", "dash-tile gl-tile gl-tone-" + (t.tone || "flat") + (t.id === "stock" || t.id === "plaid" ? " wide" : ""));
+  const n = invNode("div", "dash-tile gl-tile gl-tone-" + (t.tone || "flat") + (t.id === "stock" || t.id === "plaid" ? " wide" : "") + (t.id === "sustain" ? " wide" : ""));
   n.dataset.tile = t.id;
   n.appendChild(invNode("span", "t-label", t.label));
   // B-944 (v2.0.36): the Bank Balances box - its three rows instead of one big number.
@@ -3132,6 +3133,8 @@ function glTile(t) {
     n.appendChild(list);
   }
   if (t.sub) n.appendChild(invNode("span", "dash-money gl-sub", t.sub));
+  // v2.0.139 (B-1821/1826/1827/1830): the Sustainable Spend tile's extra lines (verdict headline, break-even, worth, as-of).
+  if (Array.isArray(t.lines)) for (const l of t.lines) n.appendChild(invNode("span", "dash-money gl-line2", l));
   if (t.split) {
     const row = invNode("div", "gl-split");
     for (const s of t.split) {
@@ -3149,7 +3152,7 @@ function glTile(t) {
     ap.type = "button";
     ap.addEventListener("click", (e) => {
       e.stopPropagation();
-      if (confirm(t.apply.confirm + " (This changes the goal on the main computer.)")) sendCommand("sustainApply", { dailyCents: t.apply.dailyCents });
+      if (confirm(t.apply.confirm + " (The goal is shared - both computers and the phone.)")) sendCommand("sustainApply", { dailyCents: t.apply.dailyCents });
     });
     n.appendChild(ap);
   }

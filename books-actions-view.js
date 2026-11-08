@@ -91,7 +91,7 @@
 
   Object.assign(typeof REMOTE_LABELS !== "undefined" ? REMOTE_LABELS : {}, {
     booksAsk: "Ask about Books", booksAuditRun: "Run Books audit", booksAuditDecide: "Decide audit finding", booksClose: "Close month",
-    booksCogsConfirm: "Confirm COGS", booksCogsUnconfirm: "Unconfirm COGS", booksEntryPost: "Post entry", booksAccountMapSet: "Map account",
+    booksMailFind: "Find the order in Gmail", booksCogsConfirm: "Confirm COGS", booksCogsUnconfirm: "Unconfirm COGS", booksEntryPost: "Post entry", booksAccountMapSet: "Map account",
     booksRebuildCheck: "Check rebuild", booksRebuildPreview: "Preview rebuild", booksRebuild: "Clean rebuild", booksRebuildPutBack: "Put Books back", booksExportDrive: "Export to Drive",
     booksRulesAdd: "Add rule", booksRulesSet: "Save rules", booksLoanSet: "Save loan", booksLoanRemove: "Remove loan",
   });
@@ -249,6 +249,39 @@
       line.appendChild(b);
       c.appendChild(line);
     }
+    return c;
+  }
+
+  // ---- B-1839 (v2.0.139): find the missing order in Gmail ----
+  // Up to 10 no-order COGS charges; sends their ids only. Reads Gmail on the laptop, writes nothing.
+  const money = (c) => (Number(c) < 0 ? "-" : "") + "$" + (Math.abs(Number(c) || 0) / 100).toFixed(2);
+  function findCard(rows0) {
+    const rows = arr(rows0).filter((r) => r && ID_RE.test(clip(r.lineId, 120))).slice(0, 10);
+    if (!rows.length) return null;
+    const c = card("Find the order in Gmail", "ops-bfind");
+    c.appendChild(el("div", "muted small", "Charges with no order found. Looks in Gmail only - nothing is booked."));
+    const out = el("div", "ops-bfind-out");
+    const b = btn("Find for all shown (" + rows.length + ")", "ops-bfind-do");
+    b.addEventListener("click", () => run({
+      name: "booksMailFind", payload: { lineIds: rows.map((r) => clip(r.lineId, 120)) }, btn: b, ok: "Searched Gmail",
+      done: (res) => {
+        out.textContent = "";
+        const list = arr(obj(res).results);
+        if (!list.length) { out.appendChild(el("div", "ops-line", "Nothing came back.")); return; }
+        for (const x of list) {
+          const line = el("div", "ops-line ops-bfind-row");
+          line.appendChild(el("div", "", clip(x.date, 10) + " " + money(x.cents) + (x.retailer ? " - " + clip(x.retailer, 20) : "")));
+          const cands = arr(x.candidates);
+          // review: a reply shortened for the relay keeps only how many were found (x.found) - never "none found" then.
+          if (!cands.length && Number(x.found) > 0) line.appendChild(el("div", "muted small", Number(x.found) + " order number(s) found - the list is on the laptop's Books page (too long for the phone)."));
+          else if (!cands.length) line.appendChild(el("div", "muted small", clip(x.note || (arr(x.searches).some((s) => s && s.ok === false) ? "A Gmail search failed." : "No order mail found."), 100)));
+          for (const cd of cands) line.appendChild(el("div", "small", "Order " + clip(cd.orderNumber, 40) + (cd.known === false ? " - NOT on the ledger" : cd.known ? " - already on the ledger" : "") + (cd.subject ? " - " + clip(cd.subject, 60) : "")));
+          out.appendChild(line);
+        }
+        if (obj(res).capped) out.appendChild(el("div", "muted small", "Only the first 10 charges were searched."));
+      },
+    }));
+    c.append(b, out);
     return c;
   }
 
@@ -470,13 +503,13 @@
     if (rulesHost) renderRules(rulesHost, payload);
     const host = $("bkmActionsHost");
     if (!host) return;
-    const s = JSON.stringify([books.monthsOpen, books.monthsClosed, pages.booksAsk, pages.booksAudit, pages.booksCogs, pages.booksAccountMap, pages.booksRebuild, accountsOf(pages)]);
+    const s = JSON.stringify([books.monthsOpen, books.monthsClosed, pages.booksAsk, pages.booksAudit, pages.booksCogs, books.cogsNoOrder, pages.booksAccountMap, pages.booksRebuild, accountsOf(pages)]);
     if (s === sig && host.childNodes.length) return;
     if (editing(host)) return;
     sig = s;
     host.textContent = "";
-    for (const c of [askCard(pages.booksAsk), auditCard(books, pages), closeCard(books), cogsCard(pages.booksCogs), entryCard(pages), mapCard(pages.booksAccountMap), rebuildCard(pages.booksRebuild), exportCard()]) if (c) host.appendChild(c);
+    for (const c of [askCard(pages.booksAsk), auditCard(books, pages), closeCard(books), cogsCard(pages.booksCogs), findCard(books.cogsNoOrder), entryCard(pages), mapCard(pages.booksAccountMap), rebuildCard(pages.booksRebuild), exportCard()]) if (c) host.appendChild(c);
   }
 
-  self.ShopperBooksActions = Object.freeze({ render, renderRules, askCard, auditCard, closeCard, cogsCard, entryCard, mapCard, rebuildCard, exportCard });
+  self.ShopperBooksActions = Object.freeze({ render, renderRules, askCard, auditCard, closeCard, cogsCard, findCard, entryCard, mapCard, rebuildCard, exportCard });
 })();

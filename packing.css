@@ -66,12 +66,10 @@
 
 /* B-1427 / B-1428 (v2.0.92): the Plan and Rules tabs (lib/packing-plan-view.js). */
 .pk-bar .pk-tab { flex: 1 1 0; padding: 8px 10px; }
-.pk-plan, .pk-stage, .pk-det, .pk-items, .pk-box { display: flex; flex-direction: column; gap: 8px; min-width: 0; max-width: 100%; }
+.pk-plan, .pk-stage, .pk-det, .pk-items { display: flex; flex-direction: column; gap: 8px; min-width: 0; max-width: 100%; }
 .pk-plan-line { font-size: 15px; font-weight: 700; overflow-wrap: anywhere; }
 .pk-tag { align-self: flex-start; max-width: 100%; padding: 4px 8px; font-size: 12px; font-weight: 800; border-radius: var(--s-r-sm, 6px); overflow-wrap: anywhere; }
 .pk-tag-warn { background: var(--s-yellow-bg, #fff6d6); color: var(--s-yellow-ink, #6b5100); }
-.pk-box-approved { border-left: 5px solid var(--s-green-ink, #14612d); }
-.pk-box-rejected { border-left: 5px solid var(--s-red-ink, #7a1a2b); }
 .pk-proposal { background: var(--s-yellow-bg, #fff6d6); color: var(--s-yellow-ink, #6b5100); }
 .pk-item { display: flex; gap: 8px; align-items: baseline; min-width: 0; font-size: 14px; border-bottom: 1px solid var(--s-line); padding: 3px 0; }
 .pk-item-n { flex: none; min-width: 44px; font-weight: 700; text-align: right; }
@@ -83,8 +81,6 @@
 .pk-callouts { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.4; overflow-wrap: anywhere; }
 .pk-callouts li { margin: 2px 0; }
 .pk-realw { display: flex; flex-direction: column; gap: 6px; padding: 8px 0; }
-.pk-viewtabs { gap: 6px; }
-.pk-viewtabs .pk-tab { flex: 1 1 auto; min-height: 36px; padding: 6px 8px; font-size: 13px; }
 .pk-pair { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; max-width: 100%; align-items: flex-start; }
 .pk-pair > .pk-svg { flex: 1 1 300px; min-width: 0; }
 .pk-svg { display: block; margin: 4px 0 10px; border: 1px solid var(--s-line); background: var(--s-paper, #fbfaf4); min-width: 0; }
@@ -125,7 +121,6 @@ body.pk-open { overflow: hidden; }
 :root[data-theme="retro"] .pk-sheet-head { border-bottom: 2px solid var(--s-n7); }
 
 :root[data-theme="retro"] .pk-tag { border: 2px solid var(--s-n7); border-radius: 0; font-size: 12px !important; }
-:root[data-theme="retro"] .pk-box-approved, :root[data-theme="retro"] .pk-box-rejected { border-left-width: 8px; }
 :root[data-theme="retro"] :is(.pk-item, .pk-callouts, .pk-cmp-grid, .pk-plan-line) { font-size: 13px !important; line-height: 1.35 !important; }
 :root[data-theme="retro"] .pk-rule, :root[data-theme="retro"] .pk-item { border-bottom: 2px solid var(--s-n7); }
 :root[data-theme="retro"] .pk-svg { border: 2px solid var(--s-n7); }
@@ -169,13 +164,94 @@ body.pk-open { overflow: hidden; }
 .pk-copy-warn { color: var(--s-red-ink, #7a1a2b); }
 .pk-copy-go { align-self: flex-start; white-space: normal; text-align: left; margin-top: 6px; }
 .pk-copy-preview { display: flex; flex-direction: column; min-width: 0; }
-/* B-1754 (v2.0.130): box head opens the contents; Approve + "..." on the card; plan details fold. */
-.pk-box > .pk-headrow.pk-box-head { flex-wrap: nowrap; align-items: flex-start; cursor: pointer; border-radius: 8px; }
-.pk-box > .pk-box-head:focus-visible { outline: 2px solid var(--s-accent, #3b5bdb); outline-offset: 2px; }
-.pk-box .pk-hold { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pk-more-toggle { min-width: 36px; font-size: 16px; line-height: 1; }
-.pk-more-toggle[aria-expanded="true"] { background: var(--s-accent-bg, #e8edff); color: var(--s-accent, #3b5bdb); }
-.pk-more { padding-left: 4px; border-left: 2px solid var(--s-line); }
 .pk-danger { color: var(--s-red-ink, #7a1a2b); }
-.pk-plan-details { font-size: 13px; }
-.pk-plan-details > summary { cursor: pointer; font-weight: 700; color: var(--s-text-muted); }
+.pk-plan-details { font-size: 13px; display: flex; flex-direction: column; gap: 4px; }
+
+/* v2.0.139 (B-1831..B-1836): ONE page - strip, box table + selected-box panel, no menus. Tokens only; retro/dark variants below.
+   .pk-root is a size container ("pk"): the table/panel split follows the width of the page, not the screen (the phone sheet is narrow too). */
+.pk-plan { container: pk / inline-size; } /* the Plan boxes tab is the container (it also mounts on its own) */
+.pk-onepage { gap: 12px; }
+.pk-strip { display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 8px 10px; border: 1px solid var(--s-line); border-radius: var(--s-r, 8px); background: var(--s-surface); }
+.pk-strip-line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; min-width: 0; }
+.pk-strip-t { flex: 1 1 220px; min-width: 0; font-weight: 700; font-size: 14px; overflow-wrap: anywhere; }
+.pk-strip-line .pk-btn { min-height: 36px; padding: 6px 10px; font-size: 13px; }
+.pk-strip-body, .pk-replay-host, .pk-plan-host, .pk-section-body { min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.pk-strip-body:empty, .pk-replay-host:empty { display: none; }
+.pk-section { display: flex; flex-direction: column; gap: 8px; min-width: 0; padding-top: 12px; border-top: 1px solid var(--s-line); }
+.pk-plan-wrap, .pk-make-host, .pk-head-host, .pk-acts-host, .pk-forms-host, .pk-cmp-host, .pk-batch-host, .pk-table-host { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.pk-forms-host:empty, .pk-note-host:empty, .pk-cmp-host:empty, .pk-batch-host:empty, .pk-acts-host:empty, .pk-head-host:empty { display: none; }
+.pk-plan-wrap[hidden], .pk-make-host[hidden], .pk-panel[hidden] { display: none; }
+.pk-actrow { gap: 8px; }
+.pk-split { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; min-width: 0; }
+.pk-boxtable { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: auto; }
+.pk-boxtable th { text-align: left; font-size: 12px; font-weight: 800; color: var(--s-text-muted); padding: 6px 8px; border-bottom: 1px solid var(--s-line); white-space: nowrap; }
+.pk-boxtable td { padding: 6px 8px; border-bottom: 1px solid var(--s-line); vertical-align: top; overflow-wrap: anywhere; min-width: 0; }
+.pk-box { cursor: pointer; }
+.pk-box:hover td { background: var(--s-surface-2, transparent); }
+.pk-row-on td, .pk-row-on:hover td { background: var(--s-accent-bg, #e8edff); }
+.pk-box-approved td:first-child { box-shadow: inset 5px 0 0 var(--s-green-ink, #14612d); }
+.pk-box-rejected td:first-child { box-shadow: inset 5px 0 0 var(--s-red-ink, #7a1a2b); }
+.pk-box-head { min-height: 32px; padding: 4px 8px; border: 1px solid var(--s-line); background: var(--s-surface); color: var(--s-text); border-radius: var(--s-r-sm, 6px); font: inherit; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.pk-box-head:focus-visible, .pk-box:focus-visible { outline: 2px solid var(--s-accent, #3b5bdb); outline-offset: 2px; }
+.pk-box-name { font-weight: 700; }
+.pk-boxtable .pk-hold { white-space: normal; }
+.pk-c-sum { color: var(--s-text-muted); }
+.pk-rowacts { gap: 4px; flex-wrap: wrap; } /* review: the buttons wrap in their cell rather than push the table under the panel */
+.pk-boxtable td.pk-c-lb, .pk-boxtable td.pk-c-units, .pk-boxtable td.pk-c-fill, .pk-boxtable td.pk-c-name { white-space: nowrap; overflow-wrap: normal; }
+.pk-rowacts .pk-btn { min-height: 32px; padding: 4px 8px; font-size: 12px; }
+.pk-boxtable .pk-badge { max-width: none; white-space: nowrap; }
+.pk-panel { display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 12px; border: 1px solid var(--s-line); border-radius: var(--s-r, 8px); background: var(--s-surface); }
+.pk-panel-head { align-items: flex-start; }
+.pk-panel-nav { flex: none; gap: 6px; }
+.pk-panel-nav .pk-btn { min-height: 32px; padding: 4px 10px; }
+.pk-co-group .pk-h3 { margin: 8px 0 2px; }
+.pk-key { flex: none; min-width: 22px; padding: 1px 5px; border: 1px solid var(--s-line); border-radius: 4px; font-size: 12px; font-weight: 800; text-align: center; color: var(--s-text); }
+.pk-draw-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; min-width: 0; }
+.pk-draw-grid > .pk-svg { min-width: 0; max-width: 100%; }
+@container pk (min-width: 1100px) { /* review: 1000 px left the retro table wider than its column (the panel covered Packed / Reject) */
+  .pk-split { grid-template-columns: minmax(600px, 1.5fr) minmax(380px, 1fr); align-items: start; }
+  .pk-panel { position: sticky; top: 8px; max-height: calc(100vh - 16px); overflow-y: auto; }
+  .pk-boxtable th:nth-child(3), .pk-boxtable td.pk-c-size { display: none; } /* the size is in the panel head */
+}
+/* narrow (the phone, or a narrow window): the table becomes stacked rows - line 1 number, box and status, line 2 the numbers, line 3 what is in it, line 4 the buttons */
+@container pk (max-width: 640px) {
+  .pk-rowacts { flex-wrap: wrap; }
+  .pk-boxtable, .pk-boxtable tbody { display: block; width: 100%; }
+  .pk-boxtable thead { display: none; }
+  .pk-boxtable tr { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto auto auto; grid-template-areas: "num name name name name status" "size size lb units fill fill" "sum sum sum sum sum sum" "acts acts acts acts acts acts"; gap: 2px 8px; padding: 8px 6px; border-bottom: 1px solid var(--s-line); }
+  .pk-boxtable td { display: block; padding: 0; border: 0; min-width: 0; background: transparent !important; }
+  .pk-c-num { grid-area: num; } .pk-c-name { grid-area: name; } .pk-c-status { grid-area: status; justify-self: end; } .pk-c-size { grid-area: size; color: var(--s-text-muted); }
+  .pk-c-lb { grid-area: lb; font-weight: 700; } .pk-c-lb::after { content: " lb"; } .pk-c-units::after { content: " units"; } .pk-c-units { grid-area: units; } .pk-c-fill { grid-area: fill; } .pk-c-sum { grid-area: sum; } .pk-c-acts { grid-area: acts; padding-top: 4px !important; }
+  :root[data-theme="retro"] .pk-boxtable td { border-bottom: 0 !important; }
+  .pk-c-num { min-width: max-content !important; }
+  .pk-c-name { padding-left: 4px !important; }
+  .pk-row-on { background: var(--s-accent-bg, #e8edff); }
+  .pk-box-approved { box-shadow: inset 5px 0 0 var(--s-green-ink, #14612d); }
+  .pk-box-rejected { box-shadow: inset 5px 0 0 var(--s-red-ink, #7a1a2b); }
+  .pk-box-approved td:first-child, .pk-box-rejected td:first-child { box-shadow: none; }
+  .pk-boxtable tr.pk-formrow { display: block; padding: 0 0 8px; }
+}
+:root[data-theme="retro"] .pk-boxtable th, :root[data-theme="retro"] .pk-boxtable td { border-bottom: 2px solid var(--s-n7); }
+:root[data-theme="retro"] .pk-boxtable { font-size: 13px !important; }
+:root[data-theme="retro"] .pk-boxtable th { font-size: 11px !important; }
+:root[data-theme="retro"] .pk-panel { border: 2px solid var(--s-n7); box-shadow: 4px 4px 0 var(--s-n7); border-radius: 0; }
+:root[data-theme="retro"] .pk-strip { border: 2px solid var(--s-n7); border-radius: 0; box-shadow: 3px 3px 0 var(--s-n7); }
+:root[data-theme="retro"] .pk-box-head { border: 2px solid var(--s-n7); border-radius: 0; box-shadow: 2px 2px 0 var(--s-n7); }
+:root[data-theme="retro"] .pk-key { border: 2px solid var(--s-n7); border-radius: 0; }
+:root[data-theme="retro"] .pk-section { border-top: 2px solid var(--s-n7); }
+:root[data-theme="retro"] .pk-box-approved td:first-child, :root[data-theme="retro"] .pk-box-rejected td:first-child { box-shadow: inset 8px 0 0 var(--s-green-ink, #14612d); }
+:root[data-theme="retro"] .pk-box-rejected td:first-child { box-shadow: inset 8px 0 0 var(--s-red-ink, #7a1a2b); }
+:root[data-theme="retro"] :is(.pk-strip-t, .pk-boxtable td) { line-height: 1.35 !important; }
+:root[data-theme="dark"] .pk-key { color: var(--s-text); }
+:root[data-theme="retro"] .pk-rowacts .pk-btn, :root[data-theme="retro"] .pk-box-head, :root[data-theme="retro"] .pk-boxtable .pk-badge { white-space: nowrap !important; }
+:root[data-theme="retro"] .pk-rowacts .pk-btn { min-height: 30px; padding: 3px 6px; font-size: 11px !important; box-shadow: 2px 2px 0 var(--s-n7); }
+.pk-boxtable td.pk-c-acts { min-width: 0; }
+/* review (B-1831): a box's Reject form opens in a row under that box; a row's own message sits under its buttons */
+.pk-formrow > td { padding: 4px 8px 10px; background: transparent; }
+.pk-formrow .pk-reject { margin: 0; }
+.pk-c-acts > .pk-msg:empty { display: none; }
+.pk-c-acts > .pk-msg { margin-top: 4px; max-width: 260px; font-size: 12px; white-space: normal; }
+.pk-c-acts > .pk-msg .pk-btn { display: block; margin-top: 4px; white-space: normal; text-align: left; }
+/* review (B-1833): beside the panel the table never paints under it - in the worst case it scrolls inside its own column */
+@container pk (min-width: 1100px) { .pk-table-host { overflow-x: auto; } }
+:root[data-theme="retro"] .pk-boxtable .pk-box-head { padding: 3px 6px; font-size: 11px !important; }

@@ -129,6 +129,22 @@
     const closed = data.monthsClosed || [];
     const open = data.monthsOpen || [];
     host.append(tile("months", "Months", `${closed.length} closed`, open.length ? `open: ${open.map(shortMonth).join(", ")}` : "none open"));
+    // B-1840 (v2.0.139): the Tie-outs tile - each total the Books can be held against, and whether it is off.
+    const tie = data.tieout && Array.isArray(data.tieout.rows) ? data.tieout.rows : null;
+    if (tie) {
+      const off = tie.filter((r) => r.state === "off");
+      const t = tile("tieout", "Tie-outs", off.length ? `${off.length} off` : "all tie", tie.length ? `${tie.length} checked` : "nothing checked yet");
+      const list = el("div", "gl-tie-rows");
+      for (const r of tie) {
+        const row = el("div", "gl-tie-row");
+        row.dataset.state = r.state;
+        row.append(el("span", "gl-tie-label", `${r.state === "ok" ? "OK" : r.state === "off" ? "OFF" : "?"} ${r.label}`));
+        if (r.detail) row.append(el("span", "dash-money gl-sub", r.detail));
+        list.append(row);
+      }
+      t.append(list);
+      host.append(t);
+    }
     host.append(tile("audit", "Audit findings open", String(data.auditOpen || 0), data.auditOpen ? "decide them on the laptop's Audit page" : "none waiting"));
   }
 

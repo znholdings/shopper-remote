@@ -625,22 +625,65 @@ function buildSbCards(cash, now) {
 const SUSTAIN_STATUS_WORDS = { "on-track": "On track", tight: "Tight", overspending: "Overspending", "not-ready": "Not ready" };
 const centsDollars = (c, floor = false) => (num(c) == null ? null : floor ? Math.floor(num(c) / 100) : Math.round(num(c) / 100));
 // g = lib/sustain-glance.js sustainGlance(). The Apply button only shows when there is a real difference in whole dollars.
+const SUSTAIN_TONE = { good: "up", warn: "warn", bad: "down", info: "flat" };
+const SHORT_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const mdShort = (d) => (d && /^\d{4}-\d{2}-\d{2}/.test(String(d)) ? `${Number(String(d).slice(5, 7))}/${Number(String(d).slice(8, 10))}` : "");
+const signed0 = (c) => (c < 0 ? "-" : "+") + money0(Math.abs(c) / 100);
+// g = lib/sustain-glance.js sustainGlance(). The Apply button only shows when there is a real difference in whole dollars.
+// v2.0.139 (G2): the card's one verdict (pill / tone / headline), the gap, the actual pace, the 7-day and 5-day goal rows, the
+// business worth with its days posted, and the "as of" dates - all of it reaches the phone through this tile.
 function sustainTile(g) {
   const sug = centsDollars(g.suggestedDailyCents, true); // Apply rounds DOWN (lib/sustainable-spend.js goalDollarsFor)
   const cur = centsDollars(g.currentDailyCents);
   const ready = g.status !== "not-ready" && sug != null;
   const missing = Array.isArray(g.missing) ? g.missing.filter(Boolean) : [];
+  const pace = g.pace && typeof g.pace === "object" ? g.pace : null;
+  const gap = ready && g.suggestedDailyCents != null && g.currentDailyCents != null ? num(g.suggestedDailyCents) - num(g.currentDailyCents) : null;
+  const asOfDay = g.asOf ? [g.asOf.plaid, g.asOf.books].filter(Boolean).sort().pop() : "";
+  const goalPart = ready && cur != null ? `goal ${money0(cur)} → ${money0(sug)}${gap != null && Math.abs(gap) >= 100 ? ` (${signed0(gap)})` : ""}` : "";
+  const spent = pace && pace.last7PerDayCents != null ? `spent ${money0(num(pace.last7PerDayCents) / 100)}/day last 7` : "";
+  const lm = pace && pace.lastMonth && pace.lastMonth.perDayCents != null ? `, ${money0(num(pace.lastMonth.perDayCents) / 100)}/day in ${SHORT_MONTHS[Number(String(pace.lastMonth.month).slice(5, 7)) - 1] || "last month"}` : "";
+  const subOf = (paceText) => [g.pill || SUSTAIN_STATUS_WORDS[g.status] || "", goalPart, paceText, asOfDay ? `as of ${mdShort(asOfDay)}` : ""].filter(Boolean).join(" · ");
+  let sub = subOf(spent + lm);
+  if (sub.length > 120) sub = subOf(spent);
+  const lines = [];
+  if (g.headline) lines.push(g.headline);
+  else if (g.reason) lines.push(g.reason);
+  if (g.backtest && g.backtest.breakEvenDailyCents != null) lines.push(`${SHORT_MONTHS[Number(String(g.backtest.month).slice(5, 7)) - 1] || "Last month"} break-even ${money0(num(g.backtest.breakEvenDailyCents) / 100)}/day${g.backtest.flagged ? " - the suggestion is above it" : ""}`);
+  // B-1827: the business worth, with how many days of the month are in it
+  if (g.worthNowCents != null) {
+    const n = g.worthDaysIn != null ? num(g.worthDaysIn) : null;
+    const d = g.worthDeltaCents;
+    const upDown = d == null ? "" : `${d >= 0 ? "up" : "down"} ${money0(Math.abs(d) / 100)}`;
+    const since = g.worthSinceAsOf ? ` since ${mdShort(g.worthSinceAsOf)}` : "";
+    const days = n != null ? ` (${n} day${n === 1 ? "" : "s"} posted)` : "";
+    if (n != null && n < 10) lines.push(`Early in the month: worth ${money0(g.worthNowCents / 100)}${upDown ? ", " + upDown + since : ""}${days}`);
+    else lines.push(`Worth ${money0(g.worthNowCents / 100)}${upDown ? ", " + upDown + since : ""}${n != null && n < 15 ? `${days} - too early to call` : days}`);
+  }
+  if (ready && g.rawDailyCents != null && g.suggestedDailyCents != null && Math.floor(g.rawDailyCents / 100) !== Math.floor(g.suggestedDailyCents / 100)) lines.push(`smoothed; today alone ${money0(Math.floor(g.rawDailyCents / 100))}`);
+  const asOf = g.asOf && typeof g.asOf === "object" ? [["Books", g.asOf.books], ["Plaid", g.asOf.plaid], ["Sellerboard", g.asOf.sellerboard], ["spend", g.asOf.spend]].filter((x) => x[1]).map((x) => `${x[0]} ${mdShort(x[1])}`) : [];
+  if (asOf.length) lines.push("Figures as of " + asOf.join(" · "));
   const tile = {
     id: "sustain",
     label: "Sustainable Spend",
     value: ready ? `${money0(sug)}/day` : "-",
-    sub: [SUSTAIN_STATUS_WORDS[g.status] || "", ready && cur != null ? `goal ${money0(cur)}/day` : "", g.reason || ""].filter(Boolean).join(" · "),
-    tone: g.status === "overspending" ? "down" : g.status === "tight" ? "warn" : g.status === "on-track" ? "up" : "flat",
+    sub,
+    tone: g.tone && SUSTAIN_TONE[g.tone] ? SUSTAIN_TONE[g.tone] : g.status === "overspending" ? "down" : g.status === "tight" ? "warn" : g.status === "on-track" ? "up" : "flat",
     target: "cashflow",
     status: g.status,
     missing,
   };
-  if (ready && cur != null && sug !== cur) tile.apply = { label: "Apply", dailyCents: num(g.suggestedDailyCents), fromDollars: cur, toDollars: sug, confirm: `Change the daily goal from ${money0(cur)} to ${money0(sug)}?` };
+  if (lines.length) tile.lines = lines.map((x) => String(x).slice(0, 200));
+  const goals = Array.isArray(g.goals) ? g.goals.filter((x) => x && x.dailyCents != null) : [];
+  if (goals.length) tile.split = goals.slice(0, 4).map((x) => ({ label: x.label, value: `${money0(num(x.dailyCents) / 100)}/d · ${money0(num(x.weekdayCents) / 100)}/buy-day` }));
+  const cutC = g.tone === "bad" && g.cutToCents != null ? num(g.cutToCents) : null;
+  if (ready && cur != null && cutC != null && Math.floor(cutC / 100) !== cur) {
+    const to = Math.floor(cutC / 100);
+    tile.apply = { label: "Cut to", dailyCents: cutC, fromDollars: cur, toDollars: to, confirm: `Change the daily goal from ${money0(cur)} to ${money0(to)}?` };
+  } else if (ready && cur != null && sug !== cur && !((g.tone === "bad" || g.tone === "warn") && sug > cur)) {
+    // never offer a RAISE against the card's own verdict (cut / hold)
+    tile.apply = { label: "Apply", dailyCents: num(g.suggestedDailyCents), fromDollars: cur, toDollars: sug, confirm: `Change the daily goal from ${money0(cur)} to ${money0(sug)}?` };
+  }
   return tile;
 }
 

@@ -440,6 +440,7 @@ button { font: inherit; cursor: pointer; }
 .inv-total.inv-prep { border-top-color: var(--prep); }
 .inv-total.inv-transit { border-top-color: var(--transit); }
 .inv-box { margin: 8px 0 12px; }
+.inv-box-why { font-size: 12px; margin: 2px 0 6px; }
 .inv-box-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px; margin-bottom: 4px; }
 .inv-box-bad .inv-box-head b { color: var(--bad); }
 .inv-box-good .inv-box-head b { color: var(--good); }
@@ -1034,6 +1035,12 @@ html, body { overscroll-behavior: none; }
 .gl-tone-up .gl-sub { color: var(--s-green-ink); font-weight: 700; }
 .gl-tone-down .gl-sub, .gl-tone-down .gl-num { color: var(--s-red-ink); }
 .gl-tone-warn .gl-sub { color: var(--s-orange-ink); font-weight: 700; }
+/* v2.0.139: the Sustainable Spend tile is full width on the phone; its lines and goal rows wrap, never run past the edge. */
+.gl-tile[data-tile="sustain"] .gl-sub, .gl-tile[data-tile="sustain"] .gl-line2 { overflow-wrap: anywhere; }
+.gl-line2 { font-size: 12px; line-height: 1.3; color: var(--s-text-muted); }
+.gl-tile[data-tile="sustain"] .gl-split { grid-template-columns: minmax(0, 1fr); }
+.gl-tile[data-tile="sustain"] .gl-split-item { flex-wrap: wrap; }
+.gl-tile[data-tile="sustain"] .gl-split-label, .gl-tile[data-tile="sustain"] .gl-split-value { min-width: 0; overflow-wrap: anywhere; }
 .gl-split { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 14px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); }
 .gl-split-item { display: flex; justify-content: space-between; gap: 6px; min-width: 0; font-size: 12px; }
 .gl-split-label { color: var(--muted); }
