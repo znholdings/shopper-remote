@@ -91,7 +91,7 @@
 
   Object.assign(typeof REMOTE_LABELS !== "undefined" ? REMOTE_LABELS : {}, {
     booksAsk: "Ask about Books", booksAuditRun: "Run Books audit", booksAuditDecide: "Decide audit finding", booksClose: "Close month",
-    booksMailFind: "Find the order in Gmail", booksCogsConfirm: "Confirm COGS", booksCogsUnconfirm: "Unconfirm COGS", booksEntryPost: "Post entry", booksAccountMapSet: "Map account",
+    booksMailFind: "Find the order in Gmail", booksDupeVoid: "Void duplicate card line", booksCardPayBook: "Book card payment", booksCogsConfirm: "Confirm COGS", booksCogsUnconfirm: "Unconfirm COGS", booksEntryPost: "Post entry", booksAccountMapSet: "Map account",
     booksRebuildCheck: "Check rebuild", booksRebuildPreview: "Preview rebuild", booksRebuild: "Clean rebuild", booksRebuildPutBack: "Put Books back", booksExportDrive: "Export to Drive",
     booksRulesAdd: "Add rule", booksRulesSet: "Save rules", booksLoanSet: "Save loan", booksLoanRemove: "Remove loan",
   });

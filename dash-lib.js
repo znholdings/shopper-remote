@@ -640,7 +640,8 @@ function sustainTile(g) {
   const pace = g.pace && typeof g.pace === "object" ? g.pace : null;
   const gap = ready && g.suggestedDailyCents != null && g.currentDailyCents != null ? num(g.suggestedDailyCents) - num(g.currentDailyCents) : null;
   const asOfDay = g.asOf ? [g.asOf.plaid, g.asOf.books].filter(Boolean).sort().pop() : "";
-  const goalPart = ready && cur != null ? `goal ${money0(cur)} → ${money0(sug)}${gap != null && Math.abs(gap) >= 100 ? ` (${signed0(gap)})` : ""}` : "";
+  const mg = g.monthlyGoal && g.monthlyGoal.monthlyCents != null ? g.monthlyGoal : null;
+  const goalPart = ready && cur != null ? `60-day model ${money0(sug)} · goal ${money0(cur)}/day${mg ? ` ($${Math.round(num(mg.monthlyCents) / 100000)}k ${SHORT_MONTHS[Number(String(mg.month).slice(5, 7)) - 1] || ""})` : ""}` : "";
   const spent = pace && pace.last7PerDayCents != null ? `spent ${money0(num(pace.last7PerDayCents) / 100)}/day last 7` : "";
   const lm = pace && pace.lastMonth && pace.lastMonth.perDayCents != null ? `, ${money0(num(pace.lastMonth.perDayCents) / 100)}/day in ${SHORT_MONTHS[Number(String(pace.lastMonth.month).slice(5, 7)) - 1] || "last month"}` : "";
   const subOf = (paceText) => [g.pill || SUSTAIN_STATUS_WORDS[g.status] || "", goalPart, paceText, asOfDay ? `as of ${mdShort(asOfDay)}` : ""].filter(Boolean).join(" · ");
@@ -660,14 +661,17 @@ function sustainTile(g) {
     if (n != null && n < 10) lines.push(`Early in the month: worth ${money0(g.worthNowCents / 100)}${upDown ? ", " + upDown + since : ""}${days}`);
     else lines.push(`Worth ${money0(g.worthNowCents / 100)}${upDown ? ", " + upDown + since : ""}${n != null && n < 15 ? `${days} - too early to call` : days}`);
   }
-  if (ready && g.rawDailyCents != null && g.suggestedDailyCents != null && Math.floor(g.rawDailyCents / 100) !== Math.floor(g.suggestedDailyCents / 100)) lines.push(`smoothed; today alone ${money0(Math.floor(g.rawDailyCents / 100))}`);
+  if (ready && g.rawDailyCents != null && g.suggestedDailyCents != null && Math.floor(g.rawDailyCents / 100) !== Math.floor(g.suggestedDailyCents / 100)) lines.push(`smoothed; today alone ${money0(Math.floor(g.rawDailyCents / 100))}${g.smoothedOver ? `, over ${g.smoothedOver} recompute(s)` : ""}`);
+  for (const o of Array.isArray(g.others) ? g.others : []) if (o && o.cents != null && !(o.id === "breakeven" && g.backtest)) lines.push(`${o.label}: ${money0(num(o.cents) / 100)}/day${o.note ? " · " + o.note : ""}`);
   const asOf = g.asOf && typeof g.asOf === "object" ? [["Books", g.asOf.books], ["Plaid", g.asOf.plaid], ["Sellerboard", g.asOf.sellerboard], ["spend", g.asOf.spend]].filter((x) => x[1]).map((x) => `${x[0]} ${mdShort(x[1])}`) : [];
+  if (g.heldCents) lines.push(`Held by Amazon: ${money0(g.heldCents / 100)} of recent sales, paid over the next ~${(g.payoutTiming && g.payoutTiming.releaseDays) || 9} days`);
+  if (g.walkMin && g.walkMin.cents != null) lines.push(`Lowest Chase ${money0(num(g.walkMin.cents) / 100)} on ${mdShort(g.walkMin.day)}`);
   if (g.payoutTiming && g.payoutTiming.words) lines.push("Payouts: " + g.payoutTiming.words);
   if (asOf.length) lines.push("Figures as of " + asOf.join(" · "));
   const tile = {
     id: "sustain",
-    label: "Sustainable Spend",
-    value: ready ? `${money0(sug)}/day` : "-",
+    label: ready && g.leadLabel ? `Sustainable Spend · ${g.leadLabel}` : "Sustainable Spend",
+    value: ready ? `${money0(g.leadCents != null ? Math.floor(g.leadCents / 100) : sug)}/day` : "-",
     sub,
     tone: g.tone && SUSTAIN_TONE[g.tone] ? SUSTAIN_TONE[g.tone] : g.status === "overspending" ? "down" : g.status === "tight" ? "warn" : g.status === "on-track" ? "up" : "flat",
     target: "cashflow",
@@ -686,6 +690,13 @@ function sustainTile(g) {
     tile.apply = { label: "Apply", dailyCents: num(g.suggestedDailyCents), fromDollars: cur, toDollars: sug, confirm: `Change the daily goal from ${money0(cur)} to ${money0(sug)}?` };
   }
   return tile;
+}
+
+// B-1854 (v2.0.141): "as of 11/7 2:14 PM" under the Virtual Bank figure (same text as lib/bank-tile.js bankSub - inlined: the phone bundle has no second import).
+function bankAsOfText(ms) {
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: "America/Chicago", month: "numeric", day: "numeric", hour: "numeric", minute: "2-digit" }).formatToParts(new Date(ms));
+  const g = (k) => (parts.find((x) => x.type === k) || {}).value || "";
+  return `as of ${g("month")}/${g("day")} ${g("hour")}:${g("minute")} ${g("dayPeriod")}`;
 }
 
 function buildTiles(input = {}) {
@@ -713,7 +724,7 @@ function buildTiles(input = {}) {
     id: "bank",
     label: "Virtual Bank",
     value: money2(bank),
-    sub: "",
+    sub: num(i.bankAsOf) ? bankAsOfText(num(i.bankAsOf)) : "",
     tone: bank != null && bank < 0 ? "down" : "flat",
     target: "bank",
   });

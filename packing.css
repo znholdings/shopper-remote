@@ -206,13 +206,7 @@ body.pk-open { overflow: hidden; }
 .pk-panel-nav .pk-btn { min-height: 32px; padding: 4px 10px; }
 .pk-co-group .pk-h3 { margin: 8px 0 2px; }
 .pk-key { flex: none; min-width: 22px; padding: 1px 5px; border: 1px solid var(--s-line); border-radius: 4px; font-size: 12px; font-weight: 800; text-align: center; color: var(--s-text); }
-.pk-draw-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; min-width: 0; }
 .pk-draw-grid > .pk-svg { min-width: 0; max-width: 100%; }
-@container pk (min-width: 1100px) { /* review: 1000 px left the retro table wider than its column (the panel covered Packed / Reject) */
-  .pk-split { grid-template-columns: minmax(600px, 1.5fr) minmax(380px, 1fr); align-items: start; }
-  .pk-panel { position: sticky; top: 8px; max-height: calc(100vh - 16px); overflow-y: auto; }
-  .pk-boxtable th:nth-child(3), .pk-boxtable td.pk-c-size { display: none; } /* the size is in the panel head */
-}
 /* narrow (the phone, or a narrow window): the table becomes stacked rows - line 1 number, box and status, line 2 the numbers, line 3 what is in it, line 4 the buttons */
 @container pk (max-width: 640px) {
   .pk-rowacts { flex-wrap: wrap; }
@@ -253,5 +247,29 @@ body.pk-open { overflow: hidden; }
 .pk-c-acts > .pk-msg { margin-top: 4px; max-width: 260px; font-size: 12px; white-space: normal; }
 .pk-c-acts > .pk-msg .pk-btn { display: block; margin-top: 4px; white-space: normal; text-align: left; }
 /* review (B-1833): beside the panel the table never paints under it - in the worst case it scrolls inside its own column */
-@container pk (min-width: 1100px) { .pk-table-host { overflow-x: auto; } }
 :root[data-theme="retro"] .pk-boxtable .pk-box-head { padding: 3px 6px; font-size: 11px !important; }
+/* v2.0.141 G1 (B-1845 / B-1846 / B-1847): the box table on ONE line per box from 641 px up; beside the panel from 1000 px; the pack steps in one sideways strip. Nothing below 641 px (the phone) changes. */
+@container pk (min-width: 800px) {
+  .pk-table-host { overflow-x: auto; }
+  .pk-boxtable th, .pk-boxtable td { padding: 4px 5px; white-space: nowrap; }
+  .pk-boxtable td.pk-c-sum { max-width: 0; width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  .pk-boxtable td.pk-c-acts { width: 1%; }
+  .pk-boxtable td.pk-c-name { white-space: normal; }
+  .pk-boxtable .pk-box-name { white-space: nowrap; }
+  .pk-rowacts { flex-wrap: nowrap; gap: 4px; }
+  .pk-rowacts .pk-btn { min-height: 30px; padding: 4px 8px; font-size: 12px; }
+  :root[data-theme="retro"] .pk-boxtable th { font-family: var(--s-font) !important; font-size: 11px !important; font-weight: 800 !important; letter-spacing: .02em; white-space: nowrap !important; }
+  :root[data-theme="retro"] .pk-boxtable .pk-btn { font-family: var(--s-font) !important; text-transform: none; font-weight: 700 !important; font-size: 12px !important; }
+  :root[data-theme="retro"] .pk-rowacts .pk-btn { padding: 3px 7px !important; min-height: 30px; }
+  :root[data-theme="retro"] .pk-boxtable .pk-box-head { padding: 3px 6px !important; min-height: 28px; }
+  :root[data-theme="retro"] .pk-boxtable .pk-badge { font-size: 11px !important; padding: 2px 6px; }
+}
+@container pk (min-width: 1000px) {
+  .pk-split { grid-template-columns: minmax(0, 1fr) minmax(300px, min(calc(100% - 740px), 45%)); align-items: start; }
+  .pk-panel { position: sticky; top: 8px; max-height: calc(100vh - 16px); overflow-y: auto; }
+  .pk-boxtable th:nth-child(3), .pk-boxtable td.pk-c-size { display: none; }
+  .pk-table-host { overflow-x: auto; }
+}
+.pk-draw-grid { display: flex; flex-wrap: nowrap; gap: 8px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; padding-bottom: 6px; }
+.pk-draw-grid > .pk-svg { flex: 0 0 clamp(280px, 85%, 420px); max-width: none; scroll-snap-align: start; margin: 4px 0 2px; }
+.pk-panel .pk-pair > .pk-svg { flex: 1 1 240px; }

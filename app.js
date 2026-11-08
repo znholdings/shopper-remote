@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.140";
+const APP_BUILD = "v2.0.141";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -3152,7 +3152,7 @@ function glTile(t) {
     ap.type = "button";
     ap.addEventListener("click", (e) => {
       e.stopPropagation();
-      if (confirm(t.apply.confirm + " (The goal is shared - both computers and the phone.)")) sendCommand("sustainApply", { dailyCents: t.apply.dailyCents });
+      if (confirm(t.apply.confirm + " (Sets this month's goal on the sheet - both computers and the phone.)")) sendCommand("sustainApply", { dailyCents: t.apply.dailyCents });
     });
     n.appendChild(ap);
   }
@@ -3284,6 +3284,7 @@ function renderDashboard(d, p) {
   const tiles = G.buildTiles({
     spend: d.spend,
     bank: d.spend.bankBalance,
+    bankAsOf: d.spend.bankAsOf, // B-1854: "as of" under the Virtual Bank figure
     plaid: ex.plaid || null,
     now: Date.now(),
     stranded: ex.stranded || null,

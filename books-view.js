@@ -140,6 +140,8 @@
         row.dataset.state = r.state;
         row.append(el("span", "gl-tie-label", `${r.state === "ok" ? "OK" : r.state === "off" ? "OFF" : "?"} ${r.label}`));
         if (r.detail) row.append(el("span", "dash-money gl-sub", r.detail));
+        // B-1853: the card lines' own detail (duplicates voided, payments from ··0034) under an OFF row.
+        if (r.state === "off" && Array.isArray(r.more) && r.more[0]) row.append(el("span", "dash-money gl-sub gl-tie-more", r.more[0]));
         list.append(row);
       }
       t.append(list);
@@ -181,6 +183,14 @@
     const n = noteFor(r.key);
     if (!r.pick) {
       li.append(el("div", "bkm-lead", r.why || "Answer this one on the laptop."));
+      // B-1853 (v2.0.141): a duplicate card line is voided / a card payment from ··0034 booked with one tap (the laptop does the work).
+      if (r.action && (r.action.type === "dupe-void" || r.action.type === "card-pay-book")) {
+        const ab = el("button", "primary-btn bkm-book", r.action.type === "dupe-void" ? "Void this line" : "Book it (Dr 2000 / Cr 3000)");
+        ab.type = "button";
+        ab.disabled = !!sending;
+        ab.addEventListener("click", () => runAction(r));
+        li.append(ab);
+      }
     } else {
       // B-1278: the laptop's own lead line on a card payment / wrong-way-round row.
       if (r.lead) li.append(el("div", "bkm-lead", r.lead));
@@ -350,6 +360,45 @@
       notes[r.key] = { phase: "failed", text: "No answer from the laptop in 5 minutes - check the laptop's Books page before picking again.", at: Date.now() };
     } else {
       notes[r.key] = { phase: "failed", text: `Not booked: ${String((row && row.reason) || (res && res.error) || status)}`, at: Date.now() };
+    }
+    redraw();
+  }
+
+  // B-1853: the one-tap Needs-you actions (booksDupeVoid / booksCardPayBook), same phases as pick().
+  async function runAction(r) {
+    const R = self.ShopperRemote;
+    if (!R || !R.sendCommand || sending || !r.action) return;
+    if (R.laptopOnline && !R.laptopOnline()) {
+      notes[r.key] = { phase: "failed", text: "The laptop isn't connected - nothing was sent.", at: Date.now() };
+      redraw();
+      return;
+    }
+    const void_ = r.action.type === "dupe-void";
+    sending = r.key;
+    notes[r.key] = { phase: "sending", text: void_ ? "Voiding the duplicate line..." : "Booking the card payment...", at: Date.now() };
+    redraw();
+    let id = null;
+    try {
+      id = void_ ? await R.sendCommand("booksDupeVoid", { lineId: r.action.lineId, keepId: r.action.keepId }) : await R.sendCommand("booksCardPayBook", { hhId: r.action.hhId });
+    } catch (e) { id = null; }
+    if (!id) {
+      sending = "";
+      notes[r.key] = { phase: "failed", text: "Not sent - the phone could not reach the laptop's relay. Try again.", at: Date.now() };
+      redraw();
+      return;
+    }
+    let status = "done";
+    try { if (R.waitFor) status = await R.waitFor(id); } catch (e) { status = "done"; }
+    let row = null;
+    try { if (R.readCommand) row = await R.readCommand(id); } catch (e) { row = null; }
+    const res = row && row.result && typeof row.result === "object" ? row.result : null;
+    sending = "";
+    if (status === "done" && res && res.ok !== false) {
+      notes[r.key] = { phase: "done", text: res.note ? String(res.note) : void_ ? `Voided the duplicate line (${Number(res.voided) || 0} entr${Number(res.voided) === 1 ? "y" : "ies"} voided).` : `Booked${res.entryId ? ` (entry ${res.entryId})` : ""}.`, at: Date.now() };
+    } else if (status === "timeout") {
+      notes[r.key] = { phase: "failed", text: "No answer from the laptop in 5 minutes - check the laptop's Books page before tapping again.", at: Date.now() };
+    } else {
+      notes[r.key] = { phase: "failed", text: `Not done: ${String((res && res.error) || (row && row.reason) || status)}`, at: Date.now() };
     }
     redraw();
   }
