@@ -187,12 +187,20 @@
     const runB = btn("Run the audit", "ops-audit-run");
     runB.addEventListener("click", () => run({ name: "booksAuditRun", payload: { month: sel.value }, confirm: "Run the audit of " + sel.value + "? It calls the audit models.", btn: runB, ok: "Audit started on the computer" }));
     const top = el("div", "ops-row");
-    top.append(sel, runB);
+    // v2.0.144 (B-1893): send only the models whose last run failed (nothing is billed for a try that got no reply).
+    const retryB = btn("Retry failed", "ops-audit-retry");
+    retryB.hidden = true;
+    retryB.addEventListener("click", () => {
+      const failed = arr(obj(obj(pages.booksAudit)[sel.value]).failed).filter((m) => typeof m === "string").slice(0, 3);
+      if (failed.length) run({ name: "booksAuditRun", payload: { month: sel.value, models: failed }, confirm: "Send " + failed.join(", ") + " again for " + sel.value + "? It calls the audit models.", btn: retryB, ok: "Retry started on the computer" });
+    });
+    top.append(sel, runB, retryB);
     c.appendChild(top);
     const box = el("div", "ops-audit-findings");
     const draw = () => {
       box.textContent = "";
       const st = obj(obj(pages.booksAudit)[sel.value]);
+      retryB.hidden = !arr(st.failed).length || !!st.running;
       if (st.running) box.appendChild(el("p", "muted small", "Audit running on the computer..."));
       const fs = arr(st.findings).slice(0, 30);
       if (!fs.length) { box.appendChild(el("p", "muted small", "No findings for " + sel.value + ".")); return; }

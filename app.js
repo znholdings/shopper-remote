@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.143";
+const APP_BUILD = "v2.0.144";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -980,7 +980,11 @@ function renderLines(lines, total, truncated, progress) {
       `<div class="l-top"><span class="l-asin">${escapeHtml(l.asin)}</span>` +
       // P-61: a label, not the raw enum.
       `<span class="l-status">${escapeHtml(RL ? RL.outcomeLabel(l, QUEUE_STATUS_LABELS, { retryLater: run && run.retryLaterLineIds }) : statusLabel(l.status))}</span></div>` +
-      `<div class="l-title">${escapeHtml(l.title)}</div>`;
+      `<div class="l-title">${escapeHtml(l.title)}</div>` +
+      // B-1887: what Mark as bought is doing right now (the Sheets write can be slow)
+      (l.status === "confirming" && l.recordingStep
+        ? `<div class="l-meta">Recording: ${escapeHtml(l.recordingStep.text)} ${l.recordingStep.startedAt ? ` (${Math.max(0, Math.round((Date.now() - l.recordingStep.startedAt) / 1000))}s)` : ""}</div>`
+        : "");
     if (density === "compact") {
       // Status + title only, for scanning a long list - plus the error, if
       // this line is stopped, because a compact view that hides the one

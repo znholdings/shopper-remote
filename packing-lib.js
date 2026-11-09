@@ -4731,6 +4731,7 @@ function mountPackingUi(host, opts) {
     into.appendChild(acts);
     const r = await call("packingBoxes");
     if (!r.ok) { say(msg, r.error || "Could not read the boxes.", "bad"); return; }
+    if (r.sheetError) say(msg, "Boxes tab not read - showing the shared copy (sizes removed on either computer are left out).", "bad");
     const list = el("div", "pk-list");
     if (!r.boxes.length) list.appendChild(el("p", "pk-note", o.canSeed ? "No boxes yet. Press 'Add sizes from ScanPower', or add one below." : "No boxes yet. Add one below."));
     for (const b of r.boxes) list.appendChild(boxCard(b, into));
