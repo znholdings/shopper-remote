@@ -91,8 +91,8 @@
 
   Object.assign(typeof REMOTE_LABELS !== "undefined" ? REMOTE_LABELS : {}, {
     booksAsk: "Ask about Books", booksAuditRun: "Run Books audit", booksAuditDecide: "Decide audit finding", booksClose: "Close month",
-    booksMailFind: "Find the order in Gmail", booksDupeVoid: "Void duplicate card line", booksCardPayBook: "Book card payment", booksCardGoneVoid: "Void card line (not on Plaid)", booksCogsConfirm: "Confirm COGS", booksCogsUnconfirm: "Unconfirm COGS", booksEntryPost: "Post entry", booksAccountMapSet: "Map account",
-    booksRebuildCheck: "Check rebuild", booksRebuildPreview: "Preview rebuild", booksRebuild: "Clean rebuild", booksRebuildPutBack: "Put Books back", booksExportDrive: "Export to Drive",
+    booksMailFind: "Find the order in Gmail", booksCardProof: "Find the card (Gmail)", booksDupeVoid: "Void duplicate card line", booksCardPayBook: "Book card payment", booksCardGoneVoid: "Void card line (not on Plaid)", booksCogsConfirm: "Confirm COGS", booksCogsUnconfirm: "Unconfirm COGS", booksEntryPost: "Post entry", booksAccountMapSet: "Map account",
+    booksRebuildCheck: "Check rebuild", booksRebuildPreview: "Preview rebuild", booksRebuild: "Clean rebuild", booksRebuildPutBack: "Put Books back", booksExportDrive: "Save tax package to Drive",
     booksRulesAdd: "Add rule", booksRulesSet: "Save rules", booksLoanSet: "Save loan", booksLoanRemove: "Remove loan",
   });
 
@@ -383,11 +383,11 @@
 
   // ---- export ----
   function exportCard() {
-    const c = card("Export", "ops-export");
+    const c = card("Year-end tax package", "ops-export");
     const y = new Date().getFullYear();
     const sel = select([String(y), String(y - 1)], "Year");
-    const b = btn("Export to Drive", "ops-export-go");
-    b.addEventListener("click", () => run({ name: "booksExportDrive", payload: { year: Number(sel.value) }, btn: b, ok: "Exporting to Drive on the computer" }));
+    const b = btn("Save tax package to Drive", "ops-export-go");
+    b.addEventListener("click", () => run({ name: "booksExportDrive", payload: { year: Number(sel.value) }, btn: b, ok: "Saving the tax package to Drive on the computer" }));
     const r = el("div", "ops-row");
     r.append(sel, b);
     c.append(r, el("p", "muted small", "The CSV download is on the computer."));

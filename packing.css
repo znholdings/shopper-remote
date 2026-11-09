@@ -22,6 +22,7 @@
 .pk-h-title { font-size: 17px; }
 .pk-note, .pk-hint, .pk-meta { margin: 0; font-size: 13px; line-height: 1.35; color: var(--s-text-muted); overflow-wrap: anywhere; }
 .pk-meta { font-size: 12px; }
+.pk-goals { margin: 2px 0 0 18px; padding: 0; font-size: 12px; }
 .pk-msg { font-size: 13px; min-height: 0; overflow-wrap: anywhere; }
 .pk-msg-bad, .pk-err { color: var(--s-red-ink, #7a1a2b); }
 .pk-status-warn { color: var(--s-orange-ink); }

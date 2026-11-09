@@ -498,7 +498,7 @@ function buildDoNext(input = {}) {
     add({
       id: "tax1099",
       severity: "medium",
-      title: `1099-NEC: ${plural(nec.length, "contractor")} paid $600 or more in ${bk.tax1099.year}`,
+      title: `1099-NEC: ${plural(nec.length, "contractor")} paid ${Number(bk.tax1099.year) <= 2025 ? "$600" : "$2,000"} or more in ${bk.tax1099.year}`,
       detail: linesDetail(nec.map(lineText), nec.length, "Books") + ". From Independent Contractor (6030) in the books - due Jan 31.",
       lines: nec.map((v) => ({ vendor: String(v.vendor), amount: num(v.amount), text: lineText(v) })),
       go: { label: "Books", target: "books" },

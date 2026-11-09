@@ -142,6 +142,20 @@
         if (r.detail) row.append(el("span", "dash-money gl-sub", r.detail));
         // B-1853: the card lines' own detail (duplicates voided, payments from ··0034) under an OFF row.
         if (r.state === "off" && Array.isArray(r.more) && r.more[0]) row.append(el("span", "dash-money gl-sub gl-tie-more", r.more[0]));
+        // v2.0.143 (B-1875): the unmatched orders of an OFF purchases row (first 5) and the Gmail card proof.
+        if (r.state === "off" && Array.isArray(r.unmatched) && r.unmatched.length) {
+          const box = el("div", "gl-tie-unmatched");
+          for (const u of r.unmatched.slice(0, 5)) box.append(el("span", "dash-money gl-sub", `${u.r || "?"} ${u.n} ${u.d} ${money(u.gap)}`));
+          if (r.unmatched.length > 5) box.append(el("span", "dash-money gl-sub", `+${r.unmatched.length - 5} more`));
+          const pb = el("button", "primary-btn bkm-book", "Find the card (Gmail)");
+          pb.type = "button";
+          pb.disabled = !!sending;
+          pb.addEventListener("click", () => runCardProof(r));
+          box.append(pb);
+          const pn = noteFor("proof:" + r.key);
+          if (pn) box.append(el("div", "bkm-note muted small", pn.text));
+          row.append(box);
+        }
         list.append(row);
       }
       t.append(list);
@@ -399,6 +413,37 @@
       notes[r.key] = { phase: "failed", text: "No answer from the laptop in 5 minutes - check the laptop's Books page before tapping again.", at: Date.now() };
     } else {
       notes[r.key] = { phase: "failed", text: `Not done: ${String((res && res.error) || (row && row.reason) || status)}`, at: Date.now() };
+    }
+    redraw();
+  }
+
+  // ---- v2.0.143 (B-1875): which card paid the unmatched orders (Gmail, on the laptop; <= 10 orders) ----
+  async function runCardProof(r) {
+    const R = self.ShopperRemote;
+    const key = "proof:" + r.key;
+    if (!R || !R.sendCommand || sending) return;
+    if (R.laptopOnline && !R.laptopOnline()) { notes[key] = { phase: "failed", text: "The laptop isn't connected - nothing was sent.", at: Date.now() }; redraw(); return; }
+    sending = key;
+    notes[key] = { phase: "sending", text: "Searching Gmail for the card...", at: Date.now() };
+    redraw();
+    let id = null;
+    try { id = await R.sendCommand("booksCardProof", { lineIds: r.unmatched.slice(0, 10).map((u) => u.n) }); } catch (e) { id = null; }
+    if (!id) { sending = ""; notes[key] = { phase: "failed", text: "Not sent - the phone could not reach the laptop's relay. Try again.", at: Date.now() }; redraw(); return; }
+    let status = "done";
+    try { if (R.waitFor) status = await R.waitFor(id); } catch (e) { status = "done"; }
+    let row = null;
+    try { if (R.readCommand) row = await R.readCommand(id); } catch (e) { row = null; }
+    const res = row && row.result && typeof row.result === "object" ? row.result : null;
+    sending = "";
+    if (status === "done" && res && res.ok !== false) {
+      const list = Array.isArray(res.orders) ? res.orders : [];
+      const named = list.filter((o) => o && Array.isArray(o.last4) && o.last4.length);
+      const unseen = named.filter((o) => !o.connected);
+      notes[key] = { phase: "done", text: `${list.length} order(s) searched; ${named.length} named a card${named.length ? " (" + [...new Set(named.flatMap((o) => o.last4))].map((d) => "··" + d).join(", ") + ")" : ""}${unseen.length ? `; ${unseen.length} paid with a card Books does not see - on Needs you.` : "."}`, at: Date.now() };
+    } else if (status === "timeout") {
+      notes[key] = { phase: "failed", text: "No answer from the laptop in 5 minutes - check the laptop's Books page before tapping again.", at: Date.now() };
+    } else {
+      notes[key] = { phase: "failed", text: `Not done: ${String((res && res.error) || (row && row.reason) || status)}`, at: Date.now() };
     }
     redraw();
   }

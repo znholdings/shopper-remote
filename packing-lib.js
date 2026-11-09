@@ -1115,6 +1115,7 @@ function runVariant(box, groups, cfg, H, variant) {
     p.stack = p.tOrd < 1 || p.weak;
     p.minFoot = Math.min(...p.ors.map((o) => Math.min(o.fl, o.fw) + 2 * p.pad));
     p.minH = Math.min(...p.ors.map((o) => o.h));
+    p.edge = !!(H.edgeOk && H.edgeOk(p.g)); // v2.0.143 (B-1865): on edge is "upright", a flat stack is "tipped"
     // B-1596 (v2.0.115) variant 3, "stand tall first": a rigid product with a side that fills the box height (within STAND_TOL_IN) is placed FIRST and ONLY standing on
     // that side, and is never charged for being "tipped" (that is how Zach packs the 14 in Barbie playsets in a 14 in box). Everything else is packed round it as usual.
     p.stand = false;
@@ -1304,7 +1305,7 @@ function runVariant(box, groups, cfg, H, variant) {
     // ---- the way up. A product that is usually kept the way it is measured is tipped only when that gains more than TIP_GAIN inches of
     // height over the best upright spot (a soft, liquid, Fragile or fill product: never, while an upright spot exists)
     const top = p.g.fragility === "very" || cfg.topOnly.has(p.g.asin); // a Very Fragile / top-only product belongs on top; the rest take the lowest spot
-    for (const c of cands) c.tip = Math.abs(c.o.h - p.g.H) > 0.01 ? 1 : 0;
+    for (const c of cands) c.tip = p.edge ? (c.lv > 1 && c.o.h <= p.minH + 0.01 ? 1 : 0) : Math.abs(c.o.h - p.g.H) > 0.01 ? 1 : 0;
     const zOf = (list) => list.reduce((m, c) => (top ? Math.max(m, c.z) : Math.min(m, c.z)), top ? -Infinity : Infinity);
     const up = cands.filter((c) => !c.tip), tipped = cands.filter((c) => c.tip);
     if (up.length && tipped.length) {
@@ -2019,7 +2020,14 @@ const stanceList = (bp) => ((bp && bp.blocks) || []).filter((b) => b.levels > 1)
 function flatStacked(blocks, groups) {
   return counted(blocks, groups, false).filter((b) => stanceOf(b) === "flat").map((b) => ({ asin: b.asin, n: b.nx * b.ny * b.levels }));
 }
-__m["packing-stance.js"] = { FLAT_LB, standableGroup, stanceOf, stanceScore, stanceList, flatStacked };
+
+// v2.0.143 (B-1865): a thin, rigid, box-shaped product measured lying flat (H = its thinnest side, <= EDGE_MAX_IN) is packed ON EDGE like Zach shims Crest;
+// stacking it flat (more than one level on its biggest face) is the "tipped" choice. Fragile / soft / liquid / fill / this-way-up / irregular products keep the old rule
+// (Vicks VapoPads are fragile: laid flat as Zach does).
+const EDGE_MAX_IN = 2;
+const edgeStandOk = (g) => !!g && !!g.rigid && !g.soft && !g.liquid && !g.fill && !g.thisWayUp && (g.fragility || "none") === "none" && g.shape !== "irregular"
+  && Math.min(g.L, g.W, g.H) <= EDGE_MAX_IN && g.H <= Math.min(g.L, g.W) + 1e-6;
+__m["packing-stance.js"] = { FLAT_LB, standableGroup, stanceOf, stanceScore, stanceList, flatStacked, EDGE_MAX_IN, edgeStandOk };
 })();
 // ---- lib/packing-layers.js ----
 (function () {
@@ -2116,7 +2124,7 @@ const { columnPack } = __m["packing-columns.js"];
 const { boxPenalty } = __m["packing-simple.js"];
 const { weakColumnOk, spansWall, spansFor, fitTolFor, bearingWhy } = __m["packing-bearing.js"];
 const { productName } = __m["packing-ident.js"];
-const { stanceScore } = __m["packing-stance.js"];
+const { stanceScore, edgeStandOk } = __m["packing-stance.js"];
 const { layerPass } = __m["packing-layers.js"];
 
 const SHEET_IN = 0.2; // one cardboard sheet / strip thickness (corrugated)
@@ -2227,7 +2235,7 @@ const HEAVY_GAP_LB = 0.3;
 const weightBand = (w) => Math.floor(Math.log(Math.max(w, 0.05) / 0.05) / Math.log(HEAVY_RATIO) + 1e-9);
 const heavierThan = (wUp, wLow) => wUp > wLow * HEAVY_RATIO + 1e-9 && wUp - wLow > HEAVY_GAP_LB + 1e-9;
 // B-1463 (v2.0.97): the geometry is a HEIGHT MAP of solid blocks (lib/packing-heightmap.js); `layers` is only the derived pack-step grouping.
-const HELPERS = { orientations, orderTier, tierOf, softFragile, heavierThan, weightBand, sheetReason, lidReason, SHEET_IN, weakColumnOk, spansWall, spansFor, fitTolFor, bearingWhy };
+const HELPERS = { edgeOk: edgeStandOk, orientations, orderTier, tierOf, softFragile, heavierThan, weightBand, sheetReason, lidReason, SHEET_IN, weakColumnOk, spansWall, spansFor, fitTolFor, bearingWhy };
 const HELPERS_FIT = { ...HELPERS, fit: true }; // B-1516: the retry in which a rigid unit may be a hair over the inside of the box
 const HELPERS_BEAR = { ...HELPERS, bear: true }; // B-1513: the pass in which a weak carton's wall-to-wall layer carries the load
 const HELPERS_BOTH = { ...HELPERS, fit: true, bear: true };
@@ -3067,6 +3075,7 @@ const PROGRESS_STEPS = Object.freeze([
   { id: "claude", pct: 34, label: "Asking Claude to lay out the boxes" },
   { id: "advise", pct: 44, label: "Asking Claude for extra packing constraints" },
   { id: "code", pct: 55, label: "Code packing the boxes and proving the plan" },
+  { id: "claudebg", pct: 60, label: "The code's plan is ready - Claude is trying for fewer boxes in the background" },
   { id: "prove", pct: 72, label: "Proving the boxes (fit, weight, overlaps, counts)" },
   { id: "second", pct: 84, label: "Asking Claude for a second opinion" },
   { id: "save", pct: 95, label: "Saving the plan" },
@@ -3259,8 +3268,8 @@ function drawPlanTab(body, o) {
   }
   function setView(v) {
     if (v && v.active && PG.mine && v.runId && v.runId !== "local") PG.own[v.runId] = 1;
-    if (!PG.mine && v && v.active && (PG.own[v.runId] || (v.state === "done" && Date.now() < PG.doneQuietUntil))) v = null; // a late "ready" for the plan this screen made
-    if (!PG.mine && Date.now() < PG.quietUntil) v = null; // this screen just made the plan itself: it shows the plan, not a late "ready" bar
+    if (!PG.mine && v && v.active && v.kind !== "claude" && (PG.own[v.runId] || (v.state === "done" && Date.now() < PG.doneQuietUntil))) v = null; // a late "ready" for the plan this screen made
+    if (!PG.mine && Date.now() < PG.quietUntil && !(v && v.kind === "claude")) v = null; // this screen just made the plan itself: it shows the plan, not a late "ready" bar
     if (v && v.active) {
       if (v.runId !== PG.runId) { PG.runId = v.runId; PG.step = ""; }
       if (v.step !== PG.step) { PG.step = v.step; PG.seenAt = Date.now(); }
@@ -3574,6 +3583,9 @@ function drawPlanTab(body, o) {
     const det = el("div", "pk-plan-details");
     if (r.simplicity) det.appendChild(el("div", "pk-meta", "Packing: " + r.simplicity));
     det.appendChild(el("div", "pk-meta", r.advisor));
+    if (r.claudeBg) det.appendChild(el("div", "pk-meta pk-msg-ok", r.claudeBg));
+    if (r.claudeOffer) { const um = el("div", "pk-msg"); det.appendChild(btn("Use Claude's plan", "pk-primary", () => act("packingUseClaude", {}, um))); det.appendChild(um); } // v2.0.143 (SB-1): the swap is Zach's press, a new plan
+    if ((r.goals || []).length) { det.appendChild(el("div", "pk-meta pk-msg-bad", "Misses Zach's goals:")); const ul = el("ul", "pk-goals"); for (const g of r.goals) ul.appendChild(el("li", "", g)); det.appendChild(ul); }
     for (const t of r.dropped || []) det.appendChild(el("div", "pk-meta pk-msg-bad", t));
     for (const t of r.unknown || []) det.appendChild(el("div", "pk-meta pk-msg-bad", t));
     if (r.estimated) det.appendChild(el("div", "pk-meta", r.estimated));
@@ -3680,7 +3692,8 @@ function drawPlanTab(body, o) {
   const actWord = (n) => ({ packingApprove: "Approve", packingPacked: "Packed", packingUnpack: "Unpack", packingReject: "Reject", packingDraft: "Send to Box contents", packingRuleConfirm: "The rule" })[n] || "That";
   async function act(name, payload, msgBox) {
     keepScroll(() => say(msgBox, "Working..."));
-    const x = await call(name, payload);
+    const x = await call(name, S.r && S.r.planId ? { planId: S.r.planId, ...payload } : payload); // SF-2: the plan this screen shows
+    if (x && x.stale) { keepScroll(() => say(msgBox, x.error || "The plan changed - look at it again.", "bad")); load(); return; }
     if (!x || !x.ok) { keepScroll(() => say(msgBox, whyNot(x, actWord(name)), "bad")); if (x && (x.truncated || x.unserializable)) { const why = whyNot(x, actWord(name)); load().then(() => say(rowMsg, why, "bad")); } return; }
     // v2.0.92 (review F11): Approve would replace boxes already in progress in Box contents - ask first (a labelled button, no modifier keys).
     if (x.confirmReplace) {
@@ -3927,14 +3940,15 @@ function drawPlanTab(body, o) {
     const m = el("div", "pk-msg");
     const save = btn("Save weight and box size", "", async () => {
       say(m, "Checking...");
-      const y = await call("packingRealWeight", { boxId: b.id, lb: inp.value, dims: { L: dl.value, W: dw.value, H: dh.value }, reused: reused.checked, sizeName: reused.checked ? "" : sel.value });
+      const y = await call("packingRealWeight", { planId: S.r && S.r.planId, boxId: b.id, lb: inp.value, dims: { L: dl.value, W: dw.value, H: dh.value }, reused: reused.checked, sizeName: reused.checked ? "" : sel.value });
       say(m, y && y.ok ? y.words : whyNot(y, "Saving the weight"), y && y.ok ? (y.flagged ? "bad" : "ok") : "bad");
     });
     // B-1574: the same payload, and the box is LOCKED (packed) as well
-    const payload = () => ({ boxId: b.id, lb: inp.value, dims: { L: dl.value, W: dw.value, H: dh.value }, reused: reused.checked, sizeName: reused.checked ? "" : sel.value });
+    const payload = () => ({ planId: S.r && S.r.planId, boxId: b.id, lb: inp.value, dims: { L: dl.value, W: dw.value, H: dh.value }, reused: reused.checked, sizeName: reused.checked ? "" : sel.value });
     const packBtn = b.packed ? null : btn("Packed - save weight and lock", "pk-primary", async () => {
       say(m, "Checking...");
       const y = await call("packingPacked", payload());
+      if (y && y.stale) { say(m, y.error, "bad"); load(); return; }
       if (!y || !y.ok) { say(m, whyNot(y, "Packed"), "bad"); return; }
       if (y.confirmReplace) { say(m, y.message || "Box contents already has boxes in progress.", "bad"); return; }
       applyPlan(y);

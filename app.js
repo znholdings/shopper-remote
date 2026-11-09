@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.142";
+const APP_BUILD = "v2.0.143";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -443,7 +443,7 @@ const REMOTE_LABELS = {
   // B-1426 / B-1429 (v2.0.92): packing data (remote/packing-view.js)
   packingSave: "Save packing data", packingCopyFind: "Find a product to copy packing data to", packingCopy: "Copy packing data to another ASIN", packingTraits: "Claude's packing traits", packingBoxSave: "Save a box", packingBoxesSeed: "Add box sizes", packingReplayBatch: "Replay a batch", packingReplayClear: "Clear the replay", packingReplayLast: "Read the last replay", packingReplayReload: "Reload the last replay",
   // B-1427 / B-1428 (v2.0.92): the planner
-  packingPlan: "Make a packing plan", packingApprove: "Approve the packing plan", packingReject: "Reject the packing plan", packingRuleConfirm: "Add the packing rule", packingRuleDelete: "Delete a packing rule", packingRealWeight: "Save a real box weight", packingDraft: "Send boxes to Box contents (draft)", packingPacked: "Mark a box packed", packingUnpack: "Unpack a box", packingReplanRest: "Re-plan the remaining boxes",
+  packingPlan: "Make a packing plan", packingUseClaude: "Use the layout Claude found", packingApprove: "Approve the packing plan", packingReject: "Reject the packing plan", packingRuleConfirm: "Add the packing rule", packingRuleDelete: "Delete a packing rule", packingRealWeight: "Save a real box weight", packingDraft: "Send boxes to Box contents (draft)", packingPacked: "Mark a box packed", packingUnpack: "Unpack a box", packingReplanRest: "Re-plan the remaining boxes",
 };
 
 // P-25, half one: proof the tap landed. A command that is still pending or

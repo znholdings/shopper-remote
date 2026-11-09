@@ -16,6 +16,7 @@
   var shown = null;
   var storesSig = "";
   var built = false;
+  var extra = []; // B-1879 (v2.0.143): more products on the same order (up to 4)
 
   function today() {
     try { return new Date().toLocaleDateString("en-CA", { timeZone: "America/Chicago" }); } catch (e) { return new Date().toISOString().slice(0, 10); }
@@ -28,7 +29,42 @@
       total: f.total.value, orderDate: f.orderDate.value, shipTo: f.shipTo.value, tracking: f.tracking.value, notes: f.notes.value
     };
     Object.keys(o).forEach(function (k) { if (typeof o[k] === "string") o[k] = o[k].slice(0, 200); });
+    var more = [];
+    extra.forEach(function (x) {
+      var a = x.asin.value.trim().toUpperCase().slice(0, 10), qv = x.qty.value, t = x.total.value.trim().slice(0, 20);
+      if (!a && qv === "" && !t) return;
+      more.push({ asin: a, quantity: qv === "" ? 0 : Number(qv), quantityKind: x.kind.value, total: t });
+    });
+    o.more = more;
     return o;
+  }
+  function addExtraRow() {
+    if (extra.length >= 4) { U.toast("One order carries at most 5 products.", true); return; }
+    var x = {};
+    x.asin = U.input("text", { placeholder: "Another product's ASIN", autocapitalize: "characters", maxlength: "10" });
+    x.qty = U.input("number", { min: "1", step: "1", inputmode: "numeric", placeholder: "How many" });
+    x.kind = U.select([["packs", "Packs (the store's own count)"], ["pieces", "Pieces"], ["units", "Amazon units (sellable)"]]);
+    x.total = U.input("text", { inputmode: "decimal", placeholder: "This product's total ($)" });
+    x.row = U.el("div", "pg-note");
+    x.remove = U.btn("Remove", "secondary-btn", function () {
+      var i = extra.indexOf(x);
+      if (i >= 0) extra.splice(i, 1);
+      if (x.row.parentNode) x.row.parentNode.removeChild(x.row);
+      clearPlan();
+    });
+    [x.asin, x.qty, x.kind, x.total].forEach(function (e) { e.addEventListener("input", clearPlan); e.addEventListener("change", clearPlan); });
+    x.row.appendChild(U.field("Product ASIN", x.asin));
+    x.row.appendChild(U.field("Quantity", x.qty));
+    x.row.appendChild(U.field("Counted as", x.kind));
+    x.row.appendChild(U.field("This product's total", x.total));
+    x.row.appendChild(x.remove);
+    f.moreBox.appendChild(x.row);
+    extra.push(x);
+    clearPlan();
+  }
+  function clearExtra() {
+    extra.forEach(function (x) { if (x.row.parentNode) x.row.parentNode.removeChild(x.row); });
+    extra = [];
   }
   function clearPlan() {
     shown = null;
@@ -76,6 +112,10 @@
       f[k].addEventListener("input", clearPlan);
       f[k].addEventListener("change", clearPlan);
     });
+    f.moreBox = U.el("div", "");
+    sec.appendChild(f.moreBox);
+    f.addLine = U.btn("Add another product on this order", "secondary-btn", addExtraRow);
+    sec.appendChild(f.addLine);
     f.plan = U.btn("Work it out", "primary-btn", doPlan);
     f.save = U.btn("Save this buy", "primary-btn", doSave);
     f.save.disabled = true;
@@ -113,7 +153,7 @@
   async function doSave() {
     if (!shown) return;
     await U.confirmSend("Save this buy to All Orders, the Ledger, Replen Pulse and Sellerboard?", "manualBuySave", { form: form(), shown: shown }, f.save, "Saved", function (r) {
-      if (r && r.ok) { f.planBox.textContent = r.started ? "Saving on the computer - watch the activity bar." : "Saved."; shown = null; f.save.disabled = true; }
+      if (r && r.ok) { f.planBox.textContent = r.started ? "Saving on the computer - watch the activity bar." : "Saved."; clearExtra(); shown = null; f.save.disabled = true; }
     });
   }
 

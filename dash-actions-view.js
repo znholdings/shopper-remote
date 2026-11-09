@@ -42,6 +42,7 @@
   labels({
     dashboardRefresh: "Refresh the Dashboard", batchOfferDismiss: "Not now (batch offer)",
     askShopper: "Ask Shopper", askConfirm: "Ask Shopper: do it", askCancel: "Ask Shopper: cancel",
+    askCapApprove: "Ask Shopper: approve", askCapSkip: "Ask Shopper: skip",
   });
   let host = null, drawnKey = "", asking = false;
 
@@ -55,7 +56,7 @@
       reply: String(typeof inner.reply === "string" ? inner.reply : typeof a.reply === "string" ? a.reply : "").slice(0, 1500),
       plans: (Array.isArray(inner.plans) ? inner.plans : []).slice(0, 6).filter((p) => p && p.token).map((p) => ({ token: String(p.token), summary: String(p.summary || "A plan").slice(0, 300) })),
       choices: inner.choices && Array.isArray(inner.choices.options) ? inner.choices.options.slice(0, 8).map((o) => String((o && (o.title || o.asin)) || "").slice(0, 100)).filter(Boolean) : [],
-      last: a.last && typeof a.last === "object" ? { status: String(a.last.status || ""), message: String(a.last.message || "").slice(0, 300) } : null,
+      last: a.last && typeof a.last === "object" ? { status: String(a.last.status || ""), message: String(a.last.message || "").slice(0, 300), question: a.last.question && typeof a.last.question === "object" ? { title: String(a.last.question.title || "").slice(0, 120), note: String(a.last.question.note || "").slice(0, 400), checkoutTotal: String(a.last.question.checkoutTotal || "").slice(0, 20), capText: String(a.last.question.capText || "").slice(0, 20), asin: String(a.last.question.asin || "").slice(0, 12), askedAt: Number(a.last.question.askedAt) || 0 } : null } : null,
     };
   }
   function askCard(P) {
@@ -89,6 +90,17 @@
         pr.appendChild(a);
         box.appendChild(pr);
       });
+      if (v.last && v.last.question) {
+        const aq = v.last.question;
+        const qb = el("div", "line dax-plan");
+        qb.appendChild(el("div", "", aq.note || aq.title || "The checkout is over the safety cap."));
+        qb.appendChild(el("div", "", "Order " + aq.checkoutTotal + " - cap " + aq.capText));
+        const qa = el("div", "l-actions");
+        qa.appendChild(btnOf("Approve this order", "primary-btn", (b) => act("askCapApprove", { askedAt: aq.askedAt }, { btn: b, confirm: "Approve this " + aq.checkoutTotal + " order?" })));
+        qa.appendChild(btnOf("Skip - buy nothing", "secondary-btn", (b) => act("askCapSkip", { askedAt: aq.askedAt }, { btn: b })));
+        qb.appendChild(qa);
+        box.appendChild(qb);
+      }
       if (v.last && v.last.message) box.appendChild(el("p", "muted small", "Last buy: " + (v.last.status ? v.last.status + " - " : "") + v.last.message));
     }
     return box;
