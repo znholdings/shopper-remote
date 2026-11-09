@@ -82,6 +82,17 @@
     return Number.isFinite(n) && n > 0 ? Math.min(n, MAX_QTY) : 1;
   }
 
+  // B-1903 (v2.0.145): House / Prep / Both shelves chips. Same arithmetic as lib/label-qty-choices.js (the phone has no lib/ imports; a test pins the copies together).
+  function shelfChoices(row) {
+    const r = row || {};
+    const cap = (x) => { const v = Math.floor(Number(x)); return Number.isFinite(v) ? Math.min(999, v) : 0; };
+    return [
+      { key: "house", label: "House", n: cap(r.house) },
+      { key: "prep", label: "Prep", n: cap(r.prep) },
+      { key: "both", label: "Both shelves", n: cap(Math.floor(Number(r.house) || 0) + Math.floor(Number(r.prep) || 0)) },
+    ].filter((c) => c.n > 0);
+  }
+
   // The Best-by box -> { iso, error }.
   function readDate(text) {
     const t = String(text == null ? "" : text).trim();
@@ -183,7 +194,7 @@
     x.setAttribute("aria-label", "Close");
     head.append(heads, x);
     // B-1093 (v2.0.56): the labels that print count as printed in the open ScanPower batch (the laptop adds them).
-    const note = el("div", "mp-note", "Prints this product's FNSKU labels on the laptop's label printer now. Nothing is added to any batch; when the product is in the open ScanPower batch, these labels count as printed there.");
+    const note = el("div", "mp-note", "Prints this product's FNSKU labels on the laptop's label printer now. Nothing is added to any batch; when the product is in the open ScanPower batch, these labels count as printed there. The count starts at the house shelf; pick Prep or Both shelves to print for those units.");
     const status = el("div", "rc-msg mp-status");
     const retry = el("button", "rc-btn mp-retry", "Try again");
     retry.type = "button";
@@ -193,7 +204,8 @@
     const qty = el("input", "rc-input mp-qty");
     qty.type = "number"; qty.min = "1"; qty.max = String(MAX_QTY); qty.step = "1";
     qty.setAttribute("inputmode", "numeric");
-    qty.value = String(defaultQty(row.house));
+    const choices = shelfChoices(row);
+    qty.value = String(defaultQty(row.house)); // house count, else 1; Prep / Both fill the box only when tapped
     qtyWrap.append(el("span", "mp-lab", "How many labels"), qty);
     const dateWrap = el("label", "mp-field mp-datewrap");
     const date = el("input", "rc-input mp-date");
@@ -202,6 +214,18 @@
     dateWrap.append(el("span", "mp-lab", "Best by"), date);
     dateWrap.hidden = true;
     form.append(qtyWrap, dateWrap);
+    let shelfKey = choices.some((c) => c.key === "house") ? "house" : null;
+    const shelves = el("div", "mp-shelves");
+    shelves.hidden = !choices.length;
+    const chipBtns = [];
+    const paintChips = () => { for (const [c, b] of chipBtns) b.setAttribute("aria-pressed", c.key === shelfKey ? "true" : "false"); };
+    for (const c of choices) {
+      const b = el("button", "rc-btn rc-quiet mp-shelf", c.label + " " + c.n);
+      b.type = "button"; b.dataset.shelf = c.key;
+      b.addEventListener("click", () => { shelfKey = c.key; qty.value = String(c.n); paintChips(); paintGo(); });
+      chipBtns.push([c, b]); shelves.appendChild(b);
+    }
+    paintChips();
     const foot = el("div", "rc-foot mp-foot");
     const go = el("button", "rc-btn rc-primary mp-go", "Print");
     go.type = "button";
@@ -213,7 +237,7 @@
     // v2.0.135 (B-1795): the printed ledger for this listing in the open ScanPower batch - Mark printed / Forget (own buttons; Forget asks first).
     const batchBox = el("div", "mp-batch");
     batchBox.hidden = true;
-    card.append(head, note, status, retry, form, foot, result, batchBox);
+    card.append(head, note, status, retry, form, shelves, foot, result, batchBox);
     overlay.appendChild(card);
     document.body.appendChild(overlay);
 
@@ -396,12 +420,12 @@
     svg.setAttribute("aria-hidden", "true");
     svg.innerHTML = PRINTER_SVG;
     b.appendChild(svg);
-    b.addEventListener("click", () => open({ asin: r.asin, title: r.title || "", house: r.house }));
+    b.addEventListener("click", () => open({ asin: r.asin, title: r.title || "", house: r.house, prep: r.prep }));
     return b;
   }
 
   root.ShopperManualPrint = Object.freeze({
-    button, open, close, setLabels, batchFor, defaultQty, readDate, runCommand, printOutcome, lookupOutcome,
+    button, open, close, setLabels, batchFor, defaultQty, shelfChoices, readDate, runCommand, printOutcome, lookupOutcome,
     OFFLINE_TEXT, PICKUP_MS, ANSWER_MS, _timing: timing, _current: () => cur,
   });
 })(typeof self !== "undefined" ? self : globalThis);

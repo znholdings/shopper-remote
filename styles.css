@@ -1239,6 +1239,9 @@ html, body { overscroll-behavior: none; }
 .mp-card .mp-pick { min-width: 0; max-width: 100%; font: inherit; font-size: 13px; padding: 4px 6px; }
 .mp-card .mp-note { font-size: 13px; line-height: 1.35; color: var(--s-text-muted); overflow-wrap: anywhere; }
 .mp-card .mp-form { display: flex; flex-wrap: wrap; gap: 10px; }
+.mp-card .mp-shelves { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0; }
+.mp-card .mp-shelves[hidden] { display: none; }
+.mp-card .mp-shelf[aria-pressed="true"] { border-color: var(--s-accent, currentColor); font-weight: 700; }
 .mp-card .mp-field { flex: 1 1 140px; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .mp-card .mp-field[hidden] { display: none; }
 .mp-card .mp-lab { font-size: 13px; font-weight: 700; }

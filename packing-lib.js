@@ -2308,19 +2308,39 @@ function packBest(box, groups, cfg, fit) {
   return r;
 }
 // B-1516: could ANY unit of a product that did not fit have fitted with the walls' give? Cheap test before the second pack.
-function fitCouldHelp(box, groups, unplaced, cfg) {
-  const t = box.L, u = box.W;
+function fitCouldHelp(box, groups, unplaced, cfg, packed = null) {
+  // v2.0.145 (B-1895): with `packed` (the failed pack) not only the whole floor is tested but also the STRIP each placed block leaves at the far walls - a
+  // 1.535 in Crest Pro-Health on edge in the 1.5 in beside a 16.5 in Kotex block. lib/packing-plan.js passes it only when its give pass is on.
+  const spans = [box.L, box.W];
+  if (packed && packed.inner && Array.isArray(packed.blocks)) {
+    const { A, B } = packed.inner;
+    for (const b of packed.blocks) {
+      const gx = A - (b.x + b.nx * (b.ux + 2 * b.pad)), gy = B - (b.y + b.ny * (b.uy + 2 * b.pad));
+      if (gx > 1e-6) spans.push(gx);
+      if (gy > 1e-6) spans.push(gy);
+    }
+  }
   for (const up of unplaced) {
     const g = groups.find((x) => x.asin === up.asin);
     const tol = fitTolFor(g);
     if (!g || !(tol > 0)) continue;
-    for (const o of orientations(g, cfg)) {
-      if (Math.floor((t + tol + 1e-9) / o.fl) > Math.floor((t + 1e-9) / o.fl) || Math.floor((u + tol + 1e-9) / o.fw) > Math.floor((u + 1e-9) / o.fw)) return true;
+    for (const o of orientations(g, cfg)) for (const s of spans) {
+      if (Math.floor((s + tol + 1e-9) / o.fl) > Math.floor((s + 1e-9) / o.fl) || Math.floor((s + tol + 1e-9) / o.fw) > Math.floor((s + 1e-9) / o.fw)) return true;
     }
   }
   return false;
 }
 
+// v2.0.145 (B-1895): the walls'-give retry alone, for a pack that FAILED without it (lib/packing-plan.js re-uses a memoised failure instead of packing twice).
+// -> the ok result, or null when the give cannot help / the retry fails too. Same step packBox takes at its "B-1516" line, with the strips considered.
+function giveRetry(box, groups, cfg, failed) {
+  if (!failed || failed.ok || !failed.unplaced || !fitCouldHelp(box, groups, failed.unplaced, cfg, failed)) return null;
+  const rf = packBest(box, groups, cfg, true);
+  if (!rf.ok) return null;
+  rf.squeezed = [];
+  rf.gave = true;
+  return rf;
+}
 // B-1568 (v2.0.114): the RESCUE pass. The greedy packer commits to the biggest block first, which can leave a pocket nothing fits (17 dryers as a column of 15
 // + 2). When a consolidation (merging boxes, moving filler into an anchor box's gaps) fails only for that reason, branch on the choice of block at each step
 // (a pilot search: try the next-best candidates, keep the few runs that leave the fewest units out) - tipped spots included. Every run is the same packer, so
@@ -2375,7 +2395,8 @@ function couldRescue(box, groups, r) {
 // groups -> pack; if some units do not fit, retry with squeezed sizes for the products that compress (a gap closer, never the default).
 // R1-F6: counts the packs the layer pass replaced (lib/packing-plan.js attempt() re-plans without it when it could have cost a box)
 const layerStats = { used: 0 };
-function packBox(box, groups, cfg, { allowSqueeze = true, rescue = false, layers = null, quick = false } = {}) { // B-1802: quick = one pass of each kind, no branching search (the open-box planner tries many contents; the chosen ones are re-packed in full)
+const giveStats = { missed: 0 }; // v2.0.145 (B-1895): packs that failed where only the strips' give (not the whole floor) could have helped
+function packBox(box, groups, cfg, { allowSqueeze = true, rescue = false, layers = null, quick = false, give = false } = {}) { // v2.0.145 (B-1895): give = the walls' give is also tried in the strips the blocks leave (lib/packing-plan.js give pass) // B-1802: quick = one pass of each kind, no branching search (the open-box planner tries many contents; the chosen ones are re-packed in full)
   let r = packBest(box, groups, cfg, false);
   r.squeezed = [];
   // v2.0.120 (B-1621): the LAYER pass (lib/packing-layers.js) - the best layer, repeated. It only replaces the greedy pack when its stance is strictly better; a pack with no stacked
@@ -2396,9 +2417,12 @@ function packBox(box, groups, cfg, { allowSqueeze = true, rescue = false, layers
   // B-1568: a consolidation attempt (merge / move filler into an anchor box) asks for the rescue pass before it gives up
   if (rescue && couldRescue(box, groups, r) && (rescue === true || rescue.runs > 0)) { const rr = rescuePack(box, groups, cfg, { budget: rescue === true ? null : rescue }); if (rr.ok) return rr; }
   // B-1516 (v2.0.108): the outer box's walls give a little - a rigid unit up to FIT_TOL_IN over a strip or gap still goes in. Tried before squeezing.
-  if (fitCouldHelp(box, groups, r.unplaced, cfg)) {
+  const helpWhole = fitCouldHelp(box, groups, r.unplaced, cfg, null);
+  if (!give && !helpWhole && fitCouldHelp(box, groups, r.unplaced, cfg, r)) giveStats.missed++; // v2.0.145 (B-1895): a strip the give would have opened (the plan's give pass runs only when this moved)
+  if (helpWhole || (give && fitCouldHelp(box, groups, r.unplaced, cfg, r))) {
     const rf = packBest(box, groups, cfg, true);
     rf.squeezed = [];
+    if (!helpWhole) rf.gave = true; // v2.0.145 (B-1895): this layout needs the give in a strip (tests, diagnosis)
     if (rf.ok) return rf;
   }
   if (!allowSqueeze) return r;
@@ -2454,7 +2478,7 @@ function boxMetrics(box, groupsPlaced, packed) {
   const total = unitsLb + sheetsLb + stripsLb + dunnageLb + e.lb;
   return { units: count, unitsLb: r2(unitsLb), sheetsLb: r2(sheetsLb), stripsLb: r2(stripsLb), dunnageLb: r2(dunnageLb), emptyLb: e.lb, emptyAssumed: e.assumed, totalLb: r2(total), voidIn3: Math.round(voidIn3), fillPct: Math.round(100 * (unitsVol / boxVol)), billableLb: r2(billable(box, total)), dimLb: r2((boxVol) / DIM_DIVISOR) };
 }
-__m["packing-pack.js"] = { SHEET_IN, SHEET_LB_PER_SQIN, DUNNAGE_LB_PER_CUIN, EMPTY_LB_PER_SQIN, DIM_DIVISOR, r2, FILL_SHAPES, makeUnitProduct, softFragile, tierOf, orderTier, isUpright, squeezed, sheetReason, lidReason, short, named, orientations, HEAVY_RATIO, HEAVY_GAP_LB, weightBand, heavierThan, POCKET_STEP_NODES, POCKET_MAX_PREFIX, pocketPass, columnPass, packOnBase, packOnBaseStand, packPicked, BEAR_MIN_UNITS, RESCUE_RUNS, RESCUE_BRANCH, RESCUE_BEAM, rescuePack, STAND_RUNS, layerStats, packBox, blocksOf, expandUnits, blockCount, sheetLb, stripLb, emptyLbOf, billable, boxMetrics };
+__m["packing-pack.js"] = { SHEET_IN, SHEET_LB_PER_SQIN, DUNNAGE_LB_PER_CUIN, EMPTY_LB_PER_SQIN, DIM_DIVISOR, r2, FILL_SHAPES, makeUnitProduct, softFragile, tierOf, orderTier, isUpright, squeezed, sheetReason, lidReason, short, named, orientations, HEAVY_RATIO, HEAVY_GAP_LB, weightBand, heavierThan, POCKET_STEP_NODES, POCKET_MAX_PREFIX, pocketPass, columnPass, packOnBase, packOnBaseStand, packPicked, BEAR_MIN_UNITS, giveRetry, RESCUE_RUNS, RESCUE_BRANCH, RESCUE_BEAM, rescuePack, STAND_RUNS, layerStats, giveStats, packBox, blocksOf, expandUnits, blockCount, sheetLb, stripLb, emptyLbOf, billable, boxMetrics };
 })();
 // ---- lib/packing-draw.js ----
 (function () {

@@ -62,7 +62,7 @@ const SHARED_SETTINGS_SPEC = Object.freeze([
   ] }),
   // ---- Pipeline / email --------------------------------------------------
   S({ key: "shopperPipelineTransitWindowDays", group: "pipeline", label: "Transit window (days)", kind: "number", min: 7, max: 3650, step: 1, phone: true }),
-  S({ key: "shopperPipelineAskWhatStayedBehind", group: "pipeline", label: "Ask what stayed behind", kind: "bool", phone: true }),
+  S({ key: "shopperPipelineAskWhatStayedBehind", group: "pipeline", label: "Ask what stayed behind (house only)", kind: "bool", phone: true }),
   S({ key: "shopperMailWatchEnabled", group: "pipeline", label: "Watch for order mail (every minute)", kind: "bool", phone: true }), // B-1801 (v2.0.135)
   S({ key: "shopperAiEmailSettings", group: "pipeline", label: "AI email reading", kind: "object", phone: [
     { path: "manualEnabled", label: "On a manual refresh", kind: "bool" },

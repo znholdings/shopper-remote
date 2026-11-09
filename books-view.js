@@ -289,6 +289,16 @@
     more.hidden = total <= rows.length;
     more.textContent = total > rows.length ? `Showing the oldest ${rows.length} of ${total}. The rest are on the laptop's Books page.` : "";
     card.hidden = false;
+    // v2.0.145 (B-1907): the seat's checks - own list, no pick controls.
+    const fcl = $("bkmForClaude");
+    const fcard = $("bkmForClaudeCard");
+    if (fcl && fcard) {
+      const fc = data.forClaude || [];
+      fcl.textContent = "";
+      for (const r of fc) fcl.append(rowEl({ ...r, pick: false, reason: "" }));
+      $("bkmForClaudeCount").textContent = String(Number(data.forClaudeTotal) || fc.length);
+      fcard.hidden = !fc.length;
+    }
     // Notes for rows that have gone (booked) stay above the list a while.
     const gone = Object.keys(notes).filter((k) => !rows.some((r) => r.key === k) && noteFor(k));
     const box = $("bkmDone");
@@ -320,9 +330,11 @@
     drawNeeds();
   }
 
-  function render(books) {
+  function render(books, pull) {
     data = books && typeof books === "object" ? books : null;
+    pullData = pull && typeof pull === "object" ? pull : null;
     reloadState();
+    pullState();
     const key = JSON.stringify(data) + "|" + JSON.stringify(notes) + "|" + sending;
     if (key === drawnKey) { statusLine(); return; }
     drawnKey = key;
@@ -497,7 +509,45 @@
     reloadState();
   }
 
+  // ---- B-1902 (v2.0.145): Pull and categorise now - Main runs it; progress comes back in publishState's booksPull ----
+  let pullData = null;
+  let pullSentAt = 0;
+  function pullState() {
+    const btn = $("bkmPullNow");
+    const note = $("bkmReloadNote");
+    if (!btn) return;
+    const p = pullData;
+    const running = !!(p && p.running);
+    btn.disabled = running || Date.now() - pullSentAt < 5000;
+    if (!note) return;
+    if (running) {
+      const lines = (p.lines || []).slice(-2).join(" · ");
+      note.textContent = `${p.handedTo ? `Running on the ${p.handedTo} computer: ` : "Running: "}${lines || "pulling every source, then categorising..."}`;
+      note.dataset.phase = "sending";
+    } else if (p && p.result && pullSentAt && Number(p.at) >= pullSentAt) {
+      note.textContent = String(p.result).slice(0, 300);
+      note.dataset.phase = "done";
+    }
+  }
+  async function pullNow() {
+    const R = self.ShopperRemote;
+    const note = $("bkmReloadNote");
+    const say = (text, phase) => { if (note) { note.textContent = text; note.dataset.phase = phase; } };
+    if (!R || !R.sendCommand || (pullData && pullData.running) || Date.now() - pullSentAt < 5000) return;
+    if (R.laptopOnline && !R.laptopOnline()) { say("The laptop isn't connected - nothing was sent.", "failed"); return; }
+    pullSentAt = Date.now();
+    say("Asking the Main computer to pull and categorise the Books...", "sending");
+    pullState();
+    let id = null;
+    try { id = await R.sendCommand("booksPullNow", {}); } catch (e) { id = null; }
+    if (!id) { pullSentAt = 0; say("Not sent - the phone could not reach the laptop's relay. Try again.", "failed"); pullState(); return; }
+    say("Started on the Main computer - progress below.", "sending");
+    pullState();
+  }
+
   function wire() {
+    const pb = $("bkmPullNow");
+    if (pb) pb.addEventListener("click", () => { pullNow(); });
     const rb = $("bkmReload");
     if (rb) rb.addEventListener("click", () => { reload(); });
     const box = $("bkmRemember");

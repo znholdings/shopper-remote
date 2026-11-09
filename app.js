@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.144";
+const APP_BUILD = "v2.0.145";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -440,6 +440,7 @@ const REMOTE_LABELS = {
   pricingFixPlan: "Fix this one: show the plan", pricingFixApply: "Fix this one: approve and start", // B-1599 (v2.0.116)
   booksLineSet: "Book a Needs you line", // B-1232 (v2.0.73)
   booksLineClear: "Card line - nothing", booksReload: "Reload the Books", // B-1278 / B-1277 (v2.0.74)
+  booksPullNow: "Pull and categorise the Books now", // B-1902 (v2.0.145)
   // B-1426 / B-1429 (v2.0.92): packing data (remote/packing-view.js)
   packingSave: "Save packing data", packingCopyFind: "Find a product to copy packing data to", packingCopy: "Copy packing data to another ASIN", packingTraits: "Claude's packing traits", packingBoxSave: "Save a box", packingBoxesSeed: "Add box sizes", packingReplayBatch: "Replay a batch", packingReplayClear: "Clear the replay", packingReplayLast: "Read the last replay", packingReplayReload: "Reload the last replay",
   // B-1427 / B-1428 (v2.0.92): the planner
@@ -676,7 +677,7 @@ function renderPayload() {
   // B-1023 (v2.0.49): the Catalog tab.
   if (self.ShopperCatalogView) self.ShopperCatalogView.render(p.catalog);
   // B-1232 (v2.0.73): the Books tab.
-  if (self.ShopperBooksView) self.ShopperBooksView.render(p.books);
+  if (self.ShopperBooksView) self.ShopperBooksView.render(p.books, p.booksPull); // B-1902 (v2.0.145)
   // v4.74 (B-567 - B-574): refresh, Needs you, latest arrivals, goal.
   if (self.ShopperParity) self.ShopperParity.render(p);
   // B-1792 / B-1791 (v2.0.135): the new pages read p.pages; the drawer's group badges read the Needs-you counts.
