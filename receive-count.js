@@ -17,8 +17,8 @@
 // only a count Zach keeps on the screen; "Done" closes and keeps it. Only the
 // inline "Make this the House count" -> "Yes, set it" calls the host's
 // `onConfirm(total)`, and the HOST decides how that reaches the laptop (the
-// existing setCount command). The component then clears the tally only if the
-// host said { ok: true }; on a failure the tally stays and the sentence is shown.
+// existing setCount command). B-1912: the tally STAYS after { ok: true } (it now matches
+// the new House figure); on a failure the tally stays and the sentence is shown.
 //
 // DOM is built with createElement + textContent only (no innerHTML).
 (function () {
@@ -337,45 +337,21 @@
     }
   }
 
-  // B-1415 (v2.0.89) / B-1529 (v2.0.108): a count belongs to the SHIPMENT it was made for, not to a
-  // calendar day. Zach 10/22: "Counted 25" chips from a PREVIOUS shipment showed on products not
-  // counted since. v2.0.89 hid every tally last edited before local midnight - so at 00:00 on 10/26
-  // every count Zach made the evening of 10/25 turned into "Not counted yet" (B-1528 / B-1529).
-  // NOW: a stored tally is SHOWN and USED (chip, Receive button label, Set-all, the pop-up) unless a
-  // House shipment left AFTER it was last edited. The host (Pipeline page / phone) hands that moment
-  // to setSessionStart(ms) - the created time of the newest House ScanPower batch that reached the
-  // shipped step (lib/count-session.js). When the host does not know it, a rolling 7-day window is
-  // used; it is NEVER calendar midnight. Older tallies stay in storage and sync (45 days) either way.
-  // Only the House is counted with Receive (the button is on House rows only); Prep has no counter.
-  var FALLBACK_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
-  var hostSessionStart = null;
-  // Returns true when the start changed (the host then repaints its chips / buttons).
-  function setSessionStart(ms) {
-    var n = Number(ms);
-    var next = ms != null && ms !== "" && isFinite(n) && n > 0 ? n : null;
-    var changed = next !== hostSessionStart;
-    hostSessionStart = next;
-    return changed;
-  }
-  function sessionStart(now) {
-    var t = typeof now === "number" ? now : Date.now();
-    if (hostSessionStart != null && hostSessionStart <= t) return hostSessionStart;
-    return t - FALLBACK_WINDOW_MS;
-  }
-  function isCurrentSession(updatedAt, now) {
-    var u = Number(updatedAt);
-    return isFinite(u) && u >= sessionStart(now);
-  }
-  // How many counts in progress are on screen (current), for "34 counts in progress".
+  // B-1920 (v2.0.146): a stored tally is ALWAYS current - on this computer, the other one and the phone alike.
+  // Only a clear ends a count: the x on the chip, Start over, or the B-1003 rule (lib/receive-ship-clear.js)
+  // when a HOUSE shipment holding this product goes out. History: B-1415 (v2.0.89) hid every count at midnight;
+  // B-1529 (v2.0.108) hid every count older than "the newest House batch this computer saw ship" (per computer,
+  // any product, and a prep-built "sc" batch counted as House) - Zach 11/09: 27 counts made 2:59-3:23 PM all read
+  // "Not counted yet". Both rules are gone. A tally lives 45 days (MAX_AGE_MS).
   function countInProgress(now) {
     var map = readMap(now), n = 0;
-    for (var k in map) if (has(map, k) && isCurrentSession(map[k].updatedAt, now)) n++;
+    for (var k in map) if (has(map, k)) n++;
     return n;
   }
 
   function getChunks(asin, now) {
     var e = readMap(now)[normAsin(asin)];
-    return e && isCurrentSession(e.updatedAt, now) ? e.chunks.slice() : [];
+    return e ? e.chunks.slice() : [];
   }
 
   // ---- B-843 (v2.0.22): the clears (tombstones) and the sync with the other device.
@@ -840,9 +816,9 @@
     msg.setAttribute("aria-live", "polite");
 
     var foot = h("div", "rc-foot");
-    var doneBtn = h("button", "rc-btn rc-done", "Done");
+    var doneBtn = h("button", "rc-btn rc-primary rc-done", "Done");
     doneBtn.type = "button";
-    var makeBtn = h("button", "rc-btn rc-primary rc-make", "Make this the " + where + " count");
+    var makeBtn = h("button", "rc-btn rc-quiet rc-make", "Make this the " + where + " count");
     makeBtn.type = "button";
     makeBtn.hidden = !canConfirm;
     foot.appendChild(doneBtn);
@@ -852,7 +828,7 @@
     makeAsk.hidden = true;
     makeAsk.setAttribute("role", "group");
     var makeQ = h("div", "rc-ask-text", "");
-    var makeYes = h("button", "rc-btn rc-primary", "Yes, set it");
+    var makeYes = h("button", "rc-btn rc-make-yes", "Yes, set it");
     makeYes.type = "button";
     var makeNo = h("button", "rc-btn rc-quiet", "No");
     makeNo.type = "button";
@@ -1008,8 +984,7 @@
       var settled = function (res) {
         sending = false;
         if (res && res.ok) {
-          tally.clear();
-          setChunks(asin, []);
+          expected = units; expectedText = format(units); // B-1912: the count stays; it now matches the new figure
           closeAsks();
           if (!closed) {
             render();
@@ -1148,8 +1123,8 @@
   // pressing 'Make this the House count' -> 'Yes, set it' for every product that has a Receive
   // tally" (House on hand = the counted number; arrivals untouched). Products with no tally are not
   // touched. This file still sends nothing: the host's write(asin, units) does, one product at a
-  // time, with the SAME message / command the single confirm uses. A tally is cleared only after
-  // the host said { ok: true } for it (the single confirm's own rule); a failure keeps its tally.
+  // time, with the SAME message / command the single confirm uses. B-1912: every count
+  // stays on its row (it matches the new House figure); a failure keeps its tally too.
 
   // rows: [{ asin, title, house }] (the host's list). -> { changes: [{asin, title, houseNow, counted}],
   // notListed: [{asin, counted}] } - a tally whose product is not on the host's list is left alone.
@@ -1346,7 +1321,7 @@
           sending = false;
           finished = true;
           draw();
-          if (!bad.length) say("Set " + okCount + " of " + list.length + ". Each counted product's tally is cleared.", "ok");
+          if (!bad.length) say("Set " + okCount + " of " + list.length + ". Each count stays on its row.", "ok");
           else {
             say("Set " + okCount + " of " + list.length + ". " + bad.length + " not set - those counts are kept:", "bad");
             for (var bi = 0; bi < bad.length && bi < 10; bi++) msgList.appendChild(h("li", "", bad[bi]));
@@ -1362,7 +1337,6 @@
         var settled = function (res) {
           if (res && res.ok) {
             okCount++;
-            clearFor(c.asin);
             mark(c.asin, "set", true);
           } else {
             var why = res && res.error ? String(res.error) : "It was not saved.";
@@ -1417,11 +1391,213 @@
     return { close: dismiss, isOpen: function () { return !closed; } };
   }
 
+  // B-1921 (v2.0.146): "Set Receive counts to House on hand" - every House row gets a Receive count equal to its
+  // House number, as if it had just been counted. Tallies only: this never writes a House count.
+  function houseWhole(house) {
+    if (house == null || house === "") return null;
+    var h0 = Number(house);
+    if (!isFinite(h0)) return null;
+    var r = Math.round(h0);
+    if (Math.abs(h0 - r) > 0.0005) return null;
+    return isChunk(r) ? r : null;
+  }
+
+  // rows: [{ asin, title, house }] -> { set, replace, same, skipped }, each [{ asin, title, house, counted }].
+  function planFillHouse(rows, now) {
+    var set = [], replace = [], same = [], skipped = [];
+    var seen = {};
+    var list = Array.isArray(rows) ? rows : [];
+    for (var i = 0; i < list.length; i++) {
+      var r = list[i] || {};
+      var asin = normAsin(r.asin);
+      if (!asin || has(seen, asin)) continue;
+      var hv = r.house;
+      if (hv == null || hv === "" || !isFinite(Number(hv)) || Math.abs(Number(hv)) < 0.0005) continue;
+      seen[asin] = true;
+      var title = r.title != null && r.title !== "" ? String(r.title) : asin;
+      var whole = houseWhole(hv);
+      if (whole == null) { skipped.push({ asin: asin, title: title, house: Number(hv), counted: 0 }); continue; }
+      var counted = totalFor(asin, now);
+      var item = { asin: asin, title: title, house: whole, counted: counted };
+      if (counted === whole) { same.push(item); continue; }
+      if (set.length + replace.length >= MAX_ENTRIES) { skipped.push(item); continue; }
+      var hasTally = getChunks(asin, now).length > 0;
+      (hasTally ? replace : set).push(item);
+    }
+    return { set: set, replace: replace, same: same, skipped: skipped };
+  }
+
+  function fillKey(plan) {
+    var parts = [], all = plan.replace.concat(plan.set);
+    for (var i = 0; i < all.length; i++) parts.push(all[i].asin + ":" + all[i].house + ":" + all[i].counted);
+    return parts.join(",");
+  }
+
+  // opts: { rows, format?, where? ("House"), onDone? } - rows: the list, or a function returning the host's CURRENT list
+  // (Opus review v2.0.146: Yes re-plans from the current House figures, so a refresh that changed House while the card
+  // was open redraws instead of writing the old number).
+  function openFillHouse(opts) {
+    opts = opts || {};
+    if (typeof document === "undefined" || !document.body) return null;
+    closeCurrent();
+    var where = String(opts.where || "House");
+    var format = typeof opts.format === "function" ? opts.format : fmtNum;
+    var fillRows = function () {
+      try { return typeof opts.rows === "function" ? opts.rows() : opts.rows; } catch (e) { return []; }
+    };
+    var plan = planFillHouse(fillRows());
+    var shownKey = fillKey(plan);
+    var finished = false;
+    var closed = false;
+    var downOnBackdrop = false;
+    var opener = document.activeElement;
+    var uid = "rc-" + (++seq);
+
+    var overlay = h("div", "rc-overlay");
+    var card = h("div", "rc-card rc-all");
+    card.setAttribute("role", "dialog");
+    card.setAttribute("aria-modal", "true");
+    card.setAttribute("aria-labelledby", uid + "-title");
+    card.setAttribute("tabindex", "-1");
+    var head = h("div", "rc-head");
+    var heads = h("div", "rc-heads");
+    var titleEl = h("div", "rc-title", "Set every Receive count to " + where + " on hand");
+    titleEl.setAttribute("id", uid + "-title");
+    heads.appendChild(titleEl);
+    var xBtn = h("button", "rc-x", "\u2715");
+    xBtn.type = "button";
+    xBtn.setAttribute("aria-label", "Close");
+    head.appendChild(heads);
+    head.appendChild(xBtn);
+    var intro = h("div", "rc-all-intro", "");
+    var listEl = h("ul", "rc-all-list");
+    var restEl = h("div", "rc-all-rest", "");
+    var sameEl = h("div", "rc-all-rest rc-all-same", "");
+    var msg = h("div", "rc-msg", "");
+    msg.setAttribute("role", "status");
+    msg.setAttribute("aria-live", "polite");
+    var foot = h("div", "rc-foot");
+    var yesBtn = h("button", "rc-btn rc-primary rc-all-yes", "");
+    yesBtn.type = "button";
+    var cancelBtn = h("button", "rc-btn rc-quiet rc-all-cancel", "Cancel");
+    cancelBtn.type = "button";
+    foot.appendChild(yesBtn);
+    foot.appendChild(cancelBtn);
+    card.appendChild(head);
+    card.appendChild(intro);
+    card.appendChild(listEl);
+    card.appendChild(restEl);
+    card.appendChild(sameEl);
+    card.appendChild(msg);
+    card.appendChild(foot);
+    overlay.appendChild(card);
+
+    function say(text, kind) {
+      msg.textContent = text || "";
+      msg.className = "rc-msg" + (kind ? " rc-msg-" + kind : "");
+    }
+
+    function draw() {
+      listEl.textContent = "";
+      var todo = plan.replace.concat(plan.set);
+      var n = todo.length;
+      intro.textContent = n
+        ? "Each product below gets a Receive count equal to its " + where + " on hand, as if you had just counted it. " + where + " on hand itself is not changed."
+        : "Every " + where + " row already has a matching Receive count, so there is nothing to set.";
+      for (var i = 0; i < n; i++) {
+        var c = todo[i];
+        var isReplace = i < plan.replace.length;
+        var li = h("li", "rc-all-row");
+        li.setAttribute("data-asin", c.asin);
+        li.appendChild(h("div", "rc-all-name", c.asin + " \u00b7 " + c.title));
+        li.appendChild(h("div", "rc-all-change", (isReplace ? "Counted " + format(c.counted) + " \u2192 " + format(c.house) + " (replaces your count)" : "Not counted yet \u2192 " + format(c.house))));
+        listEl.appendChild(li);
+      }
+      listEl.hidden = !n;
+      var nameList = function (host, items) {
+        var ul = h("ul", "rc-all-names");
+        for (var q = 0; q < items.length && q < 10; q++) ul.appendChild(h("li", "", items[q]));
+        if (items.length > 10) ul.appendChild(h("li", "rc-all-more", "+" + (items.length - 10) + " more"));
+        host.appendChild(ul);
+      };
+      var rest = [];
+      for (var k = 0; k < plan.skipped.length; k++) rest.push(plan.skipped[k].asin + " (" + plan.skipped[k].house + ")");
+      restEl.textContent = rest.length ? "Left alone - " + where + " on hand is not a whole number from 1 to 9,999:" : "";
+      if (rest.length) nameList(restEl, rest);
+      restEl.hidden = !rest.length;
+      sameEl.textContent = plan.same.length ? plan.same.length + " already match, so they are left as they are." : "";
+      sameEl.hidden = !plan.same.length;
+      yesBtn.textContent = "Yes - set " + n + " Receive count" + (n === 1 ? "" : "s");
+      yesBtn.hidden = finished || !n;
+      yesBtn.disabled = !n;
+      cancelBtn.textContent = finished || !n ? "Done" : "Cancel";
+    }
+
+    function run() {
+      if (finished) return;
+      var fresh = planFillHouse(fillRows());
+      if (fillKey(fresh) !== shownKey) {
+        plan = fresh;
+        shownKey = fillKey(fresh);
+        draw();
+        say("A count changed while this was open. Check the list again, then press Yes.", "bad");
+        return;
+      }
+      var todo = plan.replace.concat(plan.set);
+      if (!todo.length) return;
+      var at = Date.now();
+      for (var i = 0; i < todo.length; i++) setChunks(todo[i].asin, [todo[i].house], at);
+      finished = true;
+      draw();
+      say("Set " + todo.length + " Receive count" + (todo.length === 1 ? "" : "s") + " to " + where + " on hand.", "ok");
+      if (typeof opts.onDone === "function") { try { opts.onDone({ set: todo.length }); } catch (e) { /* the host redraw must never break this */ } }
+      if (!closed) focusEl(cancelBtn);
+    }
+
+    function focusEl(el) {
+      try { el.focus({ preventScroll: true }); } catch (e) { try { el.focus(); } catch (e2) { /* nothing to focus */ } }
+    }
+
+    function onKey(e) {
+      if (closed) return;
+      if (e.key === "Escape") { dismiss(); return; }
+      if (e.key !== "Tab") return;
+      var all = [xBtn, yesBtn, cancelBtn];
+      var list = [];
+      for (var i = 0; i < all.length; i++) if (!all[i].disabled && !hiddenWithin(all[i], card)) list.push(all[i]);
+      if (!list.length) { e.preventDefault(); return; }
+      var at = list.indexOf(document.activeElement);
+      if (e.shiftKey && at <= 0) { e.preventDefault(); focusEl(list[list.length - 1]); }
+      else if (!e.shiftKey && (at === list.length - 1 || at < 0)) { e.preventDefault(); focusEl(list[0]); }
+    }
+
+    function dismiss() {
+      if (closed) return;
+      closed = true;
+      document.removeEventListener("keydown", onKey);
+      if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+      if (current && current.overlay === overlay) current = null;
+      if (opener && typeof opener.focus === "function" && opener !== document.body && opener.isConnected !== false) focusEl(opener);
+    }
+
+    xBtn.addEventListener("click", dismiss);
+    cancelBtn.addEventListener("click", dismiss);
+    yesBtn.addEventListener("click", run);
+    overlay.addEventListener("pointerdown", function (e) { downOnBackdrop = e.target === overlay; });
+    overlay.addEventListener("click", function (e) { if (e.target === overlay && downOnBackdrop) dismiss(); downOnBackdrop = false; });
+    document.addEventListener("keydown", onKey);
+    document.body.appendChild(overlay);
+    draw();
+    focusEl(plan.replace.length + plan.set.length ? cancelBtn : card);
+    current = { overlay: overlay, close: dismiss };
+    return { close: dismiss, isOpen: function () { return !closed; } };
+  }
+
   function closeCurrent() { if (current) current.close(); }
   function isOpen() { return !!current; }
 
   // Test hook: forget what the memory fallback holds and re-try real storage.
-  function _reset() { hostSessionStart = null; memory = {}; degraded = false; memoryClears = {}; clearsDegraded = false; storeListeners = []; openWatchers = []; badgeClearWatchers = []; }
+  function _reset() { memory = {}; degraded = false; memoryClears = {}; clearsDegraded = false; storeListeners = []; openWatchers = []; badgeClearWatchers = []; }
 
   self.ShopperReceive = Object.freeze({
     QUICK: QUICK,
@@ -1447,15 +1623,13 @@
     gapInfo: gapInfo,
     fullCountChunk: fullCountChunk,
     planSetAll: planSetAll,
+    planFillHouse: planFillHouse,
+    openFillHouse: openFillHouse,
     openSetAll: openSetAll,
     parseSpoken: parseSpoken,
     prune: prune,
     getChunks: getChunks,
-    isCurrentSession: isCurrentSession,
-    setSessionStart: setSessionStart,
-    sessionStart: sessionStart,
     countInProgress: countInProgress,
-    FALLBACK_WINDOW_MS: FALLBACK_WINDOW_MS,
     setChunks: setChunks,
     clearFor: clearFor,
     totalFor: totalFor,

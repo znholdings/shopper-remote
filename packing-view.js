@@ -88,7 +88,9 @@
   function open() {
     const P = root.ShopperPacking;
     if (!P || typeof P.mountPackingUi !== "function") return;
+    if (cur && cur.main) return; // B-1914: already open - a second "Plan boxes" pick keeps the plan on screen
     const host = openSheet("Packing data");
+    if (cur) cur.main = true;
     P.mountPackingUi(host, { api, surface: "phone", canSeed: true, progressFeed });
   }
 
@@ -131,6 +133,18 @@
     const t = typeof document !== "undefined" && document.getElementById ? document.getElementById("tabPacking") : null;
     if (t && !t.__pk) { t.__pk = true; t.addEventListener("click", open); }
   }
+  // B-1914 (v2.0.146): picking any other page in the drawer leaves the sheet (it used to stay on top of the page the pick opened).
+  function wireLeave() {
+    const nav = typeof document !== "undefined" && document.getElementById ? document.getElementById("phoneNav") : null;
+    if (!nav || nav.__pkLeave) return;
+    nav.__pkLeave = true;
+    nav.addEventListener("click", (e) => {
+      const t = e.target && e.target.closest ? e.target.closest(".tab") : null;
+      if (!t || t.id === "tabPacking") return;
+      if (t.classList && t.classList.contains("pn-desktop")) return;
+      close();
+    });
+  }
   root.ShopperPackingView = Object.freeze({ open, openProduct, close, mount, api, pushProgress, _current: () => cur });
-  if (typeof document !== "undefined" && document.getElementById) { mount(document.getElementById("packingHost")); wireMenu(); }
+  if (typeof document !== "undefined" && document.getElementById) { mount(document.getElementById("packingHost")); wireMenu(); wireLeave(); }
 })(typeof self !== "undefined" ? self : globalThis);

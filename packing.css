@@ -110,6 +110,7 @@
 .pk-entry-btn { flex: none; min-height: 40px; padding: 8px 14px; font-weight: 700; }
 .pk-entry-note { flex: 1 1 160px; min-width: 0; font-size: 13px; color: var(--s-text-muted); overflow-wrap: anywhere; }
 .pk-overlay { position: fixed; inset: 0; z-index: 1000; background: var(--s-bg, #fff); display: flex; flex-direction: column; }
+.pk-overlay { box-sizing: border-box; padding: var(--pk-safe-top, env(safe-area-inset-top, 0px)) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); } /* B-1914 (v2.0.146): the sheet's header and its last row stay clear of the phone's status bar / home bar. --pk-safe-top is for the render test only. */
 .pk-sheet { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; max-width: 100%; }
 .pk-sheet-head { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--s-line); }
 .pk-sheet-title { font-weight: 800; font-size: 16px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

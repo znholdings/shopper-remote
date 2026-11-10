@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.145";
+const APP_BUILD = "v2.0.146";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -47,6 +47,7 @@ for (const id of [
   "invBucketPanel","invBucketTitle","invBucketNote","invBucketTable",
   // B-875 (v2.0.25): set every House count from its Receive tally.
   "invReceiveAllBtn",
+  "invFillHouseBtn",
   // B-912 (v2.0.29): print the open batch's labels from the phone.
   "invPrintLabelsBtn","invPrintLabelsNote",
   // B-490 (v4.56): the read-only Dashboard tab.
@@ -1781,6 +1782,7 @@ els.soundBtn.addEventListener("click", () => {
 els.finishNowBtn.addEventListener("click", () => sendCommand("finishNow"));
 // B-875 (v2.0.25): set every House count from its Receive tally.
 els.invReceiveAllBtn.addEventListener("click", invOpenReceiveAll);
+els.invFillHouseBtn.addEventListener("click", invOpenFillHouse);
 // B-912 (v2.0.29): "Print FNSKU labels" - the laptop runs its follow-the-batch print and this
 // waits for its answer (the command row's result) so the phone can say what printed.
 // B-937 (v2.0.35): a product over the label cap is ASKED about before anything prints - the
@@ -1916,7 +1918,7 @@ els.approveAllBtn.addEventListener("click", () => {
 // `preview` matters most: the deploy README's own acceptance checklist
 // says "a preview refresh arrives", and until now that step could not be
 // performed from the phone at all.
-els.previewBtn.addEventListener("click", () => sendCommand("preview"));
+els.previewBtn.addEventListener("click", () => { if (self.ShopperQueuePreview) self.ShopperQueuePreview.refresh({ tapped: true }); else sendCommand("preview"); }); // B-1927
 
 // Destructive, so it confirms - same treatment as Abort.
 els.discardSavedBtn.addEventListener("click", () => {
@@ -2519,15 +2521,25 @@ function invReceiveError(status) {
 // to the laptop (the quiet command receiveTallySet, newest edit per product wins); what the laptop holds
 // arrives in every inventory payload (inventory.receiveTallies) and is merged in. Without the laptop the
 // tally still works on its own, as before.
-const rcSync = { started: false, timers: new Map(), lastSent: new Map() };
+const rcSync = { started: false, pending: new Map(), timer: null, lastSent: new Map() };
+const RC_SYNC_BULK_MAX = 100;
 function rcSyncSend(e) {
-  const asin = e.asin;
-  clearTimeout(rcSync.timers.get(asin));
-  rcSync.timers.set(asin, setTimeout(() => {
-    rcSync.timers.delete(asin);
-    rcSync.lastSent.set(asin, { at: Date.now(), updatedAt: e.updatedAt });
-    sendCommand("receiveTallySet", { asin, chunks: e.chunks, updatedAt: e.updatedAt }, { quiet: true }).catch(() => {});
-  }, 600));
+  rcSync.pending.set(e.asin, e);
+  clearTimeout(rcSync.timer);
+  rcSync.timer = setTimeout(rcSyncFlush, 600);
+}
+function rcSyncFlush() {
+  rcSync.timer = null;
+  const edits = [...rcSync.pending.values()];
+  rcSync.pending.clear();
+  const at = Date.now();
+  const one = (e) => ({ asin: e.asin, chunks: e.chunks, updatedAt: e.updatedAt });
+  for (const e of edits) rcSync.lastSent.set(e.asin, { at, updatedAt: e.updatedAt });
+  for (let i = 0; i < edits.length; i += RC_SYNC_BULK_MAX) {
+    const part = edits.slice(i, i + RC_SYNC_BULK_MAX);
+    // one edit keeps the old shape (an older laptop build understands it); several ride as `edits` (B-1921)
+    sendCommand("receiveTallySet", part.length === 1 ? one(part[0]) : { edits: part.map(one) }, { quiet: true }).catch(() => {});
+  }
 }
 function rcSyncStart() {
   if (rcSync.started || !self.ShopperReceive || !self.ShopperReceive.onStoreChange) return;
@@ -2573,9 +2585,6 @@ function rcSyncApply(inv) {
   const RC = self.ShopperReceive;
   if (!RC || !RC.applyRemote) return;
   rcSyncStart();
-  // B-1529: the moment the last House shipment left (null/absent = the counter's rolling 7-day window).
-  // B-1529 review #9: a changed start repaints the chips / buttons even when no tally changed.
-  if (RC.setSessionStart && inv && Object.prototype.hasOwnProperty.call(inv, "countSessionStart") && RC.setSessionStart(inv.countSessionStart)) invRefreshReceiveButtons();
   if (!inv || !inv.receiveTallies) { rcLivePaint(); return; }
   const changed = RC.applyRemote(inv.receiveTallies);
   if (changed.length) invRefreshReceiveButtons();
@@ -2584,7 +2593,7 @@ function rcSyncApply(inv) {
   // Anything counted here that the laptop does not have yet (a command that never arrived) goes again,
   // at most every 30 s per product.
   for (const e of RC.diffNewer(inv.receiveTallies)) {
-    if (rcSync.timers.has(e.asin)) continue;
+    if (rcSync.pending.has(e.asin)) continue;
     const s = rcSync.lastSent.get(e.asin);
     if (s && s.updatedAt === e.updatedAt && Date.now() - s.at < 30000) continue;
     rcSyncSend(e);
@@ -2609,6 +2618,21 @@ function invRefreshReceiveButtons() {
   invPaintReceiveAll(lastPayload && lastPayload.inventory);
 }
 
+// B-1912 (v2.0.146): the count stays on the row after "Yes, set it". Until the next payload brings the new House
+// figure, show it on this phone's copy so the chip reads green "Counted 8", not "8 of 5".
+function invNoteHouse(asin, units) {
+  const inv = lastPayload && lastPayload.inventory;
+  for (const row of (inv && inv.rows) || []) if (row && row.asin === asin) row.house = units;
+  for (const root of [els.invBucketTable, els.invRows]) {
+    if (!root) continue;
+    for (const b of root.querySelectorAll(".rc-badge")) {
+      if (b.dataset.asin !== asin) continue;
+      b.dataset.house = String(units);
+      b.dataset.houseText = invUnits(units);
+    }
+  }
+}
+
 function invOpenReceive(r) {
   if (!self.ShopperReceive) return;
   rcSyncStart();
@@ -2623,6 +2647,7 @@ function invOpenReceive(r) {
     onConfirm: async (units) => {
       const id = await sendCommand("setCount", { asin: r.asin, destination: "house", units, note: "Receive count from the phone" });
       const status = id ? await waitFor(id) : "not sent";
+      if (status === "done") invNoteHouse(r.asin, units); // B-1912
       return { ok: status === "done", error: status === "done" ? "" : invReceiveError(status) };
     },
   });
@@ -2810,6 +2835,7 @@ function invReceiveAllRows(inv) {
 }
 
 function invPaintReceiveAll(inv) {
+  invPaintFillHouse(inv);
   const b = els.invReceiveAllBtn;
   if (!b) return;
   const RC = self.ShopperReceive;
@@ -2831,6 +2857,7 @@ function invOpenReceiveAll() {
     write: async (asin, units) => {
       const id = await sendCommand("setCount", { asin, destination: "house", units, note: "Receive count from the phone" });
       const status = id ? await waitFor(id) : "not sent";
+      if (status === "done") invNoteHouse(asin, units); // B-1912
       return { ok: status === "done", error: status === "done" ? "" : invReceiveError(status) };
     },
     onDone: () => {
@@ -2838,6 +2865,27 @@ function invOpenReceiveAll() {
       invPaintReceiveAll(lastPayload && lastPayload.inventory);
     },
   });
+}
+
+// B-1921 (v2.0.146): every House row's Receive count = its House number (receive-count.js openFillHouse).
+// Tallies only - no setCount; the edits go to the laptop as ONE receiveTallySet (rcSyncFlush).
+function invPaintFillHouse(inv) {
+  const b = els.invFillHouseBtn;
+  if (!b) return;
+  const RC = self.ShopperReceive;
+  const on = invBucket === "house" && !!(inv && inv.available) && !!(RC && RC.planFillHouse && RC.openFillHouse);
+  const p = on ? RC.planFillHouse(invReceiveAllRows(inv)) : null;
+  const count = p ? p.set.length + p.replace.length : 0;
+  b.hidden = !count;
+  b.textContent = "Set " + count + " Receive count" + (count === 1 ? "" : "s") + " to House on hand";
+}
+function invOpenFillHouse() {
+  const RC = self.ShopperReceive;
+  const inv = lastPayload && lastPayload.inventory;
+  if (!RC || !RC.openFillHouse || !inv) return;
+  rcSyncStart();
+  // Opus review: a function, so Yes re-plans from the newest payload (one may arrive while the card is open).
+  RC.openFillHouse({ rows: () => invReceiveAllRows((lastPayload && lastPayload.inventory) || inv), format: invUnits, where: "House", onDone: () => invRefreshReceiveButtons() });
 }
 
 // ------------------------------------------------------------ push (iOS)

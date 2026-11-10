@@ -1,0 +1,15 @@
+/* remote/queue-preview.css - B-1927 (v2.0.146): the approved buy lines on the phone Run page. Tokens only (--s-*). */
+.qpv-box { overflow-wrap: anywhere; }
+.qpv-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 10px; }
+.qpv-head h3 { margin: 0; }
+.qpv-warn { margin: 3px 0; font-size: 12px; color: var(--s-warn, var(--warn)); }
+.qpv-stale .qpv-line, .qpv-stale .l-group { opacity: .55; }
+.qpv-line { box-sizing: border-box; max-width: 100%; }
+.qpv-line .l-actions { flex-wrap: wrap; }
+.qpv-line .l-move { display: inline-flex; gap: 6px; }
+.qpv-line .qty-input { box-sizing: border-box; width: 72px; min-height: 40px; }
+.qpv-btn { min-height: 40px; min-width: 40px; white-space: normal; max-width: 100%; }
+.qpv-order .qpv-btn { min-height: 40px; }
+/* retro / themed buttons force their own heights - keep a 40 px touch size on the phone (same specificity trick as phone-pages.css) */
+:root[data-theme] .qpv-line button, :root[data-theme] .qpv-order button, :root[data-theme] .qpv-box > button { min-height: 40px; }
+:root[data-theme] .qpv-line .qty-input { min-height: 40px; }

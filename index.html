@@ -44,6 +44,7 @@
   <link rel="stylesheet" href="daily.css" /><!-- B-1257 (v2.0.73): The Daily (Home) + B-1256 short Do next cards -->
   <link rel="stylesheet" href="phone-nav.css" /><!-- B-1233 (v2.0.73): the sidebar navigation -->
   <link rel="stylesheet" href="phone-pages.css" /><!-- B-1792 (v2.0.135): the new pages -->
+  <link rel="stylesheet" href="queue-preview.css" /><!-- B-1927 -->
   <link rel="stylesheet" href="books.css" /><!-- B-1232 (v2.0.73): the Books section -->
   <!-- Shopper 2 (v2.00, B-732): light / dark before first paint. The phone
        follows its own setting unless the top-bar button picked one. -->
@@ -173,6 +174,7 @@
           <button id="discardSavedBtn" class="ghost-btn" hidden>Discard saved queue</button>
           <button id="previewBtn" class="ghost-btn" title="Refresh preview" aria-label="Refresh preview">Preview</button>
         </div>
+        <div id="queuePreviewHost"></div><!-- B-1927: remote/queue-preview-view.js -->
         <!-- B-774 (v2.0.9): RIGHT NOW - the line, order k of N, and the step of
              the buy (remote/run-lib.js = lib/buy-stage.js; remote/run-view.js
              draws it). Hidden when there is no queue. -->
@@ -412,6 +414,7 @@
           <p id="invBucketNote" class="muted" hidden></p>
           <!-- B-875 (v2.0.25): every House count from its Receive tally, in one go (app.js invOpenReceiveAll). -->
           <button id="invReceiveAllBtn" class="secondary-btn" type="button" hidden>Set House counts from Receive</button>
+          <button id="invFillHouseBtn" class="secondary-btn" type="button" hidden>Set Receive counts to House on hand</button>
           <!-- B-912 (v2.0.29): the laptop prints the open batch's unprinted FNSKU labels on the Brother. -->
           <button id="invPrintLabelsBtn" class="secondary-btn" type="button">Print FNSKU labels (open batch)</button>
           <p id="invPrintLabelsNote" class="muted" hidden></p>
@@ -707,6 +710,7 @@
   <script src="buylist-actions-view.js"></script>
   <script src="carryover-view.js"></script>
   <script src="queue-actions-view.js"></script>
+  <script src="queue-preview-view.js"></script><!-- B-1927 -->
   <script src="waiting-rows-view.js"></script>
   <script src="dash-actions-view.js"></script>
   <script src="bank-actions-view.js"></script>

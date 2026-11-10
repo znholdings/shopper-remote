@@ -1,6 +1,6 @@
 // remote/queue-actions-view.js - B-1794 (v2.0.135): the Buy Queue buttons the phone could not send:
 // Clear a finished queue (own labelled button + confirm), the pre-run buy order (up / down / back to
-// ranked), the pack-rank check ("needs a rank" -> the editor) and Recovery "forget what it learned".
+// ranked - B-1927 moved those to queue-preview-view.js), the pack-rank check ("needs a rank" -> the editor) and Recovery "forget what it learned".
 // Host: #queueActionsHost. Data: payload.run, payload.lines, payload.buylist.generatedAt. Text nodes only.
 (function () {
   "use strict";
@@ -47,16 +47,12 @@
   const FINISHED = new Set(["done", "aborted", "error"]);
   let host = null, drawnKey = "", staleSent = false, rankState = null, rankOpen = null;
 
+  // B-1927 (v2.0.146): the idle payload has no lines (run: null); the approved lines are the ones Main answered to "Preview"
+  // (remote/queue-preview-view.js), which also owns the up / down order buttons now.
   function previewLines(p) {
-    const lines = p && Array.isArray(p.lines) ? p.lines : [];
+    const Q = self.ShopperQueuePreview;
+    const lines = Q && typeof Q.buyLines === "function" ? Q.buyLines() : [];
     return lines.filter((l) => l && l.asin);
-  }
-  function move(order, asin, dir) {
-    const i = order.indexOf(asin), j = i + dir;
-    if (i < 0 || j < 0 || j >= order.length) return null;
-    const next = order.slice();
-    next[i] = next[j]; next[j] = asin;
-    return next;
   }
   async function checkRanks(lines, b) {
     const M = self.ShopperManualPrint;
@@ -111,15 +107,6 @@
       }
     }
     if (!run && lines.length) {
-      const order = lines.map((l) => l.asin);
-      box.appendChild(el("h3", "", "Buy order"));
-      lines.forEach((l) => {
-        const r = el("div", "l-actions qax-order");
-        r.appendChild(el("span", "qax-name", (l.title || l.asin).slice(0, 60)));
-        [["Up", -1], ["Down", 1]].forEach(([t, d]) => r.appendChild(btnOf(t, "mini-btn", (b) => { const n = move(order, l.asin, d); if (n) act("queueSetOrder", { order: n }, { btn: b }); })));
-        box.appendChild(r);
-      });
-      box.appendChild(btnOf("Back to the ranked order", "secondary-btn", (b) => act("queueResetOrder", {}, { btn: b })));
       box.appendChild(btnOf("Check pack ranks", "secondary-btn", (b) => checkRanks(lines, b)));
     }
     if (rankState) {
@@ -140,5 +127,5 @@
   }
   function start() { draw(); setInterval(draw, 2000); }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start); else start();
-  self.ShopperQueueActions = Object.freeze({ move, draw });
+  self.ShopperQueueActions = Object.freeze({ draw });
 })();
