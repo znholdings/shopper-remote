@@ -202,13 +202,25 @@
     return { wrap, input, bad, pick };
   }
 
+  // B-1994 (v2.0.151): nothing is asked - Shopper works these out; the phone lists them with no buttons.
+  function workingOut(host, needs) {
+    const list = (needs && needs.splitsWaiting) || [];
+    if (!list.length) return;
+    host.append(node("h4", null, "Shopper is working these out"));
+    for (const w of list) {
+      const c = needCard(w.title, "", w.line);
+      if (w.names) c.append(node("div", "muted small", w.names));
+      host.append(c);
+    }
+  }
+
   function renderNeeds(host, needs) {
     host.textContent = "";
     const head = node("h3", null, "Needs you ");
     head.append(node("span", "count", needs ? String(needs.total) : "-"));
     host.append(head);
     if (!needs) { host.append(node("p", "muted", "Waiting for the laptop to send these (needs Shopper v4.74 on the laptop).")); return; }
-    if (!needs.total) { host.append(node("p", "muted", "Nothing is waiting on you.")); return; }
+    if (!needs.total) { host.append(node("p", "muted", "Nothing is waiting on you.")); workingOut(host, needs); return; }
 
     for (const f of needs.frozen) {
       const c = needCard(f.title || f.asin, `${f.retailer || "order"} #${f.orderNumber} · ${units(f.units)} units`, "Shopper placed this order, and there is no row for it on All Orders any more. Nothing about it moves until you pick.");
@@ -230,7 +242,8 @@
         `${units(o.open)} of ${units(o.ordered)} units still open. ` +
           (o.late && o.late.daysLate
             ? `Due ${o.late.date} - ${o.late.daysLate} day(s) ago.`
-            : o.emails ? `${o.emails} delivery email(s) landed.` : "No delivery email has ever landed."));
+            : o.emails ? `${o.emails} delivery email(s) landed.` : "No delivery email has ever landed.") +
+          (o.says ? ` ${o.says}` : "") + (o.waitingFor ? ` Waiting for: ${o.waitingFor}.` : ""));
       const a = actions();
       const day = node("input", "need-input");
       day.type = "date";
@@ -278,45 +291,7 @@
       host.append(c);
     }
 
-    for (const sp of needs.splits) {
-      const c = needCard(`Order ${sp.orderNumber}`, `${sp.retailer} · ${sp.lines.length} products on one order${sp.occurredAt ? " · delivered " + ctText(sp.occurredAt) : ""}`,
-        "The delivery email does not say which units belong to which product, so nothing was booked. How many of each actually arrived?");
-      const boxes = new Map();
-      for (const ln of sp.lines) {
-        const r = node("div", "need-split-row");
-        // B-1194 / B-1195 (v2.0.68): the name, then (one line each) the Target name matched and the pack size.
-        const nameCol = node("div", "need-split-name");
-        nameCol.append(node("span", "inv-title", `${ln.title || ln.asin}${ln.orderedUnits == null ? "" : " - ordered " + units(ln.orderedUnits)}`));
-        if (ln.targetTitle) nameCol.append(node("div", "muted small", `Target: ${ln.targetTitle}`));
-        const perBox = Number(ln.unitsPerBox);
-        if (perBox > 0 && Math.abs(perBox - Math.round(perBox)) > 1e-9) {
-          nameCol.append(node("div", "muted small", `1 ${String(sp.retailer || "retailer").replace(/^./, (c) => c.toUpperCase())} item = ${units(perBox)} unit${ln.cartQty ? ` · ordered ${units(ln.cartQty)} items` : ""} - halves like 2 1/2 are fine`));
-        }
-        r.append(nameCol);
-        const box = node("input", "need-input need-num");
-        // B-1195: a text box - "2 1/2" is a real answer; the laptop checks it (whole items only).
-        box.type = "text";
-        box.inputMode = "decimal";
-        box.autocomplete = "off";
-        box.placeholder = ln.suggest == null ? "units" : `suggest ${units(ln.suggest)}`;
-        boxes.set(ln.asin, box);
-        r.append(box);
-        c.append(r);
-      }
-      if (sp.suggestReason) c.append(node("div", "l-meta", `Grey numbers are a suggestion only: ${sp.suggestReason}`));
-      const a = actions();
-      a.append(
-        btn("Book these", "primary-btn", (e) => {
-          const allocation = {};
-          for (const [asin, box] of boxes) if (String(box.value).trim() !== "") allocation[asin] = String(box.value).trim();
-          run("splitBook", { key: sp.key, allocation }, e.target, null, DROP);
-        }),
-        btn("Leave it in transit", "secondary-btn", (e) => run("splitDismiss", { key: sp.key }, e.target, null, DROP))
-      );
-      c.append(a);
-      host.append(c);
-    }
-    if (needs.splitOverflow) host.append(node("p", "muted small", `${needs.splitOverflow} more split question(s) wait behind these.`));
+    workingOut(host, needs);
 
     for (const k of needs.checks) {
       const c = needCard(k.title, "", k.body);
@@ -395,6 +370,9 @@
     if (rowEl.querySelectorAll) for (const m of rowEl.querySelectorAll(":scope > .l-meta")) info.append(m);
     if (r.lastUpdate) info.append(node("div", "l-meta", `Last update: ${r.lastUpdate.text}${r.lastUpdate.atMs ? " (" + ctText(r.lastUpdate.atMs) + ")" : ""}`));
     else info.append(node("div", "l-meta muted", "No tracking email yet"));
+    // B-1997 (v2.0.151): what the mails and the card charge show for this overdue row (the laptop's own sentence).
+    if (r.says) info.append(node("div", "l-meta", r.says));
+    if (r.waitingFor) info.append(node("div", "l-meta muted", `Waiting for: ${r.waitingFor}`));
     // B-691 (v4.93): "It arrived" + date on EVERY arrival row (Today,
     // Tomorrow, each later day, No date) - was Overdue only. Same command
     // (orderArrived) and the same orders-to-close the laptop published.

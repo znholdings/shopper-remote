@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.150";
+const APP_BUILD = "v2.0.151";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -345,6 +345,8 @@ async function pollCommandOutcomes() {
       // its real outcome (remote/start-watch.js).
       const SW = globalThis.ShopperStartWatch;
       if (SW && (pending.name === "start" || pending.name === "resumeSaved")) SW.afterDone({ label, result: row.result, targetId: pending.targetId || "", sentAt: pending.at, fromId: deviceId });
+      // B-1999 (v2.0.151): a Pause / Abort that went on to the other computer says where it went (the computer's page says it too).
+      if ((pending.name === "pause" || pending.name === "abort") && row.result && row.result.sentToOther && row.result.reason) toast(`${label}: ${String(row.result.reason).slice(0, 300)}`);
     } else if (fmt) {
       toast(fmt(label, row.reason), true);
       if (pending.name === "start" && self.ShopperQueuePreview) self.ShopperQueuePreview.refresh({ tapped: true }); // B-1936: a refused Start re-reads the buy lines
@@ -2532,29 +2534,78 @@ function invReceiveError(status) {
 // to the laptop (the quiet command receiveTallySet, newest edit per product wins); what the laptop holds
 // arrives in every inventory payload (inventory.receiveTallies) and is merged in. Without the laptop the
 // tally still works on its own, as before.
-const rcSync = { started: false, pending: new Map(), timer: null, lastSent: new Map() };
+// B-2003 (v2.0.151): every edit also says what it was made ON, so the laptop lays only the CHANGE over what it holds
+// now (lib/receive-phone-rebase.js) - a tap on an out-of-date copy no longer brings back a cleared count or takes away
+// the other computer's add. `chain` per product, newest first: the lists this phone sent that the laptop has not
+// answered for yet, then the last list the laptop is known to hold (a payload's entry, or a sent list it has reached).
+// The laptop takes the newest one it has reached as the base. `unsent` = an edit whose command never left the phone
+// (no signal): it goes again, made on the same chain, before a payload's newer clear can drop it here (B-2015).
+// `had` = the products this phone held a count for when it started (or has counted since): a count this phone starts
+// from nothing, before it has heard from the laptop, is made on "nothing" - the laptop adds it to what it holds.
+const rcSync = { started: false, pending: new Map(), timer: null, lastSent: new Map(), chain: new Map(), unsent: new Map(), had: new Set(), sending: 0 };
 const RC_SYNC_BULK_MAX = 100;
-function rcSyncSend(e) {
+const RC_SYNC_CHAIN_MAX = 8;
+const rcSyncTrim = (c) => (c.length > RC_SYNC_CHAIN_MAX ? c.slice(0, RC_SYNC_CHAIN_MAX - 1).concat(c[c.length - 1]) : c); // the known end stays
+function rcSyncSend(e, bases) {
+  if (!bases && !rcSync.chain.has(e.asin) && !rcSync.had.has(e.asin) && !rcSync.pending.has(e.asin)) bases = [{ chunks: [], at: 0 }];
+  if (e.chunks && e.chunks.length) rcSync.had.add(e.asin);
+  if (bases) e = { ...e, bases };
   rcSync.pending.set(e.asin, e);
   clearTimeout(rcSync.timer);
   rcSync.timer = setTimeout(rcSyncFlush, 600);
 }
 function rcSyncFlush() {
   rcSync.timer = null;
+  if (rcSync.sending > 0) { rcSync.timer = setTimeout(rcSyncFlush, 600); return; } // B-2003: one command out at a time - the next one's bases need this one's list at the head of the chain
   const edits = [...rcSync.pending.values()];
   rcSync.pending.clear();
   const at = Date.now();
-  const one = (e) => ({ asin: e.asin, chunks: e.chunks, updatedAt: e.updatedAt });
+  const one = (e) => {
+    const o = { asin: e.asin, chunks: e.chunks, updatedAt: e.updatedAt };
+    const bases = e.bases || rcSync.chain.get(e.asin) || rcSync.unsent.get(e.asin); // B-2003: none known (a reload) = the whole list, as before
+    if (bases && bases.length) o.bases = rcSyncTrim(bases);
+    return o;
+  };
   for (const e of edits) rcSync.lastSent.set(e.asin, { at, updatedAt: e.updatedAt });
   for (let i = 0; i < edits.length; i += RC_SYNC_BULK_MAX) {
-    const part = edits.slice(i, i + RC_SYNC_BULK_MAX);
+    const part = edits.slice(i, i + RC_SYNC_BULK_MAX).map(one);
     // one edit keeps the old shape (an older laptop build understands it); several ride as `edits` (B-1921)
-    sendCommand("receiveTallySet", part.length === 1 ? one(part[0]) : { edits: part.map(one) }, { quiet: true }).catch(() => {});
+    rcSync.sending++;
+    sendCommand("receiveTallySet", part.length === 1 ? part[0] : { edits: part }, { quiet: true }).then((id) => rcSyncSent(part, !!id)).catch(() => {}).finally(() => { rcSync.sending--; });
+  }
+}
+// B-2003: a command left the phone (its list heads the chain) or did not (it goes again before the next payload is merged)
+function rcSyncSent(part, left) {
+  for (const o of part) {
+    if (!left) { if (!rcSync.unsent.has(o.asin)) rcSync.unsent.set(o.asin, o.bases || null); continue; } // the OLDEST edit that never left: what it was made on
+    rcSync.unsent.delete(o.asin);
+    if (!o.bases) continue; // sent without a base: the chain starts at the next payload
+    rcSync.chain.set(o.asin, rcSyncTrim([{ chunks: o.chunks.slice(), at: o.updatedAt }, ...(rcSync.chain.get(o.asin) || o.bases)]));
+  }
+}
+// B-2003: after a payload was merged in. The laptop's entry per product ({chunks, at}: a count, or a clear = no chunks).
+function rcSyncNoteLaptop(rt, RC) {
+  const tallies = (rt && rt.tallies) || {};
+  const clears = (rt && rt.clears) || {};
+  const mine = RC.exportSync();
+  for (const k of new Set([...Object.keys(tallies), ...Object.keys(clears)])) {
+    const t = tallies[k];
+    const c = Number(clears[k]) || 0;
+    const e = t && Array.isArray(t.chunks) && Number(t.updatedAt) >= c ? { chunks: t.chunks.slice(), at: Number(t.updatedAt) } : { chunks: [], at: c };
+    if (!Number.isFinite(e.at)) continue;
+    const m = mine.tallies[k];
+    const same = m ? m.chunks.length === e.chunks.length && m.chunks.every((n, i) => n === e.chunks[i]) : !e.chunks.length;
+    const chain = rcSync.chain.get(k) || [];
+    if (same || !chain.length) { rcSync.chain.set(k, [e]); continue; } // this phone shows what the laptop holds
+    const reached = chain.findIndex((x) => e.at >= x.at); // the newest list the laptop has got to
+    const keep = reached < 0 ? chain : chain.slice(0, reached + 1);
+    rcSync.chain.set(k, rcSyncTrim(keep));
   }
 }
 function rcSyncStart() {
   if (rcSync.started || !self.ShopperReceive || !self.ShopperReceive.onStoreChange) return;
   rcSync.started = true;
+  try { for (const k of Object.keys(self.ShopperReceive.exportSync().tallies || {})) rcSync.had.add(k); } catch (e) { /* no copy yet */ }
   self.ShopperReceive.onStoreChange(rcSyncSend);
   // B-933 (v2.0.35): the x on a "Counted N" chip clears that tally - the Receive labels follow.
   if (self.ShopperReceive.onBadgeClear) self.ShopperReceive.onBadgeClear(() => invRefreshReceiveButtons());
@@ -2597,7 +2648,21 @@ function rcSyncApply(inv) {
   if (!RC || !RC.applyRemote) return;
   rcSyncStart();
   if (!inv || !inv.receiveTallies) { rcLivePaint(); return; }
+  // B-2003: an edit that never left this phone, as this phone holds it BEFORE the payload is merged in
+  const again = [];
+  if (rcSync.unsent.size) {
+    const mine = RC.exportSync();
+    for (const [asin, bases] of rcSync.unsent) {
+      const t = mine.tallies[asin];
+      const c = Number(mine.clears[asin]) || 0;
+      if (t) again.push([{ asin, chunks: t.chunks.slice(), updatedAt: t.updatedAt }, bases]);
+      else if (c) again.push([{ asin, chunks: [], updatedAt: c }, bases]);
+    }
+    rcSync.unsent.clear();
+  }
   const changed = RC.applyRemote(inv.receiveTallies);
+  rcSyncNoteLaptop(inv.receiveTallies, RC);
+  for (const [e, bases] of again) rcSyncSend(e, bases);
   if (changed.length) invRefreshReceiveButtons();
   invPaintReceiveAll(inv);
   rcLivePaint();
