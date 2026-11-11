@@ -168,6 +168,16 @@
     }
     pane.insertBefore(jump, pane.firstChild);
   }
+  // B-1960 (v2.0.149): the jump row's real height, for the sections' scroll offset (ui55-a.css .s55-sec). 0 = the tab is not on
+  // screen - the last height is kept.
+  let jumpH = 0;
+  function syncJumpHeight() {
+    if (!jump || !jump.parentNode || !jump.parentNode.style) return;
+    const h = Math.round(jump.offsetHeight || 0);
+    if (!h || h === jumpH) return;
+    jumpH = h;
+    jump.parentNode.style.setProperty("--s55-jump-h", h + "px");
+  }
   function paintJump() {
     if (!jump) return;
     for (const s of STOCK) {
@@ -180,6 +190,7 @@
       b.classList.toggle("s55-chip-closed", !isOpen(s));
       if (s.key === "boxes") b.classList.toggle("s55-chip-warn", !!boxesBadge());
     }
+    syncJumpHeight();
   }
 
   function setOpen(s, open) {
@@ -195,6 +206,7 @@
     const host = s && $(s.id);
     if (!host) return;
     if (!isOpen(s)) setOpen(s, true);
+    syncJumpHeight();
     if (host.scrollIntoView) host.scrollIntoView({ block: "start" });
   }
 

@@ -27,8 +27,9 @@
 body.pn-float .s55-jump { padding-right: 62px; }
 
 /* ── B-1073: a section folds to its heading ── */
-/* Lands below the sticky jump row (two short lines, ~61-69 px). */
-.s55-sec { scroll-margin-top: 78px; }
+/* Lands 15 px below the sticky jump row. B-1960 (v2.0.149): the row's real height (remote/stock-sections.js writes --s55-jump-h on the
+   pane; it wraps to a third line with long counts); 63 px = two lines, until it is measured. */
+.s55-sec { scroll-margin-top: calc(var(--s55-jump-h, 63px) + 15px); }
 .s55-sec > .s55-head { display: flex; align-items: center; flex-wrap: nowrap; gap: 6px; min-width: 0; cursor: pointer; margin-bottom: 4px; -webkit-user-select: none; user-select: none; }
 .s55-sec.s55-closed > .s55-head { margin-bottom: 0; }
 .s55-sec.s55-closed > :not(.s55-head) { display: none !important; }

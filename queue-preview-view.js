@@ -89,7 +89,23 @@
   }
   // B-1947 (v2.0.148): while the Run-on pick answers for a silent Main, the Main's last update is no reference for this list.
   const viaPick = () => { try { const R = self.ShopperRemote; return !!(R && typeof R.followsPick === "function" && R.followsPick()); } catch (e) { return false; } };
-  function sigStale(p) { return !viaPick() && (listStale(p) || orderStale(p)); }
+  // B-1961 (v2.0.149): ... the PICK's own last update is (remote/pick-list-ref.js): null until the pick has published after this
+  // list was built (and after this phone's last saved move) - every time here is the pick's own clock.
+  function refOf(p) {
+    if (!viaPick()) return p;
+    try {
+      const P = self.ShopperPickListRef, R = self.ShopperRemote;
+      if (!P || !R || typeof R.pickDevice !== "function" || !st.res) return null;
+      return P.refFor(Math.max(Number(st.res.at) || 0, Number(st.res.orderAt) || 0), R.pickDevice(), now());
+    } catch (e) { return null; }
+  }
+  function pickRefTick(p) {
+    try {
+      const P = self.ShopperPickListRef;
+      if (P && st.res && !LIVE.has(p.run && p.run.status) && viaPick() && visible()) P.tick({ now: now });
+    } catch (e) { /* a tap still loads the list */ }
+  }
+  function sigStale(p) { const r = refOf(p); return !!r && (listStale(r) || orderStale(r)); }
 
   // Automatic loads: never on a timer; only when the Run page is on screen.
   function maybeAuto(p) {
@@ -268,7 +284,7 @@
       if (hand) ord.appendChild(btnOf("Back to the ranked order", "mini-btn qpv-btn", resetOrder));
       box.appendChild(ord);
       if (res.boughtToday && res.boughtToday.skipped) box.appendChild(el("p", "muted small", res.boughtToday.skipped + " left out - bought today"));
-      if (stale) box.appendChild(el("p", "qpv-warn", listStale(p) ? "The buy list changed - updating…" : "The buy order changed - updating…"));
+      if (stale) box.appendChild(el("p", "qpv-warn", listStale(refOf(p)) ? "The buy list changed - updating…" : "The buy order changed - updating…"));
       const cut = !!res.truncated;
       if (cut) {
         const total2 = res.counts ? (res.counts.buy || 0) + (res.counts.elsewhere || 0) + (res.counts.sets || 0) : 0;
@@ -288,7 +304,7 @@
     host.appendChild(box);
   }
 
-  function tick() { const p = pl(); if (p) { draw(); if (!LIVE.has(p.run && p.run.status)) maybeAuto(p); } }
+  function tick() { const p = pl(); if (p) { pickRefTick(p); draw(); if (!LIVE.has(p.run && p.run.status)) maybeAuto(p); } }
   labels({ preview: "Refresh preview" });
   function start() { tick(); setInterval(tick, 2000); }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start); else start();

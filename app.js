@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.148";
+const APP_BUILD = "v2.0.149";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -37,8 +37,8 @@ for (const id of [
   "addDest",
   "pushRow","pushBtn","refreshBtn","reloadBtn","buildStamp",
   // v2.98: P-63 (promptReason/promptDetails), P-53 (skipFailedBtn),
-  // P-64 (nowStrip), P-67 (densityRow), P-65 (report*), P-58 (soundBtn).
-  "promptReason","promptSecondLook","promptDetails","skipFailedBtn","nowStrip","nowAsin","nowStep",
+  // P-67 (densityRow), P-65 (report*), P-58 (soundBtn).
+  "promptReason","promptSecondLook","promptDetails","skipFailedBtn",
   "densityRow","logSection","reportCard","reportUrgent","reportSummary","reportBuckets","soundBtn",
   // B-459 (v4.49): the read-only Inventory tab.
   "tabInventory","inventoryPane","invAsOf","invLiveSync","invHouse","invPrep","invTransit",
@@ -205,7 +205,7 @@ async function sendCommand(name, payload = {}, opts = {}) {
   const row = Array.isArray(res.json) ? res.json[0] : null;
   if (quiet) return row && row.id ? row.id : null;
   if (row && row.id) {
-    inFlight.set(row.id, { name, at: Date.now() });
+    inFlight.set(row.id, { name, at: Date.now(), targetId: payload && payload.targetId ? String(payload.targetId) : "" }); // B-1955: where a Start was asked to run
     renderInFlight();
   }
   toast("Sent");
@@ -285,7 +285,7 @@ async function cancelPending(id, reason) {
   });
   return !!(res.ok && Array.isArray(res.json) && res.json.length === 1);
 }
-self.ShopperRemote = Object.freeze({ sendCommand: (name, payload) => sendCommand(name, payload), switchTab: (w) => switchTab(w), toast: (t, bad) => toast(t, !!bad), sb: (p, o) => sb(p, o), waitFor, commandRow: readCommand, sendQuiet: (name, payload) => sendCommand(name, payload, { quiet: true }), readCommand, cancelPending, laptopOnline, sendQuietFollow: (name, payload) => sendCommand(name, payload, { quiet: true, followPick: true }), followsPick: () => !!deviceId && commandTarget("preview", {}) !== deviceId }); // B-1947: sendQuietFollow / followsPick
+self.ShopperRemote = Object.freeze({ sendCommand: (name, payload) => sendCommand(name, payload), switchTab: (w) => switchTab(w), toast: (t, bad) => toast(t, !!bad), sb: (p, o) => sb(p, o), waitFor, commandRow: readCommand, sendQuiet: (name, payload) => sendCommand(name, payload, { quiet: true }), readCommand, cancelPending, laptopOnline, sendQuietFollow: (name, payload) => sendCommand(name, payload, { quiet: true, followPick: true }), followsPick: () => !!deviceId && commandTarget("preview", {}) !== deviceId, pickDevice: () => (deviceId && commandTarget("preview", {}) !== deviceId ? String(commandTarget("preview", {})) : "") }); // B-1947: sendQuietFollow / followsPick; B-1961: pickDevice
 
 // ------------------------------------------------------- command outcomes
 //
@@ -303,6 +303,7 @@ self.ShopperRemote = Object.freeze({ sendCommand: (name, payload) => sendCommand
 // `inFlight` is also what drives the P-25 progress pill, so one select
 // serves both: a command still `pending`/`running` IS the progress.
 const inFlight = new Map(); // id -> { name, at }
+const START_WAIT_MS = 2 * 60 * 1000; // B-1955 (v2.0.149): how long a sent Start holds the Start button
 const COMMAND_TIMEOUT_MS = 5 * 60 * 1000;
 
 const OUTCOME_LABEL = {
@@ -340,6 +341,10 @@ async function pollCommandOutcomes() {
       const SP = globalThis.ShopperPhoneStartPicker;
       const hand = SP && (pending.name === "start" || pending.name === "resumeSaved") ? SP.handoverToast(row.result) : "";
       if (hand) toast(hand);
+      // B-1955 (v2.0.149): a Start the computer has not confirmed is said, and one handed to the other computer is followed to
+      // its real outcome (remote/start-watch.js).
+      const SW = globalThis.ShopperStartWatch;
+      if (SW && (pending.name === "start" || pending.name === "resumeSaved")) SW.afterDone({ label, result: row.result, targetId: pending.targetId || "", sentAt: pending.at, fromId: deviceId });
     } else if (fmt) {
       toast(fmt(label, row.reason), true);
       if (pending.name === "start" && self.ShopperQueuePreview) self.ShopperQueuePreview.refresh({ tapped: true }); // B-1936: a refused Start re-reads the buy lines
@@ -653,7 +658,6 @@ function renderPayload() {
   // P-51: entries arrive pre-formatted as strings now (they were objects,
   // which join() turned into "[object Object]" for the whole log).
   els.log.textContent = (p.log || []).join("\n");
-  renderNowStrip(p);
   renderReport(run);
   // B-774 / B-776 (v2.0.9): Right now, the money band, the outcome counts and
   // the end-of-queue report sheet (remote/run-view.js).
@@ -1749,6 +1753,9 @@ els.signOutBtn.addEventListener("click", signOut);
 // v2.0.73 review (M3): the list signature this phone was shown - the laptop refuses a list that moved.
 els.startBtn.addEventListener("click", () => {
   const pick = els.runOnSelect.value || null;
+  // B-1955 (v2.0.149): one Start at a time - the first is still waiting for the computer's answer (up to 100 s, lib/remote-start-answer.js).
+  // Two minutes at most: after that a Start the computer never picked up no longer blocks a new one.
+  if ([...inFlight.values()].some((c) => c.name === "start" && Date.now() - c.at < START_WAIT_MS)) { toast("Start was already sent - waiting for the computer's answer.", true); return; }
   // B-1535: an offline pick is refused here - never a silent run on the other computer.
   if (pick && startBuilt && !startBuilt.online) { toast(startBuilt.note || "That computer is offline.", true); return; }
   // B-1936 (v2.0.147): Start carries the signature of the buy lines on THIS screen; the computer refuses another list.
@@ -2014,19 +2021,6 @@ for (const tile of document.querySelectorAll(".inv-total[data-bucket]")) {
   };
   tile.addEventListener("click", toggle);
   tile.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } });
-}
-
-// P-64 (v2.98): with 14+ lines the currently-buying card scrolls out of
-// view, and the one-line step narration lives up by the controls, away from
-// where he is actually looking. Sticky strip, no new payload fields -
-// currentAsin and currentStep have both always been projected.
-function renderNowStrip(p) {
-  // B-1082 (v2.0.55): no longer drawn. While a run is going "Right now"
-  // (#runHero, remote/run-view.js) shows the same line and the same engine
-  // sentence at the top of the tab, so this blue strip above the list was a
-  // copy of it (P-64 / B-774 history: it once was the only "now" on the tab).
-  void p;
-  els.nowStrip.hidden = true;
 }
 
 // P-65 (v2.98): the end-of-queue report, phone-shaped. The desktop's own

@@ -382,13 +382,6 @@ button { font: inherit; cursor: pointer; }
 .lines.density-compact .line { padding: 7px 9px; }
 .lines.density-compact .l-title { font-size: 13px; }
 
-/* P-64: pinned "what is happening right now", above the list. */
-.now-strip { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; display: flex; flex-direction: column; gap: 2px;
-  padding: 7px 10px; margin-bottom: 8px; border-radius: 9px;
-  background: color-mix(in srgb, var(--s-blue) 14%, transparent); border: 1px solid color-mix(in srgb, var(--s-blue) 35%, transparent); }
-.now-asin { font-size: 12px; font-weight: 800; color: var(--text); }
-.now-step { font-size: 12px; color: var(--muted); }
-
 /* P-63: the reason first, the boilerplate behind a disclosure. */
 .prompt-reason { margin: 4px 0 6px; font-size: 14px; font-weight: 800; color: var(--warn); }
 .prompt-second-look { margin: 0 0 6px; font-size: 13px; font-weight: 600; color: var(--muted, #666); overflow-wrap: anywhere; }
@@ -1144,7 +1137,7 @@ html, body { overscroll-behavior: none; }
 .ctm-chip-clear { min-height: 30px; padding: 3px 6px; border: 0; background: transparent; color: var(--s-accent); font: 700 12px/1.2 var(--s-font); text-decoration: underline; cursor: pointer; }
 
 /* The table scrolls sideways INSIDE its box; the page never does. Product is pinned left. */
-.ctm-table-wrap { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; background: var(--s-surface); border: 1px solid var(--s-line); border-radius: var(--s-r-sm); margin: 0 0 8px; }
+.ctm-table-wrap { max-width: 100%; overflow-x: auto; overflow-y: auto; max-height: 70vh; /* B-1956 (v2.0.149): the box scrolls both ways - the header row (sticky top 0) stays at the top of the box */ -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; background: var(--s-surface); border: 1px solid var(--s-line); border-radius: var(--s-r-sm); margin: 0 0 8px; }
 .ctm-table { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; font-size: 13px; }
 .ctm-table th, .ctm-table td { padding: 6px 8px; border-bottom: 1px solid var(--s-line-soft); white-space: nowrap; vertical-align: middle; background: var(--s-surface); color: var(--s-text); }
 .ctm-table th { position: sticky; top: 0; z-index: 2; font-size: 11px; font-weight: 700; color: var(--s-text-muted); border-bottom-color: var(--s-line); vertical-align: bottom; }
