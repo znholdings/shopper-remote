@@ -281,7 +281,7 @@
   //   { "<ASIN>": { chunks: [12, 12, 11], updatedAt: <ms> } }
   // Every storage call is wrapped: a private window, a blocked store or a full
   // one never breaks counting - the page falls back to memory for the rest of
-  // its life. Entries older than 45 days are dropped (B-1529: was 14); at most 200 are kept.
+  // its life. Entries older than 45 days are dropped (B-1529: was 14); at most 200 are kept; a new product's count is refused when full (B-1940).
   var memory = {};
   var degraded = false;
 
@@ -900,6 +900,14 @@
     // Every change to the tally: keep it, redraw, close any open question (its
     // numbers would be stale), tell the host.
     function changed() {
+      // B-1940: the store is full and this product has no count yet - nothing is stored and nothing older is dropped
+      if (tally.size() && !getChunks(asin).length && storeRoom() === 0) {
+        tally.clear();
+        closeAsks();
+        render();
+        say(storeFullText(), "bad");
+        return;
+      }
       setChunks(asin, tally.chunks());
       closeAsks();
       render();
@@ -1402,9 +1410,17 @@
     return isChunk(r) ? r : null;
   }
 
-  // rows: [{ asin, title, house }] -> { set, replace, same, skipped }, each [{ asin, title, house, counted }].
+  // B-1940 (v2.0.147): the store keeps MAX_ENTRIES counts. A count for a product that has none is REFUSED when the
+  // store is full - an older count is never pushed out without a word.
+  function storeRoom(now) { return Math.max(0, MAX_ENTRIES - countInProgress(now)); }
+  function storeFullText(now) {
+    return "Shopper keeps at most " + MAX_ENTRIES + " Receive counts and " + countInProgress(now) + " are stored. Clear counts you no longer need (the \u2715 on a chip), then try again.";
+  }
+
+  // rows: [{ asin, title, house }] -> { set, replace, same, skipped, noRoom, stored }, each [{ asin, title, house, counted }].
   function planFillHouse(rows, now) {
-    var set = [], replace = [], same = [], skipped = [];
+    var set = [], replace = [], same = [], skipped = [], noRoom = [];
+    var room = storeRoom(now);
     var seen = {};
     var list = Array.isArray(rows) ? rows : [];
     for (var i = 0; i < list.length; i++) {
@@ -1420,11 +1436,12 @@
       var counted = totalFor(asin, now);
       var item = { asin: asin, title: title, house: whole, counted: counted };
       if (counted === whole) { same.push(item); continue; }
-      if (set.length + replace.length >= MAX_ENTRIES) { skipped.push(item); continue; }
       var hasTally = getChunks(asin, now).length > 0;
-      (hasTally ? replace : set).push(item);
+      if (hasTally) replace.push(item);
+      else if (set.length < room) set.push(item);
+      else noRoom.push(item); // B-1940: would push an older count out
     }
-    return { set: set, replace: replace, same: same, skipped: skipped };
+    return { set: set, replace: replace, same: same, skipped: skipped, noRoom: noRoom, stored: MAX_ENTRIES - room };
   }
 
   function fillKey(plan) {
@@ -1503,7 +1520,7 @@
       var n = todo.length;
       intro.textContent = n
         ? "Each product below gets a Receive count equal to its " + where + " on hand, as if you had just counted it. " + where + " on hand itself is not changed."
-        : "Every " + where + " row already has a matching Receive count, so there is nothing to set.";
+        : (plan.noRoom.length ? "No Receive count can be set right now." : "Every " + where + " row already has a matching Receive count, so there is nothing to set.");
       for (var i = 0; i < n; i++) {
         var c = todo[i];
         var isReplace = i < plan.replace.length;
@@ -1524,7 +1541,14 @@
       for (var k = 0; k < plan.skipped.length; k++) rest.push(plan.skipped[k].asin + " (" + plan.skipped[k].house + ")");
       restEl.textContent = rest.length ? "Left alone - " + where + " on hand is not a whole number from 1 to 9,999:" : "";
       if (rest.length) nameList(restEl, rest);
-      restEl.hidden = !rest.length;
+      // B-1940: rows that would push an older count out of the store are refused, and named
+      if (plan.noRoom.length) {
+        restEl.appendChild(h("div", "rc-all-full", "Not set - " + storeFullText() + " These were left alone:"));
+        var full = [];
+        for (var m = 0; m < plan.noRoom.length; m++) full.push(plan.noRoom[m].asin + " \u00b7 " + plan.noRoom[m].title);
+        nameList(restEl, full);
+      }
+      restEl.hidden = !rest.length && !plan.noRoom.length;
       sameEl.textContent = plan.same.length ? plan.same.length + " already match, so they are left as they are." : "";
       sameEl.hidden = !plan.same.length;
       yesBtn.textContent = "Yes - set " + n + " Receive count" + (n === 1 ? "" : "s");
@@ -1624,6 +1648,7 @@
     fullCountChunk: fullCountChunk,
     planSetAll: planSetAll,
     planFillHouse: planFillHouse,
+    storeRoom: storeRoom,
     openFillHouse: openFillHouse,
     openSetAll: openSetAll,
     parseSpoken: parseSpoken,

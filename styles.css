@@ -983,7 +983,7 @@ html, body { overscroll-behavior: none; }
 .l-move { min-width: 40px; }
 
 /* B-776 (v2.0.9): the report sheet. */
-.report-sheet { position: fixed; inset: 0; z-index: 80; display: flex; align-items: flex-end; justify-content: center; background: color-mix(in srgb, var(--s-shadow) 45%, transparent); padding: 12px 8px calc(12px + env(safe-area-inset-bottom)); }
+.report-sheet { position: fixed; inset: 0; z-index: 80; display: flex; align-items: flex-end; justify-content: center; background: color-mix(in srgb, var(--s-shadow) 45%, transparent); padding: calc(12px + env(safe-area-inset-top, 0px)) calc(8px + env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) calc(8px + env(safe-area-inset-left, 0px)); } /* B-1938 (v2.0.147): the report / Buylist "More" sheet starts below the phone's status bar */
 .report-sheet-box { width: 100%; max-width: 640px; max-height: calc(100% - 24px); overflow-y: auto; overscroll-behavior: contain; background: var(--s-surface); color: var(--s-text); border-radius: var(--s-r-lg) var(--s-r-lg) var(--s-r) var(--s-r); padding: 16px; box-shadow: var(--s-elev-2); box-sizing: border-box; }
 .report-sheet-title { margin: 0 0 4px; font-size: 20px; }
 .report-sheet-summary { margin: 0 0 10px; font-size: 14px; color: var(--s-text-2); overflow-wrap: anywhere; }

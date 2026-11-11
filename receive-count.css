@@ -118,6 +118,7 @@
 .rc-all-ok { background: var(--s-green-bg); color: var(--s-green-ink); }
 .rc-all-bad { background: var(--s-red-bg); color: var(--s-red-ink); }
 .rc-all-rest { font-size: 13px; color: var(--s-text-muted); overflow-wrap: anywhere; }
+.rc-all-full { margin-top: 6px; color: var(--s-red-ink); }
 .rc-all .rc-foot .rc-btn { flex: 1 1 140px; }
 
 /* ---- Retro: retro-core.css sets every element to 14px, every button to the

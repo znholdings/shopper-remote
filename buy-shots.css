@@ -34,7 +34,7 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 12px;
+  padding: calc(12px + env(safe-area-inset-top, 0px)) calc(12px + env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) calc(12px + env(safe-area-inset-left, 0px)); /* B-1938 (v2.0.147): the picture and its caption stay clear of the status bar / home bar */
   background: var(--s-n7, #16112f);
   color: var(--s-n0, #ffffff);
   cursor: zoom-out;

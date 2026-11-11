@@ -54,10 +54,11 @@
     return { options, value, online: !!(picked && picked.online), note: picked && !picked.online ? `${c.name} is offline - choose another computer, or turn it on with Chrome open.` : "" };
   }
 
-  // Which device the `start` command row is addressed to. Everything else keeps the paired device.
+  // Which device the `start` command row is addressed to. B-1936 (v2.0.147): the read-only `preview` follows the same pick (payload.targetId =
+  // the Run-on pick) so the phone shows the list of the computer that will run the queue. Everything else keeps the paired device.
   function commandDevice(name, payload, list, pairedId) {
     const paired = String(pairedId || "");
-    if (name !== "start" || !payload || !payload.targetId || !list) return paired;
+    if ((name !== "start" && name !== "preview") || !payload || !payload.targetId || !list) return paired;
     const t = list.computers.find((c) => c.id === String(payload.targetId));
     const main = list.computers.find((c) => c.id === paired);
     if (t && main && t.id !== main.id && !main.online && t.online) return t.id;

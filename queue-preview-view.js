@@ -14,11 +14,12 @@
   const typing = (host) => { const a = document.activeElement; return !!(a && host && host.contains(a) && (a.tagName === "INPUT" || a.tagName === "TEXTAREA")); };
 
   const OFFLINE_TEXT = "The computer isn't connected - the list shows when it is.";
+  const ORDER_ACK_GRACE_MS = 15 * 1000; // B-1937
   const AUTO_GAP_MS = 20 * 1000, AUTO_WINDOW_MS = 10 * 60 * 1000, AUTO_MAX = 6, OPENED_STALE_MS = 60 * 1000;
   // opus review G4 (L3): the computer's order reason codes in plain words (buyqueue.js ORDER_REASON_TEXT, short).
   const ORDER_WHY = { regenerated: "the buy list was made again since you arranged it", "no-generation": "no finished buy list yet", version: "your saved order was from an older Shopper", shape: "your saved order could not be read" };
   const LIVE = new Set(["running", "paused", "collecting_urls", "aborting"]);
-  const st = { res: null, loading: false, tried: false, failed: false, offline: false, failSig: null, msg: "", loadedAt: 0, autoTimes: [], seenVisible: false, sending: false, pendingOrder: null, moveGen: 0, reloadNext: false };
+  const st = { res: null, loading: false, tried: false, failed: false, offline: false, failSig: null, msg: "", loadedAt: 0, autoTimes: [], seenVisible: false, sending: false, pendingOrder: null, moveGen: 0, reloadNext: false, orderAckAt: 0 };
   let host = null, drawnKey = "";
 
   const money = (n) => (typeof n === "number" && Number.isFinite(n) ? "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "");
@@ -66,7 +67,7 @@
     // the move on screen (and the next arrow would send that old order). Keep the phone's order; load again once the move is saved.
     const movedSince = st.moveGen !== gen0 || st.sending || !!st.pendingOrder;
     if (r.ok && res && res.ok === true && res.thin && movedSince) { st.reloadNext = true; }
-    else if (r.ok && res && res.ok === true && res.thin) { st.res = res; st.failed = false; st.msg = ""; }
+    else if (r.ok && res && res.ok === true && res.thin) { st.res = res; st.failed = false; st.msg = ""; st.orderAckAt = now(); }
     else if (!r.ok && !(res && res.truncated && !res.thin)) { st.failed = true; st.msg = r.reason || "Could not read the buy lines."; }
     else if (res && res.truncated && !res.thin) { st.failed = true; st.msg = "Too long to show here - open the Buy Queue on the computer."; }
     else if (res && res.note === "no direct response") { st.failed = true; st.msg = "The computer is still building the list - tap Preview again."; }
@@ -77,7 +78,16 @@
     if (st.reloadNext && !st.sending && !st.pendingOrder) { st.reloadNext = false; await refresh({ tapped: true }); }
   }
 
-  function sigStale(p) { return !!(st.res && p && p.buylistSig && st.res.listSig && p.buylistSig !== st.res.listSig); }
+  function listStale(p) { return !!(st.res && p && p.buylistSig && st.res.listSig && p.buylistSig !== st.res.listSig); }
+  // B-1937: the hand-made order was saved somewhere else (the laptop, Main's page) since this list was read.
+  function orderStale(p) {
+    if (!st.res || !p || typeof p.buyOrderAt !== "number" || typeof st.res.orderAt !== "number") return false;
+    if (p.buyOrderAt === st.res.orderAt) return false;
+    if (st.sending || st.pendingOrder) return false;
+    if (now() - st.orderAckAt < ORDER_ACK_GRACE_MS) return false;
+    return true;
+  }
+  function sigStale(p) { return listStale(p) || orderStale(p); }
 
   // Automatic loads: never on a timer; only when the Run page is on screen.
   function maybeAuto(p) {
@@ -102,7 +112,6 @@
   }
 
   // ---- commands ----
-  function orderOf() { return buyLines().map((l) => l.asin); }
   async function sendOrder() {
     if (st.sending) return;
     st.sending = true;
@@ -111,25 +120,44 @@
         const order = st.pendingOrder; st.pendingOrder = null;
         const r = await run("queueSetOrder", { order });
         if (!r.ok) { say(r.reason, true); st.pendingOrder = null; st.reloadNext = true; break; }
+        // B-1937: the phone's own move is not "someone else's change" - take Main's save time and show "Your order" at once.
+        if (st.res && r.result && r.result.order && Number(r.result.order.savedAt) > 0) {
+          st.res.orderAt = Number(r.result.order.savedAt);
+          st.res.order = Object.assign({}, st.res.order, { source: "manual", reason: "ok" });
+          st.orderAckAt = now(); drawnKey = ""; draw();
+        }
       }
     } finally { st.sending = false; }
     // A refusal, or a list answer that came back while the move was out (M1): read Main's list now.
     if (st.reloadNext && !st.loading) { st.reloadNext = false; await refresh({ tapped: true }); }
   }
+  // B-1936: what Start sends - the signature of the lines ON THIS SCREEN (which, how many, in which order) and of the list they came
+  // from. null = no buy lines on screen; { busy: true } = a move is still being saved on the computer.
+  function startSigs() {
+    if (!st.res || !st.res.thin) return null;
+    if (st.sending || st.pendingOrder) return { busy: true };
+    const R = self.ShopperRunLib;
+    const live = !st.res.truncated && R && typeof R.shownSigOf === "function" && typeof R.thinGroups === "function";
+    const shownSig = live ? R.shownSigOf(R.thinGroups(lines())) : (st.res.shownSig || null);
+    return shownSig ? { listSig: st.res.listSig || null, shownSig } : null;
+  }
+  const isPlanPart = (l) => !!(l && l.plan === "part");
   function move(asin, dir) {
     if (!st.res || st.res.truncated) return;
-    const order = orderOf();
-    const i = order.indexOf(asin), j = i + dir;
     const R = self.ShopperRunLib;
-    if (i < 0 || j < 0 || j >= order.length || !R || typeof R.moveAsin !== "function") return;
-    const next = R.moveAsin(order, asin, j);
-    // opus review G4 (L1): the same ASIN can be on two lines (a line kept separate from its Target plan + the plan's part) - keep both.
-    const pool = new Map();
-    buyLines().forEach((l) => { if (!pool.has(l.asin)) pool.set(l.asin, []); pool.get(l.asin).push(l); });
+    if (!R || typeof R.moveKeepingPlanParts !== "function") return;
+    // opus review H2 (M1): a Target plan's part is bought first (the computer puts the parts on top after applying the order) -
+    // only the other lines move, so the screen is the order the run buys and Start's check (B-1936) matches it.
+    // (opus review G4 L1 kept: the lines themselves move, so a doubled ASIN keeps both lines.)
+    const buy = buyLines();
+    const i = buy.findIndex((l) => l.asin === asin && !isPlanPart(l));
+    if (i < 0) return;
+    const m = R.moveKeepingPlanParts(buy, asin, i + dir, isPlanPart);
+    if (!m) return;
     const rest = lines().filter((l) => l.g !== "buy");
-    st.res.lines = next.map((a) => pool.get(a).shift()).concat(rest);
+    st.res.lines = m.lines.concat(rest);
     st.moveGen++;
-    st.pendingOrder = next;
+    st.pendingOrder = m.order;
     drawnKey = ""; draw();
     sendOrder();
   }
@@ -204,15 +232,10 @@
     if (!arr.length) return;
     box.appendChild(el("div", "l-group", title));
     const wrap = el("div", "lines");
-    arr.forEach((l, i) => wrap.appendChild(row(l, i, arr.length, canArrows)));
+    // opus review H2 (M1): the Target plan parts sit on top and do not move - the first other line has no "up".
+    const lead = arr.filter(isPlanPart).length;
+    arr.forEach((l, i) => wrap.appendChild(row(l, isPlanPart(l) ? i : i - lead, arr.length - lead, canArrows)));
     box.appendChild(wrap);
-  }
-  function mainOnly() {
-    try {
-      const sel = document.getElementById("runOnSelect");
-      const mine = typeof deviceId !== "undefined" ? deviceId : null;
-      return !!(sel && sel.value && mine && String(sel.value) !== String(mine));
-    } catch (e) { return false; }
   }
 
   function draw() {
@@ -223,7 +246,7 @@
     if (LIVE.has(status)) { if (!host.hidden) { host.hidden = true; host.textContent = ""; drawnKey = ""; } return; }
     host.hidden = false;
     const stale = sigStale(p);
-    const key = JSON.stringify([st.res, st.loading, st.failed, st.msg, stale, mainOnly(), st.tried]);
+    const key = JSON.stringify([st.res, st.loading, st.failed, st.msg, stale, st.tried]);
     if (key === drawnKey || typing(host)) return;
     drawnKey = key;
     host.textContent = "";
@@ -243,8 +266,7 @@
       if (hand) ord.appendChild(btnOf("Back to the ranked order", "mini-btn qpv-btn", resetOrder));
       box.appendChild(ord);
       if (res.boughtToday && res.boughtToday.skipped) box.appendChild(el("p", "muted small", res.boughtToday.skipped + " left out - bought today"));
-      if (stale) box.appendChild(el("p", "qpv-warn", "The buy list changed - updating…"));
-      if (mainOnly()) box.appendChild(el("p", "muted small", "This order is the Main's - a run on another computer uses its own order."));
+      if (stale) box.appendChild(el("p", "qpv-warn", listStale(p) ? "The buy list changed - updating…" : "The buy order changed - updating…"));
       const cut = !!res.truncated;
       if (cut) {
         const total2 = res.counts ? (res.counts.buy || 0) + (res.counts.elsewhere || 0) + (res.counts.sets || 0) : 0;
@@ -268,5 +290,5 @@
   labels({ preview: "Refresh preview" });
   function start() { tick(); setInterval(tick, 2000); }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start); else start();
-  self.ShopperQueuePreview = Object.freeze({ refresh, buyLines, draw, tick, _state: st });
+  self.ShopperQueuePreview = Object.freeze({ refresh, buyLines, draw, tick, startSigs, _state: st });
 })();

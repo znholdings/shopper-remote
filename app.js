@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.146";
+const APP_BUILD = "v2.0.147";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -166,8 +166,9 @@ async function sb(path, { method = "GET", body, prefer } = {}) {
 function commandTarget(name, payload) {
   // B-1535: an explicit pick of the other computer while the paired Main is offline goes straight to that computer.
   const SP = globalThis.ShopperPhoneStartPicker;
-  if (SP && name === "start") {
-    const dev = SP.commandDevice(name, payload, currentStartList(), deviceId);
+  if (SP && (name === "start" || name === "preview")) {
+    // B-1936: the Preview goes where the Run-on pick would send a Start (only while the paired Main is silent).
+    const dev = SP.commandDevice(name, name === "preview" ? { targetId: els.runOnSelect.value || null } : payload, currentStartList(), deviceId);
     if (dev) return dev;
   }
   const lp = lastPayload && lastPayload.labelPrinter;
@@ -254,6 +255,8 @@ function settleWaiter(id, status) {
 // refused, never run late (lib/remote-protocol.js maxAgeMs), whatever this says.
 const PRINTER_STALE_MS = 5 * 60 * 1000;
 function laptopOnline(name) {
+  // B-1936 (v2.0.147): a Preview addressed to the picked computer (the Main is silent, the pick is online) is up.
+  if (name === "preview" && deviceId && commandTarget("preview", {}) !== deviceId) return true;
   // B-1248 (v2.0.73): a label print is up when the PRINTING computer checked in lately.
   const lp = lastPayload && lastPayload.labelPrinter;
   if (name && lp && lp.deviceId && !lp.self && Array.isArray(lp.commands) && lp.commands.includes(name)) {
@@ -332,6 +335,7 @@ async function pollCommandOutcomes() {
       if (hand) toast(hand);
     } else if (fmt) {
       toast(fmt(label, row.reason), true);
+      if (pending.name === "start" && self.ShopperQueuePreview) self.ShopperQueuePreview.refresh({ tapped: true }); // B-1936: a refused Start re-reads the buy lines
     } else {
       toast(`${label}: ${row.status}${row.reason ? ` - ${row.reason}` : ""}`, true);
     }
@@ -1740,7 +1744,12 @@ els.startBtn.addEventListener("click", () => {
   const pick = els.runOnSelect.value || null;
   // B-1535: an offline pick is refused here - never a silent run on the other computer.
   if (pick && startBuilt && !startBuilt.online) { toast(startBuilt.note || "That computer is offline.", true); return; }
-  sendCommand("start", { approvalMode: els.modeSelect.value, listSig: (lastPayload && lastPayload.buylistSig) || null, ...(pick ? { targetId: pick } : {}) });
+  // B-1936 (v2.0.147): Start carries the signature of the buy lines on THIS screen; the computer refuses another list.
+  const Q = self.ShopperQueuePreview;
+  const sigs = Q && typeof Q.startSigs === "function" ? Q.startSigs() : null;
+  if (sigs && sigs.busy) { toast("Saving your buy order on the computer - press Start again in a moment.", true); return; }
+  if (!sigs || !sigs.shownSig) { toast("The buy lines are not on this screen yet - tap Preview, check them, then press Start.", true); if (Q && typeof Q.refresh === "function") Q.refresh({ tapped: true }); return; }
+  sendCommand("start", { approvalMode: els.modeSelect.value, listSig: sigs.listSig, shownSig: sigs.shownSig, ...(pick ? { targetId: pick } : {}) });
 });
 els.resumeSavedBtn.addEventListener("click", () => {
   const pick = els.runOnSelect.value || null;
@@ -2876,8 +2885,9 @@ function invPaintFillHouse(inv) {
   const on = invBucket === "house" && !!(inv && inv.available) && !!(RC && RC.planFillHouse && RC.openFillHouse);
   const p = on ? RC.planFillHouse(invReceiveAllRows(inv)) : null;
   const count = p ? p.set.length + p.replace.length : 0;
-  b.hidden = !count;
-  b.textContent = "Set " + count + " Receive count" + (count === 1 ? "" : "s") + " to House on hand";
+  const blocked = p && p.noRoom ? p.noRoom.length : 0; // B-1940: stays visible so the card can say why nothing is set
+  b.hidden = !count && !blocked;
+  b.textContent = count ? "Set " + count + " Receive count" + (count === 1 ? "" : "s") + " to House on hand" : "Set Receive counts to House on hand";
 }
 function invOpenFillHouse() {
   const RC = self.ShopperReceive;
