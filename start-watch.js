@@ -14,6 +14,7 @@
   const ROW = "shared:buystart:";
   const okId = (id) => /^[A-Za-z0-9_-]{1,80}$/.test(String(id || ""));
   const txt = (v, n) => String(v == null ? "" : v).slice(0, n);
+  const okReq = (id) => /^[A-Za-z0-9_-]{1,60}$/.test(String(id || "")); // B-1988 (v2.0.150)
 
   // A finished (status "done") start / resumeSaved answer -> { say, watch }
   function afterDoneVerdict(result) {
@@ -50,7 +51,7 @@
     const timer = d.setTimer || ((f, ms) => setTimeout(f, ms));
     const now = d.now || (() => Date.now());
     if (!okId(o.targetId) || !R || typeof R.sb !== "function") return false;
-    const my = { id: String(o.targetId), mine: "", since: now(), stop: false };
+    const my = { id: String(o.targetId), mine: "", want: okReq(o.reqId) ? String(o.reqId) : "", since: now(), stop: false }; // B-1988: want = the request the computer named
     if (current) current.stop = true;
     current = my;
     const step = async () => {
@@ -63,7 +64,9 @@
         value = row && row.payload && typeof row.payload === "object" ? row.payload.value : null;
       } catch (e) { value = null; }
       if (my.stop) return;
-      if (!my.mine && isMine(value, o.fromId, o.sentAt)) my.mine = String(value.reqId);
+      // B-1988: the computer named the request -> only that one is followed (an older request still in the row is waited out);
+      // a computer older than v2.0.150 names none -> matched by sender + time, as before.
+      if (!my.mine && (my.want ? !!value && String(value.reqId || "") === my.want : isMine(value, o.fromId, o.sentAt))) my.mine = String(value.reqId);
       const v = my.mine ? rowVerdict(value, my.mine, o.name) : null;
       if (v) {
         my.stop = true;
@@ -82,7 +85,8 @@
     const R = (o.deps && o.deps.remote) || root.ShopperRemote;
     const v = afterDoneVerdict(o.result);
     try { if (v.say && R && typeof R.toast === "function") R.toast(txt(o.label || "Start", 60) + ": " + v.say, true); } catch (e) { /* a toast only */ }
-    if (v.watch) return watch({ targetId: o.targetId, name: o.result && o.result.pendingOn, fromId: o.fromId, sentAt: o.sentAt, deps: o.deps });
+    // B-1988: the computer the Start was handed to is in the answer (pendingId) - a Start sent with no Run-on pick is followed too.
+    if (v.watch) return watch({ targetId: o.targetId || (o.result && o.result.pendingId) || "", reqId: o.result && o.result.reqId, name: o.result && o.result.pendingOn, fromId: o.fromId, sentAt: o.sentAt, deps: o.deps });
     return false;
   }
   root.ShopperStartWatch = { afterDone, afterDoneVerdict, rowVerdict, isMine, watch, POLL_MS, MAX_MS };

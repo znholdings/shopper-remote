@@ -11,7 +11,7 @@
   "use strict";
   const READ_GAP_MS = 30 * 1000;
   const READ_STALE_MS = 2 * 60 * 1000;
-  const SELECT = "updated_at,buylistSig:payload->buylistSig,buyOrderAt:payload->buyOrderAt";
+  const SELECT = "updated_at,buylistSig:payload->buylistSig,buyOrderAt:payload->buyOrderAt,targetPlansAt:payload->targetPlansAt"; // B-1990 (v2.0.150): + targetPlansAt
   const okId = (id) => /^[A-Za-z0-9_-]{1,80}$/.test(String(id || ""));
   const st = { id: "", ref: null, readAt: 0, triedAt: 0, reading: false };
 
@@ -24,6 +24,7 @@
       at,
       buylistSig: typeof row.buylistSig === "string" && row.buylistSig ? row.buylistSig : null,
       buyOrderAt: typeof row.buyOrderAt === "number" && Number.isFinite(row.buyOrderAt) ? row.buyOrderAt : null,
+      targetPlansAt: typeof row.targetPlansAt === "number" && Number.isFinite(row.targetPlansAt) ? row.targetPlansAt : null, // B-1990
     };
   }
   // -> the reference, or null: no read yet / another pick / not read lately / published before `after` (the pick's clock)

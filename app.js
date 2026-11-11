@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.149";
+const APP_BUILD = "v2.0.150";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -1762,6 +1762,7 @@ els.startBtn.addEventListener("click", () => {
   const Q = self.ShopperQueuePreview;
   const sigs = Q && typeof Q.startSigs === "function" ? Q.startSigs() : null;
   if (sigs && sigs.busy) { toast("Saving your buy order on the computer - press Start again in a moment.", true); return; }
+  if (sigs && sigs.fresh) { toast("The buy lines on this screen just changed - check them, then press Start.", true); return; } // B-1987 (v2.0.150)
   if (!sigs || !sigs.shownSig) { toast("The buy lines are not on this screen yet - tap Preview, check them, then press Start.", true); if (Q && typeof Q.refresh === "function") Q.refresh({ tapped: true }); return; }
   sendCommand("start", { approvalMode: els.modeSelect.value, listSig: sigs.listSig, shownSig: sigs.shownSig, ...(pick ? { targetId: pick } : {}) });
 });

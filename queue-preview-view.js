@@ -15,11 +15,12 @@
 
   const OFFLINE_TEXT = "The computer isn't connected - the list shows when it is.";
   const ORDER_ACK_GRACE_MS = 15 * 1000; // B-1937
+  const START_HOLD_MS = 2000; // B-1987 (v2.0.150): Start waits this long after other lines appeared by themselves
   const AUTO_GAP_MS = 20 * 1000, AUTO_WINDOW_MS = 10 * 60 * 1000, AUTO_MAX = 6, OPENED_STALE_MS = 60 * 1000;
   // opus review G4 (L3): the computer's order reason codes in plain words (buyqueue.js ORDER_REASON_TEXT, short).
   const ORDER_WHY = { regenerated: "the buy list was made again since you arranged it", "no-generation": "no finished buy list yet", version: "your saved order was from an older Shopper", shape: "your saved order could not be read" };
   const LIVE = new Set(["running", "paused", "collecting_urls", "aborting"]);
-  const st = { res: null, loading: false, tried: false, failed: false, offline: false, failSig: null, msg: "", loadedAt: 0, autoTimes: [], seenVisible: false, sending: false, pendingOrder: null, moveGen: 0, reloadNext: false, orderAckAt: 0 };
+  const st = { res: null, loading: false, tried: false, failed: false, offline: false, failSig: null, msg: "", loadedAt: 0, autoTimes: [], seenVisible: false, sending: false, pendingOrder: null, moveGen: 0, reloadNext: false, orderAckAt: 0, heldAt: 0 };
   let host = null, drawnKey = "";
 
   const money = (n) => (typeof n === "number" && Number.isFinite(n) ? "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "");
@@ -67,7 +68,13 @@
     // the move on screen (and the next arrow would send that old order). Keep the phone's order; load again once the move is saved.
     const movedSince = st.moveGen !== gen0 || st.sending || !!st.pendingOrder;
     if (r.ok && res && res.ok === true && res.thin && movedSince) { st.reloadNext = true; }
-    else if (r.ok && res && res.ok === true && res.thin) { st.res = res; st.failed = false; st.msg = ""; st.orderAckAt = now(); }
+    else if (r.ok && res && res.ok === true && res.thin) {
+      // B-1987 (v2.0.150): a load nobody tapped that put OTHER lines on the screen holds Start for a moment - a tap that was
+      // already on its way would sign lines that only just appeared.
+      const was = shownNow();
+      st.res = res; st.failed = false; st.msg = ""; st.orderAckAt = now();
+      if (!o.tapped && shownNow() !== was) st.heldAt = now();
+    }
     else if (!r.ok && !(res && res.truncated && !res.thin)) { st.failed = true; st.msg = r.reason || "Could not read the buy lines."; }
     else if (res && res.truncated && !res.thin) { st.failed = true; st.msg = "Too long to show here - open the Buy Queue on the computer."; }
     else if (res && res.note === "no direct response") { st.failed = true; st.msg = "The computer is still building the list - tap Preview again."; }
@@ -87,6 +94,10 @@
     if (now() - st.orderAckAt < ORDER_ACK_GRACE_MS) return false;
     return true;
   }
+  // B-1990 (v2.0.150): the Target plans changed (Skip today, Don't skip, Cancel, a booked order - on any screen) after this list was built.
+  // Both numbers are plan stamps (lib/target-plans-at.js); only a NEWER published one counts, so the phone's own Skip today (its list
+  // already carries the new stamp) never loads twice.
+  function plansStale(p) { return !!(st.res && p && typeof p.targetPlansAt === "number" && typeof st.res.plansAt === "number" && p.targetPlansAt > st.res.plansAt); }
   // B-1947 (v2.0.148): while the Run-on pick answers for a silent Main, the Main's last update is no reference for this list.
   const viaPick = () => { try { const R = self.ShopperRemote; return !!(R && typeof R.followsPick === "function" && R.followsPick()); } catch (e) { return false; } };
   // B-1961 (v2.0.149): ... the PICK's own last update is (remote/pick-list-ref.js): null until the pick has published after this
@@ -105,7 +116,7 @@
       if (P && st.res && !LIVE.has(p.run && p.run.status) && viaPick() && visible()) P.tick({ now: now });
     } catch (e) { /* a tap still loads the list */ }
   }
-  function sigStale(p) { const r = refOf(p); return !!r && (listStale(r) || orderStale(r)); }
+  function sigStale(p) { const r = refOf(p); return !!r && (listStale(r) || orderStale(r) || plansStale(r)); }
 
   // Automatic loads: never on a timer; only when the Run page is on screen.
   function maybeAuto(p) {
@@ -149,11 +160,19 @@
     // A refusal, or a list answer that came back while the move was out (M1): read Main's list now.
     if (st.reloadNext && !st.loading) { st.reloadNext = false; await refresh({ tapped: true }); }
   }
+  // B-1987: the signature of the lines on this screen right now ("" = none).
+  function shownNow() {
+    if (!st.res || !st.res.thin) return "";
+    const R = self.ShopperRunLib;
+    const live = !st.res.truncated && R && typeof R.shownSigOf === "function" && typeof R.thinGroups === "function";
+    return String((live ? R.shownSigOf(R.thinGroups(lines())) : st.res.shownSig) || "");
+  }
   // B-1936: what Start sends - the signature of the lines ON THIS SCREEN (which, how many, in which order) and of the list they came
   // from. null = no buy lines on screen; { busy: true } = a move is still being saved on the computer.
   function startSigs() {
     if (!st.res || !st.res.thin) return null;
     if (st.sending || st.pendingOrder) return { busy: true };
+    if (st.heldAt && now() - st.heldAt < START_HOLD_MS) return { fresh: true }; // B-1987
     const R = self.ShopperRunLib;
     const live = !st.res.truncated && R && typeof R.shownSigOf === "function" && typeof R.thinGroups === "function";
     const shownSig = live ? R.shownSigOf(R.thinGroups(lines())) : (st.res.shownSig || null);
@@ -284,7 +303,7 @@
       if (hand) ord.appendChild(btnOf("Back to the ranked order", "mini-btn qpv-btn", resetOrder));
       box.appendChild(ord);
       if (res.boughtToday && res.boughtToday.skipped) box.appendChild(el("p", "muted small", res.boughtToday.skipped + " left out - bought today"));
-      if (stale) box.appendChild(el("p", "qpv-warn", listStale(refOf(p)) ? "The buy list changed - updating…" : "The buy order changed - updating…"));
+      if (stale) box.appendChild(el("p", "qpv-warn", listStale(refOf(p)) ? "The buy list changed - updating…" : orderStale(refOf(p)) ? "The buy order changed - updating…" : "A Target plan changed - updating…"));
       const cut = !!res.truncated;
       if (cut) {
         const total2 = res.counts ? (res.counts.buy || 0) + (res.counts.elsewhere || 0) + (res.counts.sets || 0) : 0;
