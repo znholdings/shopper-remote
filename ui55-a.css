@@ -5,7 +5,7 @@
 
 /* ── B-1073: the jump row ── */
 .s55-jump {
-  position: sticky; top: 0; z-index: 6;
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 6; /* B-1945 */
   /* Wraps (two short lines at 375) rather than scrolling sideways: every chip stays in sight. */
   display: flex; flex-wrap: wrap; gap: 5px;
   margin: 0 -12px 6px; padding: 4px 12px;
@@ -23,6 +23,8 @@
   font-size: 9px !important; padding: 2px 6px !important; min-height: 24px; box-shadow: none !important; letter-spacing: 0 !important;
 }
 :root[data-theme="retro"] #inventoryPane .s55-jump { gap: 4px; }
+/* B-1945 (v2.0.148) */
+body.pn-float .s55-jump { padding-right: 62px; }
 
 /* ── B-1073: a section folds to its heading ── */
 /* Lands below the sticky jump row (two short lines, ~61-69 px). */

@@ -32,7 +32,7 @@
   async function run(name, body) {
     const M = self.ShopperManualPrint;
     if (!M || typeof M.runCommand !== "function") return { ok: false, reason: OFFLINE_TEXT, offline: true };
-    const out = await M.runCommand(name, body || {});
+    const out = await M.runCommand(name, body || {}, { followPick: true }); // B-1947: every command of this view goes where its list came from
     const res = out && out.result && typeof out.result === "object" ? out.result : null;
     if (!out || out.status === "offline" || out.status === "not sent") return { ok: false, reason: OFFLINE_TEXT, offline: true };
     if (out.status === "timeout") return { ok: false, reason: "The computer did not answer in 3 minutes." };
@@ -87,7 +87,9 @@
     if (now() - st.orderAckAt < ORDER_ACK_GRACE_MS) return false;
     return true;
   }
-  function sigStale(p) { return listStale(p) || orderStale(p); }
+  // B-1947 (v2.0.148): while the Run-on pick answers for a silent Main, the Main's last update is no reference for this list.
+  const viaPick = () => { try { const R = self.ShopperRemote; return !!(R && typeof R.followsPick === "function" && R.followsPick()); } catch (e) { return false; } };
+  function sigStale(p) { return !viaPick() && (listStale(p) || orderStale(p)); }
 
   // Automatic loads: never on a timer; only when the Run page is on screen.
   function maybeAuto(p) {

@@ -63,12 +63,14 @@
   // The laptop refused it as too old (lib/remote-protocol.js validateCommand):
   // it was not connected when the phone sent it.
   const tooLate = (o) => o.status === "rejected" && /was not connected/.test(String(o.reason || ""));
-  function online(name) {
+  function online(name, o) {
     const R = remote();
     // B-1936 (v2.0.147): the buy-line Preview is answered by the Main (or the computer picked in Run on) - not by the label printer.
-    if (name === "preview") return !!(R && typeof R.laptopOnline === "function" && R.laptopOnline("preview"));
     // B-1248 (v2.0.73): the computer that prints labels (the laptop, even as a Viewer).
-    return !!(R && typeof R.laptopOnline === "function" && R.laptopOnline("manualPrint"));
+    // B-1947 (v2.0.148): a command is checked against the computer it is SENT to - remote/app.js laptopOnline knows which: the
+    // label printer for the label prints (B-1248), the Run-on pick for a buy-line command while the Main is silent, else the
+    // Main. (Before, every quiet send but Preview asked about the label printer.)
+    return !!(R && typeof R.laptopOnline === "function" && R.laptopOnline(name, !!(o && o.followPick)));
   }
   function todayIso() {
     return new Date(timing.now()).toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
@@ -112,11 +114,11 @@
   // One command, then its answer from the command row.
   // -> { status: "done" | "failed" | "rejected" | "offline" | "not sent" | "timeout", reason, result }
   // The ONE offline gate: a laptop that has gone quiet gets nothing sent.
-  async function runCommand(name, payload) {
+  async function runCommand(name, payload, o) {
     const R = remote();
-    if (!R || !R.sendQuiet || !R.readCommand || !online(name)) return { status: "offline" };
+    if (!R || !R.sendQuiet || !R.readCommand || !online(name, o)) return { status: "offline" };
     let id = null;
-    try { id = await R.sendQuiet(name, payload); } catch (err) { id = null; }
+    try { id = await (o && o.followPick && typeof R.sendQuietFollow === "function" ? R.sendQuietFollow(name, payload) : R.sendQuiet(name, payload)); } catch (err) { id = null; }
     if (!id) return { status: "not sent" };
     const start = timing.now();
     for (;;) {

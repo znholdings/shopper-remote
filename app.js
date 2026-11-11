@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.147";
+const APP_BUILD = "v2.0.148";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -163,9 +163,14 @@ async function sb(path, { method = "GET", body, prefer } = {}) {
 // laptop, even as a Viewer). The Main names it in its payload (labelPrinter:
 // deviceId + the command names that go there); everything else goes to the
 // Main as before.
-function commandTarget(name, payload) {
+function commandTarget(name, payload, follow) {
   // B-1535: an explicit pick of the other computer while the paired Main is offline goes straight to that computer.
   const SP = globalThis.ShopperPhoneStartPicker;
+  // B-1947 (v2.0.148): a buy-line command (arrows, Back to the ranked order, Remove / quantity, Skip today) goes where the Preview went.
+  if (SP && follow === true && name !== "start") {
+    const dev = SP.commandDevice("preview", { targetId: els.runOnSelect.value || null }, currentStartList(), deviceId);
+    if (dev) return dev;
+  }
   if (SP && (name === "start" || name === "preview")) {
     // B-1936: the Preview goes where the Run-on pick would send a Start (only while the paired Main is silent).
     const dev = SP.commandDevice(name, name === "preview" ? { targetId: els.runOnSelect.value || null } : payload, currentStartList(), deviceId);
@@ -187,7 +192,7 @@ async function sendCommand(name, payload = {}, opts = {}) {
     prefer: "return=representation",
     body: [{
       v: 1,
-      device_id: commandTarget(name, payload),
+      device_id: commandTarget(name, payload, !!(opts && opts.followPick)),
       name,
       payload,
       issued_at: new Date().toISOString(),
@@ -254,9 +259,11 @@ function settleWaiter(id, status) {
 // of quiet means it is off. A print it does not pick up within 50 s is
 // refused, never run late (lib/remote-protocol.js maxAgeMs), whatever this says.
 const PRINTER_STALE_MS = 5 * 60 * 1000;
-function laptopOnline(name) {
+function laptopOnline(name, follow) {
   // B-1936 (v2.0.147): a Preview addressed to the picked computer (the Main is silent, the pick is online) is up.
   if (name === "preview" && deviceId && commandTarget("preview", {}) !== deviceId) return true;
+  // B-1947 (v2.0.148): ... and so is a buy-line command that follows the same pick.
+  if (follow === true && deviceId && commandTarget("preview", {}) !== deviceId) return true;
   // B-1248 (v2.0.73): a label print is up when the PRINTING computer checked in lately.
   const lp = lastPayload && lastPayload.labelPrinter;
   if (name && lp && lp.deviceId && !lp.self && Array.isArray(lp.commands) && lp.commands.includes(name)) {
@@ -278,7 +285,7 @@ async function cancelPending(id, reason) {
   });
   return !!(res.ok && Array.isArray(res.json) && res.json.length === 1);
 }
-self.ShopperRemote = Object.freeze({ sendCommand: (name, payload) => sendCommand(name, payload), switchTab: (w) => switchTab(w), toast: (t, bad) => toast(t, !!bad), sb: (p, o) => sb(p, o), waitFor, commandRow: readCommand, sendQuiet: (name, payload) => sendCommand(name, payload, { quiet: true }), readCommand, cancelPending, laptopOnline });
+self.ShopperRemote = Object.freeze({ sendCommand: (name, payload) => sendCommand(name, payload), switchTab: (w) => switchTab(w), toast: (t, bad) => toast(t, !!bad), sb: (p, o) => sb(p, o), waitFor, commandRow: readCommand, sendQuiet: (name, payload) => sendCommand(name, payload, { quiet: true }), readCommand, cancelPending, laptopOnline, sendQuietFollow: (name, payload) => sendCommand(name, payload, { quiet: true, followPick: true }), followsPick: () => !!deviceId && commandTarget("preview", {}) !== deviceId }); // B-1947: sendQuietFollow / followsPick
 
 // ------------------------------------------------------- command outcomes
 //

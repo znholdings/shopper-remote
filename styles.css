@@ -383,7 +383,7 @@ button { font: inherit; cursor: pointer; }
 .lines.density-compact .l-title { font-size: 13px; }
 
 /* P-64: pinned "what is happening right now", above the list. */
-.now-strip { position: sticky; top: 0; z-index: 5; display: flex; flex-direction: column; gap: 2px;
+.now-strip { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; display: flex; flex-direction: column; gap: 2px;
   padding: 7px 10px; margin-bottom: 8px; border-radius: 9px;
   background: color-mix(in srgb, var(--s-blue) 14%, transparent); border: 1px solid color-mix(in srgb, var(--s-blue) 35%, transparent); }
 .now-asin { font-size: 12px; font-weight: 800; color: var(--text); }
@@ -624,6 +624,7 @@ button { font: inherit; cursor: pointer; }
 .dash-fba .fba-ordered { border-top: 3px dotted var(--s-orange); grid-column: 1 / -1; }
 /* B-603 (v4.78): FBA tab, phone pass. */
 body::before { content: ""; position: fixed; top: 0; left: 0; right: 0; height: env(safe-area-inset-top); background: var(--bg); z-index: 50; pointer-events: none; }
+html { scroll-padding-top: env(safe-area-inset-top, 0px); }
 .fba-head-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .fba-head-row .ai-h2 { margin: 0; }
 .fba-notes-btn { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--s-violet) 25%, transparent); background: var(--s-n7); color: var(--s-violet); }
