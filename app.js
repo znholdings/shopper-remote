@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.151";
+const APP_BUILD = "v2.0.152";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -2542,9 +2542,19 @@ function invReceiveError(status) {
 // (no signal): it goes again, made on the same chain, before a payload's newer clear can drop it here (B-2015).
 // `had` = the products this phone held a count for when it started (or has counted since): a count this phone starts
 // from nothing, before it has heard from the laptop, is made on "nothing" - the laptop adds it to what it holds.
-const rcSync = { started: false, pending: new Map(), timer: null, lastSent: new Map(), chain: new Map(), unsent: new Map(), had: new Set(), sending: 0 };
+// B-2032 (v2.0.152): a command whose POST got no answer may still have landed (the row was saved, the answer was lost on
+// the way back). Sent again on its old bases, the laptop would lay its taps over a list that already has them - counted
+// twice. So such a command is IN DOUBT (`doubt`, per product: its random tag `sid` + what was sent) until this phone has
+// asked the commands table whether the row is there (rcSyncAsk, at the next payload - the network works then): there
+// and not refused = it was sent (its list heads the chain, as for an answered command); not there, or refused = it never
+// ran (it goes again on its old bases, as before). Until then nothing more goes out, and no payload is merged in while
+// an edit is waiting, out or in doubt (`held` = the newest one, merged once they are answered - the chain must take the
+// sent list before it takes the laptop's entry, and an edit goes on the bases it was made on). No answer to the question RC_SYNC_ASK_MAX times = as v2.0.151 (never ran).
+const rcSync = { started: false, pending: new Map(), timer: null, lastSent: new Map(), chain: new Map(), unsent: new Map(), had: new Set(), sending: 0, doubt: new Map(), held: null, asking: false, asks: 0 };
 const RC_SYNC_BULK_MAX = 100;
 const RC_SYNC_CHAIN_MAX = 8;
+const RC_SYNC_ASK_MAX = 3;
+const rcSyncSid = () => Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10); // B-2032: the command's tag
 const rcSyncTrim = (c) => (c.length > RC_SYNC_CHAIN_MAX ? c.slice(0, RC_SYNC_CHAIN_MAX - 1).concat(c[c.length - 1]) : c); // the known end stays
 function rcSyncSend(e, bases) {
   if (!bases && !rcSync.chain.has(e.asin) && !rcSync.had.has(e.asin) && !rcSync.pending.has(e.asin)) bases = [{ chunks: [], at: 0 }];
@@ -2557,6 +2567,7 @@ function rcSyncSend(e, bases) {
 function rcSyncFlush() {
   rcSync.timer = null;
   if (rcSync.sending > 0) { rcSync.timer = setTimeout(rcSyncFlush, 600); return; } // B-2003: one command out at a time - the next one's bases need this one's list at the head of the chain
+  if (rcSync.doubt.size) return; // B-2032: nothing goes out until this phone knows whether the lost one landed (rcSyncAsk re-arms)
   const edits = [...rcSync.pending.values()];
   rcSync.pending.clear();
   const at = Date.now();
@@ -2570,8 +2581,10 @@ function rcSyncFlush() {
   for (let i = 0; i < edits.length; i += RC_SYNC_BULK_MAX) {
     const part = edits.slice(i, i + RC_SYNC_BULK_MAX).map(one);
     // one edit keeps the old shape (an older laptop build understands it); several ride as `edits` (B-1921)
+    const sid = rcSyncSid();
     rcSync.sending++;
-    sendCommand("receiveTallySet", part.length === 1 ? part[0] : { edits: part }, { quiet: true }).then((id) => rcSyncSent(part, !!id)).catch(() => {}).finally(() => { rcSync.sending--; });
+    // B-2032: null = no answer (the row may still have landed: in doubt); undefined = never left (no laptop paired)
+    sendCommand("receiveTallySet", part.length === 1 ? { ...part[0], sid } : { edits: part, sid }, { quiet: true }).then((id) => (id ? rcSyncSent(part, true) : id === null ? rcSyncDoubt(part, sid) : rcSyncSent(part, false))).catch(() => {}).finally(() => { rcSync.sending--; rcSyncLetHeld(); });
   }
 }
 // B-2003: a command left the phone (its list heads the chain) or did not (it goes again before the next payload is merged)
@@ -2582,6 +2595,42 @@ function rcSyncSent(part, left) {
     if (!o.bases) continue; // sent without a base: the chain starts at the next payload
     rcSync.chain.set(o.asin, rcSyncTrim([{ chunks: o.chunks.slice(), at: o.updatedAt }, ...(rcSync.chain.get(o.asin) || o.bases)]));
   }
+}
+// B-2032: a command that got no answer - in doubt until rcSyncAsk knows
+function rcSyncDoubt(part, sid) {
+  for (const o of part) rcSync.doubt.set(o.asin, { sid, o });
+}
+// B-2032: a payload that waited: in doubt, ask first; edits made before it go first (on the bases they were made on);
+// then, with no command out, it is merged in
+function rcSyncLetHeld() {
+  if (!rcSync.held || rcSync.sending > 0) return;
+  if (rcSync.doubt.size) { rcSyncAsk(); return; }
+  if (rcSync.pending.size) { clearTimeout(rcSync.timer); rcSyncFlush(); return; }
+  const h = rcSync.held;
+  rcSync.held = null;
+  rcSyncApply(h);
+}
+// B-2032: is the command whose answer was lost in the commands table? (by its tag; one question per command)
+async function rcSyncAsk() {
+  if (rcSync.asking || !rcSync.doubt.size) return;
+  rcSync.asking = true;
+  try {
+    for (const sid of new Set([...rcSync.doubt.values()].map((d) => d.sid))) {
+      let res = null;
+      try { res = await sb(`commands?name=eq.receiveTallySet&payload->>sid=eq.${encodeURIComponent(sid)}&select=status&limit=1`); } catch (e) { res = null; }
+      const rows = res && res.ok && Array.isArray(res.json) ? res.json : null;
+      if (!rows && ++rcSync.asks < RC_SYNC_ASK_MAX) break; // no answer: asked again at the next payload
+      const st = rows && rows[0] ? String(rows[0].status || "") : "";
+      const part = [...rcSync.doubt.values()].filter((d) => d.sid === sid).map((d) => d.o);
+      for (const o of part) rcSync.doubt.delete(o.asin);
+      rcSyncSent(part, st === "pending" || st === "running" || st === "done"); // refused, failed, not there (or never known) = never ran
+    }
+  } finally {
+    rcSync.asking = false;
+  }
+  if (rcSync.doubt.size) return;
+  rcSync.asks = 0;
+  rcSyncLetHeld(); // asked only with a payload waiting: the edits made meanwhile go first, then it is merged in
 }
 // B-2003: after a payload was merged in. The laptop's entry per product ({chunks, at}: a count, or a clear = no chunks).
 function rcSyncNoteLaptop(rt, RC) {
@@ -2648,6 +2697,8 @@ function rcSyncApply(inv) {
   if (!RC || !RC.applyRemote) return;
   rcSyncStart();
   if (!inv || !inv.receiveTallies) { rcLivePaint(); return; }
+  // B-2032: an edit not yet sent, a command out or in doubt: this payload waits (the newest one) - merged once they are answered
+  if (rcSync.sending > 0 || rcSync.doubt.size || rcSync.pending.size) { rcSync.held = inv; rcSyncLetHeld(); return; }
   // B-2003: an edit that never left this phone, as this phone holds it BEFORE the payload is merged in
   const again = [];
   if (rcSync.unsent.size) {
