@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.154";
+const APP_BUILD = "v2.0.155";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -1344,6 +1344,17 @@ function renderPrompt(prompt) {
     // B-1712 (v2.0.128): a set is entered on the laptop only.
     els.promptFields.appendChild(Object.assign(document.createElement("div"), { className: "l-meta", textContent: "A set of 2+ listings is entered on the laptop (Buy Queue - Set form), not here." }));
     getPayload = () => ({ asin: prompt.asin, lineId: prompt.lineId, url: url.value.trim(), itemsPerUnit: Number(ipu.value) || 1 });
+    // B-2045 (v2.0.155): the laptop doubted the last link - say why, put it back in the box, and offer "Use it anyway" (that link only).
+    if (prompt.doubt) {
+      els.promptFields.insertBefore(Object.assign(document.createElement("p"), { className: "prp-doubt", textContent: prompt.doubt }), els.promptFields.firstChild);
+      if (prompt.doubtUrl) url.value = prompt.doubtUrl;
+      if (prompt.doubtIpu) ipu.value = String(prompt.doubtIpu);
+      const anyway = document.createElement("button");
+      anyway.className = "secondary-btn";
+      anyway.textContent = "Use it anyway";
+      anyway.addEventListener("click", () => sendCommand("submitSourceUrl", { ...getPayload(), override: true }));
+      els.promptActions.appendChild(anyway);
+    }
   } else if (prompt.kind === "filler") {
     const fa = field("pFillerAsin", "Filler ASIN (optional)", { type: "text" });
     const fq = field("pFillerQty", "Qty", { type: "number", min: "1", value: "1" });
