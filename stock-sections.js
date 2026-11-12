@@ -223,7 +223,7 @@
     top.append(node("span", "inv-title", r.title || r.asin));
     const nums = node("span", "s55-nums");
     nums.append(
-      node("span", "inv-n inv-house" + (r.house < 0 ? " inv-neg" : ""), "H " + units(r.house)),
+      node("span", "inv-n inv-house" + (r.house < 0 ? " inv-neg" : ""), "H " + units(r.house) + pcsText(r.house, r.packOf)),
       node("span", "inv-n inv-prep" + (r.prep < 0 ? " inv-neg" : ""), "P " + units(r.prep)),
       node("span", "inv-n inv-transit", "T " + units(r.inTransit))
     );
@@ -251,8 +251,15 @@
 
   // The controls the old two-to-four-line row always showed, plus the House
   // list's Receive and Manual Print - the same buttons, built the same way.
+  // B-2040 (v2.0.154): " (16 pcs)" next to House on a Pack Of > 1 row (the laptop sends packOf; none = nothing shown).
+  function pcsText(house, packOf) {
+    const p = Number(packOf), h = Number(house);
+    if (!Number.isInteger(p) || p < 2 || !Number.isFinite(h) || Math.abs(h) < 0.0005) return "";
+    const v = h * p;
+    return " (" + (Math.round(v * 100) / 100).toLocaleString("en-US") + " pcs)";
+  }
   function fill(body, r, h, units) {
-    body.append(node("div", "l-meta", [r.asin, "House " + units(r.house), "Prep " + units(r.prep), "Transit " + units(r.inTransit)].join(" · ")));
+    body.append(node("div", "l-meta", [r.asin, "House " + units(r.house) + pcsText(r.house, r.packOf), "Prep " + units(r.prep), "Transit " + units(r.inTransit)].join(" · ")));
     const tools = node("div", "controls need-actions s55-prod-tools");
     if (h && typeof h.receiveButton === "function" && root.ShopperReceive) tools.append(h.receiveButton(r));
     if (root.ShopperManualPrint) {

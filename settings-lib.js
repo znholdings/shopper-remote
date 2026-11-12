@@ -70,6 +70,8 @@ const SHARED_SETTINGS_SPEC = Object.freeze([
   ] }),
   S({ key: "shopperRpAutoGraceHours", group: "pipeline", label: "Replen Pulse grace (hours)", kind: "number", min: 1, max: 240, step: 1, phone: true }),
   S({ key: "shopperCogsCheckTolerancePct", group: "pipeline", label: "COGS check tolerance (%)", kind: "number", min: 0, max: 50, step: 1, phone: true }),
+  // B-2040 (v2.0.154): what Receive counts on a Pack Of > 1 product - "packs" (Amazon units, the default) or "pieces". One last choice for both computers and the phone.
+  S({ key: "shopperReceiveCountMode", group: "receive", label: "Receive counts in", kind: "enum", options: [["packs", "Packs (Amazon units)"], ["pieces", "Pieces"]], phone: true }),
   S({ key: "shopperRunFlagMultiplier", group: "pipeline", label: "Run flag multiplier", kind: "number", min: 1.5, max: 10, step: 0.5 }),
   // ---- Books / Drive pointers (both computers use the SAME workbook) -----
   S({ key: "shopperBooksClaudeSuggest", group: "books", label: "Books: Claude suggests", kind: "any" }),
@@ -90,6 +92,10 @@ const SHARED_SETTINGS_SPEC = Object.freeze([
       { path: "quiet.from", label: "Quiet from", kind: "time" },
       { path: "quiet.to", label: "Quiet until", kind: "time" },
     ] }),
+  // ---- Sourcing (B-2043, v2.0.154): the competitor tracker. Changed on the desktop only; the phone shows them read-only (Zach 11/11). ----
+  S({ key: "shopperCompTrackN", group: "sourcing", label: "Competitors tracked (top N)", kind: "number", min: 1, max: 20, step: 1 }),
+  S({ key: "shopperCompFilterOverrides", group: "sourcing", label: "Competitor ASIN filters (your numbers)", kind: "object" }),
+  S({ key: "shopperCompKeepaDailyCap", group: "sourcing", label: "Keepa tokens a day for competitors", kind: "number", min: 20, max: 2000, step: 10 }),
   // ---- Appearance / misc -------------------------------------------------
   S({ key: "shopperTheme", group: "appearance", label: "Computers' theme", kind: "enum", options: [["light", "Light"], ["dark", "Dark"], ["retro", "Retro"]], phone: true }),
   S({ key: "shopperBuyShots", group: "appearance", label: "Buy snapshots", kind: "object", phone: [
@@ -119,7 +125,7 @@ const SHARED_SETTINGS_SPEC = Object.freeze([
 ]);
 
 const SETTINGS_GROUPS = Object.freeze([
-  ["buying", "Buying"], ["pricing", "Pricing"], ["pipeline", "Pipeline"], ["labels", "Labels"], ["appearance", "Appearance"],
+  ["buying", "Buying"], ["pricing", "Pricing"], ["pipeline", "Pipeline"], ["receive", "Receive"], ["labels", "Labels"], ["appearance", "Appearance"],
 ]);
 
 // Every storage key one entry owns (the pair's second key too).

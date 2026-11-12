@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.153";
+const APP_BUILD = "v2.0.154";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -2262,7 +2262,7 @@ function maybePlaySounds(p) {
 // 30 minutes, where he had scrolled to) - remembered on THIS phone only
 // (localStorage through store, which is try/catch'd: private mode = default tab).
 const LAST_VIEW_KEY = "shopperLastView";
-const LAST_VIEW_TABS = ["dashboard", "run", "buylist", "inventory", "fba", "wizard", "belowmin", "catalog", "cashflow", "books", "settings", "daily", "manualbuy", "blacklist", "booksrules", "runstatus", "runreviews"]; // B-1792 (v2.0.135): + the pages the phone gained (bank stays out: it maps to Home)
+const LAST_VIEW_TABS = ["dashboard", "run", "buylist", "inventory", "fba", "wizard", "belowmin", "catalog", "cashflow", "books", "settings", "daily", "manualbuy", "blacklist", "booksrules", "runstatus", "runreviews", "competitors"]; // B-2043: + Competitor ASINs. B-1792 (v2.0.135): + the pages the phone gained (bank stays out: it maps to Home)
 const LAST_VIEW_SCROLL_MS = 30 * 60000;
 let currentTab = "run";
 let pendingScrollY = null;
@@ -2760,10 +2760,36 @@ function invNoteHouse(asin, units) {
   }
 }
 
-function invOpenReceive(r) {
+// B-2040 (v2.0.154): the last Packs / Pieces choice is the shared setting shopperReceiveCountMode (the Settings row both computers use).
+// Read when the pop-up opens (a slow answer falls back to this phone's last copy); a change is saved to the row and kept here.
+const RECEIVE_MODE_KEY = "shopperReceiveCountMode";
+async function invReceiveMode() {
+  let mode = null;
+  try { mode = localStorage.getItem(RECEIVE_MODE_KEY); } catch (e) { /* no copy */ }
+  const V = self.ShopperSettingsView;
+  if (V && V.readValue) {
+    try {
+      const got = await Promise.race([V.readValue(RECEIVE_MODE_KEY), new Promise((res) => setTimeout(() => res(undefined), 1500))]);
+      if (got === "packs" || got === "pieces") mode = got;
+    } catch (e) { /* keep the copy */ }
+  }
+  return mode === "pieces" ? "pieces" : "packs";
+}
+function invRememberReceiveMode(m) {
+  try { localStorage.setItem(RECEIVE_MODE_KEY, m); } catch (e) { /* the shared row still gets it */ }
+  const V = self.ShopperSettingsView;
+  if (V && V.writeValue) V.writeValue(RECEIVE_MODE_KEY, m).catch(() => {});
+}
+
+async function invOpenReceive(r) {
   if (!self.ShopperReceive) return;
   rcSyncStart();
+  const packOf = Number(r.packOf) > 1 ? Number(r.packOf) : 0;
+  const mode = packOf ? await invReceiveMode() : "packs";
   self.ShopperReceive.open({
+    packOf,
+    mode,
+    onModeChange: invRememberReceiveMode,
     asin: r.asin,
     title: r.title || r.asin,
     expected: r.house,
@@ -2958,7 +2984,7 @@ function renderInvBucket(inv) {
 // command the single confirm sends, one product at a time; the pop-up (receive-count.js openSetAll)
 // shows the list first and clears each tally only after the laptop said done.
 function invReceiveAllRows(inv) {
-  return invBucketRows(inv && inv.rows, "house").map((r) => ({ asin: r.asin, title: r.title || r.asin, house: r.house }));
+  return invBucketRows(inv && inv.rows, "house").map((r) => ({ asin: r.asin, title: r.title || r.asin, house: r.house, packOf: r.packOf }));
 }
 
 function invPaintReceiveAll(inv) {

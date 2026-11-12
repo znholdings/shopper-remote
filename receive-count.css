@@ -205,4 +205,9 @@
 /* B-1500 (v2.0.104): the names under a headline sentence are a short list, not a comma wall. */
 .rc-all-names, .rc-msg-list { margin: 2px 0 0; padding-left: 18px; }
 .rc-all-more { list-style: none; margin-left: -18px; color: var(--s-text-muted); }
+/* B-2040 (v2.0.154): Packs / Pieces switch (Pack Of > 1 products only) and the pieces lines. */
+.rc-mode { display: flex; gap: 6px; padding: 4px 0; }
+.rc-mode .rc-mode-btn { flex: 1 1 0; }
+.rc-pcs { padding: 2px 10px; font-size: 13px; color: var(--s-text-muted); font-variant-numeric: tabular-nums; }
+.rc-frac { padding: 2px 10px; font-size: 13px; font-weight: 600; color: var(--s-red-ink); }
 [hidden] { display: none !important; }

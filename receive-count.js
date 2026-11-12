@@ -80,6 +80,19 @@
     return String(Math.round(n * 100) / 100);
   }
 
+  // B-2040 (v2.0.154): a Pack Of > 1 product counts in Amazon units but can be counted in pieces. The pack size
+  // comes from the host (opts.packOf / row.packOf - the Pipeline's own pack rule); this file never reads titles.
+  function validPack(v) {
+    var n = Number(v);
+    return isFinite(n) && Math.floor(n) === n && n > 1 && n <= 999 ? n : 0;
+  }
+  // " (16 pcs)" for a count of Amazon units on a Pack Of > 1 product; "" otherwise.
+  function pcsOf(units, pack) {
+    var p = validPack(pack), u = Number(units);
+    if (!p || !isFinite(u)) return "";
+    return " (" + fmtNum(u * p) + " pcs)";
+  }
+
   // The line under the big total: "144 to go" / "Matches" / "3 over".
   function gapInfo(expected, total, entries, format) {
     var f = typeof format === "function" ? format : fmtNum;
@@ -691,9 +704,16 @@
     var canConfirm = typeof opts.onConfirm === "function";
     var tally = createTally(getChunks(asin));
     var sending = false;
+    // B-2040: Pack Of > 1 -> a Packs / Pieces switch. The tally stays whole Amazon units; pieces that do not fill a
+    // pack yet wait in `loose` (this pop-up only) and show as a fraction - nothing is rounded.
+    var pack = validPack(opts.packOf);
+    var mode = pack && opts.mode === "pieces" ? "pieces" : "packs";
+    var loose = 0;
+    var ops = []; // what each add did, so Undo last takes back pieces and packs alike: { chunk, prevLoose }
     // B-843: the other device changed THIS product's tally while the pop-up is open - show it.
     var watcher = function (changedAsin) {
       if (closed || sending || changedAsin !== asin) return;
+      loose = 0; ops = [];
       tally.clear();
       var fresh = getChunks(asin);
       for (var q = 0; q < fresh.length; q++) tally.add(fresh[q]);
@@ -726,6 +746,17 @@
     head.appendChild(heads);
     head.appendChild(xBtn);
 
+    var modeRow = h("div", "rc-mode");
+    modeRow.setAttribute("role", "group");
+    modeRow.setAttribute("aria-label", "Count in packs or pieces");
+    modeRow.hidden = !pack;
+    var modePacks = h("button", "rc-btn rc-quiet rc-mode-btn rc-mode-packs", "Packs (Amazon units)");
+    modePacks.type = "button";
+    var modePieces = h("button", "rc-btn rc-quiet rc-mode-btn rc-mode-pieces", "Pieces");
+    modePieces.type = "button";
+    modeRow.appendChild(modePacks);
+    modeRow.appendChild(modePieces);
+
     var totalBox = h("div", "rc-totalbox");
     var totalLine = h("div", "rc-total");
     totalLine.setAttribute("aria-live", "polite");
@@ -734,8 +765,14 @@
     totalLine.appendChild(totalN);
     totalLine.appendChild(totalOf);
     var gapEl = h("div", "rc-gap", "");
+    var pcsEl = h("div", "rc-pcs", "");
+    pcsEl.hidden = true;
+    var fracEl = h("div", "rc-frac", "");
+    fracEl.hidden = true;
     totalBox.appendChild(totalLine);
+    totalBox.appendChild(pcsEl);
     totalBox.appendChild(gapEl);
+    totalBox.appendChild(fracEl);
 
     var entriesEl = h("div", "rc-entries", "");
 
@@ -839,6 +876,7 @@
     makeAsk.appendChild(makeAskBtns);
 
     card.appendChild(head);
+    card.appendChild(modeRow);
     card.appendChild(totalBox);
     card.appendChild(entriesEl);
     card.appendChild(plusBtn);
@@ -852,7 +890,7 @@
     card.appendChild(makeAsk);
     overlay.appendChild(card);
 
-    var focusables = [xBtn, plusBtn, fullBtn, input, addBtn, undoBtn, clearBtn, voiceBtn, clearYes, clearNo,
+    var focusables = [xBtn, modePacks, modePieces, plusBtn, fullBtn, input, addBtn, undoBtn, clearBtn, voiceBtn, clearYes, clearNo,
       voiceText, voiceAdd, voiceClose, doneBtn, makeBtn, makeYes, makeNo];
 
     // ---- state -> screen
@@ -861,29 +899,56 @@
       msg.className = "rc-msg" + (kind ? " rc-msg-" + kind : "");
     }
 
+    var inPieces = function () { return pack > 0 && mode === "pieces"; };
+    // The count in Amazon units, with the pieces that do not fill a pack yet as a fraction of one.
+    var unitsNow = function () { return tally.total() + (loose ? loose / pack : 0); };
+    var piecesNow = function () { return tally.total() * pack + loose; };
+    var hasAny = function () { return tally.size() > 0 || loose > 0; };
+
     function render() {
       var n = tally.size();
-      var total = tally.total();
-      totalN.textContent = fmtNum(total);
-      totalOf.textContent = expectedText ? " of " + expectedText : "";
-      var gap = gapInfo(expected, total, n, format);
-      gapEl.textContent = gap.text;
+      var total = unitsNow();
+      var pieces = inPieces();
+      totalN.textContent = loose ? format(total) : fmtNum(total);
+      var ofText = expectedText;
+      if (ofText && pack && expected != null && isFinite(Number(expected))) ofText += pcsOf(expected, pack);
+      totalOf.textContent = ofText ? " of " + ofText : "";
+      var gap = gapInfo(expected, total, n + (loose ? 1 : 0), format);
+      var gapText = gap.text;
+      if (pack && (gap.kind === "short" || gap.kind === "over")) gapText += pcsOf(Math.abs(Number(expected) - total), pack);
+      gapEl.textContent = gapText;
       gapEl.className = "rc-gap rc-gap-" + gap.kind;
-      gapEl.hidden = !gap.text;
+      gapEl.hidden = !gapText;
+      pcsEl.hidden = !pack;
+      pcsEl.textContent = pack ? fmtNum(piecesNow()) + " pcs = " + (loose ? format(total) : fmtNum(total)) + " units" : "";
+      fracEl.hidden = !loose;
+      fracEl.textContent = loose ? fmtNum(piecesNow()) + " pcs is not a whole number of " + pack + "-packs" : "";
+      modePacks.setAttribute("aria-pressed", pieces ? "false" : "true");
+      modePieces.setAttribute("aria-pressed", pieces ? "true" : "false");
+      modePacks.className = "rc-btn rc-quiet rc-mode-btn rc-mode-packs" + (pieces ? "" : " rc-on");
+      modePieces.className = "rc-btn rc-quiet rc-mode-btn rc-mode-pieces" + (pieces ? " rc-on" : "");
+      modePacks.disabled = sending;
+      modePieces.disabled = sending;
       var list = tally.chunks();
-      entriesEl.textContent = list.length ? list.join(" + ") : "Nothing counted yet. Count a box, then tap +" + QUICK + ".";
-      entriesEl.className = "rc-entries" + (list.length ? "" : " rc-entries-empty");
+      var shown = pieces ? list.map(function (c) { return c * pack; }) : list.slice();
+      if (loose) shown.push(pieces ? loose : loose + "/" + pack);
+      entriesEl.textContent = shown.length ? shown.join(" + ") + (pieces ? " pcs" : "") : "Nothing counted yet. Count a box, then tap +" + QUICK + (pieces ? " pcs" : "") + ".";
+      entriesEl.className = "rc-entries" + (shown.length ? "" : " rc-entries-empty");
+      plusBtn.textContent = "+" + QUICK + (pieces ? " pcs" : "");
       plusBtn.disabled = sending;
-      var full = fullCountChunk(expected, total);
+      var full = fullCountChunk(expected, tally.total());
+      if (loose) full = null;
       fullBtn.hidden = full == null;
       fullBtn.disabled = sending || full == null;
-      fullBtn.textContent = full == null ? "Full count" : "Full count (" + fmtNum(full) + ")";
+      fullBtn.textContent = full == null ? "Full count" : "Full count (" + (pieces ? fmtNum(full * pack) + " pcs" : fmtNum(full)) + ")";
+      input.setAttribute("placeholder", pieces ? "Other number of pieces" : "Other number");
+      input.setAttribute("aria-label", pieces ? "Other number of pieces to add" : "Other amount to add");
       addBtn.disabled = sending;
       input.disabled = sending;
-      undoBtn.disabled = sending || n === 0;
-      clearBtn.disabled = sending || n === 0;
+      undoBtn.disabled = sending || !hasAny();
+      clearBtn.disabled = sending || !hasAny();
       voiceBtn.disabled = sending;
-      makeBtn.disabled = sending || n === 0 || !makeAsk.hidden;
+      makeBtn.disabled = sending || !hasAny() || !makeAsk.hidden;
       makeYes.disabled = sending;
       makeNo.disabled = sending;
       clearYes.disabled = sending;
@@ -899,10 +964,12 @@
 
     // Every change to the tally: keep it, redraw, close any open question (its
     // numbers would be stale), tell the host.
-    function changed() {
+    function changed(looseOnly) {
+      // B-2040: only the waiting pieces moved - the stored tally is the same, so nothing is rewritten or synced.
+      if (looseOnly) { closeAsks(); render(); return; }
       // B-1940: the store is full and this product has no count yet - nothing is stored and nothing older is dropped
       if (tally.size() && !getChunks(asin).length && storeRoom() === 0) {
-        tally.clear();
+        tally.clear(); loose = 0; ops = [];
         closeAsks();
         render();
         say(storeFullText(), "bad");
@@ -917,23 +984,51 @@
     function closeAsks() {
       clearAsk.hidden = true;
       makeAsk.hidden = true;
-      makeBtn.disabled = sending || tally.size() === 0;
-      clearBtn.disabled = sending || tally.size() === 0;
+      makeBtn.disabled = sending || !hasAny();
+      clearBtn.disabled = sending || !hasAny();
+    }
+
+    // B-2040: add n counted things in the current mode. Packs: n Amazon units. Pieces: n pieces, whole packs go to
+    // the tally and the rest waits in `loose`. -> false when the tally is full.
+    function addCount(n) {
+      var prev = loose;
+      if (!inPieces()) {
+        if (!tally.add(n)) return false;
+        ops.push({ chunk: true, prevLoose: prev });
+        return true;
+      }
+      var all = loose + n;
+      var whole = Math.floor(all / pack);
+      if (whole > 0 && !tally.add(whole)) return false;
+      loose = all % pack;
+      ops.push({ chunk: whole > 0, prevLoose: prev });
+      return true;
+    }
+
+    function setMode(m) {
+      if (sending || !pack || (m !== "packs" && m !== "pieces") || m === mode) return;
+      mode = m;
+      if (typeof opts.onModeChange === "function") {
+        try { opts.onModeChange(m); } catch (e) { /* a host failing to remember the choice must never break counting */ }
+      }
+      say("");
+      render();
     }
 
     // ---- actions
     function addQuick() {
       if (sending) return;
-      if (!tally.add(QUICK)) { say("That is more entries than this counter keeps.", "bad"); return; }
+      if (!addCount(QUICK)) { say("That is more entries than this counter keeps.", "bad"); return; }
       say("");
-      changed();
+      changed(!ops[ops.length - 1].chunk);
     }
 
     function addFull() {
       if (sending) return;
-      var n = fullCountChunk(expected, tally.total());
+      var n = loose ? null : fullCountChunk(expected, tally.total());
       if (n == null) return;
-      if (!tally.add(n)) { say("That is more entries than this counter keeps.", "bad"); return; }
+      var prevLoose = loose;
+      if (tally.add(n)) ops.push({ chunk: true, prevLoose: prevLoose }); else { say("That is more entries than this counter keeps.", "bad"); return; }
       say("");
       changed();
     }
@@ -942,22 +1037,29 @@
       if (sending) return;
       var n = parseTyped(input.value);
       if (n == null) { say("Type a whole number from 1 to " + MAX_CHUNK + ".", "bad"); focusEl(input); return; }
-      if (!tally.add(n)) { say("That is more entries than this counter keeps.", "bad"); return; }
+      if (!addCount(n)) { say("That is more entries than this counter keeps.", "bad"); return; }
       input.value = "";
       say("");
-      changed();
+      changed(!ops[ops.length - 1].chunk);
       focusEl(input);
     }
 
     function undo() {
-      if (sending || !tally.size()) return;
-      tally.undo();
+      if (sending || !hasAny()) return;
+      var op = ops.pop();
+      if (op) {
+        if (op.chunk) tally.undo();
+        loose = op.prevLoose;
+      } else if (loose) {
+        loose = 0; // pieces left over from before the stack began: only a leftover is waiting
+        say(""); changed(true); return;
+      } else tally.undo();
       say("");
-      changed();
+      changed(op && !op.chunk);
     }
 
     function askClear() {
-      if (sending || !tally.size()) return;
+      if (sending || !hasAny()) return;
       makeAsk.hidden = true;
       clearAsk.hidden = false;
       clearBtn.disabled = true;
@@ -968,15 +1070,15 @@
 
     function doClear() {
       if (sending) return;
-      tally.clear();
+      tally.clear(); loose = 0; ops = [];
       say("");
       changed();
     }
 
     function askMake() {
-      if (sending || !canConfirm || !tally.size()) return;
+      if (sending || !canConfirm || !hasAny()) return;
       clearAsk.hidden = true;
-      makeQ.textContent = "Set " + where + " for " + title + " from " + (expectedText || "?") + " to " + fmtNum(tally.total()) + "? Only this product changes.";
+      makeQ.textContent = "Set " + where + " for " + title + " from " + (expectedText || "?") + " to " + (loose ? format(unitsNow()) : fmtNum(unitsNow())) + (pack ? " (" + fmtNum(piecesNow()) + " pcs)" : "") + "? Only this product changes." + (loose ? " " + fmtNum(piecesNow()) + " pcs is not a whole number of " + pack + "-packs, so this is a fraction of a pack." : "");
       makeAsk.hidden = false;
       say("");
       render();
@@ -984,8 +1086,8 @@
     }
 
     function confirmMake() {
-      if (sending || !canConfirm || !tally.size()) return;
-      var units = tally.total();
+      if (sending || !canConfirm || !hasAny()) return;
+      var units = unitsNow();
       sending = true;
       say("Sending to the laptop ...");
       render();
@@ -1018,10 +1120,11 @@
     // ---- the voice bubble
     function updateVoice() {
       var r = parseSpoken(voiceText.value);
-      voiceLive.textContent = r.numbers.length ? r.numbers.join(" + ") + " = " + fmtNum(r.sum) : (voiceText.value.trim() ? "No numbers found yet." : "Nothing heard yet.");
+      var pcsWord = inPieces() ? " pcs" : "";
+      voiceLive.textContent = r.numbers.length ? r.numbers.join(" + ") + " = " + fmtNum(r.sum) + pcsWord : (voiceText.value.trim() ? "No numbers found yet." : "Nothing heard yet.");
       voiceBad.textContent = r.unknown.length ? "Didn't understand: " + r.unknown.join(", ") : "";
       voiceBad.hidden = !r.unknown.length;
-      voiceAdd.textContent = "Add " + fmtNum(r.sum) + " to the count";
+      voiceAdd.textContent = "Add " + fmtNum(r.sum) + pcsWord + " to the count";
       voiceAdd.disabled = sending || !r.numbers.length;
     }
 
@@ -1038,12 +1141,13 @@
       var r = parseSpoken(voiceText.value);
       if (!r.numbers.length) return;
       var added = 0;
-      for (var i = 0; i < r.numbers.length; i++) { if (tally.add(r.numbers[i])) added++; else break; }
+      var onlyLoose = true;
+      for (var i = 0; i < r.numbers.length; i++) { if (addCount(r.numbers[i])) { added++; if (ops[ops.length - 1].chunk) onlyLoose = false; } else break; }
       voiceText.value = "";
       var text = added < r.numbers.length ? "Added " + added + " of " + r.numbers.length + " - that is as many entries as this counter keeps." : "";
       if (r.unknown.length) text = (text ? text + " " : "") + "Didn't understand: " + r.unknown.join(", ") + ".";
       say(text, text ? "bad" : "");
-      changed();
+      changed(onlyLoose);
     }
 
     // ---- focus, keys, viewport
@@ -1095,6 +1199,8 @@
     doneBtn.addEventListener("click", dismiss);
     overlay.addEventListener("pointerdown", function (e) { downOnBackdrop = e.target === overlay; });
     overlay.addEventListener("click", function (e) { if (e.target === overlay && downOnBackdrop) dismiss(); downOnBackdrop = false; });
+    modePacks.addEventListener("click", function () { setMode("packs"); });
+    modePieces.addEventListener("click", function () { setMode("pieces"); });
     plusBtn.addEventListener("click", addQuick);
     fullBtn.addEventListener("click", addFull);
     addBtn.addEventListener("click", addTyped);
@@ -1156,7 +1262,9 @@
         same.push({ asin: a, title: String(r.title || a), houseNow: h, counted: t });
         continue;
       }
-      changes.push({ asin: a, title: String(r.title || a), houseNow: isFinite(h) ? h : null, counted: t });
+      var chg = { asin: a, title: String(r.title || a), houseNow: isFinite(h) ? h : null, counted: t };
+      if (validPack(r.packOf)) chg.packOf = validPack(r.packOf); // B-2040: the list can show pieces next to House
+      changes.push(chg);
     }
     var notListed = [];
     for (var k in map) {
@@ -1258,7 +1366,7 @@
         var li = h("li", "rc-all-row");
         li.setAttribute("data-asin", c.asin);
         li.appendChild(h("div", "rc-all-name", c.asin + " \u00b7 " + c.title));
-        var line = h("div", "rc-all-change", where + " " + (c.houseNow == null ? "?" : format(c.houseNow)) + " \u2192 " + fmtNum(c.counted));
+        var line = h("div", "rc-all-change", where + " " + (c.houseNow == null ? "?" : format(c.houseNow) + pcsOf(c.houseNow, c.packOf)) + " \u2192 " + fmtNum(c.counted));
         var st = h("span", "rc-all-status", "");
         st.hidden = true;
         if (has(results, c.asin)) {
@@ -1435,6 +1543,7 @@
       if (whole == null) { skipped.push({ asin: asin, title: title, house: Number(hv), counted: 0 }); continue; }
       var counted = totalFor(asin, now);
       var item = { asin: asin, title: title, house: whole, counted: counted };
+      if (validPack(r.packOf)) item.packOf = validPack(r.packOf); // B-2040
       if (counted === whole) { same.push(item); continue; }
       var hasTally = getChunks(asin, now).length > 0;
       if (hasTally) replace.push(item);
@@ -1527,7 +1636,7 @@
         var li = h("li", "rc-all-row");
         li.setAttribute("data-asin", c.asin);
         li.appendChild(h("div", "rc-all-name", c.asin + " \u00b7 " + c.title));
-        li.appendChild(h("div", "rc-all-change", (isReplace ? "Counted " + format(c.counted) + " \u2192 " + format(c.house) + " (replaces your count)" : "Not counted yet \u2192 " + format(c.house))));
+        li.appendChild(h("div", "rc-all-change", (isReplace ? "Counted " + format(c.counted) + " \u2192 " + format(c.house) + pcsOf(c.house, c.packOf) + " (replaces your count)" : "Not counted yet \u2192 " + format(c.house) + pcsOf(c.house, c.packOf))));
         listEl.appendChild(li);
       }
       listEl.hidden = !n;
@@ -1646,6 +1755,8 @@
     createTally: createTally,
     gapInfo: gapInfo,
     fullCountChunk: fullCountChunk,
+    validPack: validPack,
+    pcsOf: pcsOf,
     planSetAll: planSetAll,
     planFillHouse: planFillHouse,
     storeRoom: storeRoom,

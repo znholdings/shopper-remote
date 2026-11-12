@@ -327,8 +327,37 @@
     return applyJump(pendingJump);
   }
 
+  // B-2040 (v2.0.154): the Receive pop-up reads / remembers its Packs / Pieces choice through the SAME shared row the Settings
+  // screen writes (no screen drawn). readValue -> the stored value or undefined; writeValue -> true when it saved.
+  async function readValue(key) {
+    const got = await readRow();
+    if (!got.ok || !got.exists) return undefined;
+    const e = got.entries[key];
+    return e && e.v !== undefined ? e.v : undefined;
+  }
+  async function writeValue(key, val) {
+    const spec = SPEC.SHARED_SETTINGS_SPEC.find((s) => s.key === key && s.row === SPEC.SETTINGS_ROW);
+    if (!spec || SPEC.checkSettingValue(spec, val).ok !== true) return false;
+    for (let tries = 0; tries < 2; tries++) {
+      const got = await readRow();
+      if (!got.ok || !got.exists || got.sv > 1) return false;
+      const t = Date.now();
+      const entries = { ...got.entries, [key]: { v: val, at: t, by: "phone", byName: "Phone" } };
+      const res = await self.ShopperRemote.sb(`device_state?device_id=eq.${ROW}&v=eq.${got.v}&select=device_id,v`, {
+        method: "PATCH",
+        prefer: "return=representation",
+        body: { device_name: "Phone", v: got.v + 1, payload: { value: { sv: 1, entries }, by: "phone", byName: "Phone", at: t }, updated_at: new Date(t).toISOString() },
+      });
+      if (!res.ok) return false;
+      if (Array.isArray(res.json) && res.json.length === 1) { sent = { v: got.v + 1, at: t }; return true; }
+    }
+    return false;
+  }
+
   self.ShopperSettingsView = Object.freeze({
     jump,
+    readValue,
+    writeValue,
     shown() {
       if (timer) clearTimeout(timer);
       drawnSig = "";

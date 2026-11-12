@@ -7,6 +7,11 @@
       { id: "dashboard", label: "Dashboard", path: "dashboard/dashboard.html", open: "SHOPPER_OPEN_DASHBOARD_TAB", quick: true },
       { id: "daily", label: "The Daily", path: "dashboard/daily.html" },
     ] },
+    // B-2043 (v2.0.154): Sourcing - what the sellers you compete with are adding. Not in Do next, not in The Daily.
+    { group: "sourcing", label: "Sourcing", icon: "sourcing", items: [
+      { id: "competitors", label: "Competitor ASINs", path: "sourcing/competitors.html" }, // no `quick`: a pop-up button needs an `open` message (lib/popup-nav.js) and the page opens by URL
+
+    ] },
     { group: "buy", label: "Buy", icon: "buylist", items: [
       { id: "buylist", label: "Buylist", path: "buylist/buylist.html", open: "SHOPPER_OPEN_BUYLIST_TAB", quick: true },
       { id: "buyqueue", label: "Buy Queue", path: "buyqueue/buyqueue.html", open: "SHOPPER_OPEN_BUY_QUEUE_TAB", quick: true },
@@ -44,6 +49,7 @@
   var ALSO_CURRENT = { "status/status.html": { group: "buy" }, "runreviews/runreviews.html": { group: "buy" }, "buyqueue/endofrun.html": { group: "buy", path: "buyqueue/buyqueue.html" } };
   var P = {
     dashboard: '<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>',
+    sourcing: '<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/>',
     buylist: '<path d="M9 5h11M9 12h11M9 19h11"/><path d="M4 5l1 1 2-2M4 12l1 1 2-2M4 19l1 1 2-2"/>',
     box: '<path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/>',
     cash: '<path d="M3 17l5-5 4 4 8-8"/><path d="M15 8h5v5"/>',

@@ -21,4 +21,13 @@
 /* The action views (builders D / E) draw buttons with long, changing words ("Restore from <date> (<n>)"): let them wrap, never push the page sideways. */
 .bax-box .l-actions, .l-actions.bax-tools, :root[data-theme] .l-actions.bax-tools { flex-wrap: wrap !important; }
 .bax-box button, .bax-tools button { white-space: normal; max-width: 100%; overflow-wrap: anywhere; }
+/* B-2043 (v2.0.154): Competitor ASINs. */
+.pg-cp-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.pg-cp-main { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.pg-cp-row button { flex: none; min-height: 44px; }
+.pg-cp-seen { opacity: .6; }
+.pg-cp-score { color: var(--s-accent); }
+.pg-cp-why { color: var(--s-red-ink); }
+.pg-cp-links { display: flex; gap: 14px; }
+.pg-cp-links a { color: var(--s-accent); font-weight: 700; min-height: 32px; display: inline-flex; align-items: center; }
 [hidden] { display: none !important; }

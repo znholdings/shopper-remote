@@ -22,6 +22,7 @@
   var PHONE_TABS = {
     dashboard: { tab: "dashboard", id: "tabDashboard", legacy: true },
     daily: { tab: "daily", id: "tabDaily" },
+    competitors: { tab: "competitors", id: "tabCompetitors" }, // B-2043 (v2.0.154)
     buylist: { tab: "buylist", id: "tabBuylist", legacy: true },
     buyqueue: { tab: "run", id: "tabRun", legacy: true },
     manualbuy: { tab: "manualbuy", id: "tabManualBuy" },
