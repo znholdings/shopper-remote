@@ -1,5 +1,5 @@
 // remote/competitors-view.js - B-2043 (v2.0.154): Competitor ASINs (Sourcing) on the phone. Rows come from payload.pages.competitors (the laptop page's own
-// SHOPPER_COMP_GET, thinned: 100 rows a list). Writes (each one laptop handler): compSeen {asins}, compSeenAll {seller}, compTrack {seller, action}.
+// SHOPPER_COMP_GET, thinned: 100 rows a list). Writes (each one laptop handler): compSeen {asins}, compSeenAll {seller | all:true}, compUnseen {asins}, compTrack {seller, action}.
 // The filter numbers are read-only here - "change on the desktop" (Zach 11/11). DOM API, textContent only.
 (function (root) {
   "use strict";
@@ -8,7 +8,7 @@
   var pane = doc.getElementById("competitorsPane");
   if (!P || !pane) return;
   var U = P.ui;
-  if (typeof REMOTE_LABELS !== "undefined") Object.assign(REMOTE_LABELS, { compSeen: "Competitors: tick off", compSeenAll: "Competitors: mark all seen", compTrack: "Competitors: pin / drop / add" });
+  if (typeof REMOTE_LABELS !== "undefined") Object.assign(REMOTE_LABELS, { compSeen: "Competitors: tick off", compSeenAll: "Competitors: mark all seen", compUnseen: "Competitors: take the seen mark off", compTrack: "Competitors: pin / drop / add" });
 
   var data = null;
   var tab = "candidates";
@@ -26,6 +26,8 @@
     var main = U.el("div", "pg-cp-main");
     var t = U.el("div", "");
     if (it.score != null) t.appendChild(U.el("b", "pg-cp-score", it.score + " "));
+    var stores = Math.max(Number(it.stores) || 0, (it.sellers || []).length);
+    if (stores >= 2) t.appendChild(U.el("b", "pg-cp-multi", "In " + stores + " storefronts "));
     t.appendChild(doc.createTextNode(String(it.title || it.asin)));
     main.appendChild(t);
     main.appendChild(U.el("div", "muted small", [it.asin, "rank " + nz(it.rank), money(it.price), "sold/mo " + nz(it.sold), "offers " + nz(it.offers), it.amazon ? "Amazon on listing" : "", "first seen " + it.firstSeen, "from " + (it.sellers || []).map(label).join(", ")].filter(Boolean).join(" · ")));
@@ -36,9 +38,12 @@
     links.appendChild(link("G", "https://www.google.com/search?q=" + encodeURIComponent(String(it.title || it.asin).slice(0, 120))));
     main.appendChild(links);
     r.appendChild(main);
-    if (showSeen && it.verdict === "candidate" && !it.seen) {
-      var b = U.btn("✓ Seen", "mini-btn", function () { U.send("compSeen", { asins: [it.asin] }, b).then(function (res) { U.say(res, "Ticked off"); }); });
+    if (showSeen && !it.seen) {
+      var b = U.btn("✓ Seen", "mini-btn", function () { U.send("compSeen", { asins: [it.asin] }, b).then(function (res) { U.say(res, "Marked seen"); }); });
       r.appendChild(b);
+    } else if (it.seen) {
+      var u = U.btn("Undo", "mini-btn", function () { U.send("compUnseen", { asins: [it.asin] }, u).then(function (res) { U.say(res, "Back to not seen"); }); });
+      r.appendChild(u);
     }
     return r;
   }
@@ -65,9 +70,9 @@
       var c = U.el("div", "pg-card");
       var tracked = r.state === "dropped" ? "dropped" : r.tracked === "pinned" ? "pinned" : r.tracked === "added" ? "added by you" : r.tracked === "auto" ? "tracked (auto)" : "not tracked";
       c.appendChild(U.el("b", "", r.name || r.id));
-      c.appendChild(U.el("div", "muted small", [r.name ? r.id : "", r.overlapPct + "% overlap", r.asins + " ASINs shared", r.fbaAsins + " FBA / " + r.fbmAsins + " FBM", r.bbDays + " Buy Box days", tracked, (r.unseenCandidates || 0) + " new to look at"].filter(Boolean).join(" · ")));
+      c.appendChild(U.el("div", "muted small", [r.name ? r.id : "", r.overlapPct + "% overlap", r.asins + " ASINs shared", r.fbaAsins + " FBA / " + r.fbmAsins + " FBM", r.bbDays + " Buy Box days", tracked, (r.unseenCandidates || 0) + " new to look at", (r.unseen != null ? r.unseen : r.unseenCandidates || 0) + " not seen yet"].filter(Boolean).join(" · ")));
       var acts = U.el("div", "pg-row");
-      if (r.unseenCandidates) { var m = U.btn("Mark all seen", "mini-btn", function () { U.send("compSeenAll", { seller: r.id }, m).then(function (res) { U.say(res, "Marked seen"); }); }); acts.appendChild(m); }
+      if ((r.unseen != null ? r.unseen : r.unseenCandidates) > 0) { var m = U.btn("Mark all seen", "mini-btn", function () { U.send("compSeenAll", { seller: r.id }, m).then(function (res) { U.say(res, "Marked seen"); }); }); acts.appendChild(m); }
       if (r.state !== "pinned") { var p = U.btn("Pin", "mini-btn", function () { U.send("compTrack", { seller: r.id, action: "pin" }, p).then(function (res) { U.say(res, "Pinned"); }); }); acts.appendChild(p); }
       if (r.state !== "dropped") { var d = U.btn("Drop", "danger-btn", function () { U.confirmSend("Stop tracking " + (r.name || r.id) + "?", "compTrack", { seller: r.id, action: "drop" }, d, "Dropped"); }); acts.appendChild(d); }
       if (r.state) { var cl = U.btn("Back to auto", "mini-btn", function () { U.send("compTrack", { seller: r.id, action: "clear" }, cl).then(function (res) { U.say(res, "Back to auto"); }); }); acts.appendChild(cl); }
@@ -92,15 +97,21 @@
 
   function allTab() {
     var out = doc.createDocumentFragment();
-    var s = U.section("Everything added (" + (data.all || []).length + ")");
+    var s = U.section("Everything added (" + (data.counts ? data.counts.all + " not seen" : (data.all || []).length) + ")");
     var ids = [];
     (data.all || []).forEach(function (x) { (x.sellers || []).forEach(function (i) { if (ids.indexOf(i) < 0) ids.push(i); }); });
     var sel = U.select([["", "All sellers"]].concat(ids.map(function (i) { return [i, label(i)]; })));
     sel.value = pick;
     sel.addEventListener("change", function () { pick = sel.value; draw(); });
     s.appendChild(sel);
-    if (pick) { var m = U.btn("Mark all seen", "mini-btn", function () { U.send("compSeenAll", { seller: pick }, m).then(function (res) { U.say(res, "Marked seen"); }); }); s.appendChild(m); }
-    var rows = (data.all || []).filter(function (x) { return !pick || (x.sellers || []).indexOf(pick) >= 0; });
+    var rowsFor = (data.all || []).filter(function (x) { return !pick || (x.sellers || []).indexOf(pick) >= 0; });
+    var unseenHere = rowsFor.filter(function (x) { return !x.seen; }).length;
+    var bulk = U.el("div", "pg-row");
+    if (pick && unseenHere) { var m = U.btn("Mark all seen (" + unseenHere + ")", "mini-btn", function () { U.send("compSeenAll", { seller: pick }, m).then(function (res) { U.say(res, "Marked seen"); }); }); bulk.appendChild(m); }
+    var everything = data.counts ? data.counts.all : (data.all || []).filter(function (x) { return !x.seen; }).length;
+    if (everything) { var ev = U.btn("Mark everything seen (" + everything + ")", "mini-btn", function () { U.confirmSend("Mark all " + everything + " as seen?", "compSeenAll", { all: true }, ev, "Marked seen"); }); bulk.appendChild(ev); }
+    s.appendChild(bulk);
+    var rows = rowsFor;
     rows.forEach(function (it) { s.appendChild(row(it, true)); });
     if (!rows.length) s.appendChild(U.el("p", "muted small", "Nothing here yet."));
     out.appendChild(s);
@@ -112,11 +123,22 @@
     if (!data) { pane.appendChild(U.el("p", "muted small pg-sec", "Competitor ASINs load from the computer...")); return; }
     var st = data.status || {};
     var head = U.section("");
+    var pg = st.running ? (st.progress || { label: "Working…", pct: 0, counts: "", left: "" }) : null;
+    if (pg) {
+      var box = U.el("div", "pg-cp-prog");
+      box.appendChild(U.el("div", "pg-cp-prog-step small", pg.label || "Working…"));
+      var track = U.el("div", "pg-cp-prog-track"); track.setAttribute("role", "progressbar"); track.setAttribute("aria-valuenow", String(pg.pct || 0));
+      var fill = U.el("div", "pg-cp-prog-fill"); fill.style.width = (pg.pct || 0) + "%";
+      track.appendChild(fill); box.appendChild(track);
+      box.appendChild(U.el("div", "muted small", [pg.counts, pg.left].filter(Boolean).join(" · ")));
+      head.appendChild(box);
+    }
     head.appendChild(U.el("p", "muted small", "Last read " + (st.lastRunAt ? new Date(st.lastRunAt).toLocaleString() : "never") + " · " + (st.tokensToday || 0) + " of " + (st.cap || 0) + " Keepa tokens used today"));
     if (st.role403) head.appendChild(U.el("p", "small pg-cp-why", "Amazon refused the daily offer read - the SP-API app needs the Pricing role."));
     var tabs = U.el("div", "pg-row");
     [["candidates", "Candidates"], ["sellers", "Sellers"], ["all", "All new"]].forEach(function (t) {
-      var b = U.btn(t[1], tab === t[0] ? "primary-btn" : "mini-btn", function () { tab = t[0]; draw(); });
+      var n = data.counts ? (t[0] === "candidates" ? data.counts.candidates : t[0] === "all" ? data.counts.all : 0) : 0;
+      var b = U.btn(t[1] + (n > 0 ? " (" + n + ")" : ""), tab === t[0] ? "primary-btn" : "mini-btn", function () { tab = t[0]; draw(); });
       tabs.appendChild(b);
     });
     head.appendChild(tabs);
@@ -128,7 +150,7 @@
       pane.appendChild(list("Found today", c.today || [], true, st.hasData ? "Nothing new today that passes the filters." : "No data yet - the first read runs on the computer after 4 AM Central."));
       pane.appendChild(list("Earlier, not ticked off", c.older || [], true, "Nothing older is waiting."));
       var fs = U.section("Filtered (" + (data.filteredTotal || 0) + ")");
-      (data.filtered || []).slice(0, 30).forEach(function (it) { fs.appendChild(row(it, false)); });
+      (data.filtered || []).slice(0, 30).forEach(function (it) { fs.appendChild(row(it, true)); });
       if (!(data.filtered || []).length) fs.appendChild(U.el("p", "muted small", "Nothing filtered yet."));
       pane.appendChild(fs);
     }
