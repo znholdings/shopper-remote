@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.156";
+const APP_BUILD = "v2.0.158";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -139,15 +139,22 @@ function signOut() {
   render();
 }
 
-async function sb(path, { method = "GET", body, prefer } = {}) {
+async function sb(path, { method = "GET", body, prefer, timeoutMs = 0 } = {}) { // B-2039: timeoutMs > 0 = give up after that long (reason "timed out")
   const t = await token();
   if (!t) return { ok: false, json: null, reason: "signed out" };
   const headers = { apikey: CFG.anonKey, Authorization: `Bearer ${t}`, "Content-Type": "application/json" };
   if (prefer) headers.Prefer = prefer;
-  const resp = await fetch(`${CFG.url}/rest/v1/${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) }).catch(() => null);
-  if (!resp || !resp.ok) return { ok: false, json: null, reason: resp ? `HTTP ${resp.status}` : "network error" };
-  const json = await resp.json().catch(() => null);
-  return { ok: true, json };
+  const ac = timeoutMs > 0 && typeof AbortController === "function" ? new AbortController() : null;
+  const timer = ac ? setTimeout(() => ac.abort(), timeoutMs) : null;
+  try {
+    const resp = await fetch(`${CFG.url}/rest/v1/${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), ...(ac ? { signal: ac.signal } : {}) }).catch(() => null);
+    if (!resp || !resp.ok) return { ok: false, json: null, reason: resp ? `HTTP ${resp.status}` : ac && ac.signal.aborted ? "timed out" : "network error" };
+    const json = await resp.json().catch(() => null);
+    if (ac && ac.signal.aborted) return { ok: false, json: null, reason: "timed out" };
+    return { ok: true, json };
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 // ------------------------------------------------------------ commands
@@ -185,7 +192,7 @@ async function sendCommand(name, payload = {}, opts = {}) {
   // B-843 (v2.0.22): `quiet` = a background sync (Receive counts) - no "Sent" toast, no progress pill,
   // no error toast; the caller retries on its own.
   const quiet = !!(opts && opts.quiet);
-  const res = await sb("commands", {
+  const res = await sb("commands", { timeoutMs: Number(opts && opts.timeoutMs) || 0, // B-2039: only rcSync asks for one
     // ⚠ P-28 (v2.93): was `return=minimal`, which threw away the row id -
     // and with it any way to ever find out what happened to the command.
     method: "POST",
@@ -536,6 +543,7 @@ async function loadDevices() {
   }
 }
 
+const plainNote = (s) => (self.ShopperPlain ? self.ShopperPlain.note(s) : String(s == null ? "" : s)); // B-2073 (v2.0.158)
 function escapeHtml(s) {
   return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
@@ -545,7 +553,8 @@ function escapeHtml(s) {
 // the banner only ever repeated what the laptop last SAID. A live laptop
 // rewrites its row at least every 45s (HEARTBEAT_MAX_INTERVAL_MS), so 3
 // minutes without a write is four missed cycles: say so, on every tab.
-const LAPTOP_STALE_MS = 3 * 60 * 1000;
+// B-2068 (v2.0.158): Zach 11/12 - stale only after 10 min (was 3).
+const LAPTOP_STALE_MS = 10 * 60 * 1000;
 
 // B-544 (v4.68): Shopper's times are US Central (Pacific only for events at
 // the prep center) - shown the same on the phone, not in the phone's own zone.
@@ -565,7 +574,14 @@ function laptopStaleness(updatedAtIso, nowMs) {
   const m = Math.round((nowMs - t) / 60000);
   const h = Math.round(m / 60);
   const ago = m < 60 ? m + " min ago" : h < 48 ? h + " h ago" : Math.round(h / 24) + " days ago";
-  return (deviceName || "The computer") + " has not published since " + when + " (" + ago + ") - it reconnects by itself (B-1642); what you see is its last update.";
+  return (deviceName || "The computer") + " has not published since " + when + " (" + ago + ") - it reconnects by itself; what you see is its last update.";
+}
+// B-2068 (v2.0.158): the short form for the header chip ("Optiplex · 12 min ago"); "" when fresh. The full sentence goes behind the tap.
+function laptopStaleShort(updatedAtIso, nowMs) {
+  const t = Date.parse(updatedAtIso || "");
+  if (!Number.isFinite(t) || nowMs - t <= LAPTOP_STALE_MS) return "";
+  const m = Math.round((nowMs - t) / 60000), h = Math.round(m / 60);
+  return (deviceName || "The computer") + " · " + (m < 60 ? m + " min ago" : h < 48 ? h + " h ago" : Math.round(h / 24) + " days ago");
 }
 
 // The banner Zach asked for: "running" and "go to the machine" must never
@@ -576,10 +592,11 @@ function renderLiveness(live) {
   if (stale) {
     b.hidden = false;
     b.className = "live-banner tone-offline";
-    b.textContent = stale;
+    b.textContent = laptopStaleShort(lastUpdatedAt, Date.now()) || stale;
+    b.dataset.full = stale;
     return;
   }
-  if (!live) { b.hidden = true; return; }
+  if (!live) { b.hidden = true; b.dataset.full = ""; return; }
   b.hidden = false;
   b.className = `live-banner tone-${live.status}`;
   const label = {
@@ -592,7 +609,8 @@ function renderLiveness(live) {
     finished: "Finished",
     idle: "Idle",
   }[live.status] || live.status;
-  b.textContent = live.reason ? `${label} - ${live.reason}` : label;
+  b.textContent = label; // B-2068: one word in the bar; the reason behind the tap
+  b.dataset.full = live.reason ? `${label} - ${live.reason}` : "";
 }
 
 function renderPayload() {
@@ -620,6 +638,8 @@ function renderPayload() {
     // \u26a0 `el.hidden`, never a class - this app has no `.hidden` rule and
     // v2.94 pinned [hidden] as the last rule precisely so this works.
     els.tDefaultNote.hidden = !note;
+    // B-2069 (v2.0.158): the goal's source sits behind an ⓘ by "Left today".
+    if (self.ShopperInfoTip) { self.ShopperInfoTip.add(document.querySelector("#tDayLeftBox .t-label"), note, { id: "run-default" }); els.tDefaultNote.hidden = true; }
   }
   els.tToday.textContent = money(p.day && p.day.spentToday);
   els.tBought.textContent = String((run && run.linesBought) || 0);
@@ -659,7 +679,7 @@ function renderPayload() {
   if (self.ShopperBuyShotsPhone) { self.ShopperBuyShotsPhone.render(p, bsDeps()); bsAgeStart(); }
   // P-51: entries arrive pre-formatted as strings now (they were objects,
   // which join() turned into "[object Object]" for the whole log).
-  els.log.textContent = (p.log || []).join("\n");
+  els.log.textContent = (p.log || []).map(plainNote).join("\n"); // B-2073 (v2.0.158): no backlog codes on the phone
   renderReport(run);
   // B-774 / B-776 (v2.0.9): Right now, the money band, the outcome counts and
   // the end-of-queue report sheet (remote/run-view.js).
@@ -1008,7 +1028,7 @@ function renderLines(lines, total, truncated, progress) {
       // Status + title only, for scanning a long list - plus the error, if
       // this line is stopped, because a compact view that hides the one
       // thing needing attention is worse than no compact view.
-      row.innerHTML = head + (showError ? `<div class="l-error">${escapeHtml(l.error)}</div>` : "");
+      row.innerHTML = head + (showError ? `<div class="l-error">${escapeHtml(plainNote(l.error))}</div>` : "");
     } else {
       row.innerHTML =
         head +
@@ -1022,8 +1042,8 @@ function renderLines(lines, total, truncated, progress) {
         `${l.orderNumber ? `<div class="l-meta">order ${escapeHtml(l.orderNumber)}</div>` : ""}` +
         syncHtml(l) +
         `${l.sourceUrl ? `<div class="l-meta"><a class="l-src" href="${escapeHtml(l.sourceUrl)}" target="_blank" rel="noopener noreferrer">source</a></div>` : ""}` +
-        `${density === "extended" && l.stopReason ? `<div class="l-meta">${escapeHtml(l.stopReason)}</div>` : ""}` +
-        (showError ? `<div class="l-error">${escapeHtml(l.error)}</div>` : "");
+        `${density === "extended" && l.stopReason ? `<div class="l-meta">${escapeHtml(plainNote(l.stopReason))}</div>` : ""}` +
+        (showError ? `<div class="l-error">${escapeHtml(plainNote(l.error))}</div>` : "");
     }
     const actions = document.createElement("div");
     actions.className = "l-actions";
@@ -1112,6 +1132,11 @@ function renderLines(lines, total, truncated, progress) {
       addSrc.textContent = "Add source URL";
       addSrc.addEventListener("click", () => openSourceUrlForm(row, l));
       actions.appendChild(addSrc);
+      // B-2049 (v2.0.158): the laptop doubted the last link - say why; "Use it anyway" sends that same link with override.
+      if (l.addUrlDoubt && l.addUrlDoubt.url) {
+        row.appendChild(Object.assign(document.createElement("div"), { className: "l-error", textContent: l.addUrlDoubt.why }));
+        actions.appendChild(lineBtn("Use it anyway", "addSourceUrl", { lineId: l.lineId, asin: l.asin, url: l.addUrlDoubt.url, override: true }));
+      }
     }
     if (actions.children.length) row.appendChild(actions);
     els.lines.appendChild(row);
@@ -1577,11 +1602,13 @@ function buylistCard(i) {
   }
   const headText = document.createElement("div");
   headText.className = "bl-headtext";
+  // B-2072 (v2.0.158): no "adjusted list" tag; only past 3x goal / Old Meat and the decision.
+  const statusText = [i.pastGoal ? "past 3\u00d7 goal" : i.section === "offbeat" ? "Old Meat" : "", decisionSuffix(i).replace(/^ \u00b7 /, "")].filter(Boolean).join(" \u00b7 ");
   headText.innerHTML =
     `<div class="l-top"><span class="l-asin">${escapeHtml(i.asin)}</span>` +
     // P-40: "there's no indication if something is prep center or not."
     `${i.prepCenter ? `<span class="pc-badge">Prep Center</span>` : ""}` +
-    `<span class="l-status">${i.pastGoal ? "past 3\u00d7 goal" : i.section === "offbeat" ? "Old Meat" : "adjusted list"}${decisionSuffix(i)}</span></div>` +
+    `${statusText ? `<span class="l-status">${statusText}</span>` : ""}</div>` +
     `<div class="l-title">${escapeHtml(i.title)}</div>`;
   head.appendChild(headText);
   row.appendChild(head);
@@ -1591,23 +1618,23 @@ function buylistCard(i) {
   // B-1741 (v2.0.127): the adjusted quantity first (0 on a line past 3x goal).
   if (i.pastGoal) row.classList.add("bl-past-goal");
   stats.innerHTML =
-    statCell("Qty v3", fmtQty(i.recommendedQty)) + // B-1742
-    statCell("Adjusted", i.adjustedQty != null ? fmtQty(i.adjustedQty) : "-") +
     statCell("Buy qty", fmtQty(i.qty)) +
-    statCell("SB rec", fmtQty(i.sbQty)) +
-    statCell("RP rec", fmtQty(i.rpQtyRaw)) +
-    (i.v3Ordered != null ? statCell("Ordered", fmtQty(i.v3Ordered)) : "") + // B-1806 (v2.0.137): Shopper's own ordered-not-delivered
     (i.v3Cover != null ? statCell("Cover", fmtQty(i.v3Cover) + "d") : "") + // B-1717 (v2.0.126): Quantity v3 days of cover
     statCell("SB mgn", fmtPct(i.sbMarginPct)) +
     statCell("RP mgn", fmtPct(i.rpMarginPct));
-  if (i.v3Owned) stats.title = i.v3Owned; // B-1806: every owned stage behind Quantity v3
   row.appendChild(stats);
-  if (i.v3Owned) { const own = document.createElement("div"); own.className = "bl-owned muted"; own.textContent = i.v3Owned; row.appendChild(own); }
+  let ownEl = null; // B-2072 (v2.0.158): the Owned formula sits under More, not on the card
+  if (i.v3Owned) { ownEl = document.createElement("div"); ownEl.className = "bl-owned muted"; ownEl.textContent = i.v3Owned; }
   if (i.v3LossPct != null) { const lo = document.createElement("div"); lo.className = "bl-owned bl-loss"; lo.textContent = "Amazon loss " + i.v3LossPct + "% of what it received (90 days) - check for a reimbursement"; row.appendChild(lo); } // B-1811
+  else if (i.v3LossUnits != null) { const lo = document.createElement("div"); lo.className = "bl-owned bl-loss"; lo.textContent = "Amazon lost " + i.v3LossUnits + " units (90 days, older stock) - check for a reimbursement"; row.appendChild(lo); } // B-2058
 
   const more = document.createElement("div");
   more.className = "bl-more";
   more.innerHTML =
+    statCell("Qty v3", fmtQty(i.recommendedQty)) + // B-1742 (B-2072: moved under More)
+    statCell("Adjusted", i.adjustedQty != null ? fmtQty(i.adjustedQty) : "-") +
+    statCell("SB rec", fmtQty(i.sbQty)) + statCell("RP rec", fmtQty(i.rpQtyRaw)) +
+    (i.v3Ordered != null ? statCell("Ordered", fmtQty(i.v3Ordered)) : "") + // B-1806 (v2.0.137): Shopper's own ordered-not-delivered
     statCell("Rank", Number.isFinite(i.rank) ? String(Math.round(i.rank)) : "-") + // B-1740 (v2.0.127)
     statCell("Unit cost", i.unitCost != null ? money(i.unitCost) : "-") +
     statCell("SB ROI", fmtPct(i.sbRoiPct)) +
@@ -1707,7 +1734,7 @@ function buylistCard(i) {
   pcCheckbox.addEventListener("change", () => buylistSetPrepCenter(i.asin, pcCheckbox.checked));
   pcLabel.append(pcCheckbox, document.createTextNode("Prep Center"));
   moves.appendChild(pcLabel);
-  sheetBox.append(moves, more);
+  sheetBox.append(moves, more); if (ownEl) sheetBox.append(ownEl); // B-2072: the Owned formula under More
 
   const qty = document.createElement("input");
   qty.type = "number";
@@ -2091,7 +2118,7 @@ function reportParts(report) {
   const urgent = report.urgentTodo || [];
   const urgentHtml = urgent.length
     ? `<h3 class="report-urgent-head">Urgent - needs you (${urgent.length})</h3>` +
-      urgent.map((t) => `<div class="report-urgent-item">${escapeHtml(t.text)}</div>`).join("")
+      urgent.map((t) => `<div class="report-urgent-item">${escapeHtml(plainNote(t.text))}</div>`).join("")
     : "";
 
   const v = report.verification || {};
@@ -2119,7 +2146,7 @@ function reportParts(report) {
     (checks.length ? `<div class="report-checks">${checks.map((c) => `<div>${c}</div>`).join("")}</div>` : "") +
     ((report.manualTodo || []).length
       ? `<details class="report-manual"><summary>To do by hand (${report.manualTodo.length})</summary>` +
-        report.manualTodo.map((t) => `<div class="report-manual-item">${escapeHtml(t)}</div>`).join("") +
+        report.manualTodo.map((t) => `<div class="report-manual-item">${escapeHtml(plainNote(t))}</div>`).join("") +
         `</details>`
       : "");
 
@@ -2135,7 +2162,7 @@ function reportParts(report) {
             `<div class="report-line"><span class="report-line-asin">${escapeHtml(l.asin)}</span>` +
             `<span class="report-line-title">${escapeHtml(l.title)}</span>` +
             `<span class="report-line-qty">${l.boughtQty}/${l.qty} · ${money(l.spentDollars)}${RL && (l.endedOutOfStock || l.limitReached || l.recoveryDefect) ? ` · ${escapeHtml(RL.outcomeLabel(l, QUEUE_STATUS_LABELS))}` : ""}</span>` +
-            `${l.stopReason || l.error ? `<span class="report-line-note">${escapeHtml(l.stopReason || l.error)}</span>` : ""}</div>`
+            `${l.stopReason || l.error ? `<span class="report-line-note">${escapeHtml(plainNote(l.stopReason || l.error))}</span>` : ""}</div>`
         )
         .join("");
       return (
@@ -2413,7 +2440,8 @@ function invArrivalBox(title, box, tone, kind) {
   head.appendChild(invNode("b", null, title));
   head.appendChild(invNode("span", "count", box.rowCount + " product(s) · " + invUnits(box.units) + "u"));
   wrap.appendChild(head);
-  if (box.why) wrap.appendChild(invNode("div", "muted inv-box-why", box.why)); // B-1817
+  if (box.why && self.ShopperInfoTip) self.ShopperInfoTip.add(head.querySelector("b"), box.why, { id: "arr-why:" + title }); // B-2069 (v2.0.158)
+  else if (box.why) wrap.appendChild(invNode("div", "muted inv-box-why", box.why)); // B-1817
   if (!box.rows.length) {
     wrap.appendChild(invNode("div", "muted", "Nothing."));
     return wrap;
@@ -2475,7 +2503,8 @@ function renderInventory(inv) {
     const c = a.counts;
     // B-1073 (v2.0.55): the heading shows how many rows (the section folds to it); the "~" note moved under it.
     els.invArrivalsCount.textContent = String((c.overdue || 0) + (c.today || 0) + (c.tomorrow || 0) + (c.later || 0) + (c.undated || 0));
-    if (c.guessed) els.invArrivals.appendChild(invNode("p", "muted small", "~ = estimated from past lead time"));
+    if (self.ShopperInfoTip) self.ShopperInfoTip.add(els.invArrivalsCount.parentNode, c.guessed ? "~ = estimated from past lead time" : "", { id: "arr-guess" }); // B-2069 (v2.0.158)
+    else if (c.guessed) els.invArrivals.appendChild(invNode("p", "muted small", "~ = estimated from past lead time"));
     if (a.overdue.rowCount) els.invArrivals.appendChild(invArrivalBox("Overdue", a.overdue, "bad", "overdue"));
     els.invArrivals.appendChild(invArrivalBox("Today", a.today, "good"));
     els.invArrivals.appendChild(invArrivalBox("Tomorrow", a.tomorrow));
@@ -2565,6 +2594,7 @@ const rcSync = { started: false, pending: new Map(), timer: null, lastSent: new 
 const RC_SYNC_BULK_MAX = 100;
 const RC_SYNC_CHAIN_MAX = 8;
 const RC_SYNC_ASK_MAX = 3;
+const RC_SYNC_TIMEOUT_MS = 20000; // B-2039: a send / question that never answers ends here (send = in doubt, question = failed)
 const rcSyncSid = () => Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10); // B-2032: the command's tag
 const rcSyncTrim = (c) => (c.length > RC_SYNC_CHAIN_MAX ? c.slice(0, RC_SYNC_CHAIN_MAX - 1).concat(c[c.length - 1]) : c); // the known end stays
 function rcSyncSend(e, bases) {
@@ -2595,7 +2625,7 @@ function rcSyncFlush() {
     const sid = rcSyncSid();
     rcSync.sending++;
     // B-2032: null = no answer (the row may still have landed: in doubt); undefined = never left (no laptop paired)
-    sendCommand("receiveTallySet", part.length === 1 ? { ...part[0], sid } : { edits: part, sid }, { quiet: true }).then((id) => (id ? rcSyncSent(part, true) : id === null ? rcSyncDoubt(part, sid) : rcSyncSent(part, false))).catch(() => {}).finally(() => { rcSync.sending--; rcSyncLetHeld(); });
+    sendCommand("receiveTallySet", part.length === 1 ? { ...part[0], sid } : { edits: part, sid }, { quiet: true, timeoutMs: RC_SYNC_TIMEOUT_MS }).then((id) => (id ? rcSyncSent(part, true) : id === null ? rcSyncDoubt(part, sid) : rcSyncSent(part, false))).catch(() => {}).finally(() => { rcSync.sending--; rcSyncLetHeld(); });
   }
 }
 // B-2003: a command left the phone (its list heads the chain) or did not (it goes again before the next payload is merged)
@@ -2628,7 +2658,7 @@ async function rcSyncAsk() {
   try {
     for (const sid of new Set([...rcSync.doubt.values()].map((d) => d.sid))) {
       let res = null;
-      try { res = await sb(`commands?name=eq.receiveTallySet&payload->>sid=eq.${encodeURIComponent(sid)}&select=status&limit=1`); } catch (e) { res = null; }
+      try { res = await sb(`commands?name=eq.receiveTallySet&payload->>sid=eq.${encodeURIComponent(sid)}&select=status&limit=1`, { timeoutMs: RC_SYNC_TIMEOUT_MS }); } catch (e) { res = null; }
       const rows = res && res.ok && Array.isArray(res.json) ? res.json : null;
       if (!rows && ++rcSync.asks < RC_SYNC_ASK_MAX) break; // no answer: asked again at the next payload
       const st = rows && rows[0] ? String(rows[0].status || "") : "";
@@ -3267,7 +3297,7 @@ function renderBank(sp) {
     top.appendChild(invNode("span", "bank-what", r.title || r.asin || r.flag || "Entry"));
     top.appendChild(invNode("b", "bank-amt", r.totalDollars == null ? "-" : (r.totalDollars < 0 ? "-" : "") + dashMoney(Math.abs(r.totalDollars))));
     row.appendChild(top);
-    const meta = [r.date, r.units != null ? r.units + "u" : "", r.runningBalance != null ? "balance " + dashMoney(r.runningBalance) : "", r.flag]
+    const meta = [r.date, r.units != null ? r.units + "u" : "", r.runningBalance != null ? "balance " + dashMoney(r.runningBalance) : "", plainNote(r.flag)]
       .filter(Boolean)
       .join(" · ");
     if (meta) row.appendChild(invNode("div", "l-meta", meta));

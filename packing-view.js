@@ -124,7 +124,10 @@
     const b = el("button", "rc-btn pk-entry-btn", "Packing data");
     b.type = "button";
     b.addEventListener("click", open);
-    wrap.append(b, el("div", "pk-entry-note", "Size, weight and prep for the products in a shipment."));
+    wrap.append(b);
+    // B-2069 (v2.0.158): the caption sits behind an ⓘ beside the button.
+    if (self.ShopperInfoTip) self.ShopperInfoTip.add(wrap, "Size, weight and prep for the products in a shipment.", { id: "ship-pk", after: b });
+    else wrap.append(el("div", "pk-entry-note", "Size, weight and prep for the products in a shipment."));
     host.appendChild(wrap);
   }
 

@@ -19,6 +19,20 @@
     if (!(n > 0)) return "";
     try { return new Date(n).toLocaleString("en-US", { timeZone: "America/Chicago", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) + " CT"; } catch (e) { return ""; }
   }
+  // B-2073 (v2.0.158): plain words for the progress figures; a camelCase key never shows.
+  var PROG = { unitsTarget: "Units target", unitsOrdered: "Units ordered", ordersPlaced: "Orders placed", ordersPlanned: "Orders planned", dollarsSpent: "Spent", dollarsTarget: "Dollar target" };
+  function plain(v) { return root.ShopperPlain ? root.ShopperPlain.note(v) : String(v == null ? "" : v); }
+  function keyWords(k) { var t = String(k).replace(/([a-z0-9])([A-Z])/g, "$1 $2").toLowerCase(); return t.charAt(0).toUpperCase() + t.slice(1); }
+  function progressRows(card, prog) {
+    Object.keys(prog).slice(0, 12).forEach(function (k) {
+      var v = prog[k];
+      if (v && typeof v === "object") return;
+      if (v == null || v === "" || k === "ordersPlannedEstimated") return;
+      if (/^dollars/.test(k) && Number.isFinite(Number(v))) { kv(card, PROG[k] || keyWords(k), "$" + Number(v).toFixed(2)); return; }
+      if (k === "ordersPlanned") { kv(card, PROG[k], v + (prog.ordersPlannedEstimated === true ? " (estimated)" : "")); return; }
+      kv(card, PROG[k] || keyWords(k), typeof v === "string" ? plain(v) : v);
+    });
+  }
   function kv(box, k, v) {
     if (v == null || v === "") return;
     var r = U.el("div", "pg-kv small");
@@ -56,10 +70,16 @@
     kv(card, "Started", when(run.startedAt));
     kv(card, "Finished", when(run.finishedAt));
     var prog = run.progress && typeof run.progress === "object" ? run.progress : null;
-    if (prog) Object.keys(prog).slice(0, 8).forEach(function (k) { if (typeof prog[k] !== "object") kv(card, k, prog[k]); });
+    if (prog) progressRows(card, prog);
     if (run.pendingApproval) kv(card, "Waiting", "for an approval - answer it on the Buy Queue tab or the computer");
     var res = run.result && typeof run.result === "object" ? run.result : null;
-    if (res) kv(card, "Result", (res.ok ? "done" : "stopped") + (res.reason ? " - " + res.reason : "") + (res.boughtQty != null ? "; bought " + res.boughtQty : "") + (res.spentDollars != null ? "; spent $" + res.spentDollars : ""));
+    if (res) {
+      // The laptop status page's own rule (status/status.js outcomeCopy): the result's totals, the progress as the fallback.
+      var pg = prog || {};
+      var pick = function (a, b) { return a != null ? Number(a) : b != null && Number.isFinite(Number(b)) ? Number(b) : 0; };
+      var units = pick(res.totalQtyOrdered, pg.unitsOrdered), dollars = pick(res.totalDollarOrdered, pg.dollarsSpent), orders = pick(res.ordersPlaced, pg.ordersPlaced);
+      kv(card, "Result", (res.ok ? "done" : "stopped") + " - " + orders + " order(s), " + units + " unit(s), $" + dollars.toFixed(2) + (res.reason ? " - " + plain(res.reason) : ""));
+    }
     sec.appendChild(card);
     if (!finished) {
       var acts = U.el("div", "pg-row");
@@ -74,10 +94,11 @@
       sec.appendChild(acts);
     }
     var log = Array.isArray(run.log) ? run.log.slice(-30) : [];
+    if (!log.length) { var lg0 = U.section("Log"); lg0.appendChild(U.el("p", "muted", "No run log lines yet.")); pane.appendChild(lg0); }
     if (log.length) {
       var lg = U.section("Log");
       var pre = U.el("pre", "pg-log small");
-      pre.textContent = log.map(function (l) { return typeof l === "string" ? l : (l && l.text) || ""; }).join("\n").slice(0, 6000);
+      pre.textContent = log.map(function (l) { return plain(typeof l === "string" ? l : (l && l.text) || ""); }).join("\n").slice(0, 6000);
       lg.appendChild(pre);
       pane.appendChild(lg);
     }

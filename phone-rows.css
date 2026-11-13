@@ -1,0 +1,16 @@
+/* B-2071 / B-2072 (v2.0.158): phone rows - Edit fold, Checks menu, Buylist card, Not fully bought, Ship step 1. */
+.lhm-ss-editbtn { margin: 4px 0; }
+.lhm-ss-fold[hidden] { display: none; }
+.ops-checks-menu > summary { cursor: pointer; font-weight: 700; list-style: none; min-height: 32px; display: flex; align-items: center; }
+.ops-checks-menu > summary::-webkit-details-marker { display: none; }
+:root[data-theme="retro"] .ops-checks-menu > summary { font-family: var(--s-pixel); }
+#buylistItems .bl-stats { grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); }
+:root[data-theme="retro"] #buylistItems .bl-stats { grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); }
+.co-note { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+.co-note.co-note-open { white-space: normal; overflow: visible; text-overflow: clip; }
+.co-extra { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; flex-basis: 100%; }
+.co-extra[hidden] { display: none; }
+#wizardPane .wz-row:not(.srf-open) > .wz-row-actions.srf-folded { display: none; }
+#wizardPane .wz-row-head:has(.srf-more) { display: flex; gap: 6px; align-items: start; }
+.srf-more { margin-left: auto; flex: none; }
+#wizardPane .wz-row-head:has(.srf-more) .wz-row-sub { flex: none; white-space: nowrap; }

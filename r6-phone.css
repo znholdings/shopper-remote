@@ -1,0 +1,34 @@
+/* remote/r6-phone.css - v2.0.158 group R6: shared folds (B-2057 / B-2070), dark text inputs, arrival edge stripes, Books rules (B-2074). */
+
+/* ---- folds (remote/fold-shared.js, remote/fold-targets.js) ---- */
+.sfold-hide { display: none !important; }
+.sfold-det-btn { min-height: 36px; width: 100%; text-align: left; margin: 4px 0; }
+.sfold-det { margin: 4px 0; }
+.sfold-count { margin-left: 6px; }
+details.sfold-more { margin: 8px 0 0; }
+details.sfold-more > summary { list-style: none; display: inline-flex; align-items: center; justify-content: center; min-width: 40px; min-height: 40px; cursor: pointer; font-size: 20px; border: 1px solid var(--s-line); border-radius: 8px; padding: 0 12px; color: var(--s-text-muted); }
+details.sfold-more > summary::-webkit-details-marker { display: none; }
+details.sfold-more[open] > summary { margin-bottom: 8px; }
+
+/* ---- dark theme: text inputs, selects, textareas (Ask Shopper, Qty, Note ...) ---- */
+:root[data-theme="dark"] :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]), select, textarea) { background: var(--s-n0); color: var(--s-n7); border: 1px solid var(--s-n3); }
+:root[data-theme="dark"] :is(input, textarea)::placeholder { color: var(--s-n5); opacity: 1; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-theme="retro"]) :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]), select, textarea) { background: var(--s-n0); color: var(--s-n7); border: 1px solid var(--s-n3); }
+  :root:not([data-theme="light"]):not([data-theme="retro"]) :is(input, textarea)::placeholder { color: var(--s-n5); opacity: 1; }
+}
+
+/* ---- Arrivals rows: a 6px edge stripe instead of a full yellow / cyan fill (all themes) ---- */
+.line.inv-arrival.dest-prep:not(#no-id), .line.inv-arrival.dest-house:not(#no-id) { background: var(--s-surface); color: var(--s-text); }
+.line.inv-arrival.dest-prep:not(#no-id) { border-left: 6px solid var(--s-dest-prep); }
+.line.inv-arrival.dest-house:not(#no-id) { border-left: 6px solid var(--s-dest-house); }
+.line.inv-arrival.dest-prep:not(#no-id) .inv-title, .line.inv-arrival.dest-prep:not(#no-id) .inv-units,
+.line.inv-arrival.dest-house:not(#no-id) .inv-title, .line.inv-arrival.dest-house:not(#no-id) .inv-units { color: var(--s-text); }
+.line.inv-arrival.dest-prep:not(#no-id) .l-meta, .line.inv-arrival.dest-prep:not(#no-id) .muted,
+.line.inv-arrival.dest-house:not(#no-id) .l-meta, .line.inv-arrival.dest-house:not(#no-id) .muted { color: var(--s-text-muted); }
+
+/* ---- Books rules: one line per rule + a search ---- */
+.pg-rule { cursor: pointer; padding: 8px 10px; overflow-wrap: anywhere; }
+.pg-rule.pg-rule-miss, .pg-rule-note.pg-rule-miss { display: none; }
+.pg-rule-note { margin: -4px 0 6px; padding: 0 10px; }
+input.pg-rule-search { width: 100%; box-sizing: border-box; min-height: 40px; margin: 6px 0; }

@@ -17,7 +17,7 @@
 
   function build() {
     pane.textContent = "";
-    var add = U.section("Add to the Blacklist");
+    var add = U.section("+ Add to the Blacklist");
     f.asin = U.input("text", { placeholder: "ASIN", autocapitalize: "characters", maxlength: "10" });
     f.title = U.input("text", { placeholder: "Title (optional)", maxlength: "200" });
     f.reason = U.input("text", { placeholder: "Why (optional)", maxlength: "200" });

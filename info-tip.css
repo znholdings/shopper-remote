@@ -1,0 +1,8 @@
+/* B-2069 (v2.0.158): the shared explainer "ⓘ" (reuses .c55-info from ui55-c.css). */
+:root body .it-btn.c55-info { min-width: 24px; height: 24px; min-height: 24px; padding: 0 4px; margin: 0 0 0 6px; font-size: 14px; line-height: 1; vertical-align: middle; flex: none; }
+:root[data-theme="retro"] body .it-btn.c55-info { font-size: 14px !important; min-height: 24px; }
+.it-text { margin: 4px 0 8px; white-space: normal; overflow-wrap: break-word; }
+.it-text[hidden] { display: none; }
+#booksPane .bkm-card .section-head > .it-btn { margin-right: auto; }
+/* v2.0.158 merge: an ⓘ sits in a fold's heading, so its opened text must show even while the fold below it is closed. */
+.s55-sec.s55-closed > .it-text:not([hidden]) { display: block !important; }

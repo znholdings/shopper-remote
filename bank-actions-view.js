@@ -45,6 +45,7 @@
     const host = el("div", "section bnx-box");
     host.id = "bankActionsHost";
     host.appendChild(el("h3", "", "Manual entry"));
+    if (self.ShopperInfoTip) self.ShopperInfoTip.add(host.lastElementChild, "Update (CSV) is a file upload - do that on the computer.", { id: "bank-csv" }); // B-2069 (v2.0.158)
     const note = el("input", "");
     note.type = "text"; note.maxLength = 200; note.placeholder = "Note"; note.setAttribute("aria-label", "Note");
     const amt = el("input", "qty-input");
@@ -63,7 +64,7 @@
       }
     }));
     host.appendChild(row);
-    host.appendChild(el("p", "muted small", "Update (CSV) is a file upload - do that on the computer."));
+    if (!self.ShopperInfoTip) host.appendChild(el("p", "muted small", "Update (CSV) is a file upload - do that on the computer."));
     rows.parentNode.insertBefore(host, rows.nextSibling);
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", build); else build();

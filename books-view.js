@@ -128,13 +128,16 @@
     host.append(needs);
     const closed = data.monthsClosed || [];
     const open = data.monthsOpen || [];
-    host.append(tile("months", "Months", `${closed.length} closed`, open.length ? `open: ${open.map(shortMonth).join(", ")}` : "none open"));
+    host.append(tile("months", "Months", `${closed.length} closed`, open.length ? `${open.length} open` : "none open"));
+    if (self.ShopperInfoTip) self.ShopperInfoTip.add(host.lastElementChild.querySelector(".t-label"), open.length ? "Open: " + open.map(shortMonth).join(", ") : "", { id: "bk-months" }); // B-2069 (v2.0.158)
     // B-1840 (v2.0.139): the Tie-outs tile - each total the Books can be held against, and whether it is off.
     const tie = data.tieout && Array.isArray(data.tieout.rows) ? data.tieout.rows : null;
     if (tie) {
       const off = tie.filter((r) => r.state === "off");
-      const t = tile("tieout", "Tie-outs", off.length ? `${off.length} off` : "all tie", tie.length ? `${tie.length} checked` : "nothing checked yet");
+      const t = tile("tieout", "Tie-outs", off.length ? `${off.length} off` : "all tie", tie.length ? `${tie.length} checked` : "nothing checked yet", true); // B-2074: wide, not a half-width column
       const list = el("div", "gl-tie-rows");
+      const okList = el("div", "gl-tie-rows gl-tie-ok"); // B-2070: the OK rows sit behind one fold
+      let okCount = 0;
       for (const r of tie) {
         const row = el("div", "gl-tie-row");
         row.dataset.state = r.state;
@@ -145,8 +148,12 @@
         // v2.0.143 (B-1875): the unmatched orders of an OFF purchases row (first 5) and the Gmail card proof.
         if (r.state === "off" && Array.isArray(r.unmatched) && r.unmatched.length) {
           const box = el("div", "gl-tie-unmatched");
-          for (const u of r.unmatched.slice(0, 5)) box.append(el("span", "dash-money gl-sub", `${u.r || "?"} ${u.n} ${u.d} ${money(u.gap)}`));
-          if (r.unmatched.length > 5) box.append(el("span", "dash-money gl-sub", `+${r.unmatched.length - 5} more`));
+          const ordersBox = el("div", "gl-tie-orders");
+          for (const u of r.unmatched.slice(0, 5)) ordersBox.append(el("span", "dash-money gl-sub", `${u.r || "?"} ${u.n} ${u.d} ${money(u.gap)}`));
+          if (r.unmatched.length > 5) ordersBox.append(el("span", "dash-money gl-sub", `+${r.unmatched.length - 5} more`));
+          // B-2070: the order list folds (the Gmail button and its note stay visible).
+          if (self.ShopperFold && self.ShopperFold.details) box.append(self.ShopperFold.details(`+${r.unmatched.length} orders`, "books:tieOrders", ordersBox));
+          else box.append(ordersBox);
           const pb = el("button", "primary-btn bkm-book", "Find the card (Gmail)");
           pb.type = "button";
           pb.disabled = !!sending;
@@ -156,7 +163,11 @@
           if (pn) box.append(el("div", "bkm-note muted small", pn.text));
           row.append(box);
         }
-        list.append(row);
+        if (r.state === "ok") { okList.append(row); okCount++; } else list.append(row);
+      }
+      if (okCount) {
+        if (self.ShopperFold && self.ShopperFold.details) list.append(self.ShopperFold.details(`${okCount} OK`, "books:tieOk", okList));
+        else list.append(okList);
       }
       t.append(list);
       host.append(t);
@@ -313,7 +324,9 @@
     if (!data) { s.textContent = "Waiting for the laptop's Books..."; return; }
     const at = Number(data.at) || 0;
     const mins = at ? Math.max(0, Math.round((Date.now() - at) / 60000)) : null;
-    s.textContent = `${data.month ? monthLabel(data.month) + " · " : ""}read from the Books ${mins == null ? "" : mins < 1 ? "just now" : `${mins} min ago`} (again every 10 minutes and after each change).`;
+    // B-2069 (v2.0.158): "Nov 2026 · read 7 min ago"; how often it is read sits behind an ⓘ.
+    s.textContent = `${data.month ? monthLabel(data.month) + " · " : ""}read ${mins == null ? "" : mins < 1 ? "just now" : `${mins} min ago`}`;
+    if (self.ShopperInfoTip) self.ShopperInfoTip.add(s, "Read from the Books; again every 10 minutes and after each change.", { id: "bk-status" });
   }
 
   function draw() {

@@ -14,6 +14,7 @@
   if (typeof REMOTE_LABELS !== "undefined") Object.assign(REMOTE_LABELS, { booksRulesAdd: "Books rules: add", booksRulesSet: "Books rules: save", booksLoanSet: "Books loan: save", booksLoanRemove: "Books loan: remove" });
   var sig = "\u0000";
   var f = {};
+  var ruleQuery = ""; // the search box keeps its text across redraws (B-2074)
 
   function accName(a) { return Array.isArray(a) ? String(a[1] || "") : String((a && a.name) || ""); }
   function accCode(a) { return Array.isArray(a) ? String(a[0]) : String((a && a.code) || ""); }
@@ -50,13 +51,45 @@
     rs.firstChild.appendChild(doc.createTextNode(" "));
     rs.firstChild.appendChild(U.el("span", "count", rules.length));
     if (!rules.length) rs.appendChild(U.el("p", "muted small", "No rules yet."));
+    // B-2074: one line per rule - "MERCHANT -> 6140 Software (9)"; a tap shows the note. A search above filters by key / account / note.
+    var names = {};
+    (Array.isArray(d.accounts) ? d.accounts : []).forEach(function (a) { names[accCode(a)] = accName(a); });
+    var search = doc.createElement("input");
+    search.type = "search";
+    search.className = "pg-rule-search";
+    search.placeholder = "Search rules";
+    search.setAttribute("aria-label", "Search rules");
+    search.value = ruleQuery;
+    rs.appendChild(search);
+    var items = [];
     rules.forEach(function (r) {
-      var row = U.el("div", "line pg-rule");
-      row.appendChild(U.el("b", "", String(r.key).slice(0, 120)));
-      row.appendChild(U.el("span", "muted small", " -> " + String(r.account).slice(0, 120) + (r.count ? " (" + r.count + ")" : "")));
-      if (r.note) row.appendChild(U.el("div", "muted small", String(r.note).slice(0, 200)));
+      var code = String(r.account == null ? "" : r.account).slice(0, 20);
+      var first = String(names[code] || "").trim().split(/\s+/)[0] || "";
+      var text = String(r.key).slice(0, 120) + " \u2192 " + code + (first ? " " + first : "") + (r.count ? " (" + r.count + ")" : "");
+      var row = U.el("div", "line pg-rule", text);
+      var note = r.note ? String(r.note).slice(0, 200) : "";
+      var noteEl = null;
+      if (note) {
+        row.title = note;
+        noteEl = U.el("div", "muted small pg-rule-note", note);
+        noteEl.hidden = true;
+        row.addEventListener("click", function () { noteEl.hidden = !noteEl.hidden; });
+      }
       rs.appendChild(row);
+      if (noteEl) rs.appendChild(noteEl);
+      items.push({ row: row, noteEl: noteEl, hay: (text + " " + (names[code] || "") + " " + note).toLowerCase() });
     });
+    function applyFilter() {
+      ruleQuery = search.value;
+      var q = ruleQuery.trim().toLowerCase();
+      items.forEach(function (it) {
+        var miss = !!q && it.hay.indexOf(q) < 0;
+        it.row.classList.toggle("pg-rule-miss", miss);
+        if (it.noteEl) it.noteEl.classList.toggle("pg-rule-miss", miss);
+      });
+    }
+    search.addEventListener("input", applyFilter);
+    applyFilter();
     pane.appendChild(rs);
 
     var loans = Array.isArray(d.loans) ? d.loans.slice(0, 20) : [];

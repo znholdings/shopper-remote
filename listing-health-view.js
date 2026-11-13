@@ -36,6 +36,7 @@
   // B-1198: the laptop's recent sends (p.recent), typed values and each row's send, by SKU.
   let recent = null;
   const drafts = {};
+  const editOpen = new Set(); // B-2071 (v2.0.158): Aged / No sales rows whose Edit is open (this phone, in memory)
   const sends = {};
   let sendingSku = null;
   const CLOCK_SLACK_MS = 2 * 60000; // phone vs laptop clocks, when matching a recent send to this tap
@@ -173,16 +174,37 @@
     }
     redraw();
   }
-  function ssBlock(r, presetsIn) {
+  function ssBlock(r, presetsIn, opts) {
+    const compact = !!(opts && opts.compact); // B-2071: Aged / No sales rows fold the editor behind Edit; the Min cards call with 2 arguments and stay as they were
     const box = el("div", "lhm-ss");
     const sp = r && r.sp;
     if (!sp || !sp.sku) {
       box.append(el("div", "muted small lhm-ss-now", "not in Seller Snap"));
       return box;
     }
-    box.append(el("div", "muted small lhm-ss-now", ssNowText(sp)));
-    if (!P || !P.prValidate) return box;
+    if (!compact) box.append(el("div", "muted small lhm-ss-now", ssNowText(sp)));
+    if (!P || !P.prValidate) {
+      if (compact) box.append(el("div", "muted small lhm-ss-now", ssNowText(sp)));
+      return box;
+    }
     const d = drafts[sp.sku] || {};
+    let fold = box; // compact: the editor goes into this fold
+    if (compact) {
+      const sn = sends[sp.sku];
+      const open = editOpen.has(sp.sku) || drafts[sp.sku] != null || !!(sn && (/^(sending|invalid|failed)$/.test(sn.phase) || sn.lossAsk));
+      const eb = el("button", "mini-btn lhm-ss-editbtn", open ? "Close" : "Edit");
+      eb.type = "button";
+      eb.setAttribute("aria-expanded", String(open));
+      eb.addEventListener("click", () => {
+        if (open) { editOpen.delete(sp.sku); delete drafts[sp.sku]; } else editOpen.add(sp.sku);
+        lastKey = ""; render(data);
+      });
+      box.append(eb);
+      fold = el("div", "lhm-ss-fold");
+      fold.hidden = !open;
+      fold.append(el("div", "muted small lhm-ss-now", [`listed ${m2(sp.listed)}`, sp.bb == null ? "BB none" : `BB ${m2(sp.bb)}`, sp.preset ? label(sp.preset) : ""].filter(Boolean).join(" \u00b7 ")));
+      box.append(fold);
+    }
     const busy = !!sendingSku;
     const keep = (patch) => { drafts[sp.sku] = { ...(drafts[sp.sku] || {}), ...patch }; };
     const edit = el("div", "lhm-ss-edit");
@@ -211,7 +233,7 @@
     btn.type = "button";
     btn.disabled = busy;
     edit.append(btn);
-    box.append(edit);
+    fold.append(edit);
     const s = sends[sp.sku];
     let lossBox = null;
     if (d.allowLoss === true || (s && s.lossAsk)) {
@@ -221,7 +243,7 @@
       lossBox.checked = d.allowLoss === true;
       lossBox.disabled = busy;
       lab.append(lossBox, el("span", null, (P && P.LOSS_TICK_LABEL) || "Send below cost (I typed this on purpose)"));
-      box.append(lab);
+      fold.append(lab);
       lossBox.addEventListener("change", () => keep({ allowLoss: lossBox.checked }));
     }
     const st = statusFor(sp);
@@ -250,7 +272,8 @@
   function drawAged(box, a) {
     box.append(el("h3", "ai-h2", "Aged inventory"));
     const st = P.lhAgedStatus(a, Date.now());
-    box.append(el("p", "muted small" + (st.bad ? " warn-text" : ""), st.text));
+    if ((st.bad || !st.known) || !self.ShopperInfoTip) box.append(el("p", "muted small" + (st.bad ? " warn-text" : ""), st.text));
+    else self.ShopperInfoTip.add(box.lastElementChild, st.text, { id: "pr-aged" }); // B-2069 (v2.0.158): the plain status sits behind an ⓘ
     if (!st.known || !a || !a.summary) return;
     const tiles = el("div", "lhm-levels");
     for (const lv of P.AGED_LEVELS) {
@@ -286,7 +309,7 @@
         row.append(el("div", cls, sell.verdict));
         if (sp && sp.lowestFba == null && sp.lowestFbm == null && P.lhOfferLine) { const note = P.lhOfferLine(sp); if (note) row.append(el("div", "muted small", note)); }
       }
-      if ("sp" in r) row.append(ssBlock(r)); // B-1198 (v2.0.68); an older laptop sends no sp
+      if ("sp" in r) row.append(ssBlock(r, undefined, { compact: true })); // B-1198 (v2.0.68); an older laptop sends no sp. B-2071: compact = Edit fold
       list.append(row);
     }
     box.append(list);
@@ -324,7 +347,9 @@
     if (!base.stock || !base.stock.source) { box.append(el("p", "muted small", "No stock figures on file yet.")); return; }
     if (!ns.known) { box.append(el("p", "muted small warn-text", ns.reason)); return; }
     box.append(el("p", "muted small", `${plural(total, "listing")} with stock, no sale in ${win} days${ns.through ? ` through ${ns.through}` : ""} · ${tot ? `${tot.units} units · ${P.lhMoney(tot.value)} at cost` : ""}${ns.warn ? " · " + ns.warn : ""}`));
-    box.append(el("p", "muted small lhm-src", `Stock ${ago(base.stock.at)} (${base.stock.source === "amazon" ? "Amazon" : "Replen Pulse"}) · sales: ${ns.sourceText}`));
+    const srcText = `Stock ${ago(base.stock.at)} (${base.stock.source === "amazon" ? "Amazon" : "Replen Pulse"}) · sales: ${ns.sourceText}`;
+    if (self.ShopperInfoTip) self.ShopperInfoTip.add(head.querySelector("h3"), srcText, { id: "pr-nosales-src" }); // B-2069 (v2.0.158)
+    else box.append(el("p", "muted small lhm-src", srcText));
     if (!ns.rows.length) { box.append(el("p", "muted small", `Every listing with stock sold at least once in the last ${win} days${ns.through ? ` (through ${ns.through})` : ""}.`)); return; }
     const list = el("div", "lhm-list");
     for (const r of nsAll ? ns.rows : ns.rows.slice(0, SHOW_FIRST)) {
@@ -335,7 +360,7 @@
       nums.append(cell("Stock", String(r.avail)), cell("At cost", r.value == null ? "-" : P.lhMoney(r.value)), cell("Last sale", r.sinceText), cell("Price", P.lhPriceVsBb(r.my, r.bb)));
       row.append(nums);
       if (r.restock) row.append(el("div", "muted small", `Last restock ${P.lhShortDay(r.restock)}`));
-      if ("sp" in r) row.append(ssBlock(r)); // B-1198 (v2.0.68); an older laptop sends no sp
+      if ("sp" in r) row.append(ssBlock(r, undefined, { compact: true })); // B-1198 (v2.0.68); an older laptop sends no sp. B-2071: compact = Edit fold
       list.append(row);
     }
     box.append(list);

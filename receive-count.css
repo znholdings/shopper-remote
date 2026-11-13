@@ -209,5 +209,6 @@
 .rc-mode { display: flex; gap: 6px; padding: 4px 0; }
 .rc-mode .rc-mode-btn { flex: 1 1 0; }
 .rc-pcs { padding: 2px 10px; font-size: 13px; color: var(--s-text-muted); font-variant-numeric: tabular-nums; }
-.rc-frac { padding: 2px 10px; font-size: 13px; font-weight: 600; color: var(--s-red-ink); }
+.rc-frac { padding: 2px 10px; font-size: 13px; font-weight: 600; color: var(--s-text-muted); }
+.rc-plus-pc { width: 100%; margin-top: 6px; }
 [hidden] { display: none !important; }

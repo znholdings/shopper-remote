@@ -8,7 +8,7 @@
   var pane = doc.getElementById("competitorsPane");
   if (!P || !pane) return;
   var U = P.ui;
-  if (typeof REMOTE_LABELS !== "undefined") Object.assign(REMOTE_LABELS, { compSeen: "Competitors: tick off", compSeenAll: "Competitors: mark all seen", compUnseen: "Competitors: take the seen mark off", compTrack: "Competitors: pin / drop / add" });
+  if (typeof REMOTE_LABELS !== "undefined") Object.assign(REMOTE_LABELS, { compSeen: "Competitors: tick off", compSeenAll: "Competitors: mark all seen", compUnseen: "Competitors: take the seen mark off", compTrack: "Competitors: pin / drop / add", compRunNow: "Competitors: run now", compRerank: "Competitors: re-rank now" });
 
   var data = null;
   var tab = "candidates";
@@ -134,6 +134,12 @@
       head.appendChild(box);
     }
     head.appendChild(U.el("p", "muted small", "Last read " + (st.lastRunAt ? new Date(st.lastRunAt).toLocaleString() : "never") + " · " + (st.tokensToday || 0) + " of " + (st.cap || 0) + " Keepa tokens used today"));
+    if (data.handover && data.handover.text) head.appendChild(U.el("p", "small", data.handover.text)); // B-2060
+    var runRow = U.el("div", "pg-row"); // B-2060: on a Viewer these are handed to the main computer
+    var sentText = function (res, fallback) { var r = res && res.result; return r && r.handedOver ? "Sent to the " + r.handedTo : fallback; };
+    var rb = U.btn("Run now", "mini-btn", function () { U.send("compRunNow", {}, rb).then(function (res) { U.say(res, sentText(res, "Started")); }); });
+    var rr = U.btn("Re-rank now", "mini-btn", function () { U.send("compRerank", {}, rr).then(function (res) { U.say(res, sentText(res, "Re-ranked")); }); });
+    runRow.appendChild(rb); runRow.appendChild(rr); head.appendChild(runRow);
     if (st.role403) head.appendChild(U.el("p", "small pg-cp-why", "Amazon refused the daily offer read - the SP-API app needs the Pricing role."));
     var tabs = U.el("div", "pg-row");
     [["candidates", "Candidates"], ["sellers", "Sellers"], ["all", "All new"]].forEach(function (t) {
@@ -147,12 +153,17 @@
     else if (tab === "all") pane.appendChild(allTab());
     else {
       var c = data.candidates || { today: [], older: [] };
-      pane.appendChild(list("Found today", c.today || [], true, st.hasData ? "Nothing new today that passes the filters." : "No data yet - the first read runs on the computer after 4 AM Central."));
-      pane.appendChild(list("Earlier, not ticked off", c.older || [], true, "Nothing older is waiting."));
-      var fs = U.section("Filtered (" + (data.filteredTotal || 0) + ")");
-      (data.filtered || []).slice(0, 30).forEach(function (it) { fs.appendChild(row(it, true)); });
-      if (!(data.filtered || []).length) fs.appendChild(U.el("p", "muted small", "Nothing filtered yet."));
-      pane.appendChild(fs);
+      if (!(c.today || []).length && !(c.older || []).length && !(data.filtered || []).length) {
+        // B-2074: three empty headed blocks -> one line.
+        pane.appendChild(U.el("p", "muted small", st.hasData ? "Nothing new - nothing found today, nothing waiting, nothing filtered." : "No data yet - the first read runs on the computer after 4 AM Central."));
+      } else {
+        pane.appendChild(list("Found today", c.today || [], true, st.hasData ? "Nothing new today that passes the filters." : "No data yet - the first read runs on the computer after 4 AM Central."));
+        pane.appendChild(list("Earlier, not ticked off", c.older || [], true, "Nothing older is waiting."));
+        var fs = U.section("Filtered (" + (data.filteredTotal || 0) + ")");
+        (data.filtered || []).slice(0, 30).forEach(function (it) { fs.appendChild(row(it, true)); });
+        if (!(data.filtered || []).length) fs.appendChild(U.el("p", "muted small", "Nothing filtered yet."));
+        pane.appendChild(fs);
+      }
     }
   }
 

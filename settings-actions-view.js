@@ -86,6 +86,8 @@
   }
   const A = self.ShopperOpsAct || (self.ShopperOpsAct = makeAct());
   const { el, toast, btn, run, clip, arr, obj, editing } = A;
+  const plain = (s) => (self.ShopperPlain ? self.ShopperPlain.note(s) : s); // B-2073 (v2.0.158)
+  const when = (v) => (self.ShopperPlain ? self.ShopperPlain.when(v) : clip(v, 30));
 
   Object.assign(typeof REMOTE_LABELS !== "undefined" ? REMOTE_LABELS : {}, {
     nightlyRunNow: "Build tonight's list now", retailerTestStart: "Test a retailer", retailerTestCancel: "Cancel retailer test",
@@ -105,9 +107,19 @@
     for (const s of arr(obj(running).steps).slice(-8)) box.appendChild(el("div", "", clip(typeof s === "string" ? s : s && (s.text || s.line), 160)));
     return box;
   }
-  function results(list) {
+  // B-2070: the newest result shows; the earlier ones sit behind one fold (shared state, key per test).
+  function results(list, key) {
     const box = el("div", "ops-results muted small");
-    for (const r of arr(list).slice(0, 3)) box.appendChild(el("div", "", clip(r.verdict || r.summary || r.text || r.retailer, 200) + (r.at ? " · " + clip(r.at, 30) : "")));
+    const line = (r) => el("div", "", plain(clip(r.verdict || r.summary || r.text || r.retailer, 200)) + (r.at ? " · " + when(r.at) : ""));
+    const all = arr(list).slice(0, 3);
+    if (all.length) box.appendChild(line(all[0]));
+    if (all.length > 1) {
+      const rest = el("div", "ops-results-rest");
+      for (const r of all.slice(1)) rest.appendChild(line(r));
+      const F = self.ShopperFold;
+      if (F && F.details) box.appendChild(F.details("Earlier results (" + (all.length - 1) + ")", key || "settings:tests", rest));
+      else box.appendChild(rest);
+    }
     return box;
   }
   function select(opts, label) {
@@ -151,7 +163,7 @@
       row.append(sel, prod, go);
       c.appendChild(row);
     }
-    if (arr(rt.results).length) c.appendChild(results(rt.results));
+    if (arr(rt.results).length) c.appendChild(results(rt.results, "settings:retailerTests"));
 
     c.appendChild(sub("Test Amazon buy mode"));
     if (asst.running) {
@@ -175,9 +187,11 @@
       row.append(mode, asin, go);
       c.appendChild(row);
     }
-    if (arr(asst.results).length) c.appendChild(results(asst.results));
+    if (arr(asst.results).length) c.appendChild(results(asst.results, "settings:amazonTests"));
 
-    c.appendChild(sub("Pulls"));
+    const pullsHead = sub("Pulls");
+    c.appendChild(pullsHead);
+    if (self.ShopperInfoTip) self.ShopperInfoTip.add(pullsHead, "Connecting accounts, keys and passwords are on the computer.", { id: "stg-connect" }); // B-2069 (v2.0.158)
     const sp = obj(pages.spapi), gu = obj(pages.gusto);
     const pulls = el("div", "ops-row");
     const b1 = btn("Pull Amazon data", "ops-spapi");
@@ -189,10 +203,9 @@
     pulls.append(b1, b2, b3);
     c.appendChild(pulls);
     const lines = [];
-    if (sp.lastPullAt) lines.push("Amazon: last pull " + clip(sp.lastPullAt, 30) + (sp.lastOk === false ? " (failed)" : ""));
-    if (gu.lastPullAt || gu.lastAt) lines.push("Gusto: " + clip(gu.lastPullAt || gu.lastAt, 30));
+    if (sp.lastPullAt) lines.push("Amazon: last pull " + when(sp.lastPullAt) + (sp.lastOk === false ? " (failed)" : ""));
+    if (gu.lastPullAt || gu.lastAt) lines.push("Gusto: " + when(gu.lastPullAt || gu.lastAt));
     if (lines.length) c.appendChild(el("p", "muted small", lines.join(" · ")));
-    c.appendChild(el("p", "muted small", "Connecting accounts, keys and passwords are on the computer."));
     return c;
   }
 

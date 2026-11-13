@@ -96,9 +96,10 @@
   let sig = "";
   const money = (v) => (Number.isFinite(Number(v)) && v !== "" && v != null ? "$" + Number(v).toFixed(2) : "-");
 
-  function checks() {
-    const card = el("section", "ops-card ops-pricing-checks");
-    card.appendChild(el("h3", "", "Checks"));
+  let menuOpen = false; // B-2071 (v2.0.158): the Checks menu's open state (this phone, in memory)
+  const when = (v) => (self.ShopperPlain ? self.ShopperPlain.when(v) : clip(v, 30)); // B-2073
+
+  function checksRow() {
     const row = el("div", "ops-row");
     const aged = btn("Check aged inventory", "ops-aged");
     aged.addEventListener("click", () => run({ name: "agedCheck", payload: {}, btn: aged, ok: "Checking aged inventory on the computer" }));
@@ -109,8 +110,33 @@
       if (a.ok) await run({ name: "pricingErrorsCheck", payload: {}, btn: errs, ok: "Checking pricing errors on the computer" });
     });
     row.append(aged, errs);
-    card.appendChild(row);
+    return row;
+  }
+  function checks() {
+    const card = el("section", "ops-card ops-pricing-checks");
+    card.appendChild(el("h3", "", "Checks"));
+    card.appendChild(checksRow());
     return card;
+  }
+  // B-2071 (v2.0.158): Check aged / Check pricing errors / Run COGS check and their last-run lines in ONE closed menu.
+  function checksMenu(cogs) {
+    const c = obj(cogs), check = obj(c.check);
+    const n = arr(check.rows).length;
+    const d = el("details", "ops-card ops-checks-menu");
+    d.open = menuOpen;
+    const sum = el("summary", "ops-menu-sum", "⋯ Checks");
+    if (n) sum.appendChild(el("span", "count", " · COGS: " + n + " to fix"));
+    d.appendChild(sum);
+    d.addEventListener("toggle", () => { menuOpen = d.open; });
+    d.appendChild(checksRow());
+    const top = el("div", "ops-row");
+    const go = btn("Run COGS check", "ops-cogs-run");
+    go.addEventListener("click", () => run({ name: "cogsCheckRun", payload: {}, btn: go, ok: "Checking COGS on the computer" }));
+    top.appendChild(go);
+    d.appendChild(top);
+    if (check.at) d.appendChild(el("p", "muted small", "Last check " + when(check.at) + (c.tolerance != null ? " · tolerance " + money(c.tolerance) : "")));
+    if (c.lastApply) d.appendChild(el("p", "muted small", "Last apply: " + when(typeof c.lastApply === "string" ? c.lastApply : c.lastApply.at || "")));
+    return d;
   }
 
   function errorsCard(pe) {
@@ -150,15 +176,9 @@
   function cogsCard(cogs) {
     const c = obj(cogs), check = obj(c.check);
     const rows = arr(check.rows);
+    if (!rows.length) return null; // B-2071 (v2.0.158): no differences - Run COGS check and the last-check line live in the Checks menu
     const card = el("section", "ops-card ops-cogs");
     card.appendChild(el("h3", "", "COGS check"));
-    const top = el("div", "ops-row");
-    const go = btn("Run COGS check", "ops-cogs-run");
-    go.addEventListener("click", () => run({ name: "cogsCheckRun", payload: {}, btn: go, ok: "Checking COGS on the computer" }));
-    top.appendChild(go);
-    card.appendChild(top);
-    if (check.at) card.appendChild(el("p", "muted small", "Last check " + clip(check.at, 30) + (c.tolerance != null ? " · tolerance " + clip(c.tolerance, 10) : "")));
-    if (!rows.length) { card.appendChild(el("p", "muted small", "No differences to fix.")); return card; }
     const picks = {};
     for (const r of rows.slice(0, 40)) {
       const asin = clip(r.asin, 10);
@@ -183,7 +203,6 @@
       confirm: "Write these " + Object.keys(picks).length + " cost pick(s) to Sellerboard?", btn: apply, ok: "COGS applied",
     }));
     card.appendChild(apply);
-    if (c.lastApply) card.appendChild(el("p", "muted small", "Last apply: " + clip(typeof c.lastApply === "string" ? c.lastApply : c.lastApply.at || "", 40)));
     return card;
   }
 
@@ -196,7 +215,7 @@
     if (editing(host)) return;
     sig = s;
     host.textContent = "";
-    for (const c of [checks(), errorsCard(pages.pricingErrors), fixesCard(pages.pricingFixes), cogsCard(pages.cogs)]) if (c) host.appendChild(c);
+    for (const c of [checksMenu(pages.cogs), errorsCard(pages.pricingErrors), fixesCard(pages.pricingFixes), cogsCard(pages.cogs)]) if (c) host.appendChild(c);
   }
 
   self.ShopperPricingActions = Object.freeze({ render, checks, errorsCard, fixesCard, cogsCard });

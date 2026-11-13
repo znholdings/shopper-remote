@@ -22,15 +22,18 @@
     const t = v.totals || {};
     const sec = el("section", "section fs-card");
     sec.appendChild(el("h3", "", "Removals & losses at Amazon"));
-    sec.appendChild(el("p", "muted small",
-      "Last " + n(v.windowDays) + " days: " + n(t.lossUnits) + " lost / damaged, " + n(t.disposed) + " disposed, " + n(t.removed) + " removed; " +
-      n(t.removing) + " in open removal orders (not counted as owned)." + (v.flagged ? " " + n(v.flagged) + " product(s) lost " + n(v.flagPct) + "% or more." : "") +
-      (v.removalError ? " Removal orders: " + v.removalError : "")));
+    // B-2069 (v2.0.158): the plain summary sits behind an ⓘ; a removal-orders error stays in sight.
+    const sumText = "Last " + n(v.windowDays) + " days: " + n(t.lossUnits) + " lost / damaged, " + n(t.disposed) + " disposed, " + n(t.removed) + " removed; " +
+      n(t.removing) + " in open removal orders (not counted as owned)." + (v.flagged ? " " + n(v.flagged) + " product(s) lost " + n(v.flagPct) + "% or more." : "");
+    if (self.ShopperInfoTip) {
+      self.ShopperInfoTip.add(sec.lastElementChild, sumText, { id: "fs-sum" });
+      if (v.removalError) sec.appendChild(el("p", "muted small warn-text", "Removal orders: " + v.removalError));
+    } else sec.appendChild(el("p", "muted small", sumText + (v.removalError ? " Removal orders: " + v.removalError : "")));
     for (const r of rows) {
       const row = el("div", "fs-line" + (r.flagged ? " fs-flag" : ""));
       row.appendChild(el("b", "", r.title || r.sku || r.asin));
       const bits = [r.asin];
-      if (r.lossUnits) bits.push("lost " + n(r.lossUnits) + (r.received ? " of " + n(r.received) + " (" + n(r.lossPct) + "%)" : ""));
+      if (r.lossUnits) bits.push("lost " + n(r.lossUnits) + (r.lossPct != null && r.received ? " of " + n(r.received) + " (" + n(r.lossPct) + "%)" : r.lossPct == null ? " (older stock - no %)" : ""));
       if (r.disposed) bits.push("disposed " + n(r.disposed));
       if (r.removed) bits.push("removed " + n(r.removed));
       if (r.removing) bits.push("being removed " + n(r.removing));

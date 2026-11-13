@@ -134,7 +134,9 @@
         if (r.sub) line.appendChild(node("span", "dy-ov-sub", r.sub));
         box.appendChild(line);
       }
-      if (sec.note) box.appendChild(node("p", "dy-ov-note muted small", sec.note));
+      // B-2069 (v2.0.158): a plain footnote sits behind an ⓘ by the title; a read failure stays in sight.
+      if (sec.note && (/failed/i.test(sec.note) || !self.ShopperInfoTip)) box.appendChild(node("p", "dy-ov-note muted small", sec.note));
+      else if (sec.note) self.ShopperInfoTip.add(box.querySelector(".dy-ov-title"), sec.note, { id: "dy-note:" + sec.id });
       grid.appendChild(box);
     }
     return grid;

@@ -52,6 +52,7 @@
     if (r && !r.ok && r.result && r.result.needsOverride && window.confirm("That is above the normal guard rail. Add " + n + " anyway?")) r = await act("carryOverApply", { ...body, override: true }, { btn });
     if (r && r.ok) say("Sent " + n + " of " + line.asin + " to today's list.");
   }
+  const noteOpen = new Set(), moreOpen = new Set(); // B-2072 (v2.0.158): which notes / "more choices" are open (this phone, in memory)
   function lineCard(line, day) {
     line = { ...line, day: day.day };
     const d = line.decision;
@@ -68,18 +69,38 @@
     if (sw) flags.push(sw);
     if (d && d.choice !== "ignore") flags.push("Sent " + d.qty + " to today's list");
     card.appendChild(el("div", "muted small", flags.join(" · ")));
-    if (line.note) card.appendChild(el("div", "muted small", line.note));
+    if (line.note) {
+      // B-2072 (v2.0.158): the reason is one line; a tap opens the whole text. B-2073: no backlog codes.
+      const nt = el("div", "muted small co-note" + (noteOpen.has(line.key) ? " co-note-open" : ""), self.ShopperPlain ? self.ShopperPlain.note(line.note) : line.note);
+      nt.setAttribute("role", "button"); nt.tabIndex = 0; nt.setAttribute("aria-expanded", String(noteOpen.has(line.key)));
+      const flip = () => { const on = nt.classList.toggle("co-note-open"); if (on) noteOpen.add(line.key); else noteOpen.delete(line.key); nt.setAttribute("aria-expanded", String(on)); };
+      nt.addEventListener("click", flip);
+      nt.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flip(); } });
+      card.appendChild(nt);
+    }
     const acts = el("div", "co-actions");
     if (d && d.choice === "ignore") {
       acts.appendChild(btnOf("Undo ignore", "mini-btn", (b) => act("carryOverDecide", { key: line.key, asin: line.asin, fromDay: day.day, choice: "undo" }, { btn: b })));
     } else {
       acts.appendChild(btnOf("Ignore", "mini-btn", (b) => act("carryOverDecide", { key: line.key, asin: line.asin, fromDay: day.day, choice: "ignore" }, { btn: b })));
       acts.appendChild(btnOf(line.stockCap && line.remainingPick < line.remaining ? "Remaining " + line.remainingPick + " (stock cap)" : "Remaining " + line.remainingPick, "mini-btn primary-btn", (b) => apply(line, "remaining", line.remainingPick, b)));
-      if (line.onToday && line.todayQty > 0) acts.appendChild(btnOf("Today's " + line.todayQty, "mini-btn", (b) => apply(line, "today", line.todayQty, b)));
+      // B-2072 (v2.0.158): Today's / Qty / Custom sit behind a ⋯ (payloads unchanged).
+      const more = btnOf("⋯", "mini-btn co-more", () => {
+        const on = extra.hidden; extra.hidden = !on;
+        if (on) moreOpen.add(line.key); else moreOpen.delete(line.key);
+        more.setAttribute("aria-expanded", String(on));
+      });
+      more.setAttribute("aria-label", "More choices");
+      more.setAttribute("aria-expanded", String(moreOpen.has(line.key)));
+      acts.appendChild(more);
+      const extra = el("div", "co-extra");
+      extra.hidden = !moreOpen.has(line.key);
+      if (line.onToday && line.todayQty > 0) extra.appendChild(btnOf("Today's " + line.todayQty, "mini-btn", (b) => apply(line, "today", line.todayQty, b)));
       const custom = el("input", "co-custom");
       custom.type = "number"; custom.min = "1"; custom.placeholder = "Qty"; custom.inputMode = "numeric";
-      acts.appendChild(custom);
-      acts.appendChild(btnOf("Custom", "mini-btn", (b) => apply(line, "custom", custom.value, b)));
+      extra.appendChild(custom);
+      extra.appendChild(btnOf("Custom", "mini-btn", (b) => apply(line, "custom", custom.value, b)));
+      acts.appendChild(extra);
     }
     card.appendChild(acts);
     return card;

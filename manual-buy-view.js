@@ -80,7 +80,9 @@
     built = true;
     pane.textContent = "";
     var sec = U.section("Manual Buy");
-    sec.appendChild(U.el("p", "muted small", "Record a buy made by hand. The computer works the numbers out and saves it; this page only sends what you type."));
+    // B-2069 (v2.0.158): the intro sits behind an ⓘ by the heading.
+    if (self.ShopperInfoTip) self.ShopperInfoTip.add(sec.querySelector("h3"), "Record a buy made by hand. The computer works the numbers out and saves it; this page only sends what you type.", { id: "mb-intro" });
+    else sec.appendChild(U.el("p", "muted small", "Record a buy made by hand. The computer works the numbers out and saves it; this page only sends what you type."));
     f.asin = U.input("text", { placeholder: "ASIN", autocapitalize: "characters", maxlength: "10" });
     f.lookup = U.btn("Look up", "secondary-btn", doLookup);
     var row = U.el("div", "pg-row");
@@ -106,8 +108,12 @@
     sec.appendChild(U.field("Total", f.total));
     sec.appendChild(U.field("Order date", f.orderDate));
     sec.appendChild(U.field("Ships to", f.shipTo));
-    sec.appendChild(U.field("Tracking", f.tracking));
-    sec.appendChild(U.field("Notes", f.notes));
+    // B-2070: Tracking + Notes behind "More details" (the fields keep their ids; opens by itself when either has text).
+    const moreWrap = U.el("div", "mb-more");
+    moreWrap.appendChild(U.field("Tracking", f.tracking));
+    moreWrap.appendChild(U.field("Notes", f.notes));
+    if (self.ShopperFold && self.ShopperFold.details) sec.appendChild(self.ShopperFold.details("More details", "manualbuy:more", moreWrap, { forceOpen: !!(f.tracking.value || f.notes.value) }));
+    else sec.appendChild(moreWrap);
     ["asin", "retailer", "orderNumber", "quantity", "quantityKind", "total", "orderDate", "shipTo", "tracking", "notes"].forEach(function (k) {
       f[k].addEventListener("input", clearPlan);
       f[k].addEventListener("change", clearPlan);

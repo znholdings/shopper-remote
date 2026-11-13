@@ -108,6 +108,8 @@ const SHARED_SETTINGS_SPEC = Object.freeze([
   S({ key: "shopperCatalogTable", group: "appearance", label: "Catalog table (columns, widths, filters)", kind: "object" }),
   // B-1790 (v2.0.134): dragged column widths for every other table - one object, both computers.
   S({ key: "shopperTableWidths", group: "appearance", label: "Table column widths", kind: "object" }),
+  // B-2057 / B-2070 (v2.0.158): which sections are open - one state on both computers and the phone. { "<page>:<section>": { o, at } }.
+  S({ key: "shopperFoldState", group: "appearance", label: "Folded sections", kind: "object" }),
   // ---- Secrets (own row; the phone never reads it) -----------------------
   X({ key: "shopperSecondaryGmail", group: "secrets", label: "Second Gmail", kind: "any" }),
   X({ key: "shopperSellerSnapCreds", group: "secrets", label: "Seller Snap sign-in", kind: "any" }),

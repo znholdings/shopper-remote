@@ -222,6 +222,12 @@
   }
 
   // ---- manual edits ----
+  function centralTime(at) {
+    if (at == null || at === "") return "";
+    const d = new Date(at);
+    if (!Number.isFinite(d.getTime())) return "";
+    return d.toLocaleString("en-US", { timeZone: "America/Chicago", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  }
   function editsCard(edits) {
     const rows = arr(Array.isArray(edits) ? edits : obj(edits).rows);
     if (!rows.length) return null;
@@ -229,11 +235,27 @@
     card.appendChild(el("h3", "", "Recent manual edits"));
     for (const e of rows.slice(0, 10)) {
       const line = el("div", "ops-line ops-edit-row");
-      line.appendChild(el("div", "", clip(e.title || e.asin, 80) + " - " + clip(e.units, 8) + " to " + clip(e.destination, 30)));
-      line.appendChild(el("div", "muted small", [clip(e.at, 30), clip(e.note, 80)].filter(Boolean).join(" · ")));
-      const undo = btn("Undo", "ops-undo");
-      undo.addEventListener("click", () => run({ name: "editUndo", payload: { keys: arr(e.keys).slice(0, 50).map((k) => clip(k, 120)) }, confirm: "Undo this edit? Its row(s) are deleted from the ledger.", btn: undo, ok: "Edit undone", done: () => line.remove() }));
-      line.appendChild(undo);
+      // B-2059: product (or "N products"), then shelf + "from → to" + Central time + note. Never the raw ISO time.
+      const prods = Number(e.products) || 0;
+      const keys = arr(e.keys);
+      const shelf = e.destination === "prep" ? "Prep" : "House";
+      const r3 = (v) => String(Math.round(Number(v) * 1000) / 1000);
+      const when = centralTime(e.at);
+      if (prods > 1) {
+        line.appendChild(el("div", "", (e.kind === "count" ? "Full count" : "Count") + " · " + prods + " products"));
+        line.appendChild(el("div", "muted small", [shelf, when, clip(e.note, 80)].filter(Boolean).join(" · ")));
+      } else {
+        const name = clip(e.title || e.asin || "Product", 80) + (e.title && e.asin ? " (" + e.asin + ")" : "");
+        line.appendChild(el("div", "", name));
+        const change = e.units == null ? "" : e.before != null && Number.isFinite(Number(e.before)) ? r3(e.before) + " → " + r3(e.units) : "set to " + r3(e.units);
+        line.appendChild(el("div", "muted small", [shelf + (change ? " " + change : ""), when, clip(e.note, 80)].filter(Boolean).join(" · ")));
+      }
+      if (e.undoOnLaptop) line.appendChild(el("div", "muted small", "Undo this one on the laptop (too many products for the phone)."));
+      if (prods && keys.length) {
+        const undo = btn("Undo", "ops-undo");
+        undo.addEventListener("click", () => run({ name: "editUndo", payload: { keys: keys.slice(0, 50).map((k) => clip(k, 120)) }, confirm: prods > 1 ? "Undo this count of " + prods + " products? Their rows are deleted from the ledger." : "Undo this edit? Its row(s) are deleted from the ledger.", btn: undo, ok: "Edit undone", done: () => line.remove() }));
+        line.appendChild(undo);
+      }
       card.appendChild(line);
     }
     return card;

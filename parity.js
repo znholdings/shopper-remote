@@ -207,8 +207,10 @@
     const list = (needs && needs.splitsWaiting) || [];
     if (!list.length) return;
     host.append(node("h4", null, "Shopper is working these out"));
+    let n = 0;
     for (const w of list) {
-      const c = needCard(w.title, "", w.line);
+      const c = needCard(w.title, "", ""); // B-2069 (v2.0.158): the explanation sits behind an ⓘ by the title
+      if (self.ShopperInfoTip) self.ShopperInfoTip.add(c.querySelector(".inv-title"), w.line, { id: "split:" + (++n) + ":" + w.title });
       if (w.names) c.append(node("div", "muted small", w.names));
       host.append(c);
     }

@@ -46,6 +46,10 @@
   <link rel="stylesheet" href="phone-pages.css" /><!-- B-1792 (v2.0.135): the new pages -->
   <link rel="stylesheet" href="queue-preview.css" /><!-- B-1927 -->
   <link rel="stylesheet" href="books.css" /><!-- B-1232 (v2.0.73): the Books section -->
+  <link rel="stylesheet" href="phone-shell.css" /><!-- B-2068 (v2.0.158) -->
+  <link rel="stylesheet" href="info-tip.css" /><!-- B-2069 (v2.0.158) -->
+  <link rel="stylesheet" href="phone-rows.css" /><!-- B-2071/B-2072 (v2.0.158) -->
+  <link rel="stylesheet" href="r6-phone.css" /><!-- v2.0.158 R6: folds, dark inputs, arrival stripes, Books rules -->
   <!-- Shopper 2 (v2.00, B-732): light / dark before first paint. The phone
        follows its own setting unless the top-bar button picked one. -->
   <script>
@@ -74,7 +78,6 @@
         <!-- B-1233 (v2.0.73): opens the sidebar (remote/phone-nav.js). -->
         <button id="navBtn" class="ghost-btn theme-btn pn-burger" type="button" aria-label="Open navigation" aria-controls="phoneNav" aria-expanded="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
         <button id="themeBtn" class="ghost-btn theme-btn" type="button" aria-label="Switch light / dark / retro"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg></button>
-        <button id="signOutBtn" class="ghost-btn" hidden>Sign out</button>
       </div>
       <div class="s-tb-lane" aria-hidden="true"><div class="s-tb-track"><div class="s-tb-fill"></div></div><div class="s-tb-ride"><img src="shoppy-64.png" alt="" class="s-tb-rider" /></div></div>
     </header>
@@ -130,7 +133,18 @@
           <button id="pnClose" class="pn-close" type="button" aria-label="Close navigation"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
         </div>
         <div class="pn-list"><!-- B-1791 (v2.0.135): built by phone-nav-list.js from nav-lib.js (= lib/sidenav.js NAV) --></div>
-        <div class="pn-foot"><span id="pnBuild" class="pn-version"></span></div>
+        <div class="pn-foot"><!-- P-35: a Home Screen app has no browser chrome, so these are the
+         only way to re-poll or to pick up a new deploy. -->
+    <div class="app-footer">
+      <!-- P-58: sounds have to be armed by a real tap - iOS blocks audio
+           playback that is not the direct result of a user gesture, the same
+           class of silent failure P-34 hit with notification permission. -->
+      <button id="soundBtn" class="ghost-btn">Sounds: off</button>
+      <button id="refreshBtn" class="ghost-btn">Refresh</button>
+      <button id="reloadBtn" class="ghost-btn">Reload app</button>
+      <button id="signOutBtn" class="ghost-btn" hidden>Sign out</button>
+      <span id="buildStamp" class="build-stamp" hidden></span>
+    </div><span id="pnBuild" class="pn-version"></span></div>
       </nav>
 
       <div id="runPane">
@@ -487,9 +501,8 @@
           <div id="bkmTiles" class="gl-tiles bkm-tiles"></div>
           <div id="bkmDone" class="bkm-done" role="status" hidden></div>
           <section id="bkmNeedsCard" class="section bkm-card" hidden>
-            <h3 class="section-head">Needs you <span class="count" id="bkmNeedsCount"></span></h3>
-            <p class="muted small bkm-intro">Oldest first. Pick the account a line belongs to, then Book it - the laptop books it exactly as its Books page does. Money out shows negative, money in positive - as on the bank.</p>
-            <label class="bkm-remember radio-label"><input type="checkbox" id="bkmRemember" checked /> <span>Remember each pick: always book that merchant to that account (a rule - switch it off on the laptop's Rules page)</span></label>
+            <h3 class="section-head" data-info="Oldest first. Pick the account a line belongs to, then Book it - the laptop books it exactly as its Books page does. Money out shows negative, money in positive - as on the bank.">Needs you <span class="count" id="bkmNeedsCount"></span></h3><!-- B-2069 (v2.0.158): the intro is behind the ⓘ -->
+            <label class="bkm-remember radio-label" data-info="Always book that merchant to that account (a rule - switch it off on the laptop's Rules page)."><input type="checkbox" id="bkmRemember" checked /> <span>Remember each pick</span></label>
             <ul id="bkmNeeds" class="bkm-needs"></ul>
             <p id="bkmNeedsMore" class="muted small" hidden></p>
           </section>
@@ -596,17 +609,7 @@
 
     <!-- iOS: web push does nothing at all in Safari until the app is on
          the home screen, and a missed prompt means a run sits paused. -->
-    <!-- P-35: a Home Screen app has no browser chrome, so these are the
-         only way to re-poll or to pick up a new deploy. -->
-    <div class="app-footer">
-      <!-- P-58: sounds have to be armed by a real tap - iOS blocks audio
-           playback that is not the direct result of a user gesture, the same
-           class of silent failure P-34 hit with notification permission. -->
-      <button id="soundBtn" class="ghost-btn">Sounds: off</button>
-      <button id="refreshBtn" class="ghost-btn">Refresh</button>
-      <button id="reloadBtn" class="ghost-btn">Reload app</button>
-      <span id="buildStamp" class="build-stamp"></span>
-    </div>
+
 
     <div id="installHint" class="install-hint" hidden>
       Add this to your Home Screen (Share &rarr; Add to Home Screen) to get
@@ -632,6 +635,7 @@
   <script src="belowmin-view.js"></script>
   <script src="listing-health-view.js"></script>
   <script src="wizard-view.js"></script>
+  <script src="ship-rows-fold.js"></script><!-- B-2072 (v2.0.158) -->
   <!-- B-1089 (v2.0.55): the box-word outbox (before app.js and boxes.js). -->
   <script src="box-outbox.js"></script>
   <!-- B-765 (v2.0.8): cashflow-lib.js is GENERATED from lib/s-chart.js (test/_cashflow-bundle.mjs). -->
@@ -655,6 +659,9 @@
   <!-- B-874 (v2.0.24): the top bar's wording (generated from lib/activity-view.js) and the bar. -->
   <script src="activity-view.js"></script>
   <script src="topbar-view.js"></script>
+  <script src="phone-shell.js"></script><!-- B-2068 (v2.0.158) -->
+  <script src="info-tip.js"></script><!-- B-2069 (v2.0.158) -->
+  <script src="plain-text.js"></script><!-- B-2073 (v2.0.158) -->
   <!-- B-1137 (v2.0.60): the Walmart pack-rank editor (app.js renderPrompt draws it). -->
   <script src="pack-rank-view.js"></script>
   <script src="nav-lib.js"></script><!-- B-1791 (v2.0.135): GENERATED from lib/sidenav.js -->
@@ -665,6 +672,7 @@
   <!-- B-1233 (v2.0.73): the sidebar navigation (after app.js, which wires each tab button). -->
   <script src="pages-view.js"></script><!-- B-1792 (v2.0.135): the registry the new pages hang on -->
   <script src="phone-nav.js"></script>
+  <script src="activity-log-sheet.js"></script><!-- B-2061 (v2.0.158): Activity log button in the drawer + its sheet -->
   <!-- B-1062 / B-1063 (v2.0.53) -->
   <script src="claude-learn-view.js"></script>
   <!-- B-1103 (v2.0.57) -->
@@ -690,6 +698,7 @@
   <script src="packing-view.js"></script>
   <script src="boxes.js"></script>
   <!-- B-1073 / B-1076 (v2.0.55): Stock sections fold + jump row; Products one line each. -->
+  <script src="fold-shared.js"></script><!-- B-2057/B-2070 -->
   <script src="stock-sections.js"></script>
   <!-- B-1309 (v2.0.78): the Stock tab's search box filters every list as he types. -->
   <script src="stock-search.js"></script>
@@ -717,6 +726,7 @@
   <script src="pricing-actions-view.js"></script>
   <script src="books-actions-view.js"></script>
   <script src="settings-actions-view.js"></script>
+  <script src="fold-targets.js"></script><!-- B-2057/B-2070 -->
   <script>
     // Shopper 2 (v2.00, B-732): the top-bar theme button - system -> light -> dark.
     // B-802 (v2.0.11): light -> dark -> retro -> light; the icon shows the NEXT one.

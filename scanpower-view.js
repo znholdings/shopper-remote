@@ -153,7 +153,8 @@
     sec.appendChild(bar);
     if (d.plan) sec.appendChild(planSection(d.plan, d.open));
     if (d.preview) sec.appendChild(previewSection(d.preview));
-    if (!d.plan && !d.preview) sec.appendChild(el("p", "muted small", "Build plan: what is at the house, ready for a new or open batch. Update preview: the deliveries since the open batch was last updated."));
+    // B-2069 (v2.0.158): the two-line explainer sits behind an ⓘ by the heading, always.
+    if (self.ShopperInfoTip) self.ShopperInfoTip.add(sec.querySelector("h3"), "Build plan: what is at the house, ready for a new or open batch. Update preview: the deliveries since the open batch was last updated.", { id: "sp-batch" });
     host.appendChild(sec);
   }
   function start() { draw(); setInterval(draw, 2000); }

@@ -1,0 +1,26 @@
+/* B-2068 (v2.0.158): phone header = title + one status word + a coloured dot. */
+:root body .s-topbar .s-tb-line { cursor: pointer; display: flex; flex-wrap: wrap; align-items: center; gap: 0 4px; }
+:root body .s-topbar .s-tb-line::before { content: ""; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--s-tb-ready); margin-right: 2px; }
+:root body .s-topbar[data-state="run"] .s-tb-line::before { background: var(--s-tb-fill); }
+:root body .s-topbar[data-state="stalled"] .s-tb-line::before, :root body .s-topbar .s-tb-line:has(> .s-tb-warn:not(:empty))::before { background: var(--s-tb-warn); }
+:root body .s-topbar .s-tb-line:has(> .live-banner.tone-waiting:not([hidden]))::before { background: var(--s-tb-warn); }
+:root body .s-topbar .s-tb-line:has(> .live-banner:is(.tone-offline, .tone-stalled):not([hidden]))::before { background: var(--s-red, #c00); }
+:root[data-theme="retro"] body .s-topbar .s-tb-line::before { border-radius: 0; }
+:root body .s-topbar:not(.tb-open) :is(.s-tb-text, .s-tb-warn, .device-name) { display: none !important; }
+:root body .s-topbar:not(.tb-open) .s-tb-line .live-banner.tone-idle { display: none; }
+:root body .s-topbar:not(.tb-open) .s-tb-line:has(> .live-banner:not([hidden]):not(.tone-idle)) > .s-tb-state { display: none; }
+:root body .s-topbar:not(.tb-open) .s-tb-line .live-banner { white-space: nowrap; }
+.s-tb-more { background: none; border: 0; color: inherit; font: 600 12px/1 var(--s-font); padding: 0 2px; margin-left: 2px; min-width: 20px; min-height: 24px; cursor: pointer; }
+:root body .s-topbar.tb-open .s-tb-more { transform: rotate(180deg); }
+:root[data-theme="retro"] body .s-topbar .s-tb-line { position: relative; }
+:root[data-theme="retro"] body .s-topbar .s-tb-line > .s-tb-more { position: absolute; right: 0; top: 1px; min-width: 14px; width: 14px; height: 14px; min-height: 0; padding: 0; margin: 0; border: 0; box-shadow: none; background: none; color: #fff; font-size: 0; }
+:root[data-theme="retro"] body .s-topbar .s-tb-line > .s-tb-more::before { content: ""; display: block; margin: 4px auto 0; border: 4px solid transparent; border-top-color: currentColor; border-bottom: 0; }
+:root body .s-topbar .s-tb-line > .s-tb-more { min-height: 24px; }
+/* RETRO: the chip is already coloured and wide - the dot would take a row of its own. */
+:root[data-theme="retro"] body .s-topbar .s-tb-line:has(> .live-banner:not([hidden]):not(.tone-idle))::before { display: none; }
+:root body .s-topbar .s-tb-detail { margin: 4px 0 0; font: 600 11px/1.35 var(--s-font); color: var(--s-tb-dim); overflow-wrap: break-word; }
+:root[data-theme="retro"] body .s-topbar .s-tb-detail { font-family: var(--s-pixel) !important; font-weight: 400; font-size: 8px !important; line-height: 1.7; text-transform: uppercase; }
+:root body .s-topbar:not(.tb-open) .s-tb-detail { display: none; }
+:root[data-theme="retro"] body .s-topbar .s-tb-title { overflow-wrap: normal; word-break: normal; }
+.pn-foot .app-footer { margin: 0 0 6px; padding-top: 0; border-top: 0; gap: 6px; }
+.pn-foot .app-footer .ghost-btn { min-height: 36px; }

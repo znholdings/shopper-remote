@@ -119,6 +119,62 @@
     return isChunk(r) ? r : null;
   }
 
+  function dropAttr(el, k) { if (typeof el.removeAttribute === "function") el.removeAttribute(k); else el.setAttribute(k, ""); }
+  // B-2062 (v2.0.158): half packs. Packs mode on a Pack Of > 1 takes "15.5", ".5", "15 1/2", "1/2", "15\u00bd" / "\u00bd" (also \u2153 \u2154 \u00bc \u00be)
+  // when the part is a whole number of pieces (+- 0.05 piece). -> { whole, pcs } | null. "15" -> { 15, 0 }.
+  var VULGAR = { "\u00bd": [1, 2], "\u2153": [1, 3], "\u2154": [2, 3], "\u00bc": [1, 4], "\u00be": [3, 4] };
+  function parsePackTyped(text, pack) {
+    var p = validPack(pack);
+    var s = String(text == null ? "" : text).trim();
+    var m, whole, frac;
+    if ((m = /^(\d{1,5})$/.exec(s))) { whole = parseInt(m[1], 10); frac = 0; }
+    else if ((m = /^(\d{0,5})\.(\d{1,3})$/.exec(s))) { whole = m[1] ? parseInt(m[1], 10) : 0; frac = parseFloat("0." + m[2]); }
+    else if ((m = /^(\d{0,5})\s*(?:(\d{1,2})\s*\/\s*(\d{1,2})|([\u00bd\u2153\u2154\u00bc\u00be]))$/.exec(s))) {
+      whole = m[1] ? parseInt(m[1], 10) : 0;
+      var nd = m[4] ? VULGAR[m[4]] : [parseInt(m[2], 10), parseInt(m[3], 10)];
+      if (!nd[1] || nd[0] >= nd[1]) return null;
+      frac = nd[0] / nd[1];
+    } else return null;
+    var pcs = 0;
+    if (frac > 0) {
+      if (!p) return null;
+      var pf = frac * p;
+      pcs = Math.round(pf);
+      if (Math.abs(pf - pcs) > 0.05 || pcs < 1 || pcs > p - 1) return null;
+    }
+    if (!isChunk(whole) && !(whole === 0 && pcs > 0)) return null;
+    if (whole > MAX_CHUNK) return null;
+    return { whole: whole, pcs: pcs };
+  }
+  // House as a whole number of pieces (15 1/2 on a 2-pack = 31) -> the integer; null when it is not (+- 0.05 piece).
+  function expectedPieces(expected, pack) {
+    var p = validPack(pack);
+    if (!p || expected == null || expected === "") return null;
+    var e = Number(expected);
+    if (!isFinite(e) || e < 0) return null;
+    var pc = e * p, r = Math.round(pc);
+    return Math.abs(pc - r) <= 0.05 ? r : null;
+  }
+  // Pieces still to go to reach House (1 .. MAX_CHUNK * pack) when House is a whole number of pieces; else null.
+  function fullCountPieces(expected, countedPcs, pack) {
+    var ep = expectedPieces(expected, pack);
+    if (ep == null) return null;
+    var d = ep - (Number(countedPcs) || 0);
+    return d >= 1 && d <= MAX_CHUNK * validPack(pack) ? d : null;
+  }
+  // "15 packs + 1 loose piece"
+  function looseWords(whole, pcs) {
+    var w = Number(whole) || 0, c = Number(pcs) || 0;
+    return fmtNum(w) + (w === 1 ? " pack" : " packs") + " + " + fmtNum(c) + (c === 1 ? " loose piece" : " loose pieces");
+  }
+  // Loose pieces survive closing the sheet on the same page: { "<ASIN>": { pcs, pack, sig } }. In memory only; a changed tally drops it.
+  var keptLoose = {};
+  function chunkSig(c) { return (c || []).join(","); }
+  function keptLooseFor(asin, chunks) {
+    var k = keptLoose[normAsin(asin)];
+    return k && k.pcs > 0 && k.sig === chunkSig(chunks) ? { pcs: k.pcs, pack: k.pack } : null;
+  }
+
   // ---------------------------------------------------------- speech / dictation
   //
   // Wispr Flow types text into the focused box. This turns that text into
@@ -579,6 +635,7 @@
     var nodes = r0.classList && r0.classList.contains("rc-badge") ? [r0] : r0.querySelectorAll(".rc-badge");
     for (var i = 0; i < nodes.length; i++) {
       var t = totalFor(nodes[i].getAttribute("data-asin"));
+      var kl = t == null ? null : keptLooseFor(nodes[i].getAttribute("data-asin"), getChunks(nodes[i].getAttribute("data-asin"))); if (kl) t = t + kl.pcs / kl.pack; // B-2062
       // B-1090 (v2.0.56): Zach 10/12 - "it should just say 'not counted yet' and be in red, just so
       // it's really easy to see which ones I haven't yet received". A product with units at the
       // house (data-house > 0) and NO count in progress shows a solid red "Not counted yet" chip,
@@ -709,11 +766,12 @@
     var pack = validPack(opts.packOf);
     var mode = pack && opts.mode === "pieces" ? "pieces" : "packs";
     var loose = 0;
+    var kept0 = pack ? keptLooseFor(asin, tally.chunks()) : null; if (kept0 && kept0.pack === pack) loose = kept0.pcs; // B-2062
     var ops = []; // what each add did, so Undo last takes back pieces and packs alike: { chunk, prevLoose }
     // B-843: the other device changed THIS product's tally while the pop-up is open - show it.
     var watcher = function (changedAsin) {
       if (closed || sending || changedAsin !== asin) return;
-      loose = 0; ops = [];
+      loose = 0; ops = []; delete keptLoose[normAsin(asin)];
       tally.clear();
       var fresh = getChunks(asin);
       for (var q = 0; q < fresh.length; q++) tally.add(fresh[q]);
@@ -778,6 +836,8 @@
 
     var plusBtn = h("button", "rc-btn rc-plus", "+" + QUICK);
     plusBtn.type = "button";
+    // B-2062: one piece (Packs mode on a Pack Of > 1)
+    var pcBtn = h("button", "rc-btn rc-quiet rc-plus-pc", pack === 2 ? "+\u00bd" : "+1 pc"); pcBtn.type = "button"; pcBtn.title = pack === 2 ? "Add one piece (half a pack)" : "Add one piece (1/" + pack + " of a pack)";
 
     // B-868: one tap = everything still to go, as ONE chunk (Undo last takes it back).
     var fullBtn = h("button", "rc-btn rc-full", "Full count");
@@ -880,6 +940,7 @@
     card.appendChild(totalBox);
     card.appendChild(entriesEl);
     card.appendChild(plusBtn);
+    card.appendChild(pcBtn);
     card.appendChild(fullBtn);
     card.appendChild(customRow);
     card.appendChild(tools);
@@ -890,7 +951,7 @@
     card.appendChild(makeAsk);
     overlay.appendChild(card);
 
-    var focusables = [xBtn, modePacks, modePieces, plusBtn, fullBtn, input, addBtn, undoBtn, clearBtn, voiceBtn, clearYes, clearNo,
+    var focusables = [xBtn, modePacks, modePieces, plusBtn, pcBtn, fullBtn, input, addBtn, undoBtn, clearBtn, voiceBtn, clearYes, clearNo,
       voiceText, voiceAdd, voiceClose, doneBtn, makeBtn, makeYes, makeNo];
 
     // ---- state -> screen
@@ -913,16 +974,19 @@
       var ofText = expectedText;
       if (ofText && pack && expected != null && isFinite(Number(expected))) ofText += pcsOf(expected, pack);
       totalOf.textContent = ofText ? " of " + ofText : "";
-      var gap = gapInfo(expected, total, n + (loose ? 1 : 0), format);
+      var epcs = pack ? expectedPieces(expected, pack) : null; // B-2062: House as whole pieces -> match / gap decided in pieces
+      var expectedG = epcs != null ? epcs / pack : expected;
+      var gap = gapInfo(expectedG, total, n + (loose ? 1 : 0), format);
       var gapText = gap.text;
-      if (pack && (gap.kind === "short" || gap.kind === "over")) gapText += pcsOf(Math.abs(Number(expected) - total), pack);
+      if (pack && (gap.kind === "short" || gap.kind === "over")) gapText += pcsOf(Math.abs(Number(expectedG) - total), pack);
       gapEl.textContent = gapText;
       gapEl.className = "rc-gap rc-gap-" + gap.kind;
       gapEl.hidden = !gapText;
       pcsEl.hidden = !pack;
       pcsEl.textContent = pack ? fmtNum(piecesNow()) + " pcs = " + (loose ? format(total) : fmtNum(total)) + " units" : "";
       fracEl.hidden = !loose;
-      fracEl.textContent = loose ? fmtNum(piecesNow()) + " pcs is not a whole number of " + pack + "-packs" : "";
+      fracEl.textContent = loose ? looseWords(tally.total(), loose) : "";
+      fracEl.title = loose ? "Kept on this screen only until it is reloaded" : "";
       modePacks.setAttribute("aria-pressed", pieces ? "false" : "true");
       modePieces.setAttribute("aria-pressed", pieces ? "true" : "false");
       modePacks.className = "rc-btn rc-quiet rc-mode-btn rc-mode-packs" + (pieces ? "" : " rc-on");
@@ -936,12 +1000,23 @@
       entriesEl.className = "rc-entries" + (shown.length ? "" : " rc-entries-empty");
       plusBtn.textContent = "+" + QUICK + (pieces ? " pcs" : "");
       plusBtn.disabled = sending;
+      pcBtn.hidden = !pack || pieces; pcBtn.disabled = sending;
       var full = fullCountChunk(expected, tally.total());
       if (loose) full = null;
+      var fullPcs = pack ? fullCountPieces(expected, piecesNow(), pack) : null; // B-2062: House is a whole number of pieces
+      if (fullPcs != null) {
+        fullBtn.hidden = false;
+        fullBtn.disabled = sending;
+        fullBtn.textContent = "Full count (" + (pieces ? fmtNum(fullPcs) + " pcs" : fullPcs % pack === 0 ? fmtNum(fullPcs / pack) : format(fullPcs / pack)) + ")";
+      } else {
       fullBtn.hidden = full == null;
       fullBtn.disabled = sending || full == null;
       fullBtn.textContent = full == null ? "Full count" : "Full count (" + (pieces ? fmtNum(full * pack) + " pcs" : fmtNum(full)) + ")";
+      }
       input.setAttribute("placeholder", pieces ? "Other number of pieces" : "Other number");
+      // B-2062: Packs mode on a Pack Of > 1 takes 15.5 / 15 1/2 - a decimal keyboard; numeric otherwise
+      if (pack && !pieces) { input.setAttribute("inputmode", "decimal"); dropAttr(input, "pattern"); }
+      else { input.setAttribute("inputmode", "numeric"); input.setAttribute("pattern", "[0-9]*"); }
       input.setAttribute("aria-label", pieces ? "Other number of pieces to add" : "Other amount to add");
       addBtn.disabled = sending;
       input.disabled = sending;
@@ -1005,6 +1080,24 @@
       return true;
     }
 
+    // B-2062: whole packs + pieces as ONE entry (one Undo): the pieces carry into packs with what already waits in `loose`.
+    function addPacksPieces(whole, pcs) {
+      var prev = loose;
+      var all = loose + pcs;
+      var w = whole + Math.floor(all / pack);
+      if (w > MAX_CHUNK) return false;
+      if (w > 0 && !tally.add(w)) return false;
+      loose = all % pack;
+      ops.push({ chunk: w > 0, prevLoose: prev });
+      return true;
+    }
+    function addPiece() {
+      if (sending || !pack) return;
+      if (!addPacksPieces(0, 1)) { say("That is more entries than this counter keeps.", "bad"); return; }
+      say("");
+      changed(!ops[ops.length - 1].chunk);
+    }
+
     function setMode(m) {
       if (sending || !pack || (m !== "packs" && m !== "pieces") || m === mode) return;
       mode = m;
@@ -1025,6 +1118,13 @@
 
     function addFull() {
       if (sending) return;
+      var fp = pack ? fullCountPieces(expected, piecesNow(), pack) : null; // B-2062
+      if (fp != null) {
+        if (!addPacksPieces(0, fp)) { say("That is more entries than this counter keeps.", "bad"); return; }
+        say("");
+        changed(!ops[ops.length - 1].chunk);
+        return;
+      }
       var n = loose ? null : fullCountChunk(expected, tally.total());
       if (n == null) return;
       var prevLoose = loose;
@@ -1035,6 +1135,17 @@
 
     function addTyped() {
       if (sending) return;
+      if (pack && !inPieces()) {
+        // B-2062: Packs mode on a Pack Of > 1 also takes packs + pieces ("15.5", "15 1/2", "15\u00bd")
+        var pp = parsePackTyped(input.value, pack);
+        if (pp == null) { say(/[.\/\u00bd\u2153\u2154\u00bc\u00be]/.test(String(input.value)) ? "Type whole packs, or packs and pieces - 15.5 = 15 packs + 1 piece." : "Type a whole number from 1 to " + MAX_CHUNK + ".", "bad"); focusEl(input); return; }
+        if (!addPacksPieces(pp.whole, pp.pcs)) { say("That is more entries than this counter keeps.", "bad"); return; }
+        input.value = "";
+        say("");
+        changed(!ops[ops.length - 1].chunk);
+        focusEl(input);
+        return;
+      }
       var n = parseTyped(input.value);
       if (n == null) { say("Type a whole number from 1 to " + MAX_CHUNK + ".", "bad"); focusEl(input); return; }
       if (!addCount(n)) { say("That is more entries than this counter keeps.", "bad"); return; }
@@ -1078,7 +1189,7 @@
     function askMake() {
       if (sending || !canConfirm || !hasAny()) return;
       clearAsk.hidden = true;
-      makeQ.textContent = "Set " + where + " for " + title + " from " + (expectedText || "?") + " to " + (loose ? format(unitsNow()) : fmtNum(unitsNow())) + (pack ? " (" + fmtNum(piecesNow()) + " pcs)" : "") + "? Only this product changes." + (loose ? " " + fmtNum(piecesNow()) + " pcs is not a whole number of " + pack + "-packs, so this is a fraction of a pack." : "");
+      makeQ.textContent = "Set " + where + " for " + title + " from " + (expectedText || "?") + " to " + (loose ? format(unitsNow()) : fmtNum(unitsNow())) + (pack ? " (" + fmtNum(piecesNow()) + " pcs)" : "") + "? Only this product changes." + (loose ? " (" + looseWords(tally.total(), loose) + ")" : "");
       makeAsk.hidden = false;
       say("");
       render();
@@ -1182,6 +1293,8 @@
     function dismiss() {
       if (closed) return;
       closed = true;
+      if (pack && loose > 0) keptLoose[normAsin(asin)] = { pcs: loose, pack: pack, sig: chunkSig(tally.chunks()) }; else delete keptLoose[normAsin(asin)]; // B-2062
+      try { paintBadges(); } catch (e) { /* the chip is a report */ }
       var wi = openWatchers.indexOf(watcher);
       if (wi >= 0) openWatchers.splice(wi, 1);
       document.removeEventListener("keydown", onKey);
@@ -1202,6 +1315,7 @@
     modePacks.addEventListener("click", function () { setMode("packs"); });
     modePieces.addEventListener("click", function () { setMode("pieces"); });
     plusBtn.addEventListener("click", addQuick);
+    pcBtn.addEventListener("click", addPiece);
     fullBtn.addEventListener("click", addFull);
     addBtn.addEventListener("click", addTyped);
     input.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); addTyped(); } });
@@ -1730,7 +1844,7 @@
   function isOpen() { return !!current; }
 
   // Test hook: forget what the memory fallback holds and re-try real storage.
-  function _reset() { memory = {}; degraded = false; memoryClears = {}; clearsDegraded = false; storeListeners = []; openWatchers = []; badgeClearWatchers = []; }
+  function _reset() { keptLoose = {}; memory = {}; degraded = false; memoryClears = {}; clearsDegraded = false; storeListeners = []; openWatchers = []; badgeClearWatchers = []; }
 
   self.ShopperReceive = Object.freeze({
     QUICK: QUICK,
@@ -1752,6 +1866,7 @@
     clearFromBadge: clearFromBadge,
     isChunk: isChunk,
     parseTyped: parseTyped,
+    parsePackTyped: parsePackTyped, expectedPieces: expectedPieces, fullCountPieces: fullCountPieces, looseWords: looseWords,
     createTally: createTally,
     gapInfo: gapInfo,
     fullCountChunk: fullCountChunk,

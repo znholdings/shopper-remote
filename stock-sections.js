@@ -51,8 +51,11 @@
   let saved = {};
   try { saved = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) { saved = {}; }
   if (!saved || typeof saved !== "object" || Array.isArray(saved)) saved = {};
-  function isOpen(s) { return Object.prototype.hasOwnProperty.call(saved, s.key) ? !!saved[s.key] : s.open; }
+  const F = root.ShopperFold || null; // B-2070: one shared state (remote/fold-shared.js)
+  function seed(s) { return Object.prototype.hasOwnProperty.call(saved, s.key) ? !!saved[s.key] : s.open; }
+  function isOpen(s) { return F ? F.get("stock:" + s.key, seed(s)) : seed(s); }
   function remember(s, open) {
+    if (F) { F.set("stock:" + s.key, !!open); return; }
     saved[s.key] = !!open;
     try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch (e) { /* per-phone nicety */ }
   }
@@ -315,6 +318,7 @@
     // Typed-but-unread words (shown whenever boxes.js's own badge is empty).
     document.addEventListener("input", (e) => { if (e.target && (e.target.id === "boxesText" || (e.target.classList && e.target.classList.contains("wz-textarea")))) again(); });
     refresh();
+    if (F) F.onChange(() => refresh());
   }
   // A tap on a section heading (not on its own controls) opens / closes it.
   function onHeadTap(e) {

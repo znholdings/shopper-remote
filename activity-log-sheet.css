@@ -1,0 +1,20 @@
+/* B-2061 (v2.0.158) - the phone's Activity log: drawer row + full-height sheet. Tokens only (light / dark / retro). */
+.pn-actlog { padding: 6px 10px; border-top: 1px solid var(--s-line-soft); }
+.pn-actlog-btn { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 44px; padding: 0 8px; border: 0; border-radius: var(--s-r-sm); background: transparent; color: var(--s-text-2, var(--s-text)); font: 600 14px/1.3 var(--s-font); text-align: left; cursor: pointer; }
+.pn-actlog-btn:active { background: var(--s-n2); }
+:root[data-theme="retro"] .pn-drawer .pn-actlog { border-top-color: var(--s-n4); }
+
+.als-root { position: fixed; inset: 0; z-index: 1100; display: flex; flex-direction: column; box-sizing: border-box; padding-top: env(safe-area-inset-top, 0px); } /* the root clears the phone status bar like every full-screen layer (B-1938 guard); the scrim still dims the whole screen */
+.als-scrim { position: absolute; inset: 0; background: color-mix(in srgb, var(--s-n7) 45%, transparent); }
+.als-sheet { position: relative; flex: 1 1 auto; min-height: 0; box-sizing: border-box; display: flex; flex-direction: column; background: var(--s-surface); color: var(--s-text); font-family: var(--s-font); padding-bottom: env(safe-area-inset-bottom, 0px); }
+.als-head { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--s-line-soft); }
+.als-title { flex: 1 1 auto; min-width: 0; }
+.als-h { font-size: 17px; font-weight: 700; }
+.als-sub { font-size: 12px; color: var(--s-text-muted); }
+.als-x { flex: 0 0 auto; width: 40px; height: 40px; border: 1px solid var(--s-line); border-radius: var(--s-r-sm); background: var(--s-surface); color: var(--s-text); font-size: 18px; cursor: pointer; }
+.als-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 8px 12px; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+.als-line { display: flex; flex-direction: column; gap: 0; padding: 5px 0; border-bottom: 1px solid var(--s-line-soft); font-size: 13px; line-height: 1.4; overflow-wrap: anywhere; }
+.als-time { font-size: 11px; color: var(--s-text-muted); font-variant-numeric: tabular-nums; }
+.als-empty { padding: 16px 0; color: var(--s-text-muted); font-size: 14px; }
+.als-new { position: absolute; right: 14px; bottom: calc(env(safe-area-inset-bottom, 0px) + 14px); padding: 10px 14px; border: 1px solid var(--s-accent); border-radius: 999px; background: var(--s-accent-bg); color: var(--s-accent); font: 600 13px/1 var(--s-font); cursor: pointer; }
+.als-new[hidden] { display: none; }

@@ -308,7 +308,10 @@
     const b = el("button", "rc-btn rtn-open", "Process returns");
     b.type = "button";
     b.addEventListener("click", () => open());
-    wrap.append(b, el("div", "rtn-entry-note", "Put a ScanPower returns batch back on the shelf."));
+    wrap.append(b);
+    // B-2069 (v2.0.158): the caption sits behind an ⓘ beside the button.
+    if (self.ShopperInfoTip) self.ShopperInfoTip.add(wrap, "Put a ScanPower returns batch back on the shelf.", { id: "ship-rtn", after: b });
+    else wrap.append(el("div", "rtn-entry-note", "Put a ScanPower returns batch back on the shelf."));
     host.appendChild(wrap);
   }
 

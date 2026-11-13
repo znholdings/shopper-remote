@@ -122,7 +122,13 @@
         box.appendChild(r);
       });
     }
-    box.appendChild(btnOf("Forget what Recovery learned", "secondary-btn danger-btn", (b) => act("recoveryClearLearned", {}, { btn: b, confirm: "Forget everything Recovery has learned? It will learn again from the next run." })));
+    // B-2074: a rarely wanted, destructive button lives behind a menu (same command, same confirm).
+    const more = el("details", "sfold-more");
+    const moreSum = el("summary", "", "⋯");
+    moreSum.setAttribute("aria-label", "More");
+    more.appendChild(moreSum);
+    more.appendChild(btnOf("Forget what Recovery learned", "secondary-btn danger-btn", (b) => act("recoveryClearLearned", {}, { btn: b, confirm: "Forget everything Recovery has learned? It will learn again from the next run." })));
+    box.appendChild(more);
     host.appendChild(box);
   }
   function start() { draw(); setInterval(draw, 2000); }

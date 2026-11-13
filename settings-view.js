@@ -222,6 +222,7 @@
     host.textContent = "";
     const sync = el("section", "section stg-sync");
     sync.appendChild(el("h3", "section-head", "Computers"));
+    if (self.ShopperInfoTip) self.ShopperInfoTip.add(sync.lastElementChild, "Passwords and API keys are never shown or changed here.", { id: "stg-keys" }); // B-2069 (v2.0.158)
     if (status) sync.appendChild(el("p", "muted small", status));
     else if (sent && waiting.length) sync.appendChild(el("p", "stg-wait", `Saved - waiting for ${waiting.join(", ")}`));
     else if (sent) sync.appendChild(el("p", "stg-ok", "Saved - every computer has it"));
@@ -263,7 +264,6 @@
       }
       host.appendChild(card);
     }
-    host.appendChild(el("p", "muted small", "Passwords and API keys are never shown or changed here."));
     if (pendingJump) { const h = pendingJump; pendingJump = ""; applyJump(h); }
   }
 
