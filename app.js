@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.163";
+const APP_BUILD = "v2.0.164";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -1661,7 +1661,8 @@ function buylistCard(i) {
   stats.innerHTML =
     statCell("Buy qty", fmtQty(i.qty)) +
     (i.v3Cover != null ? statCell("Cover", fmtQty(i.v3Cover) + "d") : "") + // B-1717 (v2.0.126): Quantity v3 days of cover
-    statCell("SB mgn", fmtPct(i.sbMarginPct)) +
+    statCell("30d mgn", fmtPct(i.sb30MarginPct)) + // B-2106 (v2.0.164): Sellerboard's last 30 days (net profit / sales)
+    statCell("30d ROI", fmtPct(i.sb30RoiPct)) +
     statCell("RP mgn", fmtPct(i.rpMarginPct));
   row.appendChild(stats);
   let ownEl = null; // B-2072 (v2.0.158): the Owned formula sits under More, not on the card
@@ -1678,7 +1679,8 @@ function buylistCard(i) {
     (i.v3Ordered != null ? statCell("Ordered", fmtQty(i.v3Ordered)) : "") + // B-1806 (v2.0.137): Shopper's own ordered-not-delivered
     statCell("Rank", Number.isFinite(i.rank) ? String(Math.round(i.rank)) : "-") + // B-1740 (v2.0.127)
     statCell("Unit cost", i.unitCost != null ? money(i.unitCost) : "-") +
-    statCell("SB ROI", fmtPct(i.sbRoiPct)) +
+    statCell("60d mgn", fmtPct(i.sb60MarginPct)) + // B-2106
+    statCell("60d ROI", fmtPct(i.sb60RoiPct)) +
     statCell("RP ROI", fmtPct(i.rpRoiPct)) +
     statCell("SB vel", fmtQty(i.sbVelocity)) +
     statCell("RP vel", fmtQty(i.rpVelocity)) +
