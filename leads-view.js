@@ -69,6 +69,7 @@
     if (r.inCatalog) tags.push("now in your catalog");
     if (r.sentAt) tags.push("On buylist ×" + (r.sentQty || "?"));
     c.appendChild(U.el("div", "muted small", tags.join(" · ")));
+    { var mb = !r.url && root.ShopperMatchBlock ? root.ShopperMatchBlock.block(r.asin, r.match) : null; if (mb) c.appendChild(mb); } // B-2108: no link yet -> what Auto-find sources found
     cells(r).forEach(function (line) { c.appendChild(U.el("div", "small", line)); });
     var links = U.el("div", "pg-cp-links small");
     links.appendChild(link("A", "https://www.amazon.com/dp/" + r.asin));
@@ -101,12 +102,12 @@
   function addBox() {
     var s = U.section("Add a lead");
     f.asin = U.input("text", { placeholder: "ASIN (B0...)", autocapitalize: "characters", maxlength: "10" });
-    f.url = U.input("url", { placeholder: "Source URL (the store page)" });
+    f.url = U.input("url", { placeholder: "Source URL (or leave empty - Shopper looks overnight)" });
     f.cost = U.input("text", { placeholder: "Cost per item (optional)", inputmode: "decimal" });
     s.appendChild(U.field("ASIN", f.asin)); s.appendChild(U.field("Source URL", f.url)); s.appendChild(U.field("Cost (only if the page can't be read)", f.cost));
     var b = U.btn("+ Add lead", "primary-btn", function () {
       var a = f.asin.value.trim(), u = f.url.value.trim();
-      if (!a || !u) { U.toast("Type the ASIN and the store link.", true); return; }
+      if (!a) { U.toast("Type the ASIN.", true); return; }
       U.send("leadsAdd", { asin: a, url: u, cost: f.cost.value.trim() || null, origin: "hand" }, b).then(function (res) { U.say(res, "Tracked"); if (res.ok) { f.asin.value = ""; f.url.value = ""; f.cost.value = ""; } });
     });
     s.appendChild(b);

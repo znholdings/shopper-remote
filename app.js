@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.162";
+const APP_BUILD = "v2.0.163";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -1372,6 +1372,16 @@ function renderPrompt(prompt) {
     // B-1712 (v2.0.128): a set is entered on the laptop only.
     els.promptFields.appendChild(Object.assign(document.createElement("div"), { className: "l-meta", textContent: "A set of 2+ listings is entered on the laptop (Buy Queue - Set form), not here." }));
     getPayload = () => ({ asin: prompt.asin, lineId: prompt.lineId, url: url.value.trim(), itemsPerUnit: Number(ipu.value) || 1 });
+    // B-2108 review: an auto-found source Zach confirmed - asked once on the first buy; the link is in the box, "Use this source" sends it as it is.
+    if (prompt.autoUrl && !prompt.doubt) {
+      url.value = prompt.autoUrl;
+      ipu.value = String(prompt.autoIpu || 1);
+      const useAuto = document.createElement("button");
+      useAuto.className = "primary-btn";
+      useAuto.textContent = "Use this source";
+      useAuto.addEventListener("click", () => sendCommand("submitSourceUrl", getPayload()));
+      els.promptActions.appendChild(useAuto);
+    }
     // B-2045 (v2.0.155): the laptop doubted the last link - say why, put it back in the box, and offer "Use it anyway" (that link only).
     if (prompt.doubt) {
       els.promptFields.insertBefore(Object.assign(document.createElement("p"), { className: "prp-doubt", textContent: prompt.doubt }), els.promptFields.firstChild);

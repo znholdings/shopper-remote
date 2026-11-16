@@ -41,12 +41,13 @@
   const btnOf = (text, cls, fn) => { const b = el("button", cls || "mini-btn", text); b.type = "button"; b.addEventListener("click", () => fn(b)); return b; };
   const typing = (host) => { const a = document.activeElement; return !!(a && host && host.contains(a) && (a.tagName === "INPUT" || a.tagName === "TEXTAREA")); };
   labels({
-    buylistSave: "Save the buylist", buylistRestore: "Restore the saved buylist", buylistRowMark: "Flag / ignore a row",
+    buylistSave: "Save the buylist", buylistRestore: "Restore the saved buylist", buylistRowMark: "Flag / ignore a row", buylistAltSwitch: "Switch to a cheaper source",
     qtyV3Override: "Quantity v3 override", recordDecision: "Write to Buylist History", buylistClearPendingAlert: "Clear the buylist alert",
     buylistSaveInfo: "Saved buylist info",
   });
   const FIELDS = [["leadDays", "Lead days"], ["targetDays", "Target days"], ["minOrder", "Min order"], ["roundMultiple", "Round to"]];
   const DECISION = { approve: "approve", conditional: "conditional", push: "pushed" };
+  const notNow = new Set(); // "Not now" hides an offer on this screen only
   let host = null, drawnKey = "", saveInfo = null, infoAt = 0;
 
   // Buylist History: SHOPPER_BUYLIST_ACTION does not write the row (only the laptop page did), so after an
@@ -151,6 +152,17 @@
     bar.dataset.baxAsin = asin;
     const m = (pg().buylistMarks || {})[asin] || {};
     const ov = ((pg().qtyV3 || {}).overrides || {})[asin] || null;
+    // B-2109: "$X cheaper at <store> - switch?" (Switch / Not now); after Switch the line says what happened.
+    const ch = (pg().buylistCheaper || {})[asin];
+    if (ch && ch.url && ch.savingLine > 0) {
+      const store = { walmart: "Walmart", samsclub: "Sam's Club", target: "Target", homedepot: "Home Depot", petsmart: "PetSmart" }[ch.retailer] || ch.retailer;
+      if (ch.switched) bar.appendChild(el("span", "bax-chip", ch.switched === "once" ? "Switched to " + store + " (this buy)" : store + " is now the main source"));
+      else if (!notNow.has(asin)) {
+        bar.appendChild(el("span", "bax-chip", "$" + Number(ch.savingLine).toFixed(2) + " cheaper at " + store + " - switch?"));
+        bar.appendChild(btnOf("Switch", "mini-btn", async (b) => { const r = await act("buylistAltSwitch", { asin, url: ch.url, readAt: ch.readAt }, { btn: b }); if (r && r.ok) { say("Switched."); drawnKey = ""; } }));
+        bar.appendChild(btnOf("Not now", "mini-btn", () => { notNow.add(asin); redecorate(); }));
+      }
+    }
     if (m.flagged) bar.appendChild(el("span", "bax-chip", "Flagged"));
     if (m.ignoredUntil) bar.appendChild(el("span", "bax-chip", "Ignored until " + untilText(m.ignoredUntil)));
     const mark = (label, which, on) => btnOf(label, "mini-btn", async (b) => {
@@ -215,7 +227,7 @@
     setInterval(() => {
       draw();
       decorate();
-      const k = JSON.stringify([pg().buylistMarks, (pg().qtyV3 || {}).overrides]);
+      const k = JSON.stringify([pg().buylistMarks, (pg().qtyV3 || {}).overrides, pg().buylistCheaper]);
       if (k !== marksKey && !typing(document.getElementById("buylistItems"))) { marksKey = k; redecorate(); }
       if (Date.now() - infoAt > 5 * 60 * 1000) refreshInfo();
     }, 2000);

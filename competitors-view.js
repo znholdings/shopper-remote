@@ -34,6 +34,7 @@
     if (it.verdict === "filtered") main.appendChild(U.el("div", "small pg-cp-why", "Filtered: " + it.reason));
     if (it.tags && it.tags.length) main.appendChild(U.el("div", "muted small", it.tags.join(" · ")));
     if (it.lead) main.appendChild(U.el("div", "muted small", "Tracked as a lead")); // B-2103
+    { var mb = root.ShopperMatchBlock ? root.ShopperMatchBlock.block(it.asin, it.match) : null; if (mb) main.appendChild(mb); } // B-2108: the auto-found source
     var links = U.el("div", "pg-cp-links small");
     links.appendChild(link("A", "https://www.amazon.com/dp/" + it.asin));
     links.appendChild(link("K", "https://keepa.com/#!product/1-" + it.asin));
