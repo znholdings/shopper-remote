@@ -91,7 +91,7 @@
     if (cur && cur.main) return; // B-1914: already open - a second "Plan boxes" pick keeps the plan on screen
     const host = openSheet("Packing data");
     if (cur) cur.main = true;
-    P.mountPackingUi(host, { api, surface: "phone", canSeed: true, progressFeed });
+    P.mountPackingUi(host, { api, surface: "phone", canSeed: true, progressFeed, fold: self.ShopperFold });
   }
 
   // B-1512 (v2.0.106): the Inventory row's "Packing" button - the one-product form (lib/packing-product-form.js) for that ASIN.

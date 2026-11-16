@@ -226,6 +226,8 @@
     prices.append(cell("Buy Box", money(r.bb)), cell("Your min", money(r.min), `max ${money(r.max)}`), cell("Listed", money(r.listed)),
       cell("Lowest FBA", money(r.lowestFba)), cell("Lowest FBM", money(r.lowestFbm)));
     c.append(prices);
+    if (r.refLine) c.append(el("div", "muted small bmm-ref", r.refLine)); // B-2092 (v2.0.161): the laptop words it
+    if (r.flagText) c.append(el("div", "small warn-text bmm-flag", r.flagText)); // B-2099
     const grid = el("div", "bmm-nums");
     grid.append(
       pair("Seller Snap 7 days", { roi: r.ssRoi, margin: r.ssMargin }),
@@ -316,7 +318,7 @@
     if (!box) return;
     box.textContent = "";
     const d = data;
-    $("bmmAsOf").textContent = d && d.readAt ? `${d.count} listing(s) · read ${ago(d.readAt)}${d.via ? " from " + d.via : ""}${d.hidden ? ` · ${d.hidden} hidden (Don't change)` : ""}` : "Not read yet - tap Check now.";
+    $("bmmAsOf").textContent = d && d.readAt ? `${d.count} listing(s) · read ${ago(d.readAt)}${d.via ? " from " + d.via : ""}${d.hidden ? ` · ${d.hidden} hidden (Don't change)` : ""}${d.flagged ? ` · ${d.flagged} marked "probably not real"` : ""}` : "Not read yet - tap Check now.";
     const ban = $("bmmBanner");
     const msgs = [];
     if (d && d.error) msgs.push(`Last check failed: ${d.error}`);

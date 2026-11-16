@@ -1407,7 +1407,7 @@ function prMergeSent(map, sku, entry, nowMs) {
   if (sku) next[sku] = entry;
   return next;
 }
-__m["pricing-rows.js"] = { PR_SENT_KEY, PR_SENT_KEEP_MS, PR_STALE_MS, PR_NO_PRESET, PR_NO_PRESET_LABEL, prPresetOf, prPresetLabel, prPresetShows, prPickerChoices, prPick, prBuildSkuMap, prPresetChoices, prPricesFor, prParsePrice, prValidate, PR_COMPACT_KEYS, prCompact, prMergeSent };
+__m["pricing-rows.js"] = { PR_SENT_KEY, PR_SENT_KEEP_MS, PR_STALE_MS, PR_NO_PRESET, PR_NO_PRESET_LABEL, prSameCent, prPresetOf, prPresetLabel, prPresetShows, prPickerChoices, prPick, prBuildSkuMap, prPresetChoices, prPricesFor, prParsePrice, prValidate, PR_COMPACT_KEYS, prCompact, prMergeSent };
 })();
 // ---- lib/min-loss-check.js ----
 (function () {

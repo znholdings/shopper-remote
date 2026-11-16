@@ -87,7 +87,7 @@ body.pn-float .s55-jump { padding-right: 62px; }
 /* The row card is a grid: keep its one track to the card width, so a one-line row can never push it wider. */
 #wizardPane .wz-row { grid-template-columns: minmax(0, 1fr); }
 #wizardPane .wz-row-actions:has(> .wz-input[type="number"] + .wz-btn + .wz-btn:last-child) { flex-wrap: nowrap; gap: 6px; }
-#wizardPane .wz-row-actions:has(> .wz-input[type="number"] + .wz-btn + .wz-btn:last-child) > .wz-input { flex: 1 1 70px; width: auto; min-width: 56px; }
+#wizardPane .wz-row-actions:has(> .wz-input[type="number"] + .wz-btn + .wz-btn:last-child) > .wz-input { flex: 1 1 7.5em; width: auto; min-width: 7.5em; }
 #wizardPane .wz-row-actions:has(> .wz-input[type="number"] + .wz-btn + .wz-btn:last-child) > .wz-btn { flex: none; padding: 8px 10px; font-size: 14px; white-space: nowrap; }
 :root[data-theme="retro"] #wizardPane .wz-row-actions:has(> .wz-input[type="number"] + .wz-btn + .wz-btn:last-child) > .wz-input { padding: 6px 8px; }
 

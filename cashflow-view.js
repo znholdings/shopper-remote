@@ -81,6 +81,7 @@
     if (m && m.spendAt) bits.push(`All Orders spend read ${ago(m.spendAt)}`);
     if (pull && pull.running) bits.push(`reading now: ${pull.step || "..."}`);
     if (m && m.builtAt) bits.push(`worked out ${ago(m.builtAt)}`);
+    if (m && m.sources) bits.push(m.sources); // B-2091 (v2.0.160): sales / payout from Amazon, net profit from Sellerboard
     $("cfmStatus").textContent = bits.join(" · ");
     const problems = [...((m && m.problems) || [])];
     if (!m) problems.unshift("The laptop has not worked out the cash flow for the phone yet - it does after its next Sellerboard read (every 6 hours), or tap Reload.");
@@ -158,7 +159,7 @@
     const c = card("Stock at Amazon (at cost)");
     const st = m.stock || {};
     const out = { c };
-    if (!st.days || !st.days.length) c.append(empty("No Amazon stock history yet (the hourly SP-API pull writes it)."));
+    if (!st.days || !st.days.length) return {}; // B-2084: no history = no card (render() adds one note)
     else {
       const box = chartBox("cfmStock");
       c.append(box, legend([["k4", "Available"], ["k3", "Inbound"], ["k1", "FC transfer / processing"]]));
@@ -235,6 +236,7 @@
     body.append(tilesEl(m));
     const parts = [dailyCard(m), projCard(m), stockCard(m), payoutsCard(m), buyCard(m), trendsCard(m)];
     for (const p of parts) if (p.c) body.append(p.c);
+    if (!(m.stock && m.stock.days && m.stock.days.length)) body.append(el("p", "cfm-note", "No Amazon stock history yet (the hourly SP-API pull writes it) - the Stock at Amazon card shows once it does."));
     if (visible()) for (const p of parts) if (p.draw) p.draw();
   }
 

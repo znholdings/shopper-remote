@@ -101,7 +101,7 @@
     if (data.historyError) banner(host, "The last history row was NOT saved: " + data.historyError, "error");
     const s = settings();
     const dip = F.dipSignal(points, s.dip);
-    if (dip.state === "warming") banner(host, "Supply-squeeze warning starts once " + dip.need + " days of history exist (" + dip.have + " so far).", "info");
+    if (self.ShopperInfoTip) self.ShopperInfoTip.add($("fbaOverTimeH"), dip.state === "warming" ? "Supply-squeeze warning starts once " + dip.need + " days of history exist (" + dip.have + " so far)." : "", { id: "fba-squeeze", label: "Supply-squeeze warning" });
     for (const a of F.fbaAlerts(points, s)) banner(host, a.text, "warn");
   }
 
@@ -110,6 +110,7 @@
     bars.textContent = "";
     // B-566 (v4.74): one full stack (same lib code as the laptop page).
     const p = F.withLiveParts(points.length ? points[points.length - 1] : null, data.ordered);
+    const nowSec = $("fbaNowSec"); if (nowSec) nowSec.hidden = !p;
     if (!p) { $("fbaNowNote").textContent = "No history rows yet - the first one is written by the laptop's next Amazon pull."; return; }
     const s = settings();
     const u = F.barSegments(p, "units", s.splitInboundInBars);

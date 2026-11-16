@@ -26,6 +26,7 @@
 .pg-cp-main { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
 .pg-cp-row button { flex: none; min-height: 44px; }
 .pg-cp-seen { opacity: .6; }
+.pg-ld-off { opacity: .55; }
 .pg-cp-score { color: var(--s-accent); }
 .pg-cp-why { color: var(--s-red-ink); }
 .pg-cp-links { display: flex; gap: 14px; }

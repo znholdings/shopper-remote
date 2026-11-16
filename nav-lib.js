@@ -10,6 +10,7 @@
     // B-2043 (v2.0.154): Sourcing - what the sellers you compete with are adding. Not in Do next, not in The Daily.
     { group: "sourcing", label: "Sourcing", icon: "sourcing", items: [
       { id: "competitors", label: "Competitor ASINs", path: "sourcing/competitors.html" }, // no `quick`: a pop-up button needs an `open` message (lib/popup-nav.js) and the page opens by URL
+      { id: "leads", label: "Tracked Leads", path: "sourcing/leads.html" }, // B-2103 (v2.0.162)
 
     ] },
     { group: "buy", label: "Buy", icon: "buylist", items: [

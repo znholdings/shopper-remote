@@ -174,6 +174,47 @@
     }
     redraw();
   }
+  // B-2110 (v2.0.162): an aged price step / restore - the laptop's words (step.text / step.button), one button, the answer.
+  const agedSends = {};
+  async function sendAged(p) {
+    const R = self.ShopperRemote;
+    if (!R || !R.sendCommand || sendingSku) return;
+    const at = Date.now();
+    sendingSku = p.sku;
+    agedSends[p.sku] = { phase: "sending", at };
+    redraw(true);
+    let id = null;
+    try { id = await R.sendCommand("agedStepSend", { sku: p.sku, asin: p.asin, kind: p.kind, newMin: p.kind === "forget" ? null : p.newMin }); } catch (e) { id = null; }
+    if (!id) { sendingSku = null; agedSends[p.sku] = { phase: "failed", at, text: "Not sent - the phone could not reach the laptop's relay. Try again." }; redraw(true); return; }
+    let status = "done";
+    try { if (R.waitFor) status = await R.waitFor(id); } catch (e) { status = "done"; }
+    let row = null;
+    try { if (R.readCommand) row = await R.readCommand(id); } catch (e) { row = null; }
+    sendingSku = null;
+    const res = row && row.result && typeof row.result === "object" ? row.result : null;
+    if (status === "done" && res) {
+      const m2 = (v) => (v == null ? "-" : "$" + Number(v).toFixed(2));
+      const c = res.change || {};
+      const text = res.ok ? (res.kind === "forget" ? "forgotten" : res.floored ? `sent ${m2(c.newMin)} (break-even floor; the 10% step would lose money)` : res.confirmed ? `confirmed - min ${m2(c.newMin)}` : `sent - Seller Snap took it, not showing yet (min ${m2(c.newMin)})`) : String(res.error || res.result || "not sent");
+      agedSends[p.sku] = { phase: "answered", at, ok: !!res.ok, text };
+    } else if (status === "timeout") agedSends[p.sku] = { phase: "failed", at, text: "No answer from the laptop in 5 minutes - check its Pricing page before sending again." };
+    else agedSends[p.sku] = { phase: "failed", at, text: String((row && row.reason) || (res && res.error) || `not sent (${status})`) };
+    redraw();
+  }
+  function agedStepBlock(p) {
+    const box = el("div", "lhm-step");
+    if (p.text) box.append(el("div", "small lhm-step-text", p.text));
+    const sn = agedSends[p.sku];
+    if (p.button && p.kind !== "wait") {
+      const b = el("button", "mini-btn lhm-step-send", sendingSku === p.sku ? "Sending..." : p.button);
+      b.type = "button";
+      b.disabled = !!sendingSku;
+      b.addEventListener("click", () => sendAged(p));
+      box.append(b);
+    }
+    if (sn && sn.text) box.append(el("div", "small " + (sn.ok ? "is-good" : "warn-text"), sn.text));
+    return box;
+  }
   function ssBlock(r, presetsIn, opts) {
     const compact = !!(opts && opts.compact); // B-2071: Aged / No sales rows fold the editor behind Edit; the Min cards call with 2 arguments and stay as they were
     const box = el("div", "lhm-ss");
@@ -269,6 +310,13 @@
     return box;
   }
 
+  function drawRestores(box, a) { // B-2110: prices to put back (the aged units are gone)
+    for (const p of (Array.isArray(a.restores) ? a.restores : [])) {
+      const rb = el("div", "lhm-row");
+      rb.append(el("div", "lhm-name", String(p.title || p.sku || "")), agedStepBlock(p));
+      box.append(rb);
+    }
+  }
   function drawAged(box, a) {
     box.append(el("h3", "ai-h2", "Aged inventory"));
     const st = P.lhAgedStatus(a, Date.now());
@@ -285,7 +333,7 @@
     }
     box.append(tiles);
     const rows = a.rows || [];
-    if (!rows.length) { box.append(el("p", "muted small", "Amazon's report shows no unit over 90 days old.")); return; }
+    if (!rows.length) { box.append(el("p", "muted small", "Amazon's report shows no unit over 90 days old.")); drawRestores(box, a); return; } // B-2110
     const list = el("div", "lhm-list");
     for (const r of agedAll ? rows : rows.slice(0, SHOW_FIRST)) {
       const row = el("div", "lhm-row");
@@ -293,6 +341,7 @@
       const line = el("div", "lhm-line");
       line.append(el("span", "s-pill lhm-pill-" + r.level, P.AGED_LEVEL_LABEL[r.level] || r.level), el("span", "muted small", " " + P.lhAgedLine(r)));
       row.append(line);
+      if (r.step) row.append(agedStepBlock(r.step)); // B-2110
       if (P.lhAgedSelling) { // B-1499 (v2.0.104): is it selling? + the lowest FBA / FBM offers - all from stored data
         const sell = P.lhAgedSelling(r, data && data.base ? data.base.today : null);
         const sp = r.sp || null;
@@ -313,6 +362,7 @@
       list.append(row);
     }
     box.append(list);
+    drawRestores(box, a); // B-2110
     const total = Math.max(rows.length, a.total || 0);
     if (rows.length > SHOW_FIRST) box.append(more(agedAll, rows.length, () => { agedAll = !agedAll; lastKey = ""; render(data); }));
     if (total > rows.length) box.append(el("p", "muted small", `${total - rows.length} more on the laptop's Pricing page.`));

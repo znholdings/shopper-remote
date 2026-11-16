@@ -32,10 +32,21 @@
     main.appendChild(t);
     main.appendChild(U.el("div", "muted small", [it.asin, "rank " + nz(it.rank), money(it.price), "sold/mo " + nz(it.sold), "offers " + nz(it.offers), it.amazon ? "Amazon on listing" : "", "first seen " + it.firstSeen, "from " + (it.sellers || []).map(label).join(", ")].filter(Boolean).join(" · ")));
     if (it.verdict === "filtered") main.appendChild(U.el("div", "small pg-cp-why", "Filtered: " + it.reason));
+    if (it.tags && it.tags.length) main.appendChild(U.el("div", "muted small", it.tags.join(" · ")));
+    if (it.lead) main.appendChild(U.el("div", "muted small", "Tracked as a lead")); // B-2103
     var links = U.el("div", "pg-cp-links small");
     links.appendChild(link("A", "https://www.amazon.com/dp/" + it.asin));
     links.appendChild(link("K", "https://keepa.com/#!product/1-" + it.asin));
     links.appendChild(link("G", "https://www.google.com/search?q=" + encodeURIComponent(String(it.title || it.asin).slice(0, 120))));
+    if (!it.lead) { // B-2103: "+" = track this as a lead (asks for the Source URL)
+      var plus = U.btn("+", "mini-btn", function () {
+        var u = root.prompt ? root.prompt("Source URL for " + it.asin + " (the store page)") : "";
+        if (!u || !String(u).trim()) return;
+        U.send("leadsAdd", { asin: it.asin, url: String(u).trim(), origin: "comp" }, plus).then(function (res) { U.say(res, "Tracked"); });
+      });
+      plus.title = "Track this lead";
+      links.appendChild(plus);
+    }
     main.appendChild(links);
     r.appendChild(main);
     if (showSeen && !it.seen) {

@@ -44,4 +44,5 @@
 .lhm-verdict { font-size: 13px; font-weight: 700; }
 .lhm-verdict.is-none { color: var(--s-red-ink); }
 .lhm-verdict.is-good { color: var(--s-green-ink); }
+.lhm-step { display: grid; gap: 4px; min-width: 0; overflow-wrap: anywhere; } /* B-2110 */
 [hidden] { display: none !important; }

@@ -70,7 +70,7 @@
     if (q.walmartTitle) wrap.appendChild(el("p", "prp-product", "Walmart: " + q.walmartTitle));
     if (q.titleDoubt) wrap.appendChild(el("p", "prp-doubt", q.titleDoubt));
     if (q.landedNote) wrap.appendChild(el("p", "prp-doubt", q.landedNote));
-    wrap.appendChild(el("p", "prp-help", "Drag (or ▲▼) into buying order. Pieces = Amazon units in ONE Walmart checkout unit (4/3 is fine). One pack per Walmart order."));
+    wrap.appendChild(el("p", "prp-help", "Drag (or ▲▼) into buying order. Pieces = Amazon units in ONE Walmart checkout unit (4/3 is fine). One pack per Walmart order. A box is never split: a smaller pack on an Amazon multipack, or a bigger pack on a single, comes pre-marked never."));
     const list = el("ol", "prp-list");
     wrap.appendChild(list);
     const renumber = () => {
@@ -94,6 +94,7 @@
       if (v && v.inStock === false) tags.push("out of stock now");
       if (entry.isNew) tags.push("NEW");
       if (tags.length) name.appendChild(el("small", "prp-tags", " " + tags.join(" · ")));
+      if (v && v.boxNote) name.appendChild(el("small", "prp-box", v.boxNote)); // B-2111 / B-2115: a box is never split
       li.appendChild(name);
       const pieces = el("input", "prp-pieces");
       pieces.type = "text";
@@ -110,6 +111,17 @@
       nl.appendChild(never);
       nl.appendChild(el("span", "", "never"));
       li.appendChild(nl);
+      if (v && v.boxSplit) {
+        const sep = el("button", "prp-box-split", v.number + " separate");
+        sep.type = "button";
+        sep.addEventListener("click", () => {
+          pieces.value = v.boxSplit;
+          pieces.classList.remove("prp-bad");
+          never.checked = false;
+          renumber();
+        });
+        li.appendChild(sep);
+      }
       const up = el("button", "prp-move", "▲");
       up.type = "button";
       up.addEventListener("click", () => {

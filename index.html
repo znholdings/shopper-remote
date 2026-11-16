@@ -305,6 +305,7 @@
           <button id="generateBtn" class="primary-btn">Generate buylist</button>
           <button id="approveAllBtn" class="secondary-btn">Approve Adjusted</button>
         </div>
+        <p id="blMatchLine" class="muted small" hidden></p>
 
         <!-- P-29: add straight to the buylist, not only to the queue.
              B-1081 (v2.0.55): folded to one "Add an ASIN" line (open / shut remembered). -->
@@ -377,6 +378,7 @@
       <div id="manualBuyPane" hidden></div>
       <div id="blacklistPane" hidden></div>
       <div id="competitorsPane" hidden></div><!-- B-2043 (v2.0.154): Sourcing - Competitor ASINs -->
+      <div id="leadsPane" hidden></div><!-- B-2103 (v2.0.162): Sourcing - Tracked Leads -->
       <div id="runStatusPane" hidden></div>
       <div id="runReviewsPane" hidden></div>
       <div id="booksRulesPane" hidden></div>
@@ -548,14 +550,14 @@
         <div id="fbaClaude" class="csx-host fba-paper"></div>
         <div id="fbaBanners" class="fba-banners"></div>
         <div id="fbaBody" class="fba-paper" hidden>
-          <section class="fba-sec">
+          <section class="fba-sec" id="fbaNowSec">
             <!-- B-603 (v4.78): notes behind one Details toggle. -->
             <div class="fba-head-row"><h3 class="ai-h2">Right now</h3><button type="button" class="fba-notes-btn" id="fbaNotesToggle" aria-expanded="false">&#9432; Details</button></div>
             <p class="ai-note" id="fbaNowNote"></p>
             <div id="fbaBars"></div>
           </section>
           <section class="fba-sec">
-            <h3 class="ai-h2">Over time</h3>
+            <h3 class="ai-h2" id="fbaOverTimeH">Over time</h3>
             <!-- B-603 (v4.78): three tidy rows at phone width. -->
             <div class="ai-controls fba-controls">
               <div class="fba-ctl-row">
@@ -661,6 +663,7 @@
   <script src="topbar-view.js"></script>
   <script src="phone-shell.js"></script><!-- B-2068 (v2.0.158) -->
   <script src="info-tip.js"></script><!-- B-2069 (v2.0.158) -->
+  <script src="why-fold.js"></script><!-- B-2085 (v2.0.161): ShopperWhy.wrap, the phone twin of lib/info-tip.js wrapWhy -->
   <script src="plain-text.js"></script><!-- B-2073 (v2.0.158) -->
   <!-- B-1137 (v2.0.60): the Walmart pack-rank editor (app.js renderPrompt draws it). -->
   <script src="pack-rank-view.js"></script>
@@ -709,6 +712,7 @@
   <script src="manual-buy-view.js"></script>
   <script src="blacklist-view.js"></script>
   <script src="competitors-view.js"></script><!-- B-2043 -->
+  <script src="leads-view.js"></script><!-- B-2103 -->
   <script src="run-status-view.js"></script>
   <script src="run-reviews-view.js"></script>
   <script src="books-rules-view.js"></script>

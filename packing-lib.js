@@ -3423,7 +3423,7 @@ function drawPlanTab(body, o) {
   const drawCache = new Map(); // "<planId>|<boxId>" -> { ok, chunks } (the raw drawing pieces)
   const boxCache = new Map(); // "<planId>|<boxId>" -> the joined loadBox answer (B-1831: a box already seen is not asked for again)
   // S.sel = the selected box id; S.forms = "" | "rest" | "claude" | "reject:all" | "reject:<boxId>" (the one inline form that is open)
-  const S = { simp: "", r: null, sel: "", forms: "", msg: "", stored: null, pick: null, check: null, edit: new Set(), batchPick: "", sums: new Map(), sumsFor: "", batchSel: null };
+  const S = { menu: new Set(), detOpen: null, det: null, simp: "", r: null, sel: "", forms: "", msg: "", stored: null, pick: null, check: null, edit: new Set(), batchPick: "", sums: new Map(), sumsFor: "", batchSel: null };
 
   function el(tag, cls, text) { const n = doc.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = String(text); return n; }
   function clear(n) { while (n.firstChild) n.removeChild(n.firstChild); return n; }
@@ -3787,6 +3787,13 @@ function drawPlanTab(body, o) {
 
 
   // ------------------------------------------------------------ the plan: head, actions, forms (B-1835: nothing hidden behind a menu)
+  const DET_KEY = "packing:planDetails";
+  function applyDetails() { // B-2085: the shared fold decides; S.detOpen is the optimistic value until the fold echoes back
+    const d = S.det; if (!d) return;
+    const open = S.detOpen != null ? S.detOpen : !!(o.fold && o.fold.get(DET_KEY, false));
+    d.det.hidden = !open; d.btn.textContent = open ? "Details \u25b4" : "Details \u25be"; d.btn.setAttribute("aria-expanded", String(open));
+  }
+  if (o.fold && typeof o.fold.onChange === "function") o.fold.onChange(() => { S.detOpen = null; applyDetails(); });
   function paintHead() {
     const r = S.r;
     clear(headHost);
@@ -3799,13 +3806,22 @@ function drawPlanTab(body, o) {
     if (r.packed) head.appendChild(el("div", "pk-meta pk-msg-ok", `${r.packed} box${r.packed === 1 ? " is" : "es are"} packed and locked.`)); // B-1574
     if (r.rest) head.appendChild(el("div", "pk-meta pk-msg-ok", r.rest)); // B-1531
     head.appendChild(el("div", "pk-plan-line", r.headline));
-    head.appendChild(el("div", "pk-meta pk-msg-ok", r.proof));
-    // v2.0.139 (B-1835): the plan details are always shown (they used to fold behind "Plan details")
+    // v2.0.161 (B-2085): ONE status line; the proof and every other line are behind Details (shared fold packing:planDetails)
+    const toCheck = (r.goals || []).length + (r.dropped || []).length + (r.unknown || []).length + (r.stock ? 1 : 0);
+    const proven = /^Proven/.test(r.proof || "");
+    const srow = el("div", "pk-meta pk-statusrow");
+    srow.appendChild(el("span", "pk-statusline " + (proven && !toCheck ? "pk-msg-ok" : "pk-msg-bad"), (proven ? "\u2713 Proven" : "Not proven") + (toCheck ? ` \u00b7 ${toCheck} thing${toCheck === 1 ? "" : "s"} to check` : "")));
+    const dbtn = btn("Details \u25be", "pk-quiet pk-details-btn", () => { const next = S.det.det.hidden; S.detOpen = next; if (o.fold) o.fold.set(DET_KEY, next); applyDetails(); });
+    dbtn.setAttribute("aria-expanded", "false");
+    srow.appendChild(dbtn);
+    head.appendChild(srow);
+    // v2.0.161 (B-2085): behind the status row's Details (B-1835's "always shown" is replaced - Zach 11/12 sweep + 11/14 build all)
     const det = el("div", "pk-plan-details");
+    if (r.proof) det.appendChild(el("div", "pk-meta pk-msg-ok", r.proof));
     if (r.simplicity) det.appendChild(el("div", "pk-meta", "Packing: " + r.simplicity));
     det.appendChild(el("div", "pk-meta", r.advisor));
     if (r.claudeBg) det.appendChild(el("div", "pk-meta pk-msg-ok", r.claudeBg));
-    if (r.claudeOffer) { const um = el("div", "pk-msg"); det.appendChild(btn("Use Claude's plan", "pk-primary", () => act("packingUseClaude", {}, um))); det.appendChild(um); } // v2.0.143 (SB-1): the swap is Zach's press, a new plan
+    if (r.claudeOffer) { const um = el("div", "pk-msg"); srow.appendChild(btn("Use Claude's plan", "pk-primary", () => act("packingUseClaude", {}, um))); srow.appendChild(um); } // v2.0.143 (SB-1): the swap is Zach's press, a new plan
     if ((r.goals || []).length) { det.appendChild(el("div", "pk-meta pk-msg-bad", "Misses Zach's goals:")); const ul = el("ul", "pk-goals"); for (const g of r.goals) ul.appendChild(el("li", "", g)); det.appendChild(ul); }
     for (const t of r.dropped || []) det.appendChild(el("div", "pk-meta pk-msg-bad", t));
     for (const t of r.unknown || []) det.appendChild(el("div", "pk-meta pk-msg-bad", t));
@@ -3815,6 +3831,8 @@ function drawPlanTab(body, o) {
     if (r.draft && r.draft.text) det.appendChild(el("div", "pk-meta", r.draft.text));
     if (r.cut) det.appendChild(el("div", "pk-meta", "(Some boxes are left off this list to keep it short.)"));
     head.appendChild(det);
+    S.det = { det, btn: dbtn };
+    applyDetails();
     if (r.draft && r.draft.state === "waiting") head.appendChild(btn("Send to Box contents", "", async () => { const x = await call("packingDraft"); if (x.ok) applyPlan(x); else say(rowMsg, whyNot(x, "Send to Box contents"), "bad"); }));
     headHost.appendChild(head);
     if (r.proposal) headHost.appendChild(proposalCard(r.proposal));
@@ -4006,13 +4024,25 @@ function drawPlanTab(body, o) {
       const rm = el("div", "pk-msg pk-rowmsg"); // review: a row's "Working..." / error / "Replace" question shows on that row, where the finger is
       const stop = (fn) => (ev) => { ev.stopPropagation(); fn(); };
       const rb = (label, cls, fn, aria) => { const x = btn(label, cls, stop(fn)); x.setAttribute("aria-label", `${aria || label} box ${b.num}`); acts.appendChild(x); };
-      if (b.status !== "approved" && !b.packed) rb(r.noSend ? "Approve (nothing sent)" : "Approve", "pk-primary", () => act("packingApprove", { boxId: b.id }, rm), "Approve");
+      // v2.0.161 (B-2086): ONE primary action per row + a \u22ef menu for the rest. Menu items stay in the DOM (hidden), same labels and aria-labels.
+      const menu = el("div", "pk-rowmenu"); menu.hidden = !S.menu.has(b.id);
+      const rbm = (label, cls, fn) => { const x = btn(label, cls, stop(() => { S.menu.delete(b.id); menu.hidden = true; fn(); })); x.setAttribute("aria-label", `${label} box ${b.num}`); menu.appendChild(x); };
       if (b.packed) rb("Unpack", "pk-quiet", () => act("packingUnpack", { boxId: b.id }, rm)); // B-1574: Packed locks the box (Reject, Plan again and every re-plan leave it alone)
-      else {
-        rb("Packed", "", () => act("packingPacked", { boxId: b.id }, rm));
-        rb("Reject", "pk-quiet", () => { const f = "reject:" + b.id; S.forms = S.forms === f ? "" : f; paint(["forms"]); });
+      else if (b.status !== "approved") {
+        rb(r.noSend ? "Approve (nothing sent)" : "Approve", "pk-primary", () => act("packingApprove", { boxId: b.id }, rm), "Approve");
+        rbm("Packed", "", () => act("packingPacked", { boxId: b.id }, rm));
+        rbm("Reject", "pk-quiet", () => { const f = "reject:" + b.id; S.forms = S.forms === f ? "" : f; paint(["forms"]); });
+      } else {
+        rb("Packed", "pk-primary", () => act("packingPacked", { boxId: b.id }, rm));
+        rbm("Reject", "pk-quiet", () => { const f = "reject:" + b.id; S.forms = S.forms === f ? "" : f; paint(["forms"]); });
+      }
+      if (menu.childNodes.length) {
+        const more = btn("\u22ef", "pk-quiet pk-more", stop(() => { const on = menu.hidden; menu.hidden = !on; if (on) S.menu.add(b.id); else S.menu.delete(b.id); more.setAttribute("aria-expanded", String(on)); }));
+        more.setAttribute("aria-label", `More actions for box ${b.num}`); more.setAttribute("aria-haspopup", "true"); more.setAttribute("aria-expanded", String(!menu.hidden));
+        acts.appendChild(more);
       }
       const ac = td("pk-c-acts", acts);
+      ac.appendChild(menu);
       ac.appendChild(rm);
       rm.addEventListener("click", (ev) => ev.stopPropagation()); // the "Replace" button in it must not select the row
       tr.addEventListener("click", () => selectBox(b.id));
@@ -4740,7 +4770,7 @@ function mountPackingUi(host, opts) {
     if (S.mode === "rules") return drawRulesTab(body, { doc, call });
     return typeof o.drawBoxes === "function" ? o.drawBoxes(body, { doc, api, canSeed: !!o.canSeed, onChange: drawStatus }) : drawBoxes();
   }
-  const planOpts = () => ({ doc, call, surface, onChange: () => { drawStatus(); redrawSections(); }, getBatch: () => S.batch, statusShowsLow: true, progressFeed: o.progressFeed }); // v2.0.113: B-1544 the Shipment tab's batch; B-1553 "Running low" once
+  const planOpts = () => ({ doc, call, surface, onChange: () => { drawStatus(); redrawSections(); }, getBatch: () => S.batch, statusShowsLow: true, progressFeed: o.progressFeed, fold: o.fold }); // v2.0.113: B-1544 the Shipment tab's batch; B-1553 "Running low" once
 
   // ------------------------------------------------------------ B-1832: the strip (the batch + the products needing data) and the replay host
   const redo = (into) => (ONE ? again(into) : draw());

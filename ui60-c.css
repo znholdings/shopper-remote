@@ -21,6 +21,8 @@
 .prp-name { flex: 1 1 60%; min-width: 0; overflow-wrap: anywhere; font-weight: 600; }
 .prp-tags { font-weight: 400; color: var(--s-text-muted, var(--text)); }
 .prp-never { display: flex; align-items: center; gap: 4px; }
+.prp-box { display: block; font-weight: 400; color: var(--s-red, var(--text)); }
+.prp-box-split { min-height: 36px; margin-left: 4px; border: 1px solid var(--s-line, var(--line)); border-radius: 6px; background: var(--s-surface, var(--panel)); color: inherit; }
 .prp-move { min-width: 36px; min-height: 36px; margin-left: 4px; border: 1px solid var(--s-line, var(--line)); border-radius: 6px; background: var(--s-surface, var(--panel)); color: inherit; }
 .prp-pieces { width: 6em; padding: 6px; border: 1px solid var(--s-line, var(--line)); border-radius: 6px; background: var(--s-surface, var(--panel)); color: inherit; }
 .prp-pieces.prp-bad { border-color: var(--s-red, var(--s-line)); }

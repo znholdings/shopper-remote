@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.159";
+const APP_BUILD = "v2.0.162";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -29,7 +29,7 @@ for (const id of [
   "runStatus","currentStep","tSpent","tNeeded","tToday","tBought","tDefaultNote",
   "startRow","modeSelect","runOnSelect","runOnNote","startBtn","resumeSavedBtn","controlRow","pauseBtn","resumeBtn",
   "retryFailedBtn","finishNowBtn","abortBtn","targetDestRow","targetDestHouseBtn","targetDestPrepBtn","unstickNote","addAsin","addQty","addPriority","addBtn",
-  "lineCount","lines","log","generateBtn","approveAllBtn","buylistMeta","buylistApproved",
+  "lineCount","lines","log","generateBtn","approveAllBtn","blMatchLine","buylistMeta","buylistApproved",
   "buylistApprovedBar","buylistApprovedFill","buylistItems","toast","installHint",
   "progress","progressText","genCard","genStep","genLog","previewBtn","discardSavedBtn",
   "blAddAsin","blAddQty","blAddBtn",
@@ -79,6 +79,7 @@ let deviceId = null;     // the laptop we are driving
 let deviceName = "";
 let lastPayload = null;
 let pollTimer = null;
+let omWhy = null, omFoldWired = false; // B-2085: Old Meat note fold on the phone
 // B-464 (v4.50): when the laptop's row was last written (device_state.updated_at).
 let lastUpdatedAt = null;
 // B-465 (v4.50): which Inventory tile is open - "house" | "prep" | "transit" | null.
@@ -463,6 +464,7 @@ const REMOTE_LABELS = {
   boxesUploadShort: "Upload boxes anyway (differs from the batch)", // B-1554 (v2.0.114)
   screenAsk: "Ask Claude", screenSummaryWrite: "Write the summary again",
   pricingRowSend: "Send a Pricing row", // B-1198 (v2.0.68)
+  agedStepSend: "Send an aged price step", // B-2110
   pricingFixPlan: "Fix this one: show the plan", pricingFixApply: "Fix this one: approve and start", // B-1599 (v2.0.116)
   booksLineSet: "Book a Needs you line", // B-1232 (v2.0.73)
   booksLineClear: "Card line - nothing", booksReload: "Reload the Books", // B-1278 / B-1277 (v2.0.74)
@@ -698,6 +700,7 @@ function renderPayload() {
   if (self.ShopperBelowMinView) self.ShopperBelowMinView.render(p.belowMin);
   // B-833 (v2.0.18): Home reads the FBA alerts and the Below Min count, so it is drawn after them.
   renderDashboard(p.dashboard, p);
+  paintBlMatch(p.dashboard); // B-2107
   // B-742 (v2.0.7): the Ship tab - every tap goes to the laptop as wizardAction.
   if (self.ShopperWizardView) {
     self.ShopperWizardView.render(els.wizardHost, p.wizard ? p.wizard.screen : null, {
@@ -1465,6 +1468,21 @@ const ANSWER_LABELS = {
   abort: "Abort run",
 };
 
+// B-2107 (v2.0.162): the nightly buylist match line (same words as buylist-match.js matchLine; the phone has no import).
+function paintBlMatch(d) {
+  const el = els.blMatchLine;
+  if (!el) return;
+  const m = d && d.extra && d.extra.matchScore;
+  const l = m && m.last && m.last.lines, dl = m && m.last && m.last.dollars;
+  if (!l) { el.hidden = true; el.textContent = ""; return; }
+  const p0 = (v) => (Number.isFinite(v) ? Math.round(v) + "%" : "-");
+  const usd = (v) => "$" + Math.round(v || 0).toLocaleString("en-US");
+  let s = `Match ${l.match}/${l.total} lines (${p0(l.pct)})`;
+  if (dl && dl.total > 0) s += ` \u00b7 ${usd(dl.match)}/${usd(dl.total)} (${p0(dl.pct)})`;
+  if (Number.isFinite(m.avg7Lines) && m.nights > 1) s += ` \u00b7 ${Math.min(m.nights, 7)}-list avg ${p0(m.avg7Lines)}` + (Number.isFinite(m.prev7Lines) ? ` (was ${p0(m.prev7Lines)})` : "");
+  el.textContent = s;
+  el.hidden = false;
+}
 function renderBuylist(bl) {
   if (!bl) {
     els.buylistMeta.textContent = "No buylist generated yet.";
@@ -1539,7 +1557,20 @@ function renderBuylist(bl) {
     if (sec.key === "offbeat" && bl.poolAssessment) {
       const box = document.createElement("div");
       box.className = "old-meat-box";
-      box.innerHTML = `<strong>🥩 Old Meat pool:</strong> ${escapeHtml(bl.poolAssessment)}`;
+      // B-2085 (v2.0.161): first sentence + "more"; the open state is the shared fold buylist:oldMeatNote.
+      const mm = /^(.*?[.!?])\s+([\s\S]+)$/.exec(bl.poolAssessment);
+      const lead = document.createElement("span"); lead.textContent = "🥩 Old Meat pool: " + (mm ? mm[1] : bl.poolAssessment);
+      if (mm && self.ShopperWhy) {
+        const rest = document.createElement("div"); rest.textContent = mm[2];
+        box.append(lead, rest); // wrap MOVES its nodes, so both must be in the box first
+        const w = self.ShopperWhy.wrap([rest], { label: "more", headline: lead, id: "bl-oldmeat" });
+        if (w) {
+          w.open(!!(self.ShopperFold && self.ShopperFold.get("buylist:oldMeatNote", false)));
+          w.button.addEventListener("click", () => { if (self.ShopperFold) self.ShopperFold.set("buylist:oldMeatNote", w.isOpen()); });
+          omWhy = w;
+          if (!omFoldWired && self.ShopperFold && typeof self.ShopperFold.onChange === "function") { omFoldWired = true; self.ShopperFold.onChange(() => { if (omWhy && omWhy.root.isConnected) omWhy.open(!!self.ShopperFold.get("buylist:oldMeatNote", false)); }); }
+        }
+      } else box.append(lead, mm ? " " + mm[2] : "");
       sectionWrap.appendChild(box);
     }
 
@@ -2300,7 +2331,7 @@ function maybePlaySounds(p) {
 // 30 minutes, where he had scrolled to) - remembered on THIS phone only
 // (localStorage through store, which is try/catch'd: private mode = default tab).
 const LAST_VIEW_KEY = "shopperLastView";
-const LAST_VIEW_TABS = ["dashboard", "run", "buylist", "inventory", "fba", "wizard", "belowmin", "catalog", "cashflow", "books", "settings", "daily", "manualbuy", "blacklist", "booksrules", "runstatus", "runreviews", "competitors"]; // B-2043: + Competitor ASINs. B-1792 (v2.0.135): + the pages the phone gained (bank stays out: it maps to Home)
+const LAST_VIEW_TABS = ["dashboard", "run", "buylist", "inventory", "fba", "wizard", "belowmin", "catalog", "cashflow", "books", "settings", "daily", "manualbuy", "blacklist", "booksrules", "runstatus", "runreviews", "competitors", "leads"]; // B-2103: + Tracked Leads. B-2043: + Competitor ASINs. B-1792 (v2.0.135): + the pages the phone gained (bank stays out: it maps to Home)
 const LAST_VIEW_SCROLL_MS = 30 * 60000;
 let currentTab = "run";
 let pendingScrollY = null;
@@ -3597,6 +3628,7 @@ function renderDashboard(d, p) {
       plaid: ex.plaid || null,
       virtualBank: d.spend.bankBalance,
       payoutNext30: ex.cash && ex.cash.payoutNext30 ? ex.cash.payoutNext30 : null,
+      matchScore: ex.matchScore || null, // B-2107
       payoutNext: ex.payoutNext || null, // B-1268 (v2.0.74): Amazon's open settlement
       arrivalsToday: d.pipeline.available ? d.pipeline.arrivalsToday : null,
       overdue: arrCounts ? arrCounts.overdue : null,

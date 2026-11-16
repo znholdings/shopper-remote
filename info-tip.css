@@ -6,3 +6,13 @@
 #booksPane .bkm-card .section-head > .it-btn { margin-right: auto; }
 /* v2.0.158 merge: an ⓘ sits in a fold's heading, so its opened text must show even while the fold below it is closed. */
 .s55-sec.s55-closed > .it-text:not([hidden]) { display: block !important; }
+/* B-2085 (v2.0.161): "Why ▾" (remote/why-fold.js = lib/info-tip.js wrapWhy). Same class names as the laptop. */
+.s-why { margin: 6px 0; min-width: 0; }
+.s-why-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; min-width: 0; }
+.s-why-headline { min-width: 0; overflow-wrap: anywhere; }
+:root body button.s-why-btn { display: inline-flex; align-items: center; gap: 4px; min-height: 36px; padding: 4px 8px; border: 0; border-radius: var(--s-r-sm); background: none; box-shadow: none; color: var(--s-accent); font: 600 14px/1.2 var(--s-font); text-transform: none; letter-spacing: 0; }
+:root[data-theme="retro"] body button.s-why-btn.s-why-btn { background: none !important; border: 0 !important; box-shadow: none !important; color: var(--s-accent) !important; font: 700 14px/1.2 var(--s-font) !important; text-transform: none !important; text-decoration: underline; }
+.s-why-caret { display: inline-block; transition: transform .15s; }
+.s-why[data-open="1"] .s-why-caret { transform: rotate(180deg); }
+.s-why-body { margin-top: 6px; min-width: 0; overflow-wrap: anywhere; }
+.s-why-body[hidden] { display: none; }

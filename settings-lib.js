@@ -96,6 +96,7 @@ const SHARED_SETTINGS_SPEC = Object.freeze([
   S({ key: "shopperCompTrackN", group: "sourcing", label: "Competitors tracked (top N)", kind: "number", min: 1, max: 20, step: 1 }),
   S({ key: "shopperCompFilterOverrides", group: "sourcing", label: "Competitor ASIN filters (your numbers)", kind: "object" }),
   S({ key: "shopperCompKeepaDailyCap", group: "sourcing", label: "Keepa tokens a day for competitors", kind: "number", min: 20, max: 2000, step: 10 }),
+  S({ key: "shopperLeadKeepaDailyCap", group: "sourcing", label: "Keepa tokens a day for Tracked Leads", kind: "number", min: 50, max: 3000, step: 10 }), // B-2103 (v2.0.162)
   // ---- Appearance / misc -------------------------------------------------
   S({ key: "shopperTheme", group: "appearance", label: "Computers' theme", kind: "enum", options: [["light", "Light"], ["dark", "Dark"], ["retro", "Retro"]], phone: true }),
   S({ key: "shopperBuyShots", group: "appearance", label: "Buy snapshots", kind: "object", phone: [

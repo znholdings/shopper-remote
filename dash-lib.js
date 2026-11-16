@@ -389,24 +389,29 @@ function buildDoNext(input = {}) {
   const ag = input.agedInventory || null;
   const agPay = ag && ag.known && ag.paying ? num(ag.paying.units) || 0 : 0;
   const agSoon = ag && ag.known && ag.soon ? num(ag.soon.units) || 0 : 0;
-  if (agPay > 0 || agSoon > 0) {
+  const agSteps = ag && Array.isArray(ag.steps) ? ag.steps : []; // B-2110: aged price steps / restores proposed (The Daily only)
+  if (agPay > 0 || agSoon > 0 || agSteps.length) {
     const items = Array.isArray(ag.items) ? ag.items.filter(Boolean) : [];
     const skus = (agPay > 0 ? num(ag.paying.skus) || 0 : 0) + (agSoon > 0 ? num(ag.soon.skus) || 0 : 0);
     const feeOf = (g) => (g && num(g.fee) != null ? num(g.fee) : 0);
     const fee = feeOf(agPay > 0 ? ag.paying : null) + feeOf(agSoon > 0 ? ag.soon : null);
+    const stepWord = `${agSteps.length} price step(s)`;
     const title = agPay > 0
       ? `${plural(agPay, "unit")} paying Amazon's aged-inventory fee` + (agSoon > 0 ? ` · ${agSoon} more within 30 days` : "")
-      : `${plural(agSoon, "unit")} will pay Amazon's aged-inventory fee within 30 days`;
+      : agSoon > 0 ? `${plural(agSoon, "unit")} will pay Amazon's aged-inventory fee within 30 days`
+      : `Aged inventory: ${stepWord} to undo`;
     const lineText = (it) => `${String(it.asin || it.sku || "")}${shortTitle(it.title) ? " " + shortTitle(it.title) : ""} (${plural(num(it.units) || 0, "unit")}${it.level === "soon" ? " at the next charge" : " over 180 days"}${num(it.fee) > 0 ? ", est. " + money2(it.fee) : ""})`;
     add({
       id: "aged",
       severity: agPay > 0 ? "high" : "medium",
       title,
-      short: agPay > 0 ? `Aged inventory: ${plural(agPay, "unit")} paying${agSoon > 0 ? ` · ${agSoon} soon` : ""}` : `Aged inventory: ${plural(agSoon, "unit")} within 30 days`,
+      short: agPay > 0 ? `Aged inventory: ${plural(agPay, "unit")} paying${agSoon > 0 ? ` · ${agSoon} soon` : ""}` : agSoon > 0 ? `Aged inventory: ${plural(agSoon, "unit")} within 30 days` : `Aged inventory: ${stepWord} to undo`,
       detail: (items.length ? linesDetail(items.map(lineText), Math.max(skus, items.length), "Pricing") + ". " : "")
         + (fee > 0 ? `Amazon's estimate for the next monthly charge: ${money2(fee)}. ` : "")
+        + (agSteps.length ? `${agSteps.length} price step(s) proposed - Send on the Pricing page. ` : "")
         + "Lower the price or send a removal - the list is on the Pricing page.",
-      lines: items.map((it) => ({ asin: String(it.asin || ""), sku: String(it.sku || ""), title: String(it.title || ""), units: num(it.units) || 0, level: String(it.level || ""), text: lineText(it) })),
+      lines: [...items.map((it) => ({ asin: String(it.asin || ""), sku: String(it.sku || ""), title: String(it.title || ""), units: num(it.units) || 0, level: String(it.level || ""), text: lineText(it) })),
+        ...agSteps.map((s) => ({ asin: "", sku: "", key: `aged-step|${s.sku}|${s.newMin}`, title: String(s.title || ""), units: 0, level: String(s.kind || ""), text: String(s.short || "") }))], // B-2110
       go: { label: "Pricing", target: "belowmin" },
       count: agPay + agSoon,
       // B-1304 (v2.0.76): count is UNITS; The Daily's "N in all" counts products.
@@ -1433,6 +1438,25 @@ function dailyOverview(input = {}) {
     salesNote = i.cash ? "No Sellerboard days on file yet." : "Cash Flow not read yet.";
   }
   sections.push({ id: "sales", title: r ? `Yesterday · ${usDate(r.yesterday)}` : "Yesterday", rows: salesRows, note: salesNote });
+
+  // B-2107 (v2.0.162): how closely the nightly buylist matched what he took (lib/buylist-match.js matchGlance). Left out when none yet.
+  const ms = i.matchScore && i.matchScore.last ? i.matchScore : null;
+  if (ms) {
+    const ml = ms.last.lines || {}, md = ms.last.dollars || {};
+    const pc = (v) => (numOr(v) == null ? "-" : `${Math.round(numOr(v))}%`);
+    const cur = numOr(ml.pct), was = numOr(ms.prev7Lines), av = numOr(ms.avg7Lines);
+    const dir = av == null || was == null || Math.round(av) === Math.round(was) ? "flat" : av > was ? "up" : "down";
+    sections.push({
+      id: "buying",
+      title: "Buying",
+      rows: [{
+        label: "Buylist match",
+        value: `${pc(cur)} lines${numOr(md.pct) == null ? "" : ` \u00b7 ${pc(md.pct)} $`}`,
+        sub: av == null ? "last nightly list" : `7-list avg ${pc(av)}${was == null ? "" : ` (was ${pc(was)})`}`,
+        dir,
+      }],
+    });
+  }
 
   // Inventory.
   const tile = (k) => (Array.isArray(i.fbaTiles) ? i.fbaTiles.find((t) => t && t.key === k) : null);

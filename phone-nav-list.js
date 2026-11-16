@@ -23,6 +23,7 @@
     dashboard: { tab: "dashboard", id: "tabDashboard", legacy: true },
     daily: { tab: "daily", id: "tabDaily" },
     competitors: { tab: "competitors", id: "tabCompetitors" }, // B-2043 (v2.0.154)
+    leads: { tab: "leads", id: "tabLeads" }, // B-2103 (v2.0.162)
     buylist: { tab: "buylist", id: "tabBuylist", legacy: true },
     buyqueue: { tab: "run", id: "tabRun", legacy: true },
     manualbuy: { tab: "manualbuy", id: "tabManualBuy" },

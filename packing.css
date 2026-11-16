@@ -168,6 +168,10 @@ body.pk-open { overflow: hidden; }
 .pk-copy-preview { display: flex; flex-direction: column; min-width: 0; }
 .pk-danger { color: var(--s-red-ink, #7a1a2b); }
 .pk-plan-details { font-size: 13px; display: flex; flex-direction: column; gap: 4px; }
+.pk-plan-details[hidden], .pk-rowmenu[hidden] { display: none; }
+.pk-statusrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.pk-statusline { font-weight: 600; }
+.pk-details-btn { min-height: 28px; padding: 2px 8px; font-size: 12px; }
 
 /* v2.0.139 (B-1831..B-1836): ONE page - strip, box table + selected-box panel, no menus. Tokens only; retro/dark variants below.
    .pk-root is a size container ("pk"): the table/panel split follows the width of the page, not the screen (the phone sheet is narrow too). */
@@ -201,6 +205,10 @@ body.pk-open { overflow: hidden; }
 .pk-rowacts { gap: 4px; flex-wrap: wrap; } /* review: the buttons wrap in their cell rather than push the table under the panel */
 .pk-boxtable td.pk-c-lb, .pk-boxtable td.pk-c-units, .pk-boxtable td.pk-c-fill, .pk-boxtable td.pk-c-name { white-space: nowrap; overflow-wrap: normal; }
 .pk-rowacts .pk-btn { min-height: 32px; padding: 4px 8px; font-size: 12px; }
+.pk-rowmenu { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.pk-more { min-width: 32px; }
+.pk-rowmenu .pk-btn { min-height: 30px; padding: 4px 8px; font-size: 12px; }
+:root[data-theme="retro"] .pk-rowmenu .pk-btn { font-size: 11px !important; padding: 3px 6px; }
 .pk-boxtable .pk-badge { max-width: none; white-space: nowrap; }
 .pk-panel { display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 12px; border: 1px solid var(--s-line); border-radius: var(--s-r, 8px); background: var(--s-surface); }
 .pk-panel-head { align-items: flex-start; }
