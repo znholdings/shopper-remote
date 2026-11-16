@@ -159,6 +159,11 @@
       if (ch.switched) bar.appendChild(el("span", "bax-chip", ch.switched === "once" ? "Switched to " + store + " (this buy)" : store + " is now the main source"));
       else if (!notNow.has(asin)) {
         bar.appendChild(el("span", "bax-chip", "$" + Number(ch.savingLine).toFixed(2) + " cheaper at " + store + " - switch?"));
+        if (ch.perUnit > 0 && ch.mainPerUnit > 0) { // B-2121 (the words are the lib's offerPriceWords / bigSavingWords; a test pins them equal)
+          const bu = Number(ch.buyUnits) || 1, su = Number(ch.sellUnits) || 1;
+          bar.appendChild(el("span", "bax-chip", "$" + Number(ch.perUnit).toFixed(2) + " a unit at " + store + (su / bu !== 1 ? " ($" + (Math.round(Number(ch.price) * bu * 100) / 100).toFixed(2) + " buys " + su + ")" : "") + " vs $" + Number(ch.mainPerUnit).toFixed(2) + " a unit now - " + ch.savingPct + "% less"));
+        }
+        if (ch.big) bar.appendChild(el("span", "bax-chip", "Over 30% cheaper - check the pack size on the store page before you switch."));
         bar.appendChild(btnOf("Switch", "mini-btn", async (b) => { const r = await act("buylistAltSwitch", { asin, url: ch.url, readAt: ch.readAt }, { btn: b }); if (r && r.ok) { say("Switched."); drawnKey = ""; } }));
         bar.appendChild(btnOf("Not now", "mini-btn", () => { notNow.add(asin); redecorate(); }));
       }

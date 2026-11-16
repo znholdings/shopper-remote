@@ -176,11 +176,13 @@
   }
   // B-2110 (v2.0.162): an aged price step / restore - the laptop's words (step.text / step.button), one button, the answer.
   const agedSends = {};
+  const agedTitles = {}; // B-2118: sku -> title, for an answer whose line left the page
   async function sendAged(p) {
     const R = self.ShopperRemote;
     if (!R || !R.sendCommand || sendingSku) return;
     const at = Date.now();
     sendingSku = p.sku;
+    agedTitles[p.sku] = String(p.title || p.sku || "");
     agedSends[p.sku] = { phase: "sending", at };
     redraw(true);
     let id = null;
@@ -316,6 +318,16 @@
       rb.append(el("div", "lhm-name", String(p.title || p.sku || "")), agedStepBlock(p));
       box.append(rb);
     }
+    // B-2118: an answered / failed send whose line is gone from the page stays visible
+    const have = new Set((Array.isArray(a.restores) ? a.restores : []).map((p) => p.sku));
+    const stepRows = new Set((a.rows || []).filter((r) => r.step).map((r) => r.sku));
+    for (const sku of Object.keys(agedSends)) {
+      const sn = agedSends[sku];
+      if (!sn || !sn.text || (sn.phase !== "answered" && sn.phase !== "failed") || have.has(sku) || stepRows.has(sku)) continue;
+      const rb = el("div", "lhm-row");
+      rb.append(el("div", "lhm-name", agedTitles[sku] || sku), el("div", "small " + (sn.ok ? "is-good" : "warn-text"), sn.text));
+      box.append(rb);
+    }
   }
   function drawAged(box, a) {
     box.append(el("h3", "ai-h2", "Aged inventory"));
@@ -342,6 +354,7 @@
       line.append(el("span", "s-pill lhm-pill-" + r.level, P.AGED_LEVEL_LABEL[r.level] || r.level), el("span", "muted small", " " + P.lhAgedLine(r)));
       row.append(line);
       if (r.step) row.append(agedStepBlock(r.step)); // B-2110
+      else if (agedSends[r.sku] && agedSends[r.sku].text) row.append(el("div", "small " + (agedSends[r.sku].ok ? "is-good" : "warn-text"), agedSends[r.sku].text)); // B-2118
       if (P.lhAgedSelling) { // B-1499 (v2.0.104): is it selling? + the lowest FBA / FBM offers - all from stored data
         const sell = P.lhAgedSelling(r, data && data.base ? data.base.today : null);
         const sp = r.sp || null;
