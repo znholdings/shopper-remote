@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.171";
+const APP_BUILD = "v2.0.172";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -470,6 +470,7 @@ const REMOTE_LABELS = {
   booksLineSet: "Book a Needs you line", // B-1232 (v2.0.73)
   booksLineClear: "Card line - nothing", booksReload: "Reload the Books", // B-1278 / B-1277 (v2.0.74)
   booksPullNow: "Pull and categorise the Books now", // B-1902 (v2.0.145)
+  booksReopen: "Reopen a Books month", // B-2169 (v2.0.172)
   // B-1426 / B-1429 (v2.0.92): packing data (remote/packing-view.js)
   packingSave: "Save packing data", packingCopyFind: "Find a product to copy packing data to", packingCopy: "Copy packing data to another ASIN", packingTraits: "Claude's packing traits", packingBoxSave: "Save a box", packingBoxesSeed: "Add box sizes", packingReplayBatch: "Replay a batch", packingReplayClear: "Clear the replay", packingReplayLast: "Read the last replay", packingReplayReload: "Reload the last replay",
   // B-1427 / B-1428 (v2.0.92): the planner
@@ -1646,12 +1647,14 @@ function buylistCard(i) {
   const headText = document.createElement("div");
   headText.className = "bl-headtext";
   // B-2072 (v2.0.158): no "adjusted list" tag; only past 3x goal / Old Meat and the decision.
-  const statusText = [i.pastGoal ? "past 3\u00d7 goal" : i.section === "offbeat" ? "Old Meat" : "", decisionSuffix(i).replace(/^ \u00b7 /, "")].filter(Boolean).join(" \u00b7 ");
+  // B-2166 (v2.0.172): an approved card carries a solid dark-green badge with the quantity ("Approved (qty N)" when conditional); the decision text is not repeated in .l-status.
+  const okBadge = i.decision === "approved" ? `<span class="bl-ok-badge">${i.conditional ? `Approved (qty ${fmtQty(i.qty)})` : `Approved \u00b7 ${fmtQty(i.qty)}`}</span>` : "";
+  const statusText = [i.pastGoal ? "past 3\u00d7 goal" : i.section === "offbeat" ? "Old Meat" : "", (i.decision === "approved" ? "" : decisionSuffix(i)).replace(/^ \u00b7 /, "")].filter(Boolean).join(" \u00b7 ");
   headText.innerHTML =
     `<div class="l-top"><span class="l-asin">${escapeHtml(i.asin)}</span>` +
     // P-40: "there's no indication if something is prep center or not."
     `${i.prepCenter ? `<span class="pc-badge">Prep Center</span>` : ""}` +
-    `${statusText ? `<span class="l-status">${statusText}</span>` : ""}</div>` +
+    `${statusText ? `<span class="l-status">${statusText}</span>` : ""}${okBadge}</div>` +
     `<div class="l-title">${escapeHtml(i.title)}</div>`;
   head.appendChild(headText);
   row.appendChild(head);
@@ -1780,6 +1783,7 @@ function buylistCard(i) {
   pcLabel.append(pcCheckbox, document.createTextNode("Prep Center"));
   moves.appendChild(pcLabel);
   sheetBox.append(moves, more); if (ownEl) sheetBox.append(ownEl); // B-2072: the Owned formula under More
+  if (i.v3Note) { const vn = document.createElement("div"); vn.className = "bl-owned muted"; vn.textContent = i.v3Note; sheetBox.append(vn); } // v2.0.172 B-2167/B-2168: why v3 shows this number
 
   const qty = document.createElement("input");
   qty.type = "number";

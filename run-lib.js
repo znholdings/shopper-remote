@@ -494,7 +494,7 @@ const STEP_RULES = [
 function cleanStepText(text) {
   return String(text || "")
     .replace(/^\s*\[[A-Z0-9]{6,14}\]\s*/, "")
-    .replace(/^\s*(walmart|target|sam's club|home depot|amazon)\s*:\s*/i, "")
+    .replace(/^\s*(walmart|target|sam's club|home depot|amazon|walgreens)\s*:\s*/i, "")
     .trim();
 }
 

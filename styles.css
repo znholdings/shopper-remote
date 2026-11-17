@@ -118,8 +118,10 @@
   --s-bl-divider: color-mix(in srgb, var(--s-violet) 14%, var(--s-n3));
   --s-bl-rowline: var(--s-n2);
   --s-bl-hover: color-mix(in srgb, var(--s-violet) 3%, var(--s-surface));
-  --s-bl-ok-bg: color-mix(in srgb, var(--s-green) 9%, var(--s-surface));
-  --s-bl-ok-bar: var(--s-green);
+  --s-bl-ok-bg: #dcf2d0; /* B-2166 (v2.0.172): clear green + 4 px edge + solid badge (was B-2132's pale mint) */
+  --s-bl-ok-bar: #389447;
+  --s-bl-ok-badge-bg: #2b7a37;
+  --s-bl-ok-badge-ink: #ffffff;
   --s-bl-warn-bg: color-mix(in srgb, var(--s-yellow) 12%, var(--s-surface));
   --s-bl-warn-bar: var(--s-yellow);
   --s-bl-pill-bg: var(--s-violet-bg);
@@ -130,10 +132,13 @@
   --s-bl-divider: color-mix(in srgb, var(--s-violet) 22%, var(--s-n3));
   --s-bl-rowline: var(--s-n3);
   --s-bl-hover: color-mix(in srgb, var(--s-violet) 6%, var(--s-surface));
-  --s-bl-ok-bg: color-mix(in srgb, var(--s-green) 14%, var(--s-surface));
+  --s-bl-ok-bg: color-mix(in srgb, var(--s-green) 24%, var(--s-surface)); /* B-2166 */
+  --s-bl-ok-bar: var(--s-green);
   --s-bl-warn-bg: color-mix(in srgb, var(--s-yellow) 14%, var(--s-surface));
 }
 @media (prefers-color-scheme: dark) {
+  /* B-2166 (v2.0.172): the phone follows the OS dark setting - the light green hex must not show on a dark phone. */
+  :root:not([data-theme="light"]):not([data-theme="retro"]) { --s-bl-ok-bg: color-mix(in srgb, var(--s-green) 24%, var(--s-surface)); --s-bl-ok-bar: var(--s-green); }
   :root:not([data-theme="light"]):not([data-theme="retro"]) { --s-dest-prep-bg: color-mix(in srgb, var(--s-dest-prep) 16%, var(--s-surface)); --s-dest-house-bg: color-mix(in srgb, var(--s-dest-house) 14%, var(--s-surface)); --s-dest-ink: var(--s-text); --s-dest-ink-2: var(--s-text-muted); }
 }
 

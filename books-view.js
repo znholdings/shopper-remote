@@ -91,6 +91,103 @@
     if (sub) n.append(el("span", "dash-money gl-sub", sub));
     return n;
   }
+  // ---- B-2169 (v2.0.172): "Closes by itself" (what the Main computer's daily run did, and why a month is still open) + Reopen ----
+  // data.autoClose = lib/books-phone.js projectAutoClose: { on:false } | { on, at, lastClosed:{month,at}|null, nextDue:{month,from}|null, skipped, waiting:[{month, why:[..]}] }.
+  // Reopen = the remote command booksReopen (Main only; the laptop removes the lock and marks the Close Log row reopened). The confirm is
+  // an in-page box (no browser confirm()). One reopen at a time.
+  let reopenPick = "";
+  let reopenAsk = ""; // the month the confirm box is open for
+  let reopening = "";
+  let reopenNote = null; // { phase, text, at }
+  const dayShort = (d) => { const x = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(d || "")); return x ? MONTHS[Number(x[2]) - 1] + " " + Number(x[3]) : ""; };
+  function drawAutoClose(t, closed) {
+    if (!t) return;
+    const box = el("div", "bkm-auto");
+    const ac = data.autoClose && typeof data.autoClose === "object" ? data.autoClose : null;
+    if (ac) {
+      box.append(el("div", "bkm-auto-line", "Closes by itself: " + (ac.on === false ? "off" : "on")));
+      if (ac.on !== false) {
+        if (ac.lastClosed && ac.lastClosed.month) box.append(el("div", "dash-money gl-sub", "Last closed by itself: " + monthLabel(ac.lastClosed.month)));
+        if (ac.skipped) box.append(el("div", "dash-money gl-sub", String(ac.skipped)));
+        const waiting = Array.isArray(ac.waiting) ? ac.waiting.slice(0, 3) : [];
+        if (waiting.length) {
+          box.append(el("div", "bkm-auto-line bkm-auto-head", "Not closed yet:"));
+          for (const w of waiting) {
+            const why = (Array.isArray(w.why) ? w.why : []).slice(0, 4).join("; ");
+            const li = el("div", "bkm-auto-why", `${monthLabel(w.month)} - ${why || "not ready yet"}`);
+            li.dataset.month = w.month;
+            box.append(li);
+          }
+        }
+        if (ac.nextDue && ac.nextDue.month) box.append(el("div", "dash-money gl-sub", `${monthLabel(ac.nextDue.month).split(" ")[0]} closes on its own${dayShort(ac.nextDue.from) ? " from " + dayShort(ac.nextDue.from) : ""} if it is ready.`));
+      }
+    }
+    // Reopen: the most recent closed months first, at most 12.
+    const list = (closed || []).slice(-12).reverse();
+    if (list.length) {
+      const row = el("div", "bkm-reopen");
+      const sel = el("select", "bkm-select");
+      sel.setAttribute("aria-label", "Closed month to reopen");
+      const blank = el("option", null, "Reopen a closed month");
+      blank.value = "";
+      sel.append(blank);
+      for (const m of list) { const o = el("option", null, monthLabel(m)); o.value = m; sel.append(o); }
+      sel.value = list.includes(reopenPick) ? reopenPick : "";
+      sel.disabled = !!reopening;
+      const btn = el("button", "secondary-btn bkm-book", "Reopen");
+      btn.type = "button";
+      btn.disabled = !sel.value || !!reopening;
+      sel.addEventListener("change", () => { reopenPick = sel.value; reopenAsk = ""; btn.disabled = !sel.value || !!reopening; redraw(); });
+      btn.addEventListener("click", () => { if (!sel.value) return; reopenAsk = sel.value; redraw(); });
+      row.append(sel, btn);
+      box.append(row);
+      if (reopenAsk && list.includes(reopenAsk)) {
+        const ask = el("div", "bkm-reopen-ask");
+        ask.setAttribute("role", "alertdialog");
+        ask.append(el("div", "bkm-sign-preview", `Reopen ${monthLabel(reopenAsk)}? Its lock comes off, so lines can be booked in it again. Shopper will not close it again today.`));
+        const yes = el("button", "primary-btn bkm-book", "Yes, reopen it");
+        yes.type = "button";
+        yes.disabled = !!reopening;
+        yes.addEventListener("click", () => runReopen(reopenAsk));
+        const no = el("button", "secondary-btn bkm-cancel", "Keep it closed");
+        no.type = "button";
+        no.addEventListener("click", () => { reopenAsk = ""; redraw(); });
+        const br = el("div", "bkm-pick");
+        br.append(yes, no);
+        ask.append(br);
+        box.append(ask);
+      }
+    }
+    if (reopenNote && Date.now() - reopenNote.at < NOTE_MS) box.append(el("div", "bkm-note bkm-note-" + reopenNote.phase, reopenNote.text));
+    if (box.childNodes.length) { t.classList.add("wide"); t.append(box); } // wide: the picker and its button need the full row
+  }
+  async function runReopen(month) {
+    const R = self.ShopperRemote;
+    if (!R || !R.sendCommand || reopening) return;
+    reopenAsk = "";
+    if (R.laptopOnline && !R.laptopOnline()) { reopenNote = { phase: "failed", text: "The laptop isn't connected - nothing was sent.", at: Date.now() }; redraw(); return; }
+    reopening = month;
+    reopenNote = { phase: "sending", text: `Reopening ${monthLabel(month)}...`, at: Date.now() };
+    redraw();
+    let id = null;
+    try { id = await R.sendCommand("booksReopen", { month }); } catch (e) { id = null; }
+    if (!id) { reopening = ""; reopenNote = { phase: "failed", text: "Not sent - the phone could not reach the laptop's relay. Try again.", at: Date.now() }; redraw(); return; }
+    let status = "done";
+    try { if (R.waitFor) status = await R.waitFor(id); } catch (e) { status = "done"; }
+    let row = null;
+    try { if (R.readCommand) row = await R.readCommand(id); } catch (e) { row = null; }
+    const res = row && row.result && typeof row.result === "object" ? row.result : null;
+    reopening = "";
+    if (status === "done" && res && res.ok !== false) {
+      reopenPick = "";
+      reopenNote = { phase: "done", text: `${monthLabel(month)} is open again. Shopper will not close it again today.`, at: Date.now() };
+    } else if (status === "timeout") {
+      reopenNote = { phase: "failed", text: "No answer from the laptop in 5 minutes - check the laptop's Books page before tapping again.", at: Date.now() };
+    } else {
+      reopenNote = { phase: "failed", text: `Not reopened: ${String((res && (res.error || res.reason)) || (row && row.reason) || status)}`, at: Date.now() };
+    }
+    redraw();
+  }
   function drawTiles(host) {
     host.textContent = "";
     const cash = tile("cash", "Cash and cards", null, "", true);
@@ -130,6 +227,7 @@
     const open = data.monthsOpen || [];
     host.append(tile("months", "Months", `${closed.length} closed`, open.length ? `${open.length} open` : "none open"));
     if (self.ShopperInfoTip) self.ShopperInfoTip.add(host.lastElementChild.querySelector(".t-label"), open.length ? "Open: " + open.map(shortMonth).join(", ") : "", { id: "bk-months" }); // B-2069 (v2.0.158)
+    drawAutoClose(host.lastElementChild, closed); // B-2169 (v2.0.172): "Closes by itself" + Reopen, under the Months tile
     // B-1840 (v2.0.139): the Tie-outs tile - each total the Books can be held against, and whether it is off.
     const tie = data.tieout && Array.isArray(data.tieout.rows) ? data.tieout.rows : null;
     if (tie) {
@@ -348,7 +446,7 @@
     pullData = pull && typeof pull === "object" ? pull : null;
     reloadState();
     pullState();
-    const key = JSON.stringify(data) + "|" + JSON.stringify(notes) + "|" + sending;
+    const key = JSON.stringify(data) + "|" + JSON.stringify(notes) + "|" + sending + "|" + reopenPick + "|" + reopenAsk + "|" + reopening + "|" + JSON.stringify(reopenNote);
     if (key === drawnKey) { statusLine(); return; }
     drawnKey = key;
     draw();

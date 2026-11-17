@@ -16,7 +16,7 @@
 #wizardPane .wz-row-head:has(.srf-more) .wz-row-sub { flex: none; white-space: nowrap; }
 
 /* B-2132 (v2.0.167): phone Buylist cards - soft status colours, tabular right-aligned numbers, fixed badge spot. Tokens come from styles.css / retro.css (--s-bl-*); fallbacks keep this file self-sufficient. */
-#buylistItems .line.bl-approved { background: var(--s-bl-ok-bg, var(--s-green-bg)); border-left: 3px solid var(--s-bl-ok-bar, var(--s-green)); }
+#buylistItems .line.bl-approved { background: var(--s-bl-ok-bg, var(--s-green-bg)); border-left: 4px solid var(--s-bl-ok-bar, var(--s-green)); }
 #buylistItems .line.bl-warn:not(.bl-approved) { background: var(--s-bl-warn-bg, var(--s-yellow-bg)); border-left: 3px solid var(--s-bl-warn-bar, var(--s-yellow)); }
 #buylistItems .bs-value { font-variant-numeric: tabular-nums; }
 #buylistItems .bl-stat { text-align: right; align-items: flex-end; }
@@ -24,4 +24,9 @@
 :root[data-theme="retro"] #buylistItems .line.bl-approved { background: var(--s-bl-ok-bg, var(--s-green-bg)) !important; border-left: 6px solid var(--s-bl-ok-bar, var(--s-green)) !important; }
 :root[data-theme="retro"] #buylistItems .line.bl-warn:not(.bl-approved) { background: var(--s-bl-warn-bg, var(--s-yellow-bg)) !important; border-left: 6px solid var(--s-bl-warn-bar, var(--s-yellow)) !important; }
 :root[data-theme="retro"] #buylistItems .bl-stat { align-items: flex-end !important; text-align: right; }
+/* B-2166 (v2.0.172): the solid Approved badge (a card's top row; pinned right). */
+#buylistItems .bl-ok-badge { margin-left: auto; padding: 1px 8px; border-radius: var(--s-r-pill); background: var(--s-bl-ok-badge-bg, var(--s-green-ink)); color: var(--s-bl-ok-badge-ink, var(--s-n0)); font-size: 11px; font-weight: 700; white-space: nowrap; }
+#buylistItems .l-status + .bl-ok-badge { margin-left: 6px; }
+#buylistItems .bl-ok-badge::before { content: "\2713\00a0"; } /* v2.0.172 B-2166: spec 6 checkmark, same as the laptop badge */
+:root[data-theme="retro"] #buylistItems .bl-ok-badge { background: var(--s-bl-ok-badge-bg, var(--s-green-ink)) !important; color: var(--s-bl-ok-badge-ink, var(--s-n0)) !important; }
 :root[data-theme="retro"] #buylistItems .bs-label { text-align: right; }

@@ -80,7 +80,7 @@
   }
   function controlValue(spec, ctl) {
     const v = entryValue(spec);
-    if (v === undefined || v === null) return undefined;
+    if (v === undefined || v === null) return ctl.path ? undefined : spec.def; // B-2169: a setting on until turned off shows on
     if (spec.pair) return isObj(v) ? v.goal : undefined;
     return getPath(v, ctl.path || "");
   }
@@ -184,14 +184,17 @@
       input = el("input", "stg-input");
       input.type = "number";
       input.inputMode = "decimal";
-      if (spec.min != null) input.min = String(spec.min);
-      if (spec.max != null) input.max = String(spec.max);
-      if (spec.step != null) input.step = String(spec.step);
+      // B-2167 (v2.0.172): a control on an object's field carries its own range (ctl), else the whole key's (spec).
+      const lo = ctl.min ?? spec.min, hi = ctl.max ?? spec.max, st = ctl.step ?? spec.step;
+      if (lo != null) input.min = String(lo);
+      if (hi != null) input.max = String(hi);
+      if (st != null) input.step = String(st);
+      if (ctl.placeholder != null) input.placeholder = String(ctl.placeholder); // the default, when the stored object has no field yet
       input.value = typeof cur === "number" ? String(cur) : "";
       input.addEventListener("change", () => {
         const n = Number(input.value);
-        if (input.value.trim() === "" || !Number.isFinite(n) || (spec.min != null && n < spec.min) || (spec.max != null && n > spec.max)) {
-          notes[spec.key] = { text: `Use a number from ${spec.min} to ${spec.max}`, at: Date.now(), bad: true };
+        if (input.value.trim() === "" || !Number.isFinite(n) || (lo != null && n < lo) || (hi != null && n > hi)) {
+          notes[spec.key] = { text: `Use a number from ${lo} to ${hi}`, at: Date.now(), bad: true };
           return draw(true);
         }
         save(spec, ctl, n);

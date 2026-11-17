@@ -96,7 +96,7 @@
   });
 
   const $ = (id) => document.getElementById(id);
-  const RETAILERS = [["target", "Target"], ["homedepot", "Home Depot"]];
+  const RETAILERS = [["target", "Target"], ["homedepot", "Home Depot"], ["walgreens", "Walgreens"]]; // B-2165 (v2.0.172)
   const MODES = [["link", "Link only"], ["button", "Button on the page"], ["auto_tab", "Auto in my tab"], ["full", "Full auto (old)"]];
   let sig = "";
 

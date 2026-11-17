@@ -46,4 +46,15 @@
 /* B-1278 (v2.0.74): a wrong-way-round pick says what it does before it is sent. */
 #booksPane .bkm-pick .bkm-cancel { flex: 0 0 auto; white-space: nowrap; }
 #booksPane .bkm-sign-preview { margin-top: 6px; font-size: 12px; font-weight: 600; color: var(--s-text); overflow-wrap: anywhere; }
+/* B-2169 (v2.0.172): "Closes by itself" and Reopen under the Months tile. */
+#booksPane .bkm-auto { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--s-line-soft); min-width: 0; display: grid; gap: 4px; }
+#booksPane .bkm-auto-line { font-size: 13px; font-weight: 700; color: var(--s-text); overflow-wrap: anywhere; }
+#booksPane .bkm-auto-head { margin-top: 4px; }
+#booksPane .bkm-auto-why { font-size: 12px; color: var(--s-text-muted); border-left: 3px solid var(--s-orange-ink, var(--s-line)); padding-left: 8px; overflow-wrap: anywhere; }
+#booksPane .bkm-reopen { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; min-width: 0; }
+#booksPane .bkm-reopen .bkm-select { flex: 1 1 10rem; min-width: 0; max-width: 100%; padding: 8px; border: 1px solid var(--s-line); border-radius: var(--s-r-sm); background: var(--s-surface); color: var(--s-text); font-size: 14px; }
+#booksPane .bkm-reopen .bkm-book { flex: 0 0 auto; white-space: nowrap; }
+#booksPane .bkm-reopen-ask { margin-top: 6px; min-width: 0; }
+#booksPane .bkm-reopen-ask .bkm-pick { flex-wrap: wrap; }
+:root[data-theme="retro"] #booksPane .bkm-reopen .bkm-select { border-radius: 0; border: 2px solid var(--s-line); }
 [hidden] { display: none !important; }

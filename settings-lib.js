@@ -17,6 +17,7 @@ const __m = {};
 //   min / max / options    for number / enum
 //   fields  a field-split object: ONLY these fields are shared (the rest - a printer's name - stays on its computer)
 //   pair    a second storage key written with this one (the spending goal and the time it was set)
+//   def     the value a control shows while the key is absent (B-2169: a setting that is on until Zach turns it off)
 //   phone   true = one control for the whole value; [{ path, label, kind, ... }] = controls on fields of an object ("a.b" = nested);
 //           absent = not on the phone (secrets never are)
 const SETTINGS_ROW = "settings";
@@ -37,7 +38,10 @@ const SHARED_SETTINGS_SPEC = Object.freeze([
   S({ key: "shopperCushionDaysToday", group: "buying", label: "Cushion days (today)", kind: "object" }),
   S({ key: "shopperScoreV2Params", group: "buying", label: "Buy score weights", kind: "object" }),
   // B-1715 (v2.0.126): Quantity v3 settings (lib/qty-v3.js).
-  S({ key: "shopperQtyV3Params", group: "buying", label: "Quantity v3", kind: "object" }),
+  S({ key: "shopperQtyV3Params", group: "buying", label: "Quantity v3", kind: "object", phone: [ // B-2167 (v2.0.172): the slow-seller floor's two numbers
+    { path: "slowCoverExtraDays", label: "Slow sellers: buy the minimum when cover is under lead + (days)", kind: "number", min: 0, max: 60, step: 1, placeholder: "0" },
+    { path: "slowMinPer30", label: "Slow sellers: only when they sell at least (per 30 in-stock days)", kind: "number", min: 0, max: 60, step: 1, placeholder: "4" },
+  ] }),
   // B-1740 / B-1741 (v2.0.127): Ranking v3 numbers and the adjusted list's multiple (3x today's goal).
   S({ key: "shopperRankV3Params", group: "buying", label: "Ranking v3", kind: "object" }),
   S({ key: "shopperAdjustedQtyParams", group: "buying", label: "Adjusted list", kind: "object" }),
@@ -84,6 +88,9 @@ const SHARED_SETTINGS_SPEC = Object.freeze([
   S({ key: "shopperBooksWorkbooks", group: "books", label: "Books workbooks", kind: "any" }),
   S({ key: "shopperDriveDataSnapshotFolderId", group: "books", label: "Drive snapshot folder", kind: "any" }),
   S({ key: "shopperBooksAuditSettings", group: "books", label: "Books audit models", kind: "any" }),
+  // B-2169 (v2.0.172): Books closes a month by itself; the three-model audit runs before every close (Zach 11/17). Both on when absent (def).
+  S({ key: "shopperBooksAutoCloseOn", group: "books", label: "Close months by themselves", kind: "bool", def: true, phone: true }),
+  S({ key: "shopperBooksAuditBeforeClose", group: "books", label: "Three-model audit before every close", kind: "bool", def: true, phone: true }),
   S({ key: "shopperAmzInvSettings", group: "books", label: "FBA chart settings", kind: "any" }),
   // ---- Labels: the policy is shared, the hardware stays with its computer ---
   S({ key: "shopperLabelSettings", group: "labels", label: "Labels", kind: "object",
@@ -133,7 +140,7 @@ const SHARED_SETTINGS_SPEC = Object.freeze([
 ]);
 
 const SETTINGS_GROUPS = Object.freeze([
-  ["buying", "Buying"], ["pricing", "Pricing"], ["pipeline", "Pipeline"], ["receive", "Receive"], ["labels", "Labels"], ["appearance", "Appearance"],
+  ["buying", "Buying"], ["pricing", "Pricing"], ["pipeline", "Pipeline"], ["receive", "Receive"], ["labels", "Labels"], ["books", "Books"], ["appearance", "Appearance"],
 ]);
 
 // Every storage key one entry owns (the pair's second key too).

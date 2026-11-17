@@ -90,7 +90,7 @@
   const { el, toast, btn, run, clip, arr, obj, editing } = A;
 
   Object.assign(typeof REMOTE_LABELS !== "undefined" ? REMOTE_LABELS : {}, {
-    booksAsk: "Ask about Books", booksAuditRun: "Run Books audit", booksAuditDecide: "Decide audit finding", booksClose: "Close month",
+    booksAsk: "Ask about Books", booksAuditRun: "Run Books audit", booksAuditDecide: "Decide audit finding", booksClose: "Close month", booksReopen: "Reopen month",
     booksMailFind: "Find the order in Gmail", booksCardProof: "Find the card (Gmail)", booksDupeVoid: "Void duplicate card line", booksCardPayBook: "Book card payment", booksCardGoneVoid: "Void card line (not on Plaid)", booksCogsConfirm: "Confirm COGS", booksCogsUnconfirm: "Unconfirm COGS", booksEntryPost: "Post entry", booksAccountMapSet: "Map account",
     booksRebuildCheck: "Check rebuild", booksRebuildPreview: "Preview rebuild", booksRebuild: "Clean rebuild", booksRebuildPutBack: "Put Books back", booksExportDrive: "Save tax package to Drive",
     booksRulesAdd: "Add rule", booksRulesSet: "Save rules", booksLoanSet: "Save loan", booksLoanRemove: "Remove loan",
@@ -228,16 +228,51 @@
   }
 
   // ---- close ----
+  // B-2169 (v2.0.172): the laptop runs the three-model audit before a close; when it finds something the close is refused with the
+  // findings and this card asks "Close anyway?" (a second send with closeAnyway). Kept across redraws until sent or the month changes.
+  let closeAnyway = null; // { month, texts: [..], count, from } - from = the day of an older audit (review S3: the cap is used up)
+  let lastPayload = null;
+  function redrawNow() { sig = ""; if (lastPayload) render(lastPayload); }
+  function findingTexts(res) {
+    const raw = arr(obj(res).findings).length ? arr(obj(res).findings) : arr(obj(res).auditFindings);
+    return raw.map((f) => clip(typeof f === "string" ? f : obj(f).text || obj(f).title || obj(f).summary || "", 200)).filter(Boolean).slice(0, 6);
+  }
   function closeCard(books) {
     const open = arr(obj(books).monthsOpen).filter((m) => /^\d{4}-\d{2}$/.test(m));
     if (!open.length) return null;
     const c = card("Close a month", "ops-close");
     const sel = select(open, "Month to close");
+    if (closeAnyway && open.includes(closeAnyway.month)) sel.value = closeAnyway.month;
     const b = btn("Close this month", "ops-close-go");
-    b.addEventListener("click", () => run({ name: "booksClose", payload: { month: sel.value }, confirm: "Close " + sel.value + "? Reconcile runs first; a closed month only takes correcting entries.", btn: b, ok: "Closing on the computer" }));
+    b.addEventListener("click", async () => {
+      const out = await run({ name: "booksClose", payload: { month: sel.value }, confirm: "Close " + sel.value + "? The audit and Reconcile run first; a closed month only takes correcting entries.", btn: b, ok: "Closing on the computer" });
+      const res = obj(out && out.result);
+      if (out && !out.ok && (Array.isArray(res.findings) || Array.isArray(res.auditFindings))) {
+        const from = /^\d{4}-\d{2}-\d{2}$/.test(String(res.from || "")) ? String(res.from) : "";
+        closeAnyway = { month: sel.value, texts: findingTexts(res), count: Number(res.count) || findingTexts(res).length, from };
+        redrawNow();
+      }
+    });
     const r = el("div", "ops-row");
     r.append(sel, b);
     c.appendChild(r);
+    if (closeAnyway && sel.value === closeAnyway.month) {
+      const box = el("div", "ops-line ops-close-gate");
+      box.setAttribute("role", "status");
+      box.appendChild(el("div", "", closeAnyway.from && !closeAnyway.count ? "The newest audit of " + closeAnyway.month + " is from " + closeAnyway.from + " - today's audit could not start (the audit cap is used up)." : "The audit found " + closeAnyway.count + " issue" + (closeAnyway.count === 1 ? "" : "s") + " in " + closeAnyway.month + "."));
+      for (const t of closeAnyway.texts) box.appendChild(el("div", "muted small", t));
+      const row = el("div", "ops-row");
+      const go = btn("Close anyway?", "ops-close-anyway");
+      go.addEventListener("click", async () => {
+        const month = closeAnyway.month;
+        const out = await run({ name: "booksClose", payload: { month, closeAnyway: true }, btn: go, ok: "Closing on the computer" });
+        if (out && out.ok) { closeAnyway = null; redrawNow(); }
+      });
+      const no = btn("Not now", "ops-close-cancel", () => { closeAnyway = null; redrawNow(); });
+      row.append(go, no);
+      box.appendChild(row);
+      c.appendChild(box);
+    }
     return c;
   }
 
@@ -506,12 +541,13 @@
   }
 
   function render(p) {
+    lastPayload = p;
     const payload = obj(p), pages = obj(payload.pages), books = obj(payload.books);
     const rulesHost = $("booksRulesActionsHost");
     if (rulesHost) renderRules(rulesHost, payload);
     const host = $("bkmActionsHost");
     if (!host) return;
-    const s = JSON.stringify([books.monthsOpen, books.monthsClosed, pages.booksAsk, pages.booksAudit, pages.booksCogs, books.cogsNoOrder, pages.booksAccountMap, pages.booksRebuild, accountsOf(pages)]);
+    const s = JSON.stringify([books.monthsOpen, books.monthsClosed, pages.booksAsk, pages.booksAudit, pages.booksCogs, books.cogsNoOrder, pages.booksAccountMap, pages.booksRebuild, accountsOf(pages), closeAnyway]);
     if (s === sig && host.childNodes.length) return;
     if (editing(host)) return;
     sig = s;
