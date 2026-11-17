@@ -1582,22 +1582,46 @@ function line(o) {
 const dateOf = (ms) => { const n = Number(ms); return Number.isFinite(n) && n > 0 ? new Date(n).toISOString().slice(0, 10) : ""; };
 
 // B-1413: one row per individual violation (NEW first - the order comes from ahrGlanceViolations).
-function healthViolationRows(list, alerts = []) {
+// B-2139: whole Central (America/Chicago) calendar days from `now` to a "YYYY-MM-DD" day; null when unknown.
+function centralDay(ms) {
+  const p = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Chicago", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(ms));
+  return Date.parse(`${p}T00:00:00Z`);
+}
+function daysUntil(day, now) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(str(day)) || now == null) return null;
+  return Math.round((Date.parse(`${day}T00:00:00Z`) - centralDay(now)) / 86400000);
+}
+const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function addressByChip(day, now) {
+  const n = daysUntil(day, now);
+  if (n == null) return null;
+  const [, m, d] = day.split("-").map(Number);
+  const left = n > 1 ? `${n} days left` : n === 1 ? "1 day left" : n === 0 ? "due today" : `overdue ${plural(-n, "day")}`;
+  return { kind: n <= 2 ? "grade-bad" : "grade-warn", text: `Address by ${MON[m - 1]} ${d} · ${left}` };
+}
+function healthViolationRows(list, alerts = [], now = null) {
   return list.filter(Boolean).map((v) => {
     const page = v.source === "page"; // B-2129: Seller Central's own list - the specific violation + the listing
     const al = page ? alerts.find((a) => a && a.category === v.category) : null;
+    // B-2139: page rows - "$82 sales at risk" and an "Address by Nov 20 · 3 days left" chip (the deadline text is dropped when the chip shows).
+    const sales = page ? str(v.sales).trim() : "";
+    const salesChip = sales.startsWith("$") ? { kind: "risk", text: `${sales} sales at risk` } : null;
+    const dayChip = page ? addressByChip(v.deadlineDay, now) : null;
+    const tags = [salesChip, dayChip].filter(Boolean);
+    const deadlineText = page && !dayChip ? str(v.deadline).replace(/\s+in \d+ days?\s*$/i, "").trim() : str(v.deadline);
     return line({
     asin: v.asin, sku: v.sku, title: page ? (v.title || v.policy) : v.title || v.policy,
-    figures: [AHR_IMPACT_WORDS[v.impact] || "Warning", v.status],
+    figures: [AHR_IMPACT_WORDS[v.impact] || "Warning", v.status, sales && !salesChip ? sales : ""],
+    tags,
     reason: page ? `${v.policy}${v.reason ? ` - ${v.reason}` : ""}` : v.reason,
     badge: v.recent ? { kind: "changed", text: "MOST RECENT", dir: "worse" } : v.isNew ? NEW : null,
     meta: [
       page && !v.asin ? "Account-level - no listing" : "",
-      page && v.category ? `${v.category}${al && al.from != null ? `: ${al.from} → ${al.to}` : ""}` : "",
+      page && v.category ? `${v.category}${al && al.from != null ? `: ${al.from} → ${al.to}` : ""}${al && al.src === "report" ? " (Amazon's report - may be off)" : ""}` : "",
       !page && v.policy ? `Policy: ${v.policy}` : "",
       dateOf(v.flaggedAt) ? `${v.flaggedExact ? "Flagged" : "First seen by Shopper"}: ${dateOf(v.flaggedAt)}` : "",
       v.action ? `Amazon asks: ${v.action}` : "",
-      v.deadline ? `Deadline: ${v.deadline}` : "",
+      !dayChip && deadlineText ? `Deadline: ${deadlineText}` : "",
     ],
     link: { url: v.link, label: "View in Seller Central" },
     });
@@ -1663,15 +1687,18 @@ function detailRowsFor(row, input = {}) {
       const shown = hasPage ? [...vios.filter((v) => v.source === "page" && (v.isNew || v.recent)), ...vios.filter((v) => v.source !== "page" && v.isNew)] : alertsH.length ? vios.filter((v) => v.isNew) : vios;
       const covered = new Set(shown.filter((v) => v.source === "page").map((v) => v.category));
       const signedOutH = !!ah.pageSignedOut;
-      out = healthViolationRows(shown, alertsH);
+      out = healthViolationRows(shown, alertsH, num(input.now));
+      const failKindH = str(ah.pageFailKind);
       const fallbackReason = signedOutH
         ? "Could not read the details from Seller Central (sign in to Seller Central in Chrome) - open it to see which listing"
+        : failKindH === "refused" ? "Seller Central would not give Shopper the details (not a sign-in problem) - open it to see which listing"
+        : failKindH && failKindH !== "signedOut" ? "Could not read the details from Seller Central - open it to see which listing"
         : hasPage ? "Amazon has not listed it yet - check Seller Central"
         : "Policy Compliance violation - check it in Seller Central and answer Amazon";
       out.push(...alertsH.filter((a) => !covered.has(a.category)).map((a) => line({
         title: str(a.category),
         figures: [a.from == null ? `${a.to} now` : `${a.from} → ${a.to}`],
-        reason: fallbackReason,
+        reason: a.src === "report" ? `${fallbackReason} (from Amazon's report - may be off)` : fallbackReason,
         badge: a.from == null ? NEW : changed(a.from, a.to, num(a.to) > num(a.from) ? "worse" : null),
         link: { url: ACCOUNT_HEALTH_URL, label: "View in Seller Central" },
       })));

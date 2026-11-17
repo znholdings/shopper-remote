@@ -88,7 +88,7 @@
     }
     var sale = U.input("text", { placeholder: "Desired sale price", inputmode: "decimal" }); // B-2135: empty + Save clears it
     if (r.salePrice != null) sale.value = String(r.salePrice);
-    var sp = U.btn("Save price", "mini-btn", function () { var v = sale.value.trim(); U.send("leadsSetSalePrice", { asin: r.asin, salePrice: v || null }, sp).then(function (res) { U.say(res, "Price saved"); }); });
+    var sp = U.btn("Save price", "mini-btn", function () { var v = sale.value.trim(); U.send("leadsSetSalePrice", { asin: r.asin, salePrice: v || null }, sp).then(function (res) { U.say(res, /^[\s$,]*$/.test(v) ? "Price cleared" : "Price saved"); }); });
     acts.appendChild(sale); acts.appendChild(sp);
     var sb = U.btn("Send to Buylist", "mini-btn", function () {
       var q = root.prompt ? root.prompt("How many of " + r.asin + " for the Buylist? (1 to 9999)", "1") : null;
