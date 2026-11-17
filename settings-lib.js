@@ -69,6 +69,11 @@ const SHARED_SETTINGS_SPEC = Object.freeze([
     { path: "hourlyEnabled", label: "On the hourly refresh", kind: "bool" },
   ] }),
   S({ key: "shopperRpAutoGraceHours", group: "pipeline", label: "Replen Pulse grace (hours)", kind: "number", min: 1, max: 240, step: 1, phone: true }),
+  // B-2125 (v2.0.166): a shipped batch comes off Sellerboard by itself the morning after it ships (lib/shipment-auto-setting.js).
+  S({ key: "shopperShipmentAutoSettings", group: "pipeline", label: "Shipments come off Sellerboard by themselves", kind: "object", phone: [
+    { path: "enabled", label: "The morning after a shipment", kind: "bool" },
+    { path: "time", label: "Time (Central)", kind: "time" },
+  ] }),
   S({ key: "shopperCogsCheckTolerancePct", group: "pipeline", label: "COGS check tolerance (%)", kind: "number", min: 0, max: 50, step: 1, phone: true }),
   // B-2040 (v2.0.154): what Receive counts on a Pack Of > 1 product - "packs" (Amazon units, the default) or "pieces". One last choice for both computers and the phone.
   S({ key: "shopperReceiveCountMode", group: "receive", label: "Receive counts in", kind: "enum", options: [["packs", "Packs (Amazon units)"], ["pieces", "Pieces"]], phone: true }),

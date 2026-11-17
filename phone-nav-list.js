@@ -1,7 +1,7 @@
 // remote/phone-nav-list.js - B-1791 (v2.0.135): the phone drawer is built from the laptop's NAV.
 //
 // remote/nav-lib.js (GENERATED from lib/sidenav.js by test/_phone-nav-bundle.mjs) carries the NAV groups, their pages, the group
-// icons and ALSO_CURRENT. This file draws them into #phoneNav .pn-list: six groups with a badge each, every page in the laptop's
+// icons and ALSO_CURRENT. This file draws them into #phoneNav .pn-list: the groups (a one-page group is a single row) with a badge each, every page in the laptop's
 // order and with the laptop's name (no alias words), then the three ALSO_CURRENT pages under Buy.
 //
 // PHONE_TABS below is the ONE place a laptop page is wired to a phone tab. A page that is not in it still shows (as "On the
@@ -116,8 +116,21 @@
     list.textContent = "";
     var seen = Object.create(null);
     SPEC.NAV.forEach(function (g) {
-      var grp = el("div", "pn-group is-open");
+      var grp = el("div", "pn-group is-open" + (g.single ? " pn-single" : ""));
       grp.setAttribute("data-nav-group", g.group);
+      grp.setAttribute("data-nav-badge", g.badge != null ? g.badge : g.group);
+      if (g.single) {
+        // B-2126 (v2.0.166): one page, one row - the icon, the page button (still the .tab app.js wires) and the count.
+        var only = g.items[0];
+        var row = pageRow(only, keyOf(only));
+        row.classList.remove("pn-sub");
+        seen[keyOf(only)] = true;
+        row.insertBefore(icon(g.icon), row.firstChild);
+        row.appendChild(el("span", "pn-badge"));
+        grp.appendChild(row);
+        list.appendChild(grp);
+        return;
+      }
       var head = el("button", "pn-group-head");
       head.type = "button";
       head.setAttribute("aria-expanded", "true");
@@ -166,8 +179,8 @@
   function badges(byGroup) {
     var heads = list.querySelectorAll(".pn-group");
     for (var i = 0; i < heads.length; i++) {
-      var g = heads[i].getAttribute("data-nav-group");
-      var n = byGroup && typeof byGroup === "object" ? Math.max(0, Math.floor(Number(byGroup[g]) || 0)) : 0;
+      var g = heads[i].hasAttribute("data-nav-badge") ? heads[i].getAttribute("data-nav-badge") : heads[i].getAttribute("data-nav-group"); // B-2126: "" = this group shows no count
+      var n = byGroup && typeof byGroup === "object" ? (g ? Math.max(0, Math.floor(Number(byGroup[g]) || 0)) : 0) : 0;
       var b = heads[i].querySelector(".pn-badge");
       if (b) b.textContent = n > 0 ? (n > 99 ? "99+" : String(n)) : "";
     }

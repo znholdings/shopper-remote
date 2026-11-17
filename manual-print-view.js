@@ -312,8 +312,18 @@
       } else {
         ids.textContent = (facts.asin || row.asin) + " · " + ls[0].fnsku + " · " + ls[0].msku;
       }
-      if (facts.lastExpires && !date.value) date.value = isoToUs(facts.lastExpires);
-      say(status, facts.expirationRequired ? "This product needs a Best-by date on its label" + (facts.lastExpires ? " (the last one printed is filled in)." : ".") : "", "");
+      // B-2127 (v2.0.166): the box starts as Pipeline's date; an older laptop (no seedExpires) falls back to the last printed.
+      var newer = facts.seedExpires !== undefined;
+      var seed = newer ? facts.seedExpires : facts.lastExpires;
+      if (seed && !date.value) date.value = isoToUs(seed);
+      var src = newer ? facts.seedSource : (facts.lastExpires ? "printed" : "");
+      var base = "This product needs a Best-by date on its label";
+      var words = !facts.expirationRequired ? "" : !newer ? base + (facts.lastExpires ? " (the last one printed is filled in)." : ".")
+        : (facts.pipelineError && src === "printed") ? "Could not read the date from Pipeline - the last one printed is filled in, check it."
+        : src === "pipeline" ? base + " (the date from Pipeline is filled in)."
+        : src === "printed" ? base + " (no date on Pipeline yet - the last one printed is filled in)." : base + ".";
+      if (newer && facts.expirationRequired && src && facts.seedPast) words += " That date has passed - check it.";
+      say(status, words, "");
       paintGo();
     };
 

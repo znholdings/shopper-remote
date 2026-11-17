@@ -7,23 +7,26 @@
       { id: "dashboard", label: "Dashboard", path: "dashboard/dashboard.html", open: "SHOPPER_OPEN_DASHBOARD_TAB", quick: true },
       { id: "daily", label: "The Daily", path: "dashboard/daily.html" },
     ] },
-    // B-2043 (v2.0.154): Sourcing - what the sellers you compete with are adding. Not in Do next, not in The Daily.
-    { group: "sourcing", label: "Sourcing", icon: "sourcing", items: [
-      { id: "competitors", label: "Competitor ASINs", path: "sourcing/competitors.html" }, // no `quick`: a pop-up button needs an `open` message (lib/popup-nav.js) and the page opens by URL
-      { id: "leads", label: "Tracked Leads", path: "sourcing/leads.html" }, // B-2103 (v2.0.162)
-
-    ] },
     { group: "buy", label: "Buy", icon: "buylist", items: [
       { id: "buylist", label: "Buylist", path: "buylist/buylist.html", open: "SHOPPER_OPEN_BUYLIST_TAB", quick: true },
       { id: "buyqueue", label: "Buy Queue", path: "buyqueue/buyqueue.html", open: "SHOPPER_OPEN_BUY_QUEUE_TAB", quick: true },
       { id: "manualbuy", label: "Manual Buy", path: "buyqueue/manual-buy.html" },
       { id: "blacklist", label: "Blacklist", path: "blacklist/blacklist.html" },
     ] },
-    { group: "inventory", label: "Inventory", icon: "box", items: [
+    // B-2126 (v2.0.166): Pipeline has its own button (one page, no sub-list); the needs-you count (key "inventory") sits on it.
+    { group: "pipeline", label: "Pipeline", icon: "pipeline", single: true, badge: "inventory", items: [
       { id: "pipeline", label: "Pipeline", path: "pipeline/pipeline.html", open: "SHOPPER_OPEN_PIPELINE_TAB", quick: true },
+    ] },
+    { group: "inventory", label: "Inventory", icon: "box", badge: "", items: [
       { id: "wizard", label: "Ship to Amazon", path: "wizard/wizard.html", open: "SHOPPER_OPEN_WIZARD_TAB", quick: true },
       { id: "packing", label: "Plan boxes", path: "packing/packing.html", open: "SHOPPER_OPEN_PACKING_TAB", quick: true },
       { id: "catalog", label: "Catalog", path: "catalog/catalog.html", open: "SHOPPER_OPEN_CATALOG_TAB", quick: true },
+    ] },
+    // B-2043 (v2.0.154): Sourcing - what the sellers you compete with are adding. Not in Do next, not in The Daily.
+    { group: "sourcing", label: "Sourcing", icon: "sourcing", items: [
+      { id: "competitors", label: "Competitor ASINs", path: "sourcing/competitors.html" }, // no `quick`: a pop-up button needs an `open` message (lib/popup-nav.js) and the page opens by URL
+      { id: "leads", label: "Tracked Leads", path: "sourcing/leads.html" }, // B-2103 (v2.0.162)
+
     ] },
     { group: "money", label: "Money", icon: "cash", items: [
       { id: "belowmin", label: "Pricing", path: "belowmin/belowmin.html", open: "SHOPPER_OPEN_BELOWMIN_TAB", quick: true },
@@ -55,7 +58,8 @@
     box: '<path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/>',
     cash: '<path d="M3 17l5-5 4 4 8-8"/><path d="M15 8h5v5"/>',
     chart: '<path d="M4 20h16"/><path d="M7 16v-5M12 16V6M17 16v-8"/>',
-    setup: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/>'
+    setup: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/>',
+    pipeline: '<path d="M3 7h11"/><path d="M3 17h7"/><circle cx="17" cy="7" r="3"/><circle cx="13" cy="17" r="3"/><path d="M20 7h1M16 17h5"/>'
   };
   function icon(name, size) {
     var s = size || 20;

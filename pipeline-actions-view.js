@@ -91,7 +91,56 @@
   Object.assign(typeof REMOTE_LABELS !== "undefined" ? REMOTE_LABELS : {}, {
     editUndo: "Undo edit", orderEmails: "Find order emails", rescanEmail: "Rescan email", unmatchedDismiss: "Dismiss email",
     shipmentCheckNow: "Check shipments now", shipmentSchedule: "Schedule shipment update", shipmentIgnore: "Ignore shipments", shipmentRunDue: "Run scheduled updates",
+    shipmentPlanSet: "Change a shipment's time", shipmentPlanIgnore: "Don't take a shipment off", // B-2125
   });
+
+  // B-2125 (v2.0.166): "Coming off Sellerboard" - what Shopper (or Zach) set; a batch's buttons act on all its products
+  // (one product at a time stays on the computer's Pipeline page).
+  function planGroup(needs) {
+    const plan = arr(obj(needs).shipmentsScheduled);
+    const stuck = Number(obj(needs).shipmentsStuck) || 0;
+    if (!plan.length && !stuck) return null;
+    const box = el("div", "ops-ship-plan");
+    box.appendChild(el("h3", "", "Coming off Sellerboard"));
+    for (const b of plan.slice(0, 12)) {
+      const line = el("div", "ops-line ops-plan-row");
+      line.appendChild(el("strong", "", clip(b.batchName || b.batchId || "Batch", 80)));
+      line.appendChild(el("span", "muted small", " · " + clip(b.units, 8) + " unit(s) · " + clip(b.products, 4) + " product(s)"));
+      const when = b.overdue
+        ? "Was due " + clip(b.whenText, 60) + " - not done yet" + (b.why ? ": " + clip(b.why, 200) : "") + ". Shopper tries again every hour."
+        : "Comes off " + clip(b.whenText, 60) + (b.auto ? " - set by Shopper, the morning after it shipped." : " - the time you picked.");
+      line.appendChild(el("div", "small" + (b.overdue ? " ops-plan-late" : " muted"), when));
+      const keys = arr(b.keys).slice(0, 50).map((k) => clip(k, 120));
+      if (Number(b.products) > 50 || !keys.length) { line.appendChild(el("p", "muted small", "Change this batch on the computer's Pipeline page (too many products for one phone command).")); box.appendChild(line); continue; }
+      const row = el("div", "ops-row");
+      const date = el("input", "ops-in ops-plan-date");
+      if (self.ShopperDateInput && self.ShopperDateInput.attach) self.ShopperDateInput.attach(date);
+      else { date.type = "text"; date.placeholder = "MM/DD/YYYY"; }
+      date.setAttribute("aria-label", "New date for " + clip(b.batchName, 60));
+      const time = el("input", "ops-in ops-plan-time");
+      time.type = "time";
+      time.value = "07:00";
+      time.setAttribute("aria-label", "New time for " + clip(b.batchName, 60));
+      const change = btn("Change time", "ops-plan-set");
+      change.addEventListener("click", () => {
+        const D = self.ShopperDateInput;
+        const iso = D && D.readValue ? D.readValue(date.value) : /^\d{4}-\d{2}-\d{2}$/.test(date.value) ? date.value : "";
+        if (!iso) { toast("Type the date as MM/DD/YYYY.", true); return; }
+        if (!/^\d{2}:\d{2}$/.test(time.value)) { toast("Pick a time.", true); return; }
+        run({ name: "shipmentPlanSet", payload: { keys, at: { date: iso, time: time.value } }, btn: change, ok: "Time changed", fail: "Not changed" });
+      });
+      const now = btn("Take it off now", "ops-plan-now");
+      now.addEventListener("click", () => run({ name: "shipmentPlanSet", payload: { keys, now: true }, btn: now, ok: "Taking it off now", fail: "Not taken off" }));
+      const skip = btn("Don't take it off", "ops-plan-ignore");
+      skip.addEventListener("click", () => run({ name: "shipmentPlanIgnore", payload: { keys }, confirm: "Leave these units in 'already ordered' in Sellerboard? Shopper will not take them off.", btn: skip, ok: "It stays in already ordered", fail: "Not changed" }));
+      if (b.overdue) row.append(now, skip); // review S2: an overdue batch's time cannot move (the B-2034 late cap)
+      else row.append(date, time, change, now, skip);
+      line.appendChild(row);
+      box.appendChild(line);
+    }
+    if (stuck) box.appendChild(el("p", "small ops-plan-late", stuck + " product(s) stopped half-way in an earlier update - check Sellerboard by hand."));
+    return box;
+  }
 
   const $ = (id) => document.getElementById(id);
   const sigs = {};
@@ -118,7 +167,9 @@
     due.addEventListener("click", () => run({ name: "shipmentRunDue", payload: {}, btn: due, ok: "Running the scheduled updates" }));
     top.append(check, due);
     card.appendChild(top);
-    if (!list.length) { card.appendChild(el("p", "muted small", "No shipments waiting.")); return card; }
+    const planBox = planGroup(needs); // B-2125
+    if (planBox) card.appendChild(planBox);
+    if (!list.length) { if (!planBox) card.appendChild(el("p", "muted small", "No shipments waiting.")); return card; }
     const picked = new Set();
     const rows = [];
     for (const s of list.slice(0, 25)) {
@@ -131,6 +182,7 @@
       row.append(cb, el("strong", "", " " + clip(s.batchName || s.batchId || "Batch", 80)), el("span", "muted small", " " + clip(s.when, 40)));
       const lines = arr(s.lines).slice(0, 12).map((l) => clip(l.units, 6) + " x " + clip(l.title || l.asin, 50));
       if (lines.length) row.appendChild(el("div", "muted small", lines.join(" · ")));
+      if (s.why) row.appendChild(el("div", "small", "Shopper did not set this one by itself: " + clip(s.why, 200) + ".")); // B-2125 review M1
       rows.push(row);
       card.appendChild(row);
     }
@@ -265,7 +317,7 @@
     const payload = obj(p), pages = obj(payload.pages), needs = obj(payload.needs);
     // The printed ledger the Manual Print sheet reads (labelsMarkPrinted needs the batch id).
     if (self.ShopperManualPrint && self.ShopperManualPrint.setLabels) self.ShopperManualPrint.setLabels(pages.labels || null);
-    paint("shipmentsHost", JSON.stringify(needs.shipments || null) + needs.shipmentsOverflow, () => shipmentsCard(needs));
+    paint("shipmentsHost", JSON.stringify(needs.shipments || null) + needs.shipmentsOverflow + JSON.stringify(needs.shipmentsScheduled || null) + (needs.shipmentsStuck || 0), () => shipmentsCard(needs));
     paint("unmatchedHost", JSON.stringify(pages.unmatched || null), () => unmatchedCard(pages.unmatched));
     paint("editsHost", JSON.stringify(pages.edits || null), () => editsCard(pages.edits));
   }
