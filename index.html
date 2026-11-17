@@ -425,6 +425,7 @@
           <!-- B-875 (v2.0.25): every House count from its Receive tally, in one go (app.js invOpenReceiveAll). -->
           <button id="invReceiveAllBtn" class="secondary-btn" type="button" hidden>Set House counts from Receive</button>
           <button id="invFillHouseBtn" class="secondary-btn" type="button" hidden>Set Receive counts to House on hand</button>
+          <button id="invCountAnyBtn" class="secondary-btn" type="button" hidden>Count a product not listed</button>
           <!-- B-912 (v2.0.29): the laptop prints the open batch's unprinted FNSKU labels on the Brother. -->
           <button id="invPrintLabelsBtn" class="secondary-btn" type="button">Print FNSKU labels (open batch)</button>
           <p id="invPrintLabelsNote" class="muted" hidden></p>
@@ -658,6 +659,7 @@
   <script src="mark-bought-lib.js"></script>
   <!-- B-840 (v2.0.21): the Receive counter (same file as lib/receive-count.js); app.js opens it from a House row. -->
   <script src="receive-count.js"></script>
+  <script src="count-any.js"></script>
   <!-- B-874 (v2.0.24): the top bar's wording (generated from lib/activity-view.js) and the bar. -->
   <script src="activity-view.js"></script>
   <script src="topbar-view.js"></script>

@@ -110,6 +110,29 @@
 /* B-801 (v2.0.10): destination tokens (rules at the end of this file). */
 :root { --s-dest-prep: #00ffff; --s-dest-house: #ffff00; --s-dest-prep-bg: var(--s-dest-prep); --s-dest-house-bg: var(--s-dest-house); --s-dest-ink: #1a1d2b; --s-dest-ink-2: #3a3f55; }
 :root[data-theme="dark"] { --s-dest-prep-bg: color-mix(in srgb, var(--s-dest-prep) 16%, var(--s-surface)); --s-dest-house-bg: color-mix(in srgb, var(--s-dest-house) 14%, var(--s-surface)); --s-dest-ink: var(--s-text); --s-dest-ink-2: var(--s-text-muted); }
+
+/* B-2132 (v2.0.167): Buylist table tokens (colour-mix of existing tokens; same names on the phone). */
+:root {
+  --s-bl-band: color-mix(in srgb, var(--s-violet) 6%, var(--s-surface));
+  --s-bl-group-ink: var(--s-violet-ink);
+  --s-bl-divider: color-mix(in srgb, var(--s-violet) 14%, var(--s-n3));
+  --s-bl-rowline: var(--s-n2);
+  --s-bl-hover: color-mix(in srgb, var(--s-violet) 3%, var(--s-surface));
+  --s-bl-ok-bg: color-mix(in srgb, var(--s-green) 9%, var(--s-surface));
+  --s-bl-ok-bar: var(--s-green);
+  --s-bl-warn-bg: color-mix(in srgb, var(--s-yellow) 12%, var(--s-surface));
+  --s-bl-warn-bar: var(--s-yellow);
+  --s-bl-pill-bg: var(--s-violet-bg);
+  --s-bl-pill-ink: var(--s-violet-ink);
+}
+:root[data-theme="dark"] {
+  --s-bl-band: color-mix(in srgb, var(--s-violet) 12%, var(--s-surface));
+  --s-bl-divider: color-mix(in srgb, var(--s-violet) 22%, var(--s-n3));
+  --s-bl-rowline: var(--s-n3);
+  --s-bl-hover: color-mix(in srgb, var(--s-violet) 6%, var(--s-surface));
+  --s-bl-ok-bg: color-mix(in srgb, var(--s-green) 14%, var(--s-surface));
+  --s-bl-warn-bg: color-mix(in srgb, var(--s-yellow) 14%, var(--s-surface));
+}
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]):not([data-theme="retro"]) { --s-dest-prep-bg: color-mix(in srgb, var(--s-dest-prep) 16%, var(--s-surface)); --s-dest-house-bg: color-mix(in srgb, var(--s-dest-house) 14%, var(--s-surface)); --s-dest-ink: var(--s-text); --s-dest-ink-2: var(--s-text-muted); }
 }

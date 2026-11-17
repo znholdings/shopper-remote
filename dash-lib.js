@@ -220,10 +220,15 @@ function buildDoNext(input = {}) {
   const ah = input.accountHealth || null;
   const ahAlerts = ah && ah.known && Array.isArray(ah.alerts) ? ah.alerts.filter(Boolean) : [];
   // B-1413: a NEW individual violation also raises the card, even when the category counts did not rise.
-  const ahNewVios = ah && Array.isArray(ah.violations) ? ah.violations.filter((v) => v && v.isNew) : [];
+  const ahNewVios = ah && Array.isArray(ah.violations) ? ah.violations.filter((v) => v && (v.isNew || v.recent)) : [];
+  // B-2129: Seller Central's own rows (source "page") name the specific violation + the listing.
+  const ahPageVios = ahNewVios.filter((v) => v.source === "page" && v.isNew && !v.recent); // review M2: only a proven new id is named; a "most recent" pick keeps the category text
+  const ahPageLine = (v) => `${String(v.policy || v.reason || "Policy violation").slice(0, 70)}${v.title ? ` - ${String(v.title).slice(0, 50)}` : ""}${v.asin ? ` (${v.asin})` : ""}`;
   if (ahAlerts.length || ahNewVios.length) {
     const r = num(ah.rating);
-    const ahLines = ahAlerts.length ? ahAlerts.map((a) => String(a.text || a.category)) : ahNewVios.map((v) => String(v.policy || v.category || "New violation") + (v.asin ? ` (${v.asin})` : ""));
+    const ahLines = ahPageVios.length
+      ? [...ahPageVios.map(ahPageLine), ...ahAlerts.filter((a) => !ahPageVios.some((v) => v.category === a.category)).map((a) => String(a.text || a.category))]
+      : ahAlerts.length ? ahAlerts.map((a) => String(a.text || a.category)) : ahNewVios.map((v) => String(v.policy || v.category || "New violation") + (v.asin ? ` (${v.asin})` : ""));
     add({
       id: "health",
       severity: "critical",
@@ -1577,20 +1582,26 @@ function line(o) {
 const dateOf = (ms) => { const n = Number(ms); return Number.isFinite(n) && n > 0 ? new Date(n).toISOString().slice(0, 10) : ""; };
 
 // B-1413: one row per individual violation (NEW first - the order comes from ahrGlanceViolations).
-function healthViolationRows(list) {
-  return list.filter(Boolean).map((v) => line({
-    asin: v.asin, sku: v.sku, title: v.title || v.policy,
+function healthViolationRows(list, alerts = []) {
+  return list.filter(Boolean).map((v) => {
+    const page = v.source === "page"; // B-2129: Seller Central's own list - the specific violation + the listing
+    const al = page ? alerts.find((a) => a && a.category === v.category) : null;
+    return line({
+    asin: v.asin, sku: v.sku, title: page ? (v.title || v.policy) : v.title || v.policy,
     figures: [AHR_IMPACT_WORDS[v.impact] || "Warning", v.status],
-    reason: v.reason,
-    badge: v.isNew ? NEW : null,
+    reason: page ? `${v.policy}${v.reason ? ` - ${v.reason}` : ""}` : v.reason,
+    badge: v.recent ? { kind: "changed", text: "MOST RECENT", dir: "worse" } : v.isNew ? NEW : null,
     meta: [
-      v.policy ? `Policy: ${v.policy}` : "",
+      page && !v.asin ? "Account-level - no listing" : "",
+      page && v.category ? `${v.category}${al && al.from != null ? `: ${al.from} → ${al.to}` : ""}` : "",
+      !page && v.policy ? `Policy: ${v.policy}` : "",
       dateOf(v.flaggedAt) ? `${v.flaggedExact ? "Flagged" : "First seen by Shopper"}: ${dateOf(v.flaggedAt)}` : "",
       v.action ? `Amazon asks: ${v.action}` : "",
       v.deadline ? `Deadline: ${v.deadline}` : "",
     ],
     link: { url: v.link, label: "View in Seller Central" },
-  }));
+    });
+  });
 }
 const NEW = { kind: "new", text: "NEW" };
 const changed = (from, to, dir = null) => ({ kind: "changed", text: `CHANGED ${from} → ${to}`, dir });
@@ -1644,14 +1655,26 @@ function detailRowsFor(row, input = {}) {
       const ah = input.accountHealth || {};
       // B-1413: each individual violation when the read has them; else the category rows, each with a link.
       const vios = Array.isArray(ah.violations) ? ah.violations.filter(Boolean) : [];
-      if (vios.length) { out = healthViolationRows(vios); break; }
-      out = (Array.isArray(ah.alerts) ? ah.alerts : []).filter(Boolean).map((a) => line({
+      const alertsH = (Array.isArray(ah.alerts) ? ah.alerts : []).filter(Boolean);
+      // B-2129: page rows exist -> only the NEW / most recent ones (Zach 11/16: the card lists the new violation(s) behind the alert);
+      // listing-issue rows never hide the alert rows.
+      const hasPage = vios.some((v) => v.source === "page");
+      // v2.0.167 review M1: a NEW listing / report violation (B-1413) still shows once page rows exist.
+      const shown = hasPage ? [...vios.filter((v) => v.source === "page" && (v.isNew || v.recent)), ...vios.filter((v) => v.source !== "page" && v.isNew)] : alertsH.length ? vios.filter((v) => v.isNew) : vios;
+      const covered = new Set(shown.filter((v) => v.source === "page").map((v) => v.category));
+      const signedOutH = !!ah.pageSignedOut;
+      out = healthViolationRows(shown, alertsH);
+      const fallbackReason = signedOutH
+        ? "Could not read the details from Seller Central (sign in to Seller Central in Chrome) - open it to see which listing"
+        : hasPage ? "Amazon has not listed it yet - check Seller Central"
+        : "Policy Compliance violation - check it in Seller Central and answer Amazon";
+      out.push(...alertsH.filter((a) => !covered.has(a.category)).map((a) => line({
         title: str(a.category),
         figures: [a.from == null ? `${a.to} now` : `${a.from} → ${a.to}`],
-        reason: "Policy Compliance violation - check it in Seller Central and answer Amazon",
+        reason: fallbackReason,
         badge: a.from == null ? NEW : changed(a.from, a.to, num(a.to) > num(a.from) ? "worse" : null),
         link: { url: ACCOUNT_HEALTH_URL, label: "View in Seller Central" },
-      }));
+      })));
       break;
     }
     case "voc": out = vocRows(input); break;

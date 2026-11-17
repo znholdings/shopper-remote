@@ -54,6 +54,16 @@
   --s-console-muted: #bcbcbc;
 }
 /* -- end Retro tokens -- */
+/* B-2132 (v2.0.167): Buylist table tokens, retro values (own block - test v2011 B8 keeps the Retro token block to names Light has). */
+:root[data-theme="retro"] {
+  --s-bl-band: var(--s-violet-bg);
+  --s-bl-group-ink: var(--s-n7);
+  --s-bl-divider: var(--s-n3);
+  --s-bl-rowline: var(--s-n3);
+  --s-bl-hover: color-mix(in srgb, var(--s-violet) 6%, var(--s-n0));
+  --s-bl-ok-bg: var(--s-green-bg);
+  --s-bl-warn-bg: var(--s-yellow-bg);
+}
 :root[data-theme="retro"] body { background: var(--s-bg); }
 :root[data-theme="retro"] .topbar { border-bottom: 3px solid var(--s-n7); padding-bottom: var(--rt-2); }
 :root[data-theme="retro"] .brand-word { background: none; -webkit-background-clip: border-box; background-clip: border-box; color: var(--s-accent); -webkit-text-fill-color: currentColor; font-family: var(--s-pixel) !important; font-weight: 400; font-size: var(--rt-h3); }

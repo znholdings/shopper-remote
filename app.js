@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.166";
+const APP_BUILD = "v2.0.167";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -48,6 +48,7 @@ for (const id of [
   // B-875 (v2.0.25): set every House count from its Receive tally.
   "invReceiveAllBtn",
   "invFillHouseBtn",
+  "invCountAnyBtn",
   // B-912 (v2.0.29): print the open batch's labels from the phone.
   "invPrintLabelsBtn","invPrintLabelsNote",
   // B-490 (v4.56): the read-only Dashboard tab.
@@ -1623,6 +1624,7 @@ function renderBuylist(bl) {
 function buylistCard(i) {
   const row = document.createElement("div");
   row.className = `line bl-${i.decision || "undecided"}`;
+  if (i.hasConcern) row.classList.add("bl-warn"); // B-2132 (v2.0.167)
   row.dataset.asin = i.asin || ""; // B-1062 (v2.0.53): remote/claude-learn-view.js chips the card
 
   // P-26. The five fields Zach named as what decides an approve/reject
@@ -1890,6 +1892,7 @@ els.finishNowBtn.addEventListener("click", () => sendCommand("finishNow"));
 // B-875 (v2.0.25): set every House count from its Receive tally.
 els.invReceiveAllBtn.addEventListener("click", invOpenReceiveAll);
 els.invFillHouseBtn.addEventListener("click", invOpenFillHouse);
+els.invCountAnyBtn.addEventListener("click", invOpenCountAny);
 // B-912 (v2.0.29): "Print FNSKU labels" - the laptop runs its follow-the-batch print and this
 // waits for its answer (the command row's result) so the phone can say what printed.
 // B-937 (v2.0.35): a product over the label cap is ASKED about before anything prints - the
@@ -3072,6 +3075,7 @@ function invReceiveAllRows(inv) {
 }
 
 function invPaintReceiveAll(inv) {
+  invPaintCountAny(inv);
   invPaintFillHouse(inv);
   const b = els.invReceiveAllBtn;
   if (!b) return;
@@ -3124,6 +3128,39 @@ function invOpenFillHouse() {
   rcSyncStart();
   // Opus review: a function, so Yes re-plans from the newest payload (one may arrive while the card is open).
   RC.openFillHouse({ rows: () => invReceiveAllRows((lastPayload && lastPayload.inventory) || inv), format: invUnits, where: "House", onDone: () => invRefreshReceiveButtons() });
+}
+
+// B-2130 (v2.0.167): "Count a product not listed" on the House list (remote/count-any.js). The search runs on the laptop
+// (packingCopyFind, read-only); picking a product opens the usual Receive pop-up, whose count is the same setCount.
+function invPaintCountAny(inv) {
+  const b = els.invCountAnyBtn;
+  if (!b) return;
+  b.hidden = !(invBucket === "house" && !!(inv && inv.available) && !!self.ShopperCountAny && !!self.ShopperReceive);
+}
+function invOpenCountAny() {
+  const CA = self.ShopperCountAny;
+  const inv = lastPayload && lastPayload.inventory;
+  if (!CA || !self.ShopperReceive || !inv) return;
+  rcSyncStart();
+  const rows = () => ((lastPayload && lastPayload.inventory && lastPayload.inventory.rows) || []).map((r) => ({ asin: r.asin, title: r.title || "", house: r.house }));
+  CA.open({
+    rows,
+    visible: () => invBucketRows((lastPayload && lastPayload.inventory && lastPayload.inventory.rows) || [], "house"),
+    tallies: () => self.ShopperReceive.exportSync().tallies,
+    search: async (q) => {
+      const M = self.ShopperManualPrint;
+      if (!M || typeof M.runCommand !== "function") return { ok: false, error: "The laptop isn't connected - try again when it is." };
+      const out = await M.runCommand("packingCopyFind", { q });
+      if (out && out.status === "done" && out.result && typeof out.result === "object") return out.result;
+      if (out && out.status === "done") return { ok: false, error: "The laptop gave no answer." };
+      return { ok: false, error: "The laptop isn't connected - try again when it is." };
+    },
+    format: invUnits,
+    openCount: (it) => {
+      const row = ((lastPayload && lastPayload.inventory && lastPayload.inventory.rows) || []).find((r) => String(r.asin).toUpperCase() === it.asin);
+      invOpenReceive(row || { asin: it.asin, title: it.title || it.asin, house: 0, packOf: 0 });
+    },
+  });
 }
 
 // ------------------------------------------------------------ push (iOS)

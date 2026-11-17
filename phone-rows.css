@@ -14,3 +14,14 @@
 #wizardPane .wz-row-head:has(.srf-more) { display: flex; gap: 6px; align-items: start; }
 .srf-more { margin-left: auto; flex: none; }
 #wizardPane .wz-row-head:has(.srf-more) .wz-row-sub { flex: none; white-space: nowrap; }
+
+/* B-2132 (v2.0.167): phone Buylist cards - soft status colours, tabular right-aligned numbers, fixed badge spot. Tokens come from styles.css / retro.css (--s-bl-*); fallbacks keep this file self-sufficient. */
+#buylistItems .line.bl-approved { background: var(--s-bl-ok-bg, var(--s-green-bg)); border-left: 3px solid var(--s-bl-ok-bar, var(--s-green)); }
+#buylistItems .line.bl-warn:not(.bl-approved) { background: var(--s-bl-warn-bg, var(--s-yellow-bg)); border-left: 3px solid var(--s-bl-warn-bar, var(--s-yellow)); }
+#buylistItems .bs-value { font-variant-numeric: tabular-nums; }
+#buylistItems .bl-stat { text-align: right; align-items: flex-end; }
+#buylistItems .l-status { margin-left: auto; }
+:root[data-theme="retro"] #buylistItems .line.bl-approved { background: var(--s-bl-ok-bg, var(--s-green-bg)) !important; border-left: 6px solid var(--s-bl-ok-bar, var(--s-green)) !important; }
+:root[data-theme="retro"] #buylistItems .line.bl-warn:not(.bl-approved) { background: var(--s-bl-warn-bg, var(--s-yellow-bg)) !important; border-left: 6px solid var(--s-bl-warn-bar, var(--s-yellow)) !important; }
+:root[data-theme="retro"] #buylistItems .bl-stat { align-items: flex-end !important; text-align: right; }
+:root[data-theme="retro"] #buylistItems .bs-label { text-align: right; }

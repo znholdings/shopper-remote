@@ -8,7 +8,7 @@
   var pane = doc.getElementById("leadsPane");
   if (!P || !pane) return;
   var U = P.ui;
-  if (typeof REMOTE_LABELS !== "undefined") Object.assign(REMOTE_LABELS, { leadsAdd: "Tracked Leads: add", leadsSetCost: "Tracked Leads: cost", leadsUntrack: "Tracked Leads: untrack", leadsSendToBuylist: "Tracked Leads: send to Buylist", leadsRefreshNow: "Tracked Leads: refresh now" });
+  if (typeof REMOTE_LABELS !== "undefined") Object.assign(REMOTE_LABELS, { leadsAdd: "Tracked Leads: add", leadsSetCost: "Tracked Leads: cost", leadsSetSalePrice: "Tracked Leads: sale price", leadsUntrack: "Tracked Leads: untrack", leadsSendToBuylist: "Tracked Leads: send to Buylist", leadsRefreshNow: "Tracked Leads: refresh now" });
 
   var data = null;
   var sig = "";
@@ -45,7 +45,7 @@
   function cells(r) {
     var t = function (x) { return x ? x.text : "-"; };
     var src = r.srcChange ? (r.srcChange.delta === 0 ? "same" : (r.srcChange.delta > 0 ? "▲ " : "▼ ") + money(Math.abs(r.srcChange.delta)) + " (" + r.srcChange.pct + "%)") : "-";
-    return [
+    var out = [
       "Cost " + money(r.cost) + (r.costTyped ? " (typed)" : r.packNote ? " (" + r.packNote + ")" : ""),
       "Buy Box " + money(r.bb) + " · lowest FBA " + money(r.lowFba),
       "At Buy Box: ROI " + pct(r.roiBB) + " · margin " + pct(r.marginBB),
@@ -56,6 +56,8 @@
       "Rank " + nz(r.bsr) + (r.bsrChange30 == null ? "" : r.bsrChange30 > 0 ? " (30 days: " + r.bsrChange30 + "% worse)" : r.bsrChange30 < 0 ? " (30 days: " + (-r.bsrChange30) + "% better)" : " (30 days: same)"),
       "Buy Box 90-day average " + money(r.bbAvg90) + " · source price since tracked " + src
     ];
+    if (r.salePrice != null) out.splice(5, 0, "At your price " + money(r.salePrice) + ": profit " + money(r.profitSP) + " · ROI " + pct(r.roiSP)); // B-2135: after the Profit per item line
+    return out;
   }
 
   function card(r) {
@@ -84,6 +86,10 @@
       var sc = U.btn("Save cost", "mini-btn", function () { var v = cost.value.trim(); if (!v) { U.toast("Type the cost first.", true); return; } U.send("leadsSetCost", { asin: r.asin, cost: v }, sc).then(function (res) { U.say(res, "Cost saved"); }); });
       acts.appendChild(cost); acts.appendChild(sc);
     }
+    var sale = U.input("text", { placeholder: "Desired sale price", inputmode: "decimal" }); // B-2135: empty + Save clears it
+    if (r.salePrice != null) sale.value = String(r.salePrice);
+    var sp = U.btn("Save price", "mini-btn", function () { var v = sale.value.trim(); U.send("leadsSetSalePrice", { asin: r.asin, salePrice: v || null }, sp).then(function (res) { U.say(res, "Price saved"); }); });
+    acts.appendChild(sale); acts.appendChild(sp);
     var sb = U.btn("Send to Buylist", "mini-btn", function () {
       var q = root.prompt ? root.prompt("How many of " + r.asin + " for the Buylist? (1 to 9999)", "1") : null;
       if (q == null) return;
@@ -104,11 +110,12 @@
     f.asin = U.input("text", { placeholder: "ASIN (B0...)", autocapitalize: "characters", maxlength: "10" });
     f.url = U.input("url", { placeholder: "Source URL (or leave empty - Shopper looks overnight)" });
     f.cost = U.input("text", { placeholder: "Cost per item (optional)", inputmode: "decimal" });
-    s.appendChild(U.field("ASIN", f.asin)); s.appendChild(U.field("Source URL", f.url)); s.appendChild(U.field("Cost (only if the page can't be read)", f.cost));
+    f.sale = U.input("text", { placeholder: "Desired Sale Price (optional)", inputmode: "decimal" }); // B-2135
+    s.appendChild(U.field("ASIN", f.asin)); s.appendChild(U.field("Source URL", f.url)); s.appendChild(U.field("Cost (only if the page can't be read)", f.cost)); s.appendChild(U.field("Desired Sale Price (optional)", f.sale));
     var b = U.btn("+ Add lead", "primary-btn", function () {
       var a = f.asin.value.trim(), u = f.url.value.trim();
       if (!a) { U.toast("Type the ASIN.", true); return; }
-      U.send("leadsAdd", { asin: a, url: u, cost: f.cost.value.trim() || null, origin: "hand" }, b).then(function (res) { U.say(res, "Tracked"); if (res.ok) { f.asin.value = ""; f.url.value = ""; f.cost.value = ""; } });
+      U.send("leadsAdd", { asin: a, url: u, cost: f.cost.value.trim() || null, salePrice: f.sale.value.trim() || null, origin: "hand" }, b).then(function (res) { U.say(res, "Tracked"); if (res.ok) { f.asin.value = ""; f.url.value = ""; f.cost.value = ""; f.sale.value = ""; } });
     });
     s.appendChild(b);
     return s;
