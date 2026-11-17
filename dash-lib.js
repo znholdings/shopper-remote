@@ -1617,7 +1617,7 @@ function healthViolationRows(list, alerts = [], now = null) {
     badge: v.recent ? { kind: "changed", text: "MOST RECENT", dir: "worse" } : v.isNew ? NEW : null,
     meta: [
       page && !v.asin ? "Account-level - no listing" : "",
-      page && v.category ? `${v.category}${al && al.from != null ? `: ${al.from} → ${al.to}` : ""}${al && al.src === "report" ? " (Amazon's report - may be off)" : ""}` : "",
+      page && v.category ? (al && al.src === "page" ? `${v.category}: new violation listed` : `${v.category}${al && al.from != null ? `: ${al.from} → ${al.to}` : ""}${al && al.src === "report" ? " (Amazon's report - may be off)" : ""}`) : "", // B-2153
       !page && v.policy ? `Policy: ${v.policy}` : "",
       dateOf(v.flaggedAt) ? `${v.flaggedExact ? "Flagged" : "First seen by Shopper"}: ${dateOf(v.flaggedAt)}` : "",
       v.action ? `Amazon asks: ${v.action}` : "",
@@ -1697,9 +1697,9 @@ function detailRowsFor(row, input = {}) {
         : "Policy Compliance violation - check it in Seller Central and answer Amazon";
       out.push(...alertsH.filter((a) => !covered.has(a.category)).map((a) => line({
         title: str(a.category),
-        figures: [a.from == null ? `${a.to} now` : `${a.from} → ${a.to}`],
-        reason: a.src === "report" ? `${fallbackReason} (from Amazon's report - may be off)` : fallbackReason,
-        badge: a.from == null ? NEW : changed(a.from, a.to, num(a.to) > num(a.from) ? "worse" : null),
+        figures: [a.from == null || a.src === "page" ? `${a.to} now` : `${a.from} → ${a.to}`], // B-2153: a page-read alert's "from" is a guess - "N now" + NEW
+        reason: a.src === "report" ? `${fallbackReason} (from Amazon's report - may be off)` : a.src === "page" ? `New violation listed - ${fallbackReason}` : fallbackReason,
+        badge: a.from == null || a.src === "page" ? NEW : changed(a.from, a.to, num(a.to) > num(a.from) ? "worse" : null),
         link: { url: ACCOUNT_HEALTH_URL, label: "View in Seller Central" },
       })));
       break;
