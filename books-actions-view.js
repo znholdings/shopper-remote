@@ -231,6 +231,7 @@
   // B-2169 (v2.0.172): the laptop runs the three-model audit before a close; when it finds something the close is refused with the
   // findings and this card asks "Close anyway?" (a second send with closeAnyway). Kept across redraws until sent or the month changes.
   let closeAnyway = null; // { month, texts: [..], count, from } - from = the day of an older audit (review S3: the cap is used up)
+  let closeAsk = ""; // B-2175: the month the in-page confirm is open for (no browser confirm() on the phone)
   let lastPayload = null;
   function redrawNow() { sig = ""; if (lastPayload) render(lastPayload); }
   function findingTexts(res) {
@@ -244,18 +245,33 @@
     const sel = select(open, "Month to close");
     if (closeAnyway && open.includes(closeAnyway.month)) sel.value = closeAnyway.month;
     const b = btn("Close this month", "ops-close-go");
-    b.addEventListener("click", async () => {
-      const out = await run({ name: "booksClose", payload: { month: sel.value }, confirm: "Close " + sel.value + "? The audit and Reconcile run first; a closed month only takes correcting entries.", btn: b, ok: "Closing on the computer" });
-      const res = obj(out && out.result);
-      if (out && !out.ok && (Array.isArray(res.findings) || Array.isArray(res.auditFindings))) {
-        const from = /^\d{4}-\d{2}-\d{2}$/.test(String(res.from || "")) ? String(res.from) : "";
-        closeAnyway = { month: sel.value, texts: findingTexts(res), count: Number(res.count) || findingTexts(res).length, from };
-        redrawNow();
-      }
-    });
+    sel.addEventListener("change", () => { closeAsk = ""; redrawNow(); });
+    b.addEventListener("click", () => { closeAsk = sel.value; redrawNow(); });
     const r = el("div", "ops-row");
     r.append(sel, b);
     c.appendChild(r);
+    if (closeAsk && closeAsk === sel.value) {
+      const ask = el("div", "ops-line ops-close-ask");
+      ask.setAttribute("role", "status");
+      ask.appendChild(el("div", "", "Close " + closeAsk + "? The audit and Reconcile run first; a closed month only takes correcting entries."));
+      const arow = el("div", "ops-row");
+      const yes = btn("Yes, close it", "ops-close-yes");
+      yes.addEventListener("click", async () => {
+        const month = closeAsk;
+        closeAsk = "";
+        const out = await run({ name: "booksClose", payload: { month }, btn: yes, ok: "Closing on the computer" });
+        const res = obj(out && out.result);
+        if (out && !out.ok && (Array.isArray(res.findings) || Array.isArray(res.auditFindings))) {
+          const from = /^\d{4}-\d{2}-\d{2}$/.test(String(res.from || "")) ? String(res.from) : "";
+          closeAnyway = { month, texts: findingTexts(res), count: Number(res.count) || findingTexts(res).length, from };
+        }
+        redrawNow();
+      });
+      const nope = btn("Not now", "ops-close-ask-no", () => { closeAsk = ""; redrawNow(); });
+      arow.append(yes, nope);
+      ask.appendChild(arow);
+      c.appendChild(ask);
+    }
     if (closeAnyway && sel.value === closeAnyway.month) {
       const box = el("div", "ops-line ops-close-gate");
       box.setAttribute("role", "status");
@@ -547,7 +563,7 @@
     if (rulesHost) renderRules(rulesHost, payload);
     const host = $("bkmActionsHost");
     if (!host) return;
-    const s = JSON.stringify([books.monthsOpen, books.monthsClosed, pages.booksAsk, pages.booksAudit, pages.booksCogs, books.cogsNoOrder, pages.booksAccountMap, pages.booksRebuild, accountsOf(pages), closeAnyway]);
+    const s = JSON.stringify([books.monthsOpen, books.monthsClosed, pages.booksAsk, pages.booksAudit, pages.booksCogs, books.cogsNoOrder, pages.booksAccountMap, pages.booksRebuild, accountsOf(pages), closeAnyway, closeAsk]);
     if (s === sig && host.childNodes.length) return;
     if (editing(host)) return;
     sig = s;

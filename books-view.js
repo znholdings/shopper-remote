@@ -144,11 +144,12 @@
       if (reopenAsk && list.includes(reopenAsk)) {
         const ask = el("div", "bkm-reopen-ask");
         ask.setAttribute("role", "alertdialog");
-        ask.append(el("div", "bkm-sign-preview", `Reopen ${monthLabel(reopenAsk)}? Its lock comes off, so lines can be booked in it again. Shopper will not close it again today.`));
+        const later = (closed || []).filter((m) => m > reopenAsk).sort().reverse(); // B-2175: reopening an older month reopens every later closed month too
+        ask.append(el("div", "bkm-sign-preview", `Reopen ${monthLabel(reopenAsk)}? Its lock comes off, so lines can be booked in it again. Shopper will not close it again today.${later.length ? ` ${later.map(monthLabel).join(", ")} ${later.length === 1 ? "is" : "are"} closed after it and reopen too, newest first.` : ""}`));
         const yes = el("button", "primary-btn bkm-book", "Yes, reopen it");
         yes.type = "button";
         yes.disabled = !!reopening;
-        yes.addEventListener("click", () => runReopen(reopenAsk));
+        yes.addEventListener("click", () => runReopen(reopenAsk, later.length > 0 ? later[0] : ""));
         const no = el("button", "secondary-btn bkm-cancel", "Keep it closed");
         no.type = "button";
         no.addEventListener("click", () => { reopenAsk = ""; redraw(); });
@@ -161,7 +162,7 @@
     if (reopenNote && Date.now() - reopenNote.at < NOTE_MS) box.append(el("div", "bkm-note bkm-note-" + reopenNote.phase, reopenNote.text));
     if (box.childNodes.length) { t.classList.add("wide"); t.append(box); } // wide: the picker and its button need the full row
   }
-  async function runReopen(month) {
+  async function runReopen(month, through = "") {
     const R = self.ShopperRemote;
     if (!R || !R.sendCommand || reopening) return;
     reopenAsk = "";
@@ -170,7 +171,7 @@
     reopenNote = { phase: "sending", text: `Reopening ${monthLabel(month)}...`, at: Date.now() };
     redraw();
     let id = null;
-    try { id = await R.sendCommand("booksReopen", { month }); } catch (e) { id = null; }
+    try { id = await R.sendCommand("booksReopen", { month, ...(through ? { andLater: true, through } : {}) }); } catch (e) { id = null; }
     if (!id) { reopening = ""; reopenNote = { phase: "failed", text: "Not sent - the phone could not reach the laptop's relay. Try again.", at: Date.now() }; redraw(); return; }
     let status = "done";
     try { if (R.waitFor) status = await R.waitFor(id); } catch (e) { status = "done"; }
