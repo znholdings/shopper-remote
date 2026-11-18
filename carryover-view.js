@@ -9,7 +9,7 @@
   const say = (t, bad) => { try { if (typeof toast === "function") toast(t, !!bad); } catch (e) { /* no toast */ } };
   const pl = () => { try { return typeof lastPayload !== "undefined" ? lastPayload : null; } catch (e) { return null; } };
   const pg = () => { const p = pl(); return p && p.pages && typeof p.pages === "object" ? p.pages : {}; };
-  try { if (typeof REMOTE_LABELS !== "undefined") Object.assign(REMOTE_LABELS, { carryOverDecide: "Carry-over: ignore / undo", carryOverApply: "Carry-over: add to today's list", carryOverStockCheck: "Carry-over: check stock" }); } catch (e) { /* cosmetic */ }
+  try { if (typeof REMOTE_LABELS !== "undefined") Object.assign(REMOTE_LABELS, { carryOverDecide: "Carry-over: ignore / undo", carryOverApply: "Carry-over: add to today's list", carryOverStockCheck: "Carry-over: check stock", carryOverFinish: "Carry-over: finish yesterday's orders" }); } catch (e) { /* cosmetic */ }
 
   async function act(name, body, o) {
     o = o || {};
@@ -105,6 +105,23 @@
     card.appendChild(acts);
     return card;
   }
+  // B-2189: "Finish <day>'s orders" - preview, an in-page confirm card (no browser confirm on the phone), then the add. Nothing is bought.
+  let finishAsk = null; // { text, notes } while the confirm is open
+  async function finishPress(b) {
+    const r = await act("carryOverFinish", { preview: true }, { btn: b });
+    const pv = r && r.ok ? r.result : null;
+    if (!pv) return;
+    if (!pv.lines || !pv.lines.length) { say("Nothing left to finish.", true); return; }
+    const notes = pv.lines.filter((l) => l.todayQty != null).map((l) => l.asin + ": on today's list " + l.todayQty + " \u2192 " + l.qty);
+    finishAsk = { text: "Add " + pv.lines.length + " line(s) / " + pv.units + " unit(s)" + (pv.cost > 0 ? " (~$" + Math.round(pv.cost) + ")" : "") + " from " + pv.label + " to today's list?", notes: notes };
+    drawn = ""; draw();
+  }
+  async function finishGo(b) {
+    finishAsk = null;
+    const r = await act("carryOverFinish", {}, { btn: b });
+    drawn = ""; draw();
+    if (r && r.ok && r.result) say("Added " + r.result.added + " \u00b7 " + r.result.units + " unit(s)" + (r.result.skipped && r.result.skipped.length ? " \u00b7 skipped " + r.result.skipped.length : "") + ".");
+  }
   let drawn = "";
   function draw() {
     const host = document.getElementById("carryOverHost");
@@ -112,7 +129,7 @@
     const a = document.activeElement;
     if (a && host.contains(a) && a.tagName === "INPUT") return; // never redraw under a typed quantity
     const data = pg().carryOver || null;
-    const key = JSON.stringify(data);
+    const key = JSON.stringify(data) + "|" + (finishAsk ? finishAsk.text : "");
     if (key === drawn) return;
     drawn = key;
     host.textContent = "";
@@ -125,6 +142,18 @@
     head.appendChild(el("span", "count", " " + count));
     sec.appendChild(head);
     if (!data.hasList) sec.appendChild(el("p", "muted small", "Generate or restore today's buylist first - the buttons add to it."));
+    const fin = data.finish && data.finish.lines > 0 ? data.finish : null;
+    if (fin && data.hasList) {
+      sec.appendChild(btnOf("Finish " + fin.label + "'s orders (" + fin.lines + " lines)", "mini-btn primary-btn", (b) => finishPress(b)));
+      if (finishAsk) {
+        const cf = el("div", "co-confirm");
+        cf.appendChild(el("div", "", finishAsk.text));
+        for (const n of finishAsk.notes.slice(0, 8)) cf.appendChild(el("div", "muted small", n));
+        cf.appendChild(btnOf("Add them", "mini-btn primary-btn", (b) => finishGo(b)));
+        cf.appendChild(btnOf("Cancel", "mini-btn", () => { finishAsk = null; drawn = ""; draw(); }));
+        sec.appendChild(cf);
+      }
+    }
     sec.appendChild(btnOf("Check stock", "mini-btn", async (b) => {
       const items = [];
       for (const d of days) for (const l of d.lines || []) if (l.sourceUrl && !(l.decision && l.decision.choice === "ignore")) items.push({ asin: l.asin, sourceUrl: l.sourceUrl });
