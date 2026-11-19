@@ -1129,7 +1129,7 @@ html, body { overscroll-behavior: none; }
 .ctm-title { color: var(--s-text); font-weight: 600; font-size: 14px; line-height: 1.3; text-decoration: none; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
 .ctm-ids { font-size: 11px; color: var(--s-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ctm-figs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px 8px; }
-.ctm-figs + .ctm-figs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.ctm-figs + .ctm-figs { grid-template-columns: repeat(4, minmax(0, 1fr)); } /* B-2207: + Cost */
 .ctm-fig { display: flex; flex-direction: column; min-width: 0; }
 .ctm-fig-l { font-size: 11px; color: var(--s-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ctm-fig-v { font-size: 15px; color: var(--s-text); font-variant-numeric: tabular-nums; }
@@ -1322,4 +1322,18 @@ body.pn-float .ctm-table tr > :last-child { padding-right: 62px; }
 .ip-confirm-text { margin-bottom: 10px; line-height: 1.35; overflow-wrap: anywhere; }
 .ip-confirm-row { display: flex; gap: 8px; flex-wrap: wrap; }
 .ip-confirm-text { white-space: pre-line; }
+/* B-2207 (v2.0.176): the pencil on a Cost (card + table) and the strip under the product: new cost -> (in-page confirm) -> what saved where. */
+.ctm-cost-edit { position: relative; flex: none; display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; margin-left: 2px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--s-text-muted); font-size: 14px; line-height: 1; vertical-align: middle; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.ctm-cost-edit::before { content: ""; position: absolute; left: 50%; top: 50%; width: 34px; height: 34px; transform: translate(-50%, -50%); }
+.ctm-cost-edit:focus-visible { outline: 2px solid var(--s-accent); outline-offset: 0; }
+.ctm-cost-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; min-width: 0; box-sizing: border-box; padding: 8px; border: 1px solid var(--s-line-soft); border-radius: var(--s-r-sm); background: var(--s-surface-2); color: var(--s-text); font-size: 13px; white-space: normal; text-align: left; }
+.ctm-cost-strip > * { min-width: 0; }
+.ctm-cost-lab { font-weight: 700; }
+.ctm-cost-in { width: 96px; max-width: 100%; min-height: 34px; box-sizing: border-box; padding: 4px 8px; border: 1px solid var(--s-line); border-radius: var(--s-r-sm); background: var(--s-surface); color: var(--s-text); font: 16px var(--s-font); font-variant-numeric: tabular-nums; }
+.ctm-cost-err, .ctm-cost-result-bad { flex: 1 1 100%; color: var(--s-red-ink); font-weight: 700; line-height: 1.35; }
+.ctm-cost-busy, .ctm-cost-result { flex: 1 1 100%; line-height: 1.4; overflow-wrap: anywhere; }
+.ctm-cost-result { color: var(--s-green-ink); font-weight: 600; }
+.ctm-cost-result.ctm-cost-result-bad { color: var(--s-red-ink); }
+.ctm-table td.ctm-cost-td { position: static; width: auto; min-width: 0; max-width: none; padding: 4px 8px; border-right: 0; white-space: normal; }
+.ctm-table td.ctm-cost-td .ctm-cost-strip { position: sticky; left: 8px; width: min(calc(100vw - 48px), 420px); }
 [hidden] { display: none !important; }

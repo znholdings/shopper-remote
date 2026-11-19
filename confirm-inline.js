@@ -44,5 +44,18 @@
       try { no.focus(); } catch (e) { /* focus is a courtesy */ }
     });
   }
+  // B-2203 (v2.0.176): a redraw under an open card must not let Yes act on the values the card was drawn from. readNow() -> any JSON-able
+  // signature of the value the answer acts on; it is read when the card opens and again after Yes. Moved -> false, onMoved() says so, nothing is sent.
+  function inPageConfirmStill(anchorEl, text, readNow, opts, onMoved) {
+    const sig = () => { try { return JSON.stringify(readNow()); } catch (e) { return "?"; } };
+    // opts.drawn = the signature of the value the card's button was DRAWN from (a redraw may have been skipped, so "current when it opens" can already be newer).
+    const before = opts && Object.prototype.hasOwnProperty.call(opts, "drawn") ? JSON.stringify(opts.drawn) : sig();
+    return inPageConfirm(anchorEl, text, opts).then((yes) => {
+      if (!yes) return false;
+      if (sig() !== before) { try { if (typeof onMoved === "function") onMoved(); } catch (e) { /* the refusal stands */ } return false; }
+      return true;
+    });
+  }
   self.inPageConfirm = inPageConfirm;
+  self.inPageConfirmStill = inPageConfirmStill;
 })();

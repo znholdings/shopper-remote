@@ -115,7 +115,7 @@
     if (!pv.lines || !pv.lines.length) { say("Nothing left to finish.", true); return; }
     // B-2193 (v2.0.175): Finish REPLACES the buylist with yesterday's leftovers; today's list is set aside (Bring back puts it back).
     const money = pv.spend > 0 ? pv.spend : pv.cost;
-    finishAsk = { text: "Replace the buylist with " + pv.lines.length + " line(s) / " + pv.units + " unit(s)" + (money > 0 ? " (~$" + Math.round(money) + ")" : "") + " left from " + pv.label + "?" + (pv.willSetAside ? " Today's list is set aside (Bring back today's list puts it back)." : ""), notes: [] };
+    finishAsk = { text: "Replace the buylist with " + pv.lines.length + " line(s) / " + pv.units + " unit(s)" + (money > 0 ? " (~$" + Math.round(money) + (Number(pv.costUnknown) > 0 ? " + " + Math.floor(Number(pv.costUnknown)) + " line" + (Math.floor(Number(pv.costUnknown)) === 1 ? "" : "s") + " with no price" : "") + ")" : "") + " left from " + pv.label + "?" + (pv.willSetAside ? " Today's list is set aside (Bring back today's list puts it back)." : ""), notes: [] };
     drawn = ""; draw();
   }
   async function finishGo(b) {

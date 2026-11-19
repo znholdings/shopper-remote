@@ -123,7 +123,7 @@
     });
     clearBtn = btn("Start over", "ghost-btn", async () => {
       const n = OB() ? OB().unsent("phone-stock").length : 0;
-      if (!(await inPageConfirm(null, "Clear the text and every saved box? The list goes to the archive - Restore brings it back for 14 days." + (n ? " " + n + " unsent message(s) on this phone still go to the laptop." : "")))) return;
+      if (!(await confirmStill(null, "Clear the text and every saved box? The list goes to the archive - Restore brings it back for 14 days." + (n ? " " + n + " unsent message(s) on this phone still go to the laptop." : "")))) return;
       ta.value = "";
       lsSet(DRAFT_KEY, "");
       lsSet(SENT_KEY, "");
@@ -160,6 +160,20 @@
     if (!noteEl) return;
     noteEl.textContent = text || "";
     noteEl.hidden = !text;
+  }
+
+  // B-2203 (v2.0.176): what a confirm card acts on, read when it opens and again after Yes. A redraw under the card (the laptop answered,
+  // a read finished, a box was added) refuses with a toast - Yes never acts on the picture the button was drawn from.
+  function stillSig(src) {
+    const b = src || last || {};
+    const d = b.draft || {};
+    return [b.id || null, b.batch ? b.batch.id : null, (b.durable && [b.durable.boxes, b.durable.messages]) || null, (d.boxes || []).length, (b.archive || []).map((x) => x.aid), (b.parked || []).map((x) => x.pid), (b.dupes || []).map((x) => x.letter), b.pending ? (b.pending.texts || []).length : null, b.prior ? [b.prior.count, b.prior.units] : null, b.mode || null];
+  }
+  // drawn = the list the button was drawn from (a redraw can be skipped while editing, so the card compares against THAT, not against what is current when it opens); null = the current list.
+  async function confirmStill(drawn, text) {
+    const msg = "That changed while you were being asked - look at the list again, then press again.";
+    if (typeof self.inPageConfirmStill !== "function") return inPageConfirm(null, text); // an old shell without the helper: the plain card
+    return self.inPageConfirmStill(null, text, stillSig, drawn ? { drawn: stillSig(drawn) } : null, () => { say(msg); if (typeof toast === "function") toast(msg, true); });
   }
 
   function readLabel() {
@@ -251,7 +265,7 @@
       card.appendChild(node("div", "l-meta", x.text));
       card.appendChild(node("div", "l-meta bx-unsent-meta", hhmm(x.at) + " - " + x.why));
       card.appendChild(btn("Restore", "ghost-btn bx-restore", async () => {
-        if (!(await inPageConfirm(null, "Restore " + x.text + "? What is saved now goes to the archive first."))) return;
+        if (!(await confirmStill(b, "Restore " + x.text + "? What is saved now goes to the archive first."))) return;
         R().sendCommand("boxesRestore", { aid: x.aid });
       }));
       det.appendChild(card);
@@ -259,7 +273,7 @@
     if (canReread) {
       det.appendChild(node("p", "muted small", "Re-read all words: Claude reads every message saved for this batch again and rebuilds the list (the list now goes to the archive)."));
       det.appendChild(btn("Re-read all words", "ghost-btn bx-reread", async () => {
-        if (!(await inPageConfirm(null, "Read every saved message for " + (b.batch ? b.batch.name : "this batch") + " again with Claude and rebuild the box list? The list now goes to the archive first."))) return;
+        if (!(await confirmStill(b, "Read every saved message for " + (b.batch ? b.batch.name : "this batch") + " again with Claude and rebuild the box list? The list now goes to the archive first."))) return;
         R().sendCommand("boxesReread", { batchId: b.batch ? b.batch.id : "" });
       }));
     }
@@ -308,7 +322,7 @@
       }
       if (withRemove && x.key) {
         const rm = btn("Remove", "ghost-btn bx-remove", async () => {
-          if (!(await inPageConfirm(null, "Remove box " + x.key + " from the saved boxes?"))) return;
+          if (!(await confirmStill(b, "Remove box " + x.key + " from the saved boxes?"))) return;
           rm.disabled = true;
           R().sendCommand("boxesRemove", { id: b.id, key: x.key });
         });
@@ -330,7 +344,7 @@
       card.appendChild(node("div", "l-meta", t));
       if (withRemove) {
         const rm = btn("Remove", "ghost-btn bx-remove", async () => {
-          if (!(await inPageConfirm(null, "Remove this saved message?"))) return;
+          if (!(await confirmStill(b, "Remove this saved message?"))) return;
           rm.disabled = true;
           R().sendCommand("boxesRemove", { id: b.id, key: "w" + n });
         });
@@ -349,7 +363,7 @@
       const row = node("div", "bx-row");
       row.appendChild(btn("Keep both", "ghost-btn bx-dupe-both", () => R().sendCommand("boxesDupe", { id: b.id, letter: x.letter, choice: "both" })));
       row.appendChild(btn("Replace", "ghost-btn bx-dupe-replace", async () => {
-        if (!(await inPageConfirm(null, "Keep only the box " + x.letter + " said last? The earlier one goes to the archive."))) return;
+        if (!(await confirmStill(b, "Keep only the box " + x.letter + " said last? The earlier one goes to the archive."))) return;
         R().sendCommand("boxesDupe", { id: b.id, letter: x.letter, choice: "replace" });
       }));
       wrap.appendChild(row);
@@ -375,7 +389,7 @@
         box.appendChild(det);
       }
       box.appendChild(btn("Replace them instead", "ghost-btn bx-mode", async () => {
-        if (!(await inPageConfirm(null, "Replace the " + pr.count + " box(es) (" + pr.units + " units) ScanPower has now with only the new boxes?"))) return;
+        if (!(await confirmStill(b, "Replace the " + pr.count + " box(es) (" + pr.units + " units) ScanPower has now with only the new boxes?"))) return;
         R().sendCommand("boxesAnswer", { id: b.id, answers: {}, mode: "replace" });
       }));
       return;
@@ -386,7 +400,7 @@
     const note = node("p", "muted bx-stop-note");
     row.appendChild(btn("Stop - keep ScanPower's boxes", "primary-btn bx-stop", () => { note.textContent = "Stopped - nothing was sent. ScanPower keeps its " + pr.count + " box(es)."; }));
     row.appendChild(btn("Replace them", "ghost-btn bx-mode", async () => {
-      if (!(await inPageConfirm(null, "Replace the " + pr.count + " box(es) (" + pr.units + " units) ScanPower has now with only the new boxes?"))) return;
+      if (!(await confirmStill(b, "Replace the " + pr.count + " box(es) (" + pr.units + " units) ScanPower has now with only the new boxes?"))) return;
       R().sendCommand("boxesAnswer", { id: b.id, answers: {}, mode: "replace" });
     }));
     box.appendChild(row);
@@ -512,7 +526,7 @@
           : kept
             ? "Upload " + total + " boxes to " + where + "? The " + kept + " already in ScanPower stay as they are; " + d.boxes.length + " new go after them (" + placed + " units placed in all)."
             : "Upload " + d.boxes.length + " boxes (" + placed + " units) to " + where + "?";
-        if (!(await inPageConfirm(null, ask))) return;
+        if (!(await confirmStill(b, ask))) return;
         // Typed and Read since this was drawn: those go first.
         const late = unsentFor(b);
         if (late.length) { say(late.length + " message(s) on this phone are not on the laptop yet - they go first, then upload."); return; }
@@ -542,7 +556,7 @@
           // Review fix: a boxed-vs-batch difference is shown here too, and answered by this same press.
           const fin = b.final && b.final.ok === false ? b.final : null;
           if (fin) lines.push("", "Boxed + planned does not equal the batch:", ...(fin.rows || []).map((t) => "• " + t));
-          if (!(await inPageConfirm(null, lines.join("\n")))) return;
+          if (!(await confirmStill(b, lines.join("\n")))) return;
           const late = unsentFor(b);
           if (late.length) { say(late.length + " message(s) on this phone are not on the laptop yet - they go first, then Upload anyway."); return; }
           any.disabled = true;

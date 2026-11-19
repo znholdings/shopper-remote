@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.175";
+const APP_BUILD = "v2.0.176";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -1100,7 +1100,8 @@ function renderLines(lines, total, truncated, progress) {
       cb.className = "mini-btn";
       cb.textContent = "Cancel item";
       cb.addEventListener("click", async () => {
-        if (await inPageConfirm(cb, `Cancel ${l.asin}? It will not be ordered; the rest of the run goes on.`)) sendCommand("cancelTargetItem", { lineId: l.lineId, asin: l.asin });
+        const lineStatusSig = () => { const now = ((lastPayload && lastPayload.lines) || []).find((x) => x.lineId === l.lineId); return now ? now.status : null; }; // B-2203
+        if (await inPageConfirmStill(cb, `Cancel ${l.asin}? It will not be ordered; the rest of the run goes on.`, lineStatusSig, { drawn: l.status }, () => toast("That line changed while you were being asked - look again, then press again.", true))) sendCommand("cancelTargetItem", { lineId: l.lineId, asin: l.asin });
       });
       actions.appendChild(cb);
     } else if (l.status === "pending" || l.status === "pool") {
@@ -1994,14 +1995,20 @@ async function invPrintLabels(answers = null) {
 if (els.invPrintLabelsBtn) els.invPrintLabelsBtn.addEventListener("click", () => invPrintLabels());
 // B-1457 / B-1458 (v2.0.96): the statuses a Target line can still be switched / cancelled in.
 const TARGET_DEST_STATUSES_PHONE = new Set(["pending", "pool", "partial", "failed", "out_of_stock", "not_attempted"]);
+// B-2203 (v2.0.176): the values a confirm card acts on, read again after Yes (inPageConfirmStill) - a redraw while the card was open
+// (the run ended, the queue changed, the saved queue was resumed) refuses with a toast instead of acting on the old picture.
+const movedToast = () => toast("That changed while you were being asked - look again, then press again.", true);
+const liveRunSig = () => { const r = lastPayload && lastPayload.run; return r ? [r.queueId, r.startedAt, ["running", "paused", "collecting_urls", "aborting"].includes(r.status)] : null; };
+const targetWaitingSig = () => { const p = lastPayload; return [liveRunSig(), !!(p && (p.lines || []).some((l) => l.retailer === "target" && TARGET_DEST_STATUSES_PHONE.has(l.status)))]; };
+const savedQueueSig = () => { const q = lastPayload && lastPayload.savedQueue; return q ? [!!q.exists, q.savedAt || null, q.lineCount || 0] : null; };
 els.targetDestHouseBtn.addEventListener("click", async () => {
-  if (await inPageConfirm(els.targetDestHouseBtn, "Target orders still to come will ship to the HOUSE. Orders already placed keep where they went. Shopper picks the saved house address at Target checkout. Switch?")) sendCommand("targetDestHouse");
+  if (await inPageConfirmStill(els.targetDestHouseBtn, "Target orders still to come will ship to the HOUSE. Orders already placed keep where they went. Shopper picks the saved house address at Target checkout. Switch?", targetWaitingSig, null, movedToast)) sendCommand("targetDestHouse");
 });
 els.targetDestPrepBtn.addEventListener("click", async () => {
-  if (await inPageConfirm(els.targetDestPrepBtn, "Target orders still to come will ship to the PREP CENTER. Orders already placed keep where they went. Shopper picks the saved prep center address at Target checkout. Switch?")) sendCommand("targetDestPrep");
+  if (await inPageConfirmStill(els.targetDestPrepBtn, "Target orders still to come will ship to the PREP CENTER. Orders already placed keep where they went. Shopper picks the saved prep center address at Target checkout. Switch?", targetWaitingSig, null, movedToast)) sendCommand("targetDestPrep");
 });
 els.abortBtn.addEventListener("click", async () => {
-  if (await inPageConfirm(els.abortBtn, "Abort the run? Whatever is mid-purchase is interrupted.")) sendCommand("abort");
+  if (await inPageConfirmStill(els.abortBtn, "Abort the run? Whatever is mid-purchase is interrupted.", liveRunSig, null, movedToast)) sendCommand("abort");
 });
 els.addBtn.addEventListener("click", () => {
   const asin = els.addAsin.value.trim().toUpperCase();
@@ -2030,7 +2037,9 @@ els.approveAllBtn.addEventListener("click", async () => {
   const mult = Number(bl.adjustedMultiple) || 3;
   const goalText = goal > 0 ? ` ${money(goal)}` : "";
   const msg = costed ? `Approve ${n} line${n === 1 ? "" : "s"}, ${money(dollars)} total (${mult}\u00d7 today's goal${goalText})?` : `Approve ${n} line${n === 1 ? "" : "s"} in the adjusted list?`;
-  if (!(await inPageConfirm(els.approveAllBtn, msg))) return;
+  // B-2203: the count and dollars in the question are re-read after Yes - a list that changed while it was open is not approved on the old numbers.
+  const approveSig = () => { const its = ((lastPayload && lastPayload.buylist && lastPayload.buylist.items) || []).filter((i) => i.section !== "offbeat" && !i.decision && !i.pastGoal && Number(i.adjustedQty) > 0); return [its.length, its.reduce((t, i) => t + Number(i.adjustedQty) * (i.unitCost != null ? Number(i.unitCost) : 0), 0)]; };
+  if (!(await inPageConfirmStill(els.approveAllBtn, msg, approveSig, null, movedToast))) return;
   sendCommand("buylistApproveAll");
 });
 
@@ -2044,7 +2053,7 @@ els.previewBtn.addEventListener("click", () => { if (self.ShopperQueuePreview) s
 
 // Destructive, so it confirms - same treatment as Abort.
 els.discardSavedBtn.addEventListener("click", async () => {
-  if (await inPageConfirm(els.discardSavedBtn, "Discard the saved queue? It cannot be brought back.")) sendCommand("discardSaved");
+  if (await inPageConfirmStill(els.discardSavedBtn, "Discard the saved queue? It cannot be brought back.", savedQueueSig, null, movedToast)) sendCommand("discardSaved");
 });
 
 els.blAddBtn.addEventListener("click", () => {

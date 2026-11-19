@@ -19,6 +19,7 @@
 //            tap a heading to sort, the funnel to filter. Cards: a Sort
 //            select + a Filter button. Active filters are chips with Clear all.
 //   B-1044 - small copy buttons beside ASIN, MSKU and the title.
+// v2.0.176 (B-2207): a pencil on a Cost (card and table) - change it in Sellerboard, Replen Pulse, SellerAmp and Shopper after an in-page Yes.
 (function () {
   "use strict";
   const C = self.ShopperCatalog;
@@ -67,6 +68,116 @@
     s.append(el("span", "ctm-fig-l", label), el("b", cls, C.fmtCatalog(value, fmt)));
     return s;
   }
+
+  // ---------------------------------------------------------------- B-2207: change a product's cost
+  // The pencil on a Cost opens a strip under the product: a number box, Save, then the phone's in-page confirm (remote/confirm-inline.js),
+  // then the laptop writes Sellerboard, Replen Pulse, SellerAmp and Shopper's cost (never Seller Snap) and answers with what saved where.
+  // asin -> { mode: "input" | "busy" | "done", text, bad, line }. Kept by ASIN so a redraw shows the same strip again.
+  const costEdit = new Map();
+  function say(t, bad) { try { if (self.ShopperRemote && self.ShopperRemote.toast) self.ShopperRemote.toast(String(t).slice(0, 200), !!bad); } catch (e) { /* no toast */ } }
+  try { if (typeof REMOTE_LABELS !== "undefined") REMOTE_LABELS.catalogCostSave = "Change a Catalog cost"; } catch (e) { /* labels are cosmetic */ }
+  function costEditBtn(r) {
+    const b = el("button", "ctm-cost-edit s-plain-btn", "\u270e");
+    b.type = "button";
+    b.dataset.asin = r.asin;
+    b.setAttribute("aria-label", "Edit cost");
+    b.title = "Change this cost in Sellerboard, Replen Pulse, SellerAmp and Shopper";
+    b.addEventListener("click", () => {
+      const cur = costEdit.get(r.asin);
+      if (cur && cur.mode === "busy") return;
+      costEdit.set(r.asin, { mode: "input", text: r.cost != null && isFinite(Number(r.cost)) ? Number(r.cost).toFixed(2) : "", bad: "", line: "", bad2: false });
+      drawList(true);
+      const i = document.querySelector('.ctm-cost-strip[data-asin="' + r.asin + '"] input');
+      if (i) { try { i.focus(); i.select(); } catch (e) { /* focus is a courtesy */ } }
+    });
+    return b;
+  }
+  function costStrip(r) {
+    const st = costEdit.get(r.asin);
+    if (!st) return null;
+    const strip = el("div", "ctm-cost-strip");
+    strip.dataset.asin = r.asin;
+    const close = () => { costEdit.delete(r.asin); drawList(true); };
+    if (st.mode === "input") {
+      const lab = el("label", "ctm-cost-lab", "New cost $");
+      const inp = el("input", "ctm-cost-in");
+      inp.type = "text";
+      inp.inputMode = "decimal";
+      inp.autocomplete = "off";
+      inp.spellcheck = false;
+      inp.value = st.text;
+      inp.setAttribute("aria-label", "New cost for " + (r.title || r.asin));
+      inp.addEventListener("input", () => { st.text = inp.value; });
+      const save = el("button", "primary-btn mini-btn ctm-cost-save", "Save");
+      save.type = "button";
+      const cancel = el("button", "mini-btn ctm-cost-cancel", "Cancel");
+      cancel.type = "button";
+      const go = async () => {
+        const p = C.parseCatalogCost(inp.value);
+        st.text = inp.value;
+        if (!p.ok) { st.bad = p.reason; drawList(true); return; }
+        st.bad = "";
+        // The shared in-page confirm (B-2180) - never window.confirm.
+        const yes = typeof inPageConfirm === "function" ? await inPageConfirm(save, C.catalogCostConfirmText(r.title, r.asin, p.cost), { yes: "Yes, change it", no: "No" }) : false;
+        if (!yes) { drawList(true); return; }
+        await saveCost(r, p.cost);
+      };
+      save.addEventListener("click", go);
+      cancel.addEventListener("click", close);
+      inp.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); go(); } else if (e.key === "Escape") { e.preventDefault(); close(); } });
+      strip.append(lab, inp, save, cancel);
+      if (st.bad) { const e = el("div", "ctm-cost-err", st.bad); e.setAttribute("role", "alert"); strip.append(e); }
+    } else if (st.mode === "busy") {
+      const t = el("div", "ctm-cost-busy", "Writing Sellerboard, Replen Pulse, SellerAmp, then Shopper's cost on the laptop - one after the other, each read back. This can take a minute...");
+      t.setAttribute("role", "status");
+      strip.append(t);
+    } else {
+      const t = el("div", st.bad2 ? "ctm-cost-result ctm-cost-result-bad" : "ctm-cost-result", st.line);
+      t.setAttribute("role", "status");
+      const ok = el("button", "mini-btn ctm-cost-dismiss", "Dismiss");
+      ok.type = "button";
+      ok.addEventListener("click", close);
+      strip.append(t, ok);
+    }
+    return strip;
+  }
+  // One command; waits for the laptop's answer (the same shape remote/bank-actions-view.js uses).
+  async function saveCost(r, cost) {
+    const st = costEdit.get(r.asin);
+    const R = self.ShopperRemote;
+    if (!st) return;
+    if (!R) { say("Not connected.", true); return; }
+    st.mode = "busy";
+    drawList(true);
+    const fail = (why) => { st.mode = "done"; st.bad2 = true; st.line = "Not saved - " + why; say(st.line, true); drawList(true); };
+    try {
+      const id = await R.sendCommand("catalogCostSave", { asin: r.asin, cost: cost, confirmed: true });
+      if (!id) { st.mode = "input"; st.bad = "Not sent - check the connection and try again."; drawList(true); return; }
+      const status = await R.waitFor(id);
+      let row = null;
+      try { row = await R.commandRow(id); } catch (e) { row = null; }
+      const res = row && row.result && typeof row.result === "object" ? row.result : null;
+      if (status !== "done") { fail(String((row && row.reason) || "not done (" + status + ")").slice(0, 200)); return; }
+      if (!res || res.ok === false) { fail(String((res && (res.reason || res.error)) || "the laptop refused").slice(0, 200)); return; }
+      if (res.note === "no direct response") {
+        // The computer answered "started", not "finished" - never shown as Done.
+        st.mode = "done"; st.bad2 = true;
+        st.line = "Still writing on the computer - check the Catalog there.";
+        say(st.line);
+        drawList(true);
+        return;
+      }
+      st.mode = "done";
+      st.line = String(res.line || "Done.");
+      st.bad2 = !(res.result && res.result.done);
+      // The column is Replen Pulse's figure: it changes only when Replen Pulse read the new cost back.
+      if (C.catalogCostRpSaved(res.result)) { const nowCost = Number(res.catalogCost) > 0 ? Number(res.catalogCost) : cost; const mine = rows.find((x) => x.asin === r.asin); if (mine) mine.cost = nowCost; r.cost = nowCost; }
+      say(st.bad2 ? "Cost: some places did not save - see the line under the product" : "Cost saved in every place", st.bad2);
+      drawList(true);
+    } catch (e) {
+      fail("no answer (" + ((e && e.message) || "no connection") + ")");
+    }
+  }
   // Title (2 lines, clamped) with its copy button at the end, then ASIN · MSKU, each with one.
   function nameBlock(r, cls) {
     const name = el("div", cls);
@@ -108,8 +219,12 @@
     const stock = el("div", "ctm-figs");
     stock.append(fig("Available", r.avail, "int"), fig("FC transfer", r.fcTransfer, "int"), fig("Inbound", r.inbound, "int"), fig("Ordered", r.ordered, "int"));
     const sales = el("div", "ctm-figs");
-    sales.append(fig("Sold 30d", r.units30, "int"), fig("BB margin", r.bbMargin, "pct"), fig("My price", r.myPrice, "money"));
+    const costFig = fig("Cost", r.cost, "money");
+    costFig.querySelector(".ctm-fig-v").append(costEditBtn(r));
+    sales.append(fig("Sold 30d", r.units30, "int"), fig("BB margin", r.bbMargin, "pct"), fig("My price", r.myPrice, "money"), costFig);
     c.append(stock, sales);
+    const strip = costStrip(r);
+    if (strip) c.append(strip);
     return c;
   }
 
@@ -158,9 +273,19 @@
         const cell = el("td", "num", C.fmtCatalog(v, c.fmt));
         if (v == null) cell.classList.add("ctm-blank");
         else if (c.fmt === "pct" && v < 0) cell.classList.add("ctm-neg");
+        if (c.key === "cost") cell.append(costEditBtn(r)); // B-2207
         tr.append(cell);
       }
       body.append(tr);
+      const strip = costStrip(r);
+      if (strip) {
+        const sr = el("tr", "ctm-cost-tr");
+        const sd = el("td", "ctm-cost-td");
+        sd.colSpan = C.CATALOG_COLUMNS.length;
+        sd.append(strip);
+        sr.append(sd);
+        body.append(sr);
+      }
     }
     t.append(head, body);
     return t;
@@ -340,6 +465,9 @@
       rows = data && Array.isArray(data.rows) ? data.rows.map((a) => C.unpackCatalogRow(cols, a)) : [];
       hay = rows.map(C.searchText);
     }
+    // B-2207: a refresh of the data never redraws the list under a cost box being typed in.
+    const a = document.activeElement;
+    if (a && a.closest && a.closest(".ctm-cost-strip")) { drawnKey = ""; return; }
     drawList(false);
   }
 
