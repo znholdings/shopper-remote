@@ -82,7 +82,10 @@
 
     function press(b, input) {
       return function () {
-        if (b.confirm && typeof confirm === "function" && !confirm(b.confirm)) return; // B-1326 (v2.0.79 laptops): Upload anyway asks first
+        // B-1326 (v2.0.79 laptops): Upload anyway asks first. B-2180 (v2.0.175): in-page confirm, then go on.
+        if (b.confirm) { if (typeof inPageConfirm === "function") inPageConfirm(null, b.confirm).then(function (yes) { if (yes) go(); }); return; } // no helper = nothing sent (review)
+        go();
+        function go() {
         var payload = {};
         var k;
         for (k in b.payload || {}) payload[k] = b.payload[k];
@@ -106,6 +109,7 @@
         Promise.resolve(send(b.action, payload)).catch(function () {}).then(function () {
           Array.prototype.forEach.call(host.querySelectorAll("button"), function (x) { x.disabled = false; });
         });
+        }
       };
     }
 

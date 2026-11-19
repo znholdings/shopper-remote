@@ -48,6 +48,11 @@ const SHARED_SETTINGS_SPEC = Object.freeze([
   S({ key: "shopperAmazonBuyMode", group: "buying", label: "Amazon buy mode", kind: "enum", options: [["link", "Link only"], ["button", "Button"], ["auto_tab", "Auto tab"], ["full", "Full"]], phone: true }),
   S({ key: "shopperTargetFiller", group: "buying", label: "Target filler", kind: "object" }),
   S({ key: "shopperFollowTheBuy", group: "buying", label: "Follow the buy", kind: "bool", phone: true }),
+  // B-2179 (v2.0.175): Walmart vacation mode (lib/walmart-vacation.js). { on, returnDate "YYYY-MM-DD", windowDays } - windowDays (6, measured) is not on the phone.
+  S({ key: "shopperWalmartVacation", group: "buying", label: "Walmart vacation mode", kind: "object", phone: [
+    { path: "on", label: "Vacation mode (house Walmart orders arrive on your return day)", kind: "bool" },
+    { path: "returnDate", label: "Return date", kind: "date" },
+  ] }),
   S({ key: "shopperWalmartRewardHop", group: "buying", label: "Walmart reward hop", kind: "bool" }),
   S({ key: "shopperWalmartCheaperPack", group: "buying", label: "Walmart cheaper pack", kind: "any" }),
   S({ key: "shopperVerifyHistory", group: "buying", label: "Verify history", kind: "bool", phone: true }),

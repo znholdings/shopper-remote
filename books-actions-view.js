@@ -38,10 +38,10 @@
       if (res && res.ok === false) return res.error || res.reason || res.message || "the computer said no";
       return "";
     }
-    // One labelled button -> optional window.confirm -> one command -> toast. Never two sends for one tap.
+    // One labelled button -> optional in-page confirm (inPageConfirm) -> one command -> toast. Never two sends for one tap.
     async function run(o) {
       if (o.btn && (o.btn.disabled || o.btn.dataset.busy)) return { ok: false, busy: true };
-      if (o.confirm && !window.confirm(o.confirm)) return { ok: false, cancelled: true };
+      if (o.confirm && !(await inPageConfirm(o.btn || null, o.confirm))) return { ok: false, cancelled: true };
       const R = self.ShopperRemote;
       if (!R) { toast("Not connected.", true); return { ok: false }; }
       let pill = null;
@@ -91,7 +91,7 @@
 
   Object.assign(typeof REMOTE_LABELS !== "undefined" ? REMOTE_LABELS : {}, {
     booksAsk: "Ask about Books", booksAuditRun: "Run Books audit", booksAuditDecide: "Decide audit finding", booksClose: "Close month", booksReopen: "Reopen month",
-    booksMailFind: "Find the order in Gmail", booksCardProof: "Find the card (Gmail)", booksDupeVoid: "Void duplicate card line", booksCardPayBook: "Book card payment", booksCardGoneVoid: "Void card line (not on Plaid)", booksCogsConfirm: "Confirm COGS", booksCogsUnconfirm: "Unconfirm COGS", booksEntryPost: "Post entry", booksAccountMapSet: "Map account",
+    booksMailFind: "Find the order in Gmail", booksCardProof: "Find the card (Gmail)", booksDupeVoid: "Void duplicate card line", booksCardPayBook: "Book card payment", booksWalmartScReadNow: "Read Walmart Seller Center", booksCardGoneVoid: "Void card line (not on Plaid)", booksCogsConfirm: "Confirm COGS", booksCogsUnconfirm: "Unconfirm COGS", booksEntryPost: "Post entry", booksAccountMapSet: "Map account",
     booksRebuildCheck: "Check rebuild", booksRebuildPreview: "Preview rebuild", booksRebuild: "Clean rebuild", booksRebuildPutBack: "Put Books back", booksExportDrive: "Save tax package to Drive",
     booksRulesAdd: "Add rule", booksRulesSet: "Save rules", booksLoanSet: "Save loan", booksLoanRemove: "Remove loan",
   });
@@ -231,7 +231,6 @@
   // B-2169 (v2.0.172): the laptop runs the three-model audit before a close; when it finds something the close is refused with the
   // findings and this card asks "Close anyway?" (a second send with closeAnyway). Kept across redraws until sent or the month changes.
   let closeAnyway = null; // { month, texts: [..], count, from } - from = the day of an older audit (review S3: the cap is used up)
-  let closeAsk = ""; // B-2175: the month the in-page confirm is open for (no browser confirm() on the phone)
   let lastPayload = null;
   function redrawNow() { sig = ""; if (lastPayload) render(lastPayload); }
   function findingTexts(res) {
@@ -245,33 +244,22 @@
     const sel = select(open, "Month to close");
     if (closeAnyway && open.includes(closeAnyway.month)) sel.value = closeAnyway.month;
     const b = btn("Close this month", "ops-close-go");
-    sel.addEventListener("change", () => { closeAsk = ""; redrawNow(); });
-    b.addEventListener("click", () => { closeAsk = sel.value; redrawNow(); });
+    // B-2180 (v2.0.175): the B-2175 in-page confirm is now the shared inPageConfirm (remote/confirm-inline.js) - one copy of the markup.
+    sel.addEventListener("change", () => { redrawNow(); }); // a month change redraws (the "Close anyway?" box belongs to one month)
+    b.addEventListener("click", async () => {
+      const month = sel.value;
+      if (!(await inPageConfirm(b, "Close " + month + "? The audit and Reconcile run first; a closed month only takes correcting entries.", { yes: "Yes, close it", no: "Not now" }))) return;
+      const out = await run({ name: "booksClose", payload: { month }, btn: b, ok: "Closing on the computer" });
+      const res = obj(out && out.result);
+      if (out && !out.ok && (Array.isArray(res.findings) || Array.isArray(res.auditFindings))) {
+        const from = /^\d{4}-\d{2}-\d{2}$/.test(String(res.from || "")) ? String(res.from) : "";
+        closeAnyway = { month, texts: findingTexts(res), count: Number(res.count) || findingTexts(res).length, from };
+      }
+      redrawNow();
+    });
     const r = el("div", "ops-row");
     r.append(sel, b);
     c.appendChild(r);
-    if (closeAsk && closeAsk === sel.value) {
-      const ask = el("div", "ops-line ops-close-ask");
-      ask.setAttribute("role", "status");
-      ask.appendChild(el("div", "", "Close " + closeAsk + "? The audit and Reconcile run first; a closed month only takes correcting entries."));
-      const arow = el("div", "ops-row");
-      const yes = btn("Yes, close it", "ops-close-yes");
-      yes.addEventListener("click", async () => {
-        const month = closeAsk;
-        closeAsk = "";
-        const out = await run({ name: "booksClose", payload: { month }, btn: yes, ok: "Closing on the computer" });
-        const res = obj(out && out.result);
-        if (out && !out.ok && (Array.isArray(res.findings) || Array.isArray(res.auditFindings))) {
-          const from = /^\d{4}-\d{2}-\d{2}$/.test(String(res.from || "")) ? String(res.from) : "";
-          closeAnyway = { month, texts: findingTexts(res), count: Number(res.count) || findingTexts(res).length, from };
-        }
-        redrawNow();
-      });
-      const nope = btn("Not now", "ops-close-ask-no", () => { closeAsk = ""; redrawNow(); });
-      arow.append(yes, nope);
-      ask.appendChild(arow);
-      c.appendChild(ask);
-    }
     if (closeAnyway && sel.value === closeAnyway.month) {
       const box = el("div", "ops-line ops-close-gate");
       box.setAttribute("role", "status");
@@ -563,7 +551,7 @@
     if (rulesHost) renderRules(rulesHost, payload);
     const host = $("bkmActionsHost");
     if (!host) return;
-    const s = JSON.stringify([books.monthsOpen, books.monthsClosed, pages.booksAsk, pages.booksAudit, pages.booksCogs, books.cogsNoOrder, pages.booksAccountMap, pages.booksRebuild, accountsOf(pages), closeAnyway, closeAsk]);
+    const s = JSON.stringify([books.monthsOpen, books.monthsClosed, pages.booksAsk, pages.booksAudit, pages.booksCogs, books.cogsNoOrder, pages.booksAccountMap, pages.booksRebuild, accountsOf(pages), closeAnyway]);
     if (s === sig && host.childNodes.length) return;
     if (editing(host)) return;
     sig = s;

@@ -12,4 +12,6 @@
 #settingsPane .stg-row input[type="checkbox"] { flex: 0 0 auto; width: 22px; height: 22px; }
 #settingsPane .stg-input { flex: 0 1 150px; min-width: 0; max-width: 100%; padding: 8px; border: 1px solid var(--s-line); border-radius: var(--s-r-sm); background: var(--s-surface); color: var(--s-text); font-size: 14px; }
 #settingsPane .stg-note { margin: 2px 0 6px; }
+/* B-2179 (v2.0.175): the Walmart vacation chip words on a phone row */
+.vac-chip { font-size: 12px; opacity: 0.85; }
 [hidden] { display: none !important; }

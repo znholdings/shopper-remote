@@ -233,7 +233,7 @@
         btn("Restore the row", "primary-btn", (e) => run("orderRestore", { orderNumber: f.orderNumber, asin: f.asin }, e.target, null, DROP)),
         fix,
         btn("Repair", "secondary-btn", (e) => { if (fix.value.trim()) run("orderRepair", { orderNumber: f.orderNumber, asin: f.asin, newOrderNumber: fix.value.trim() }, e.target, null, DROP); }),
-        btn("Cancel this order", "danger-btn", (e) => { if (confirm(`Cancel order ${f.orderNumber} (${units(f.units)} units)?`)) run("orderCancel", { orderNumber: f.orderNumber, asin: f.asin, units: f.units }, e.target, null, DROP); })
+        btn("Cancel this order", "danger-btn", async (e) => { const t = e.target; if (await inPageConfirm(t, `Cancel order ${f.orderNumber} (${units(f.units)} units)?`)) run("orderCancel", { orderNumber: f.orderNumber, asin: f.asin, units: f.units }, e.target, null, DROP); })
       );
       c.append(a);
       host.append(c);
@@ -260,7 +260,7 @@
           run("arrivedQty", { asin: o.asin, destination: o.destination === "prep" ? "prep" : "house", orders: [{ orderNumber: o.orderNumber, units: o.open }], ...(p.quantity == null ? {} : { quantity: p.quantity }), at: noonIso(day.value, o.destination) || new Date().toISOString(), section: "Phone › Needs you" }, e.target, null, { drop: p.quantity == null });
         }),
         day,
-        btn("It never arrived", "danger-btn", (e) => { if (confirm(`Mark ${units(o.open)} units of order ${o.orderNumber} as never arrived?`)) run("orderNeverArrived", { orderNumber: o.orderNumber, asin: o.asin, units: o.open }, e.target, null, DROP); }),
+        btn("It never arrived", "danger-btn", async (e) => { const t = e.target; if (await inPageConfirm(t, `Mark ${units(o.open)} units of order ${o.orderNumber} as never arrived?`)) run("orderNeverArrived", { orderNumber: o.orderNumber, asin: o.asin, units: o.open }, e.target, null, DROP); }),
         btn("Keep waiting", "secondary-btn", (e) => run("orderKeepWaiting", { key: o.key }, e.target, null, DROP))
       );
       c.append(a, qb.bad);
@@ -449,10 +449,10 @@
       num.placeholder = "units on the shelf";
       const note = node("input", "need-input");
       note.placeholder = "Note (optional)";
-      const save = btn("Save", "primary-btn", () => {
+      const save = btn("Save", "primary-btn", async () => {
         if (num.value === "") return;
         const now = where.value === "prep" ? r.prep : r.house;
-        if (!confirm(`Set ${where.value === "prep" ? "Prep" : "House"} for ${r.title || r.asin} from ${units(now)} to ${units(num.value)}? Only this product changes.`)) return;
+        if (!(await inPageConfirm(null, `Set ${where.value === "prep" ? "Prep" : "House"} for ${r.title || r.asin} from ${units(now)} to ${units(num.value)}? Only this product changes.`))) return;
         // B-1321 (v2.0.79): "Done - saved" stays readable for a moment before the box closes.
         run("setCount", { asin: r.asin, destination: where.value, units: Number(num.value) || 0, note: note.value || "Set from the phone" }, save, async () => setTimeout(() => box.remove(), (self.ShopperPress && self.ShopperPress.LINGER_MS) || 0));
       });

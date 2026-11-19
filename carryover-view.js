@@ -9,11 +9,11 @@
   const say = (t, bad) => { try { if (typeof toast === "function") toast(t, !!bad); } catch (e) { /* no toast */ } };
   const pl = () => { try { return typeof lastPayload !== "undefined" ? lastPayload : null; } catch (e) { return null; } };
   const pg = () => { const p = pl(); return p && p.pages && typeof p.pages === "object" ? p.pages : {}; };
-  try { if (typeof REMOTE_LABELS !== "undefined") Object.assign(REMOTE_LABELS, { carryOverDecide: "Carry-over: ignore / undo", carryOverApply: "Carry-over: add to today's list", carryOverStockCheck: "Carry-over: check stock", carryOverFinish: "Carry-over: finish yesterday's orders" }); } catch (e) { /* cosmetic */ }
+  try { if (typeof REMOTE_LABELS !== "undefined") Object.assign(REMOTE_LABELS, { carryOverDecide: "Carry-over: ignore / undo", carryOverApply: "Carry-over: add to today's list", carryOverStockCheck: "Carry-over: check stock", carryOverFinish: "Carry-over: finish yesterday's orders", buylistBringBack: "Buylist: bring back today's list" }); } catch (e) { /* cosmetic */ }
 
   async function act(name, body, o) {
     o = o || {};
-    if (o.confirm && !window.confirm(o.confirm)) return null;
+    if (o.confirm && !(await inPageConfirm(o.btn || null, o.confirm))) return null;
     const R = self.ShopperRemote;
     if (!R) { say("Not connected.", true); return null; }
     const btn = o.btn;
@@ -36,6 +36,7 @@
       if (btn) { btn.disabled = false; btn.textContent = was; }
     }
   }
+  const dayWords = (iso) => { const d = new Date(String(iso) + "T12:00:00"); return Number.isNaN(d.getTime()) ? String(iso || "yesterday") : d.toLocaleDateString("en-US", { weekday: "short", month: "numeric", day: "numeric" }).replace(",", ""); }; // "Tue 11/17" (B-2193)
   const btnOf = (text, cls, fn) => { const b = el("button", cls || "mini-btn", text); b.type = "button"; b.addEventListener("click", () => fn(b)); return b; };
   function stockWords(s) {
     if (!s) return "";
@@ -49,7 +50,7 @@
     if (!Number.isFinite(n) || n < 1) { say("Enter a quantity of 1 or more.", true); return; }
     const body = { key: line.key, asin: line.asin, fromDay: line.day, choice, qty: n };
     let r = await act("carryOverApply", body, { btn });
-    if (r && !r.ok && r.result && r.result.needsOverride && window.confirm("That is above the normal guard rail. Add " + n + " anyway?")) r = await act("carryOverApply", { ...body, override: true }, { btn });
+    if (r && !r.ok && r.result && r.result.needsOverride && await inPageConfirm(btn, "That is above the normal guard rail. Add " + n + " anyway?")) r = await act("carryOverApply", { ...body, override: true }, { btn });
     if (r && r.ok) say("Sent " + n + " of " + line.asin + " to today's list.");
   }
   const noteOpen = new Set(), moreOpen = new Set(); // B-2072 (v2.0.158): which notes / "more choices" are open (this phone, in memory)
@@ -112,15 +113,16 @@
     const pv = r && r.ok ? r.result : null;
     if (!pv) return;
     if (!pv.lines || !pv.lines.length) { say("Nothing left to finish.", true); return; }
-    const notes = pv.lines.filter((l) => l.todayQty != null).map((l) => l.asin + ": on today's list " + l.todayQty + " \u2192 " + l.qty);
-    finishAsk = { text: "Add " + pv.lines.length + " line(s) / " + pv.units + " unit(s)" + (pv.cost > 0 ? " (~$" + Math.round(pv.cost) + ")" : "") + " from " + pv.label + " to today's list?", notes: notes };
+    // B-2193 (v2.0.175): Finish REPLACES the buylist with yesterday's leftovers; today's list is set aside (Bring back puts it back).
+    const money = pv.spend > 0 ? pv.spend : pv.cost;
+    finishAsk = { text: "Replace the buylist with " + pv.lines.length + " line(s) / " + pv.units + " unit(s)" + (money > 0 ? " (~$" + Math.round(money) + ")" : "") + " left from " + pv.label + "?" + (pv.willSetAside ? " Today's list is set aside (Bring back today's list puts it back)." : ""), notes: [] };
     drawn = ""; draw();
   }
   async function finishGo(b) {
     finishAsk = null;
     const r = await act("carryOverFinish", {}, { btn: b });
     drawn = ""; draw();
-    if (r && r.ok && r.result) say("Added " + r.result.added + " \u00b7 " + r.result.units + " unit(s)" + (r.result.skipped && r.result.skipped.length ? " \u00b7 skipped " + r.result.skipped.length : "") + ".");
+    if (r && r.ok && r.result) say("Buylist is now " + r.result.added + " \u00b7 " + r.result.units + " unit(s)" + (r.result.skipped && r.result.skipped.length ? " \u00b7 skipped " + r.result.skipped.length : "") + ".");
   }
   let drawn = "";
   function draw() {
@@ -135,21 +137,25 @@
     host.textContent = "";
     const days = data && Array.isArray(data.days) ? data.days : [];
     const count = days.reduce((t, d) => t + (d.lines || []).length, 0);
-    host.hidden = count === 0;
-    if (!count) return;
+    const setAside = data && data.setAside ? data.setAside : null; // B-2193
+    const finishList = data && data.finishList ? data.finishList : null;
+    host.hidden = count === 0 && !setAside && !finishList;
+    if (host.hidden) return;
     const sec = el("section", "card co-card");
     const head = el("h3", "", "Not fully bought - last 3 days");
     head.appendChild(el("span", "count", " " + count));
     sec.appendChild(head);
-    if (!data.hasList) sec.appendChild(el("p", "muted small", "Generate or restore today's buylist first - the buttons add to it."));
+    if (finishList) sec.appendChild(el("div", "co-banner", "Finishing " + dayWords(finishList.day) + "'s orders - Generate makes today's list")); // B-2193
+    if (setAside && (finishList || !data.hasList)) sec.appendChild(btnOf("Bring back today's list (" + setAside.lines + " lines)", "mini-btn", async (b) => { const r = await act("buylistBringBack", {}, { btn: b }); if (r && r.ok) say("Today's list is back."); }));
+    if (!data.hasList && !finishList) sec.appendChild(el("p", "muted small", "Generate or restore today's buylist first - the buttons add to it."));
     const fin = data.finish && data.finish.lines > 0 ? data.finish : null;
-    if (fin && data.hasList) {
+    if (fin) {
       sec.appendChild(btnOf("Finish " + fin.label + "'s orders (" + fin.lines + " lines)", "mini-btn primary-btn", (b) => finishPress(b)));
       if (finishAsk) {
         const cf = el("div", "co-confirm");
         cf.appendChild(el("div", "", finishAsk.text));
         for (const n of finishAsk.notes.slice(0, 8)) cf.appendChild(el("div", "muted small", n));
-        cf.appendChild(btnOf("Add them", "mini-btn primary-btn", (b) => finishGo(b)));
+        cf.appendChild(btnOf("Replace the list", "mini-btn primary-btn", (b) => finishGo(b)));
         cf.appendChild(btnOf("Cancel", "mini-btn", () => { finishAsk = null; drawn = ""; draw(); }));
         sec.appendChild(cf);
       }

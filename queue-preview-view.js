@@ -206,12 +206,12 @@
   }
   async function resetOrder(b) { const r = await withBusy(b, () => run("queueResetOrder", {})); await after(r, "Back to the ranked order."); }
   async function remove(l, b) {
-    if (!window.confirm("Take " + (l.title || l.asin) + " off tonight's buy? It goes back to undecided on the Buylist.")) return;
+    if (!(await inPageConfirm(b, "Take " + (l.title || l.asin) + " off tonight's buy? It goes back to undecided on the Buylist."))) return;
     const r = await withBusy(b, () => run("buylistAction", { asin: l.asin, action: "unapprove" }));
     await after(r, "Taken off tonight's buy.");
   }
   async function skipToday(l, b) {
-    if (!window.confirm("Skip today's part of " + (l.title || l.asin) + "? The Target plan carries on tomorrow.")) return;
+    if (!(await inPageConfirm(b, "Skip today's part of " + (l.title || l.asin) + "? The Target plan carries on tomorrow."))) return;
     const r = await withBusy(b, () => run("targetPlanSkipToday", { planId: l.planId }));
     await after(r, "Skipped today.");
   }
@@ -230,13 +230,14 @@
 
   // ---- drawing ----
   function row(l, idx, n, canArrows) {
-    const r = el("div", "line qpv-line");
+    const r = el("div", "line qpv-line" + (l.prepCenter ? " dest-prep" : "")); // B-2196
     r.appendChild(el("div", "l-title", l.title || l.asin));
     const bits = [l.asin];
     if (l.retailer) bits.push(l.retailer);
     if (l.qty != null) bits.push(l.qty + " u" + (l.unitCost != null ? " x " + money(l.unitCost) : "") + (l.expectedCost != null ? " = " + money(l.expectedCost) : ""));
     if (l.multipackSize && l.multipackSize > 1) bits.push("pack of " + l.multipackSize);
     if (l.prepCenter) bits.push("prep center");
+    if (l.vacChip) bits.push(String(l.vacChip)); // B-2179: the laptop's vacation chip words, shown as they came
     if (l.setParts) bits.push(l.setParts + " listings");
     r.appendChild(el("div", "l-meta", bits.join(" · ")));
     const warn = [];

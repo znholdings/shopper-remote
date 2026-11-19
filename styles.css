@@ -1020,6 +1020,9 @@ html, body { overscroll-behavior: none; }
    (AC) yellow (exact values in the --s-dest-* tokens). Light: the sheet colour itself. Dark: a tint of it with a
    full-colour edge, so the text stays readable. ── */
 .line.inv-arrival.dest-prep { background: var(--s-dest-prep-bg); border-color: var(--s-dest-prep); border-left: 4px solid var(--s-dest-prep); color: var(--s-dest-ink); }
+/* B-2196 (v2.0.175): prep lines in the Buy Queue run list / preview in the same prep light blue. */
+.line.dest-prep:not(.inv-arrival) { background: var(--s-dest-prep-bg); border-left: 4px solid var(--s-dest-prep); color: var(--s-dest-ink); }
+.line.dest-prep:not(.inv-arrival) .l-meta, .line.dest-prep:not(.inv-arrival) .muted { color: var(--s-dest-ink-2); }
 .line.inv-arrival.dest-house { background: var(--s-dest-house-bg); border-color: var(--s-dest-house); border-left: 4px solid var(--s-dest-house); color: var(--s-dest-ink); }
 .line.inv-arrival.dest-prep .inv-title, .line.inv-arrival.dest-prep .inv-units,
 .line.inv-arrival.dest-house .inv-title, .line.inv-arrival.dest-house .inv-units { color: var(--s-dest-ink); }
@@ -1313,4 +1316,10 @@ body.pn-float .ctm-table tr > :last-child { padding-right: 62px; }
 .fs-card .fs-line { padding: 6px 0; border-top: 1px solid var(--s-line-soft); overflow-wrap: anywhere; }
 .fs-card .fs-flag b { color: var(--s-red-ink); }
 .bl-loss { color: var(--s-red-ink); }
+.co-card .co-banner { margin: 6px 0; padding: 6px 8px; border: 1px solid var(--s-line); border-radius: 6px; font-weight: 600; }
+/* B-2180 (v2.0.175): the one in-page confirm (remote/confirm-inline.js) - fixed to the bottom so a page redraw cannot drop it */
+.ip-confirm { position: fixed; left: 8px; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom)); z-index: 2000; box-sizing: border-box; max-width: 480px; margin: 0 auto; padding: 12px; border: 2px solid var(--s-line); border-radius: 8px; background: var(--s-surface); color: var(--s-text); box-shadow: 0 4px 16px var(--s-shadow); }
+.ip-confirm-text { margin-bottom: 10px; line-height: 1.35; overflow-wrap: anywhere; }
+.ip-confirm-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.ip-confirm-text { white-space: pre-line; }
 [hidden] { display: none !important; }

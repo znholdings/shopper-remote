@@ -87,8 +87,8 @@
       if (paused) { var rs = U.btn("Resume", "secondary-btn", function () { control("runResume", rs); }); acts.appendChild(rs); }
       else { var pa = U.btn("Pause", "secondary-btn", function () { control("runPause", pa); }); acts.appendChild(pa); }
       var ab = U.btn("Abort run", "danger-btn", function () {
-        if (typeof root.confirm === "function" && !root.confirm("Abort this run? The product on the screen stops now.")) return;
-        control("runAbort", ab);
+        // B-2180 (v2.0.175): the in-page confirm, not the browser's
+        inPageConfirm(ab, "Abort this run? The product on the screen stops now.").then(function (yes) { if (yes) control("runAbort", ab); });
       });
       acts.appendChild(ab);
       sec.appendChild(acts);

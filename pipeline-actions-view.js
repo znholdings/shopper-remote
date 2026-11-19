@@ -3,7 +3,7 @@
 //   manual edits (undo). NO Reconcile and NO ScanPower batch writes (Zach's answers Q5 / Q6).
 // Hosts (index.html, builder C): #shipmentsHost, #unmatchedHost, #editsHost. app.js calls ShopperPipelineActions.render(payload)
 // with the whole projection; this file reads payload.needs.shipments and payload.pages.{unmatched,edits}.
-// Every write has its own labelled button + window.confirm where scoped; no innerHTML; no file inputs; no keys.
+// Every write has its own labelled button + in-page confirm where scoped; no innerHTML; no file inputs; no keys.
 (function () {
   "use strict";
   // ---- shared by the four *-actions-view.js files (identical copy; the first one loaded wins) ----
@@ -37,10 +37,10 @@
       if (res && res.ok === false) return res.error || res.reason || res.message || "the computer said no";
       return "";
     }
-    // One labelled button -> optional window.confirm -> one command -> toast. Never two sends for one tap.
+    // One labelled button -> optional in-page confirm (inPageConfirm) -> one command -> toast. Never two sends for one tap.
     async function run(o) {
       if (o.btn && (o.btn.disabled || o.btn.dataset.busy)) return { ok: false, busy: true };
-      if (o.confirm && !window.confirm(o.confirm)) return { ok: false, cancelled: true };
+      if (o.confirm && !(await inPageConfirm(o.btn || null, o.confirm))) return { ok: false, cancelled: true };
       const R = self.ShopperRemote;
       if (!R) { toast("Not connected.", true); return { ok: false }; }
       let pill = null;

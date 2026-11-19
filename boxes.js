@@ -121,9 +121,9 @@
       readLabel();
       renderOutbox();
     });
-    clearBtn = btn("Start over", "ghost-btn", () => {
+    clearBtn = btn("Start over", "ghost-btn", async () => {
       const n = OB() ? OB().unsent("phone-stock").length : 0;
-      if (!confirm("Clear the text and every saved box? The list goes to the archive - Restore brings it back for 14 days." + (n ? " " + n + " unsent message(s) on this phone still go to the laptop." : ""))) return;
+      if (!(await inPageConfirm(null, "Clear the text and every saved box? The list goes to the archive - Restore brings it back for 14 days." + (n ? " " + n + " unsent message(s) on this phone still go to the laptop." : "")))) return;
       ta.value = "";
       lsSet(DRAFT_KEY, "");
       lsSet(SENT_KEY, "");
@@ -250,16 +250,16 @@
       const card = node("div", "line bx-archived");
       card.appendChild(node("div", "l-meta", x.text));
       card.appendChild(node("div", "l-meta bx-unsent-meta", hhmm(x.at) + " - " + x.why));
-      card.appendChild(btn("Restore", "ghost-btn bx-restore", () => {
-        if (!confirm("Restore " + x.text + "? What is saved now goes to the archive first.")) return;
+      card.appendChild(btn("Restore", "ghost-btn bx-restore", async () => {
+        if (!(await inPageConfirm(null, "Restore " + x.text + "? What is saved now goes to the archive first."))) return;
         R().sendCommand("boxesRestore", { aid: x.aid });
       }));
       det.appendChild(card);
     }
     if (canReread) {
       det.appendChild(node("p", "muted small", "Re-read all words: Claude reads every message saved for this batch again and rebuilds the list (the list now goes to the archive)."));
-      det.appendChild(btn("Re-read all words", "ghost-btn bx-reread", () => {
-        if (!confirm("Read every saved message for " + (b.batch ? b.batch.name : "this batch") + " again with Claude and rebuild the box list? The list now goes to the archive first.")) return;
+      det.appendChild(btn("Re-read all words", "ghost-btn bx-reread", async () => {
+        if (!(await inPageConfirm(null, "Read every saved message for " + (b.batch ? b.batch.name : "this batch") + " again with Claude and rebuild the box list? The list now goes to the archive first."))) return;
         R().sendCommand("boxesReread", { batchId: b.batch ? b.batch.id : "" });
       }));
     }
@@ -307,8 +307,8 @@
         card.appendChild(node("div", l.g != null ? "l-meta bx-group-line" : "l-meta", l.q + " × " + skuName(b, l.i) + (l.r ? " (the rest)" : "")));
       }
       if (withRemove && x.key) {
-        const rm = btn("Remove", "ghost-btn bx-remove", () => {
-          if (!confirm("Remove box " + x.key + " from the saved boxes?")) return;
+        const rm = btn("Remove", "ghost-btn bx-remove", async () => {
+          if (!(await inPageConfirm(null, "Remove box " + x.key + " from the saved boxes?"))) return;
           rm.disabled = true;
           R().sendCommand("boxesRemove", { id: b.id, key: x.key });
         });
@@ -329,8 +329,8 @@
       const card = node("div", "line bx-box");
       card.appendChild(node("div", "l-meta", t));
       if (withRemove) {
-        const rm = btn("Remove", "ghost-btn bx-remove", () => {
-          if (!confirm("Remove this saved message?")) return;
+        const rm = btn("Remove", "ghost-btn bx-remove", async () => {
+          if (!(await inPageConfirm(null, "Remove this saved message?"))) return;
           rm.disabled = true;
           R().sendCommand("boxesRemove", { id: b.id, key: "w" + n });
         });
@@ -348,8 +348,8 @@
       wrap.appendChild(node("p", "warn-text", "⚠ Box " + x.letter + " said twice - both are kept. Keep both (the later one becomes a new box) or Replace (keep the one said last)?"));
       const row = node("div", "bx-row");
       row.appendChild(btn("Keep both", "ghost-btn bx-dupe-both", () => R().sendCommand("boxesDupe", { id: b.id, letter: x.letter, choice: "both" })));
-      row.appendChild(btn("Replace", "ghost-btn bx-dupe-replace", () => {
-        if (!confirm("Keep only the box " + x.letter + " said last? The earlier one goes to the archive.")) return;
+      row.appendChild(btn("Replace", "ghost-btn bx-dupe-replace", async () => {
+        if (!(await inPageConfirm(null, "Keep only the box " + x.letter + " said last? The earlier one goes to the archive."))) return;
         R().sendCommand("boxesDupe", { id: b.id, letter: x.letter, choice: "replace" });
       }));
       wrap.appendChild(row);
@@ -374,8 +374,8 @@
         for (const x of pr.boxes) det.appendChild(node("div", "l-meta", (x.letter || "#") + " → B" + x.num + " · " + (x.size || "?") + " · " + (x.weight == null ? "?" : x.weight) + " lb · " + x.lines.map((l) => l.q + " × " + skuName(b, l.i)).join(", ")));
         box.appendChild(det);
       }
-      box.appendChild(btn("Replace them instead", "ghost-btn bx-mode", () => {
-        if (!confirm("Replace the " + pr.count + " box(es) (" + pr.units + " units) ScanPower has now with only the new boxes?")) return;
+      box.appendChild(btn("Replace them instead", "ghost-btn bx-mode", async () => {
+        if (!(await inPageConfirm(null, "Replace the " + pr.count + " box(es) (" + pr.units + " units) ScanPower has now with only the new boxes?"))) return;
         R().sendCommand("boxesAnswer", { id: b.id, answers: {}, mode: "replace" });
       }));
       return;
@@ -385,8 +385,8 @@
     const row = node("div", "bx-row");
     const note = node("p", "muted bx-stop-note");
     row.appendChild(btn("Stop - keep ScanPower's boxes", "primary-btn bx-stop", () => { note.textContent = "Stopped - nothing was sent. ScanPower keeps its " + pr.count + " box(es)."; }));
-    row.appendChild(btn("Replace them", "ghost-btn bx-mode", () => {
-      if (!confirm("Replace the " + pr.count + " box(es) (" + pr.units + " units) ScanPower has now with only the new boxes?")) return;
+    row.appendChild(btn("Replace them", "ghost-btn bx-mode", async () => {
+      if (!(await inPageConfirm(null, "Replace the " + pr.count + " box(es) (" + pr.units + " units) ScanPower has now with only the new boxes?"))) return;
       R().sendCommand("boxesAnswer", { id: b.id, answers: {}, mode: "replace" });
     }));
     box.appendChild(row);
@@ -504,7 +504,7 @@
         box.appendChild(pan);
         return;
       }
-      const go = btn(label, "primary-btn bx-upload", () => {
+      const go = btn(label, "primary-btn bx-upload", async () => {
         if (fin) { shortAsk = fin.sig; render({ boxes: last }); return; }
         const where = b.batch ? b.batch.name : "ScanPower";
         const ask = replacing
@@ -512,7 +512,7 @@
           : kept
             ? "Upload " + total + " boxes to " + where + "? The " + kept + " already in ScanPower stay as they are; " + d.boxes.length + " new go after them (" + placed + " units placed in all)."
             : "Upload " + d.boxes.length + " boxes (" + placed + " units) to " + where + "?";
-        if (!confirm(ask)) return;
+        if (!(await inPageConfirm(null, ask))) return;
         // Typed and Read since this was drawn: those go first.
         const late = unsentFor(b);
         if (late.length) { say(late.length + " message(s) on this phone are not on the laptop yet - they go first, then upload."); return; }
@@ -534,7 +534,7 @@
       } else {
         const a = d.anyway;
         box.appendChild(node("p", "muted bx-anyway-note", "Or Upload anyway: the boxes go up as read (" + a.units + " units) and you fix the rest in ScanPower on the computer."));
-        const any = btn("Upload anyway", "secondary-btn bx-anyway", () => {
+        const any = btn("Upload anyway", "secondary-btn bx-anyway", async () => {
           const where = b.batch ? b.batch.name : "ScanPower";
           const lines = ["Upload anyway to " + where + "?", "The boxes go up as read (" + a.units + " units). Fix the rest in ScanPower.", "", "Passed over:"].concat((a.warnings || []).map((t) => "• " + t));
           if ((a.trims || []).length) lines.push("", "ScanPower takes only what is expected:", ...(a.trims || []).map((t) => "• " + t));
@@ -542,7 +542,7 @@
           // Review fix: a boxed-vs-batch difference is shown here too, and answered by this same press.
           const fin = b.final && b.final.ok === false ? b.final : null;
           if (fin) lines.push("", "Boxed + planned does not equal the batch:", ...(fin.rows || []).map((t) => "• " + t));
-          if (!confirm(lines.join("\n"))) return;
+          if (!(await inPageConfirm(null, lines.join("\n")))) return;
           const late = unsentFor(b);
           if (late.length) { say(late.length + " message(s) on this phone are not on the laptop yet - they go first, then Upload anyway."); return; }
           any.disabled = true;

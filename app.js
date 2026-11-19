@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.174";
+const APP_BUILD = "v2.0.175";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -1014,7 +1014,7 @@ function renderLines(lines, total, truncated, progress) {
     const l = item.l;
     const row = document.createElement("div");
     const outcome = RL ? RL.outcomeOf(l) : "";
-    row.className = `line line-${l.status}${outcome ? ` oc-${outcome}` : ""}`;
+    row.className = `line line-${l.status}${outcome ? ` oc-${outcome}` : ""}${l.prepCenter ? " dest-prep" : ""}`; // B-2196
     // B-1173 (v2.0.64): remote/buy-shots-view.js finds the line's snapshot slot by this.
     row.setAttribute("data-line-id", String(l.lineId || ""));
     // P-55: an error belongs on a line that is stopped and waiting on a
@@ -1042,6 +1042,7 @@ function renderLines(lines, total, truncated, progress) {
         `${l.retailer ? ` · ${escapeHtml(l.retailer)}` : ""}` +
         `${l.multipackSize ? ` · pack of ${l.multipackSize}` : ""}` +
         `${l.prepCenter ? " · prep center" : ""}` +
+        `${l.vacChip ? ` · <span class="vac-chip">${escapeHtml(l.vacChip)}</span>` : ""}` + // B-2179
         `${l.sheetRow ? ` · sheet ${escapeHtml(String(l.sheetRow))}` : ""}</div>` +
         progressBarsHtml(l, progress) +
         `${l.orderNumber ? `<div class="l-meta">order ${escapeHtml(l.orderNumber)}</div>` : ""}` +
@@ -1098,8 +1099,8 @@ function renderLines(lines, total, truncated, progress) {
       const cb = document.createElement("button");
       cb.className = "mini-btn";
       cb.textContent = "Cancel item";
-      cb.addEventListener("click", () => {
-        if (confirm(`Cancel ${l.asin}? It will not be ordered; the rest of the run goes on.`)) sendCommand("cancelTargetItem", { lineId: l.lineId, asin: l.asin });
+      cb.addEventListener("click", async () => {
+        if (await inPageConfirm(cb, `Cancel ${l.asin}? It will not be ordered; the rest of the run goes on.`)) sendCommand("cancelTargetItem", { lineId: l.lineId, asin: l.asin });
       });
       actions.appendChild(cb);
     } else if (l.status === "pending" || l.status === "pool") {
@@ -1655,7 +1656,8 @@ function buylistCard(i) {
     // P-40: "there's no indication if something is prep center or not."
     `${i.prepCenter ? `<span class="pc-badge">Prep Center</span>` : ""}` +
     `${statusText ? `<span class="l-status">${statusText}</span>` : ""}${okBadge}</div>` +
-    `<div class="l-title">${escapeHtml(i.title)}</div>`;
+    `<div class="l-title">${escapeHtml(i.title)}</div>` +
+    `${i.vacChip ? `<div class="l-meta vac-chip">${escapeHtml(i.vacChip)}</div>` : ""}`; // B-2179: Walmart vacation mode chip
   head.appendChild(headText);
   row.appendChild(head);
 
@@ -1853,7 +1855,13 @@ els.startBtn.addEventListener("click", () => {
   if (sigs && sigs.busy) { toast("Saving your buy order on the computer - press Start again in a moment.", true); return; }
   if (sigs && sigs.fresh) { toast("The buy lines on this screen just changed - check them, then press Start.", true); return; } // B-1987 (v2.0.150)
   if (!sigs || !sigs.shownSig) { toast("The buy lines are not on this screen yet - tap Preview, check them, then press Start.", true); if (Q && typeof Q.refresh === "function") Q.refresh({ tapped: true }); return; }
-  sendCommand("start", { approvalMode: els.modeSelect.value, listSig: sigs.listSig, shownSig: sigs.shownSig, ...(pick ? { targetId: pick } : {}) });
+  // B-2194 (v2.0.175): one extra confirmation - the House / Prep board (tap a tile to move it). Cancel = nothing sent. The moves ride in the Start.
+  const RL = self.ShopperRunLib;
+  const boardLines = Q && typeof Q.buyLines === "function" ? Q.buyLines() : [];
+  const send = (destChanges) => sendCommand("start", { approvalMode: els.modeSelect.value, listSig: sigs.listSig, shownSig: sigs.shownSig, ...(pick ? { targetId: pick } : {}), ...(destChanges && destChanges.length ? { destChanges } : {}) });
+  if (!boardLines.length) { send([]); return; }
+  if (!RL || typeof RL.renderDestBoard !== "function") { toast("The House / Prep board did not load - reload the app, then press Start. Nothing was started.", true); return; }
+  RL.renderDestBoard(document.body, boardLines, { touch: true, onApprove: (changes) => send(changes), onCancel: () => {} });
 });
 els.resumeSavedBtn.addEventListener("click", () => {
   const pick = els.runOnSelect.value || null;
@@ -1986,14 +1994,14 @@ async function invPrintLabels(answers = null) {
 if (els.invPrintLabelsBtn) els.invPrintLabelsBtn.addEventListener("click", () => invPrintLabels());
 // B-1457 / B-1458 (v2.0.96): the statuses a Target line can still be switched / cancelled in.
 const TARGET_DEST_STATUSES_PHONE = new Set(["pending", "pool", "partial", "failed", "out_of_stock", "not_attempted"]);
-els.targetDestHouseBtn.addEventListener("click", () => {
-  if (confirm("Target orders still to come will ship to the HOUSE. Orders already placed keep where they went. Shopper picks the saved house address at Target checkout. Switch?")) sendCommand("targetDestHouse");
+els.targetDestHouseBtn.addEventListener("click", async () => {
+  if (await inPageConfirm(els.targetDestHouseBtn, "Target orders still to come will ship to the HOUSE. Orders already placed keep where they went. Shopper picks the saved house address at Target checkout. Switch?")) sendCommand("targetDestHouse");
 });
-els.targetDestPrepBtn.addEventListener("click", () => {
-  if (confirm("Target orders still to come will ship to the PREP CENTER. Orders already placed keep where they went. Shopper picks the saved prep center address at Target checkout. Switch?")) sendCommand("targetDestPrep");
+els.targetDestPrepBtn.addEventListener("click", async () => {
+  if (await inPageConfirm(els.targetDestPrepBtn, "Target orders still to come will ship to the PREP CENTER. Orders already placed keep where they went. Shopper picks the saved prep center address at Target checkout. Switch?")) sendCommand("targetDestPrep");
 });
-els.abortBtn.addEventListener("click", () => {
-  if (confirm("Abort the run? Whatever is mid-purchase is interrupted.")) sendCommand("abort");
+els.abortBtn.addEventListener("click", async () => {
+  if (await inPageConfirm(els.abortBtn, "Abort the run? Whatever is mid-purchase is interrupted.")) sendCommand("abort");
 });
 els.addBtn.addEventListener("click", () => {
   const asin = els.addAsin.value.trim().toUpperCase();
@@ -2010,7 +2018,7 @@ els.addBtn.addEventListener("click", () => {
 els.generateBtn.addEventListener("click", () => sendCommand("generateBuylist"));
 // B-1741 (v2.0.127): Approve Adjusted - every undecided line in the adjusted list, after a confirm.
 els.approveAllBtn.textContent = "Approve Adjusted";
-els.approveAllBtn.addEventListener("click", () => {
+els.approveAllBtn.addEventListener("click", async () => {
   const items = (lastPayload && lastPayload.buylist && lastPayload.buylist.items) || [];
   const inList = items.filter((i) => i.section !== "offbeat" && !i.decision && !i.pastGoal && Number(i.adjustedQty) > 0);
   if (!inList.length) { toast("Nothing in this list has an adjusted quantity - generate a new list first."); return; }
@@ -2022,7 +2030,7 @@ els.approveAllBtn.addEventListener("click", () => {
   const mult = Number(bl.adjustedMultiple) || 3;
   const goalText = goal > 0 ? ` ${money(goal)}` : "";
   const msg = costed ? `Approve ${n} line${n === 1 ? "" : "s"}, ${money(dollars)} total (${mult}\u00d7 today's goal${goalText})?` : `Approve ${n} line${n === 1 ? "" : "s"} in the adjusted list?`;
-  if (!confirm(msg)) return;
+  if (!(await inPageConfirm(els.approveAllBtn, msg))) return;
   sendCommand("buylistApproveAll");
 });
 
@@ -2035,8 +2043,8 @@ els.approveAllBtn.addEventListener("click", () => {
 els.previewBtn.addEventListener("click", () => { if (self.ShopperQueuePreview) self.ShopperQueuePreview.refresh({ tapped: true }); else sendCommand("preview"); }); // B-1927
 
 // Destructive, so it confirms - same treatment as Abort.
-els.discardSavedBtn.addEventListener("click", () => {
-  if (confirm("Discard the saved queue? It cannot be brought back.")) sendCommand("discardSaved");
+els.discardSavedBtn.addEventListener("click", async () => {
+  if (await inPageConfirm(els.discardSavedBtn, "Discard the saved queue? It cannot be brought back.")) sendCommand("discardSaved");
 });
 
 els.blAddBtn.addEventListener("click", () => {
@@ -3482,9 +3490,9 @@ function glTile(t) {
   if (t.apply) {
     const ap = invNode("button", "primary-btn sustain-apply", t.apply.label + " $" + t.apply.toDollars + "/day");
     ap.type = "button";
-    ap.addEventListener("click", (e) => {
+    ap.addEventListener("click", async (e) => {
       e.stopPropagation();
-      if (confirm(t.apply.confirm + " (Sets this month's goal on the sheet - both computers and the phone.)")) sendCommand("sustainApply", { dailyCents: t.apply.dailyCents });
+      if (await inPageConfirm(ap, t.apply.confirm + " (Sets this month's goal on the sheet - both computers and the phone.)")) sendCommand("sustainApply", { dailyCents: t.apply.dailyCents });
     });
     n.appendChild(ap);
   }

@@ -94,8 +94,12 @@
   }
   // A destructive button: its own labelled button, a confirm, then exactly one command.
   function confirmSend(message, name, payload, button, doneText, after) {
-    if (typeof root.confirm === "function" && !root.confirm(message)) return Promise.resolve(null);
-    return send(name, payload, button).then(function (r) { say(r, doneText); if (after) after(r); return r; });
+    // B-2180 (v2.0.175): the in-page confirm (confirm-inline.js) - no browser confirm() on the phone. No helper = nothing is sent.
+    var asked = typeof inPageConfirm === "function" ? inPageConfirm(button || null, message) : Promise.resolve(false);
+    return Promise.resolve(asked).then(function (yes) {
+      if (!yes) return null;
+      return send(name, payload, button).then(function (r) { say(r, doneText); if (after) after(r); return r; });
+    });
   }
 
   function register(tab, def) { pages.push({ tab: tab, pane: def.pane || null, render: def.render, shown: def.shown, left: def.left }); }

@@ -14,7 +14,7 @@
 
   async function act(name, body, o) {
     o = o || {};
-    if (o.confirm && !window.confirm(o.confirm)) return null;
+    if (o.confirm && !(await inPageConfirm(o.btn || null, o.confirm))) return null;
     const R = self.ShopperRemote;
     if (!R) { say("Not connected.", true); return null; }
     const btn = o.btn;

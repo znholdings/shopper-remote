@@ -308,8 +308,8 @@
     if (!r.pick) {
       li.append(el("div", "bkm-lead", r.why || "Answer this one on the laptop."));
       // B-1853 (v2.0.141): a duplicate card line is voided / a card payment from ··0034 booked with one tap (the laptop does the work).
-      if (r.action && (r.action.type === "dupe-void" || r.action.type === "card-pay-book" || r.action.type === "card-gone-void")) {
-        const ab = el("button", "primary-btn bkm-book", r.action.type === "card-pay-book" ? "Book it (Dr 2000 / Cr 3000)" : "Void this line");
+      if (r.action && (r.action.type === "dupe-void" || r.action.type === "card-pay-book" || r.action.type === "card-gone-void" || r.action.type === "walmart-sc-read")) {
+        const ab = el("button", "primary-btn bkm-book", r.action.type === "card-pay-book" ? "Book it (Dr 2000 / Cr 3000)" : r.action.type === "walmart-sc-read" ? "Read Seller Center now" : "Void this line");
         ab.type = "button";
         ab.disabled = !!sending;
         ab.addEventListener("click", () => runAction(r));
@@ -373,10 +373,10 @@
         btn.textContent = bookLabel(r, "");
         showPreview();
       });
-      btn.addEventListener("click", () => {
+      btn.addEventListener("click", async () => {
         const code = picked[r.key];
         if (!code) return;
-        if (code === NOTHING && !confirm(`Set this card line to nothing? Its entries are voided - the Chase line books this payment.`)) return;
+        if (code === NOTHING && !(await inPageConfirm(btn, `Set this card line to nothing? Its entries are voided - the Chase line books this payment.`))) return; // B-2180
         pick(r, code);
       });
       box.append(sel, btn, cancel);
@@ -512,12 +512,13 @@
       return;
     }
     const void_ = r.action.type === "dupe-void" || r.action.type === "card-gone-void";
+    const wsc = r.action.type === "walmart-sc-read"; // B-2187
     sending = r.key;
-    notes[r.key] = { phase: "sending", text: void_ ? "Voiding the duplicate line..." : "Booking the card payment...", at: Date.now() };
+    notes[r.key] = { phase: "sending", text: wsc ? "Reading Seller Center on the Optiplex..." : void_ ? "Voiding the duplicate line..." : "Booking the card payment...", at: Date.now() };
     redraw();
     let id = null;
     try {
-      id = r.action.type === "card-gone-void" ? await R.sendCommand("booksCardGoneVoid", { lineId: r.action.lineId }) : void_ ? await R.sendCommand("booksDupeVoid", { lineId: r.action.lineId, keepId: r.action.keepId }) : await R.sendCommand("booksCardPayBook", { hhId: r.action.hhId });
+      id = wsc ? await R.sendCommand("booksWalmartScReadNow") : r.action.type === "card-gone-void" ? await R.sendCommand("booksCardGoneVoid", { lineId: r.action.lineId }) : void_ ? await R.sendCommand("booksDupeVoid", { lineId: r.action.lineId, keepId: r.action.keepId }) : await R.sendCommand("booksCardPayBook", { hhId: r.action.hhId });
     } catch (e) { id = null; }
     if (!id) {
       sending = "";
@@ -532,7 +533,7 @@
     const res = row && row.result && typeof row.result === "object" ? row.result : null;
     sending = "";
     if (status === "done" && res && res.ok !== false) {
-      notes[r.key] = { phase: "done", text: res.note ? String(res.note) : void_ ? `Voided the duplicate line (${Number(res.voided) || 0} entr${Number(res.voided) === 1 ? "y" : "ies"} voided).` : `Booked${res.entryId ? ` (entry ${res.entryId})` : ""}.`, at: Date.now() };
+      notes[r.key] = { phase: "done", text: res.note ? String(res.note) : wsc ? "Read Seller Center." : void_ ? `Voided the duplicate line (${Number(res.voided) || 0} entr${Number(res.voided) === 1 ? "y" : "ies"} voided).` : `Booked${res.entryId ? ` (entry ${res.entryId})` : ""}.`, at: Date.now() };
     } else if (status === "timeout") {
       notes[r.key] = { phase: "failed", text: "No answer from the laptop in 5 minutes - check the laptop's Books page before tapping again.", at: Date.now() };
     } else {

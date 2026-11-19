@@ -180,6 +180,14 @@
       input.addEventListener("change", () => {
         if (/^([01]\d|2[0-3]):[0-5]\d$/.test(input.value)) save(spec, ctl, input.value);
       });
+    } else if (kind === "date") {
+      // B-2179 (v2.0.175): a calendar date (Walmart vacation mode's return day) - only a real YYYY-MM-DD is saved.
+      input = el("input", "stg-input");
+      input.type = "date";
+      input.value = typeof cur === "string" ? cur : "";
+      input.addEventListener("change", () => {
+        if (/^\d{4}-\d{2}-\d{2}$/.test(input.value)) save(spec, ctl, input.value);
+      });
     } else {
       input = el("input", "stg-input");
       input.type = "number";

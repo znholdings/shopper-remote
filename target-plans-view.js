@@ -52,7 +52,11 @@
   function planCmd(name, p, btn, out, confirmText) {
     const R = self.ShopperRemote;
     if (!R) { out.textContent = "Not connected."; return; }
-    if (confirmText && !window.confirm(confirmText)) return;
+    if (confirmText) { inPageConfirm(btn, confirmText).then(function (yes) { if (yes) planGo(name, p, btn, out); }); return; } // B-2180 (v2.0.175): in-page confirm
+    planGo(name, p, btn, out);
+  }
+  function planGo(name, p, btn, out) {
+    const R = self.ShopperRemote;
     btn.disabled = true;
     out.className = "tpv-result";
     out.textContent = "Sending to the laptop...";

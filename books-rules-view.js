@@ -23,7 +23,7 @@
     var key = f.key.value.trim().slice(0, 120);
     var account = f.account.value;
     if (!key || !account) { U.toast("Type the merchant and pick the account.", true); return; }
-    if (typeof root.confirm === "function" && !root.confirm("Add a rule: always book \"" + key + "\" to account " + account + "? It is written to the Rules tab.")) return;
+    if (!(await inPageConfirm(f.addBtn, "Add a rule: always book \"" + key + "\" to account " + account + "? It is written to the Rules tab."))) return; // B-2180
     var r = await U.send("booksRulesAdd", { rules: [{ key: key, account: account, count: 1 }] }, f.addBtn);
     U.say(r, "Rule added");
     if (r.ok) f.key.value = "";

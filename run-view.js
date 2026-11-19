@@ -53,7 +53,7 @@
       // a paused line counts as done, so done + 1 named the NEXT line.
       const idx = lines.indexOf(line);
       const total = p.lineCount || lines.length;
-      $("rhMeta").textContent = `${line.asin} · line ${idx >= 0 ? idx + 1 : Math.min(total, done + 1)} of ${total}${line.retailer ? " · " + line.retailer : ""}`;
+      $("rhMeta").textContent = `${line.asin} · line ${idx >= 0 ? idx + 1 : Math.min(total, done + 1)} of ${total}${line.retailer ? " · " + line.retailer : ""}${line.vacChip ? " · " + line.vacChip : ""}`; // B-2179
     } else {
       $("rhTitle").textContent = status === "running" ? "Between lines" : status === "paused" ? "Paused" : status || "-";
       $("rhMeta").textContent = "";
