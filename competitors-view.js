@@ -124,7 +124,7 @@
     s.appendChild(slider("Minimum ROI", 0, 100, 5, cur.minRoi, function (v) { return v + "%"; }, function (v) { cur.minRoi = v; bar = { minRoi: cur.minRoi, minProfit: cur.minProfit }; fill(); saveBar(); }));
     s.appendChild(slider("Minimum profit per item", 0, 10, 0.5, cur.minProfit, function (v) { return "$" + Number(v).toFixed(2); }, function (v) { cur.minProfit = v; bar = { minRoi: cur.minRoi, minProfit: cur.minProfit }; fill(); saveBar(); }));
     s.appendChild(count);
-    if (L.hiddenGating) s.appendChild(U.el("p", "muted small", L.hiddenGating + " more are hidden: Amazon would not say whether you are gated."));
+    if (L.hiddenGating) s.appendChild(U.el("p", "muted small", L.hiddenGating + " more are hidden: Amazon would not say whether you are gated. Shopper asks Amazon again each morning (up to 100 a day)."));
     s.appendChild(holder);
     tabBtn = pane.querySelector("[data-leads-tab]");
     fill();

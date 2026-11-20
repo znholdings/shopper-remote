@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.179";
+const APP_BUILD = "v2.0.180";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -1375,6 +1375,8 @@ function renderPrompt(prompt) {
     const ipu = field("pIpu", "Pieces per Amazon unit", { type: "number", min: "1", value: "1" });
     // B-1712 (v2.0.128): a set is entered on the laptop only.
     els.promptFields.appendChild(Object.assign(document.createElement("div"), { className: "l-meta", textContent: "A set of 2+ listings is entered on the laptop (Buy Queue - Set form), not here." }));
+    // B-2233: B-2230's cheaper-pack hint (the laptop shows it in the side pane) - about the listing, so shown whether or not the link is doubted
+    if (prompt.variantNote) els.promptFields.appendChild(Object.assign(document.createElement("div"), { className: "l-meta", textContent: prompt.variantNote }));
     getPayload = () => ({ asin: prompt.asin, lineId: prompt.lineId, url: url.value.trim(), itemsPerUnit: Number(ipu.value) || 1 });
     // B-2108 review: an auto-found source Zach confirmed - asked once on the first buy; the link is in the box, "Use this source" sends it as it is.
     if (prompt.autoUrl && !prompt.doubt) {
@@ -3614,6 +3616,14 @@ function glRow(r) {
   return row;
 }
 
+// B-2233: the named kinds of "N things waiting on your answer" count only when they add up to the phone's own total - same rule as
+// dashboard/do-next-input.js needsKindsFor (B-2229). Otherwise [] -> The Daily keeps the old fixed line, never wrong words.
+function kindsAddUp(kinds, total) {
+  if (!Array.isArray(kinds) || !kinds.length) return [];
+  const sum = kinds.reduce((a, k) => a + (Number(k && k.n) || 0), 0);
+  return sum === Number(total) ? kinds : [];
+}
+
 function renderDashboard(d, p) {
   const G = self.ShopperGlance;
   if (!d || !G) {
@@ -3654,6 +3664,7 @@ function renderDashboard(d, p) {
     nextRun: d.nextRun,
     nightlyReady: !!(ex.nightly && ex.nightly.readyAt),
     needsYou: d.pipeline.available ? d.pipeline.needsYou : 0,
+    needsKinds: kindsAddUp(ex.needsKinds, d.pipeline.available ? d.pipeline.needsYou : 0), // B-2233
     arrivalsToday: d.pipeline.available ? d.pipeline.arrivalsToday : 0,
     overdue: arrCounts ? arrCounts.overdue : 0,
     belowMin: Number.isFinite(bm) ? bm : null,
