@@ -156,6 +156,43 @@
     return card;
   }
 
+  // B-2217 (v2.0.178): Listing problems - the laptop Pricing page's section (lib/listing-problems-view.js), read-only here:
+  // blocked first (Amazon says not buyable on Amazon.com), then errors on listings that still sell. Each row: product, ASIN / SKU,
+  // units, the reason in words, Amazon's message in full, and "Fix in Seller Central". Dismiss / snooze is on the laptop.
+  function listingCard(lp) {
+    const p = obj(lp);
+    const blocked = arr(p.blocked), errors = arr(p.errors);
+    if (!blocked.length && !errors.length) return null;
+    const card = el("section", "ops-card ops-listing-problems");
+    card.id = "lpPhone";
+    const inStock = [...blocked, ...errors].filter((r) => r && r.counted).length; // the count the laptop tab and Do next show: listings WITH stock; a zero-stock row is listed, not counted
+    card.appendChild(el("h3", "", "Listing problems (" + inStock + ")"));
+    card.appendChild(el("p", "muted small", "Problems with the listing's details (not its price). Fix them in Seller Central."));
+    const group = (rows, title) => {
+      if (!rows.length) return;
+      card.appendChild(el("h4", "ops-lp-h", title + " (" + rows.length + ")"));
+      for (const r of rows.slice(0, 30)) {
+        const line = el("div", "ops-line ops-lp-row");
+        line.dataset.needsId = clip(r.id, 100);
+        line.appendChild(el("div", "ops-lp-title", clip(r.title || r.asin || r.sku, 100)));
+        const units = r.units == null ? "stock not known" : r.units > 0 ? r.units + " in stock" : "no stock";
+        line.appendChild(el("div", "muted small", [clip(r.asin, 12), clip(r.sku, 40), units].filter(Boolean).join(" · ")));
+        if (arr(r.reasons).length) line.appendChild(el("div", "ops-lp-reasons small", arr(r.reasons).map((x) => clip(x, 60)).join(" · ")));
+        if (r.message) line.appendChild(el("div", "muted small ops-lp-msg", clip(r.message, 600)));
+        if (/^https:\/\/sellercentral\.amazon\.com\//.test(String(r.url || ""))) {
+          const a = el("a", "ops-lp-fix", "Fix in Seller Central");
+          a.href = r.url; a.target = "_blank"; a.rel = "noopener noreferrer";
+          line.appendChild(a);
+        }
+        card.appendChild(line);
+      }
+    };
+    group(blocked, "Not buyable on Amazon.com");
+    group(errors, "Errors to fix (still selling)");
+    if (p.otherCount > 0) card.appendChild(el("p", "muted small", p.otherCount + " more listing(s) have a problem only in another marketplace - not counted."));
+    return card;
+  }
+
   function fixesCard(fx) {
     const rows = arr(Array.isArray(fx) ? fx : obj(fx).rows);
     if (!rows.length) return null;
@@ -210,13 +247,13 @@
     const host = $("bmmActionsHost");
     if (!host) return;
     const pages = obj(obj(p).pages);
-    const s = JSON.stringify([pages.cogs || null, pages.pricingErrors || null, pages.pricingFixes || null]);
+    const s = JSON.stringify([pages.cogs || null, pages.pricingErrors || null, pages.pricingFixes || null, pages.listingProblems || null]);
     if (s === sig && host.childNodes.length) return;
     if (editing(host)) return;
     sig = s;
     host.textContent = "";
-    for (const c of [checksMenu(pages.cogs), errorsCard(pages.pricingErrors), fixesCard(pages.pricingFixes), cogsCard(pages.cogs)]) if (c) host.appendChild(c);
+    for (const c of [checksMenu(pages.cogs), listingCard(pages.listingProblems), errorsCard(pages.pricingErrors), fixesCard(pages.pricingFixes), cogsCard(pages.cogs)]) if (c) host.appendChild(c);
   }
 
-  self.ShopperPricingActions = Object.freeze({ render, checks, errorsCard, fixesCard, cogsCard });
+  self.ShopperPricingActions = Object.freeze({ render, checks, errorsCard, listingCard, fixesCard, cogsCard });
 })();

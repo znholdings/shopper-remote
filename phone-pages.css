@@ -41,4 +41,8 @@
 .pg-sm-block { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 6px 8px; border-left: 3px solid var(--s-accent); border-radius: 6px; overflow-wrap: anywhere; }
 .pg-sm-pick { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .pg-sm-more { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.pg-sm-why { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 6px 8px; border: 1px solid var(--s-line); border-radius: 6px; }
+.pg-sm-chips { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.pg-sm-chip { white-space: normal; text-align: left; max-width: 100%; }
+.pg-sm-why .pg-input { flex: 1 1 10rem; min-width: 0; max-width: 100%; }
 [hidden] { display: none !important; }

@@ -69,6 +69,11 @@ const SHARED_SETTINGS_SPEC = Object.freeze([
   S({ key: "shopperPricingFixSettings", group: "pricing", label: "Pricing fixes", kind: "object", phone: [
     { path: "auto", label: "Fix pricing errors automatically", kind: "bool" },
   ] }),
+  // B-2215 (v2.0.178): the daily check for in-stock listings with Seller Snap repricing OFF (lib/repricing-off-check.js). Push + email ONLY when found.
+  S({ key: "shopperRepricingOffSettings", group: "pricing", label: "Repricing-off check", kind: "object", phone: [
+    { path: "enabled", label: "Daily repricing-off check", kind: "bool" },
+    { path: "time", label: "Check time (CT)", kind: "time" },
+  ] }),
   // ---- Pipeline / email --------------------------------------------------
   S({ key: "shopperPipelineTransitWindowDays", group: "pipeline", label: "Transit window (days)", kind: "number", min: 7, max: 3650, step: 1, phone: true }),
   S({ key: "shopperPipelineAskWhatStayedBehind", group: "pipeline", label: "Ask what stayed behind (house only)", kind: "bool", phone: true }),

@@ -30,3 +30,11 @@
 #buylistItems .bl-ok-badge::before { content: "\2713\00a0"; } /* v2.0.172 B-2166: spec 6 checkmark, same as the laptop badge */
 :root[data-theme="retro"] #buylistItems .bl-ok-badge { background: var(--s-bl-ok-badge-bg, var(--s-green-ink)) !important; color: var(--s-bl-ok-badge-ink, var(--s-n0)) !important; }
 :root[data-theme="retro"] #buylistItems .bs-label { text-align: right; }
+
+/* B-2217 (v2.0.178): phone Pricing tab - Listing problems group (read-only; fix in Seller Central). */
+.ops-listing-problems { min-width: 0; }
+.ops-lp-h { margin: 10px 0 4px; font-size: 1em; }
+.ops-lp-row { display: grid; gap: 3px; padding: 8px 0; border-top: 1px solid var(--s-line); min-width: 0; overflow-wrap: anywhere; }
+.ops-lp-title { font-weight: 600; }
+.ops-lp-msg { white-space: pre-wrap; }
+.ops-lp-fix { justify-self: start; font-weight: 600; color: inherit; text-decoration: underline; }

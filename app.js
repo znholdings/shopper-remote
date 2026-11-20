@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.177";
+const APP_BUILD = "v2.0.178";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -3419,6 +3419,7 @@ function glGo(target) {
     pipeline: () => openInventoryView(null),
     arrivals: () => openArrivals(),
     belowmin: () => switchTab("belowmin"),
+    listingproblems: () => switchTab("belowmin"), // B-2217 (v2.0.178): the Pricing tab's Listing problems group sits at the top
     runreviews: () => switchTab("runreviews"), // B-1792: its own page now
     daily: () => switchTab("daily"),
     blacklist: () => switchTab("blacklist"),
@@ -3673,6 +3674,8 @@ function renderDashboard(d, p) {
     batchOffer: ex.batchOffer || null,
     // B-1369 (v2.0.82): the COGS check's own row.
     cogsCheck: ex.cogsCheck || null,
+    // B-2215 (v2.0.178): in-stock listings with Seller Snap repricing off.
+    repricingOff: ex.repricingOff || null,
     // B-862 (v2.0.23): listings deactivated for a pricing error.
     pricingErrors: ex.pricingErrors || null,
     now: Date.now(),

@@ -57,7 +57,9 @@
       if (r.reason) li.append(mk("div", "dnr-reason", r.reason));
       for (const m of r.meta || []) li.append(mk("div", "dnr-meta", m));
       if (o.rowExtra) { try { const x = o.rowExtra(r); if (x) li.append(x); } catch (e) { /* a row extra never breaks the list */ } } // B-1599 (v2.0.116): the phone's Fix button
-      if (r.link && /^https:\/\//.test(r.link.url)) {
+      if (r.link && r.link.phoneNote) {
+        li.append(mk("div", "dnr-meta", r.link.phoneNote)); // B-2218: a button the phone cannot use ("Sign in on a computer to read details")
+      } else if (r.link && /^https:\/\//.test(r.link.url)) {
         const a = mk("a", "dnr-link", r.link.label);
         a.href = r.link.url; a.target = "_blank"; a.rel = "noopener noreferrer";
         li.append(a);

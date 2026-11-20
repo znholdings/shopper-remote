@@ -33,6 +33,7 @@
   try { win = P && P.lhNormalizeWindow ? P.lhNormalizeWindow(localStorage.getItem(KEY)) : 30; } catch (e) { /* default */ }
   let nsAll = false;
   let agedAll = false;
+  let roffAll = false; // B-2215 (v2.0.178): the "Repricing off" list
   // B-1198: the laptop's recent sends (p.recent), typed values and each row's send, by SKU.
   let recent = null;
   const drafts = {};
@@ -329,6 +330,38 @@
       box.append(rb);
     }
   }
+  // B-2215 (v2.0.178): in-stock listings with Seller Snap repricing OFF (the laptop's daily check). Read only; nothing is drawn at 0.
+  function drawRepricingOff(box, v) {
+    const n = v ? Number(v.count) || 0 : 0;
+    const unk = v ? Number(v.unknown) || 0 : 0;
+    if (!v || (n < 1 && unk < 1)) return false;
+    box.append(el("h3", "ai-h2", `Repricing off (${n})`));
+    if (unk > 0) box.append(el("p", "muted small", `${unk} in-stock ${unk === 1 ? "listing" : "listings"} could not be told (no repricing flag on the row)`));
+    box.append(el("p", "muted small" + (v.ok ? "" : " warn-text"), `In stock with Seller Snap repricing turned off · read ${ago(v.rowsAt || v.checkedAt)}${v.capped ? " (first 2,500 only)" : ""}${v.ok ? "" : ` · the latest check failed: ${v.error || "no answer"}`}`));
+    const rows = Array.isArray(v.rows) ? v.rows : [];
+    const list = el("div", "lhm-list");
+    for (const r of roffAll ? rows : rows.slice(0, SHOW_FIRST)) {
+      const row = el("div", "lhm-row");
+      row.append(nameLine(r));
+      const nums = el("div", "lhm-nums");
+      const cell = (label, value) => { const c = el("div", "lhm-num"); c.append(el("div", "t-label", label), el("div", "lhm-v", value)); return c; };
+      nums.append(cell("Available", String(r.qty)), cell("Min", m2(r.min)), cell("Max", m2(r.max)), cell("Listed", m2(r.listed)));
+      row.append(nums);
+      list.append(row);
+    }
+    box.append(list);
+    if (rows.length > SHOW_FIRST) box.append(more(roffAll, rows.length, () => { roffAll = !roffAll; lastKey = ""; render(data); }));
+    if (n > rows.length) box.append(el("p", "muted small", `${n - rows.length} more on the laptop's Pricing page.`));
+    if (typeof v.listingsUrl === "string" && /^https:\/\//.test(v.listingsUrl)) { // the address rides in the payload (this file names no site)
+      const a = el("a", "mini-btn lhm-more", "Open in Seller Snap");
+      a.href = v.listingsUrl;
+      a.target = "_blank";
+      a.rel = "noopener";
+      box.append(a);
+    }
+    return true;
+  }
+
   function drawAged(box, a) {
     box.append(el("h3", "ai-h2", "Aged inventory"));
     const st = P.lhAgedStatus(a, Date.now());
@@ -442,16 +475,19 @@
     // between the blur and the click would swallow the Send tap).
     const a = document.activeElement;
     if (a && box.contains(a) && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName)) return;
-    const key = JSON.stringify([data && data.at, win, nsAll, agedAll, recent && recent[0] ? recent[0].at : 0]);
+    const key = JSON.stringify([data && data.at, win, nsAll, agedAll, roffAll, recent && recent[0] ? recent[0].at : 0]);
     if (key === lastKey) return;
     lastKey = key;
     box.textContent = "";
     box.hidden = !data;
     if (!data) return;
+    const roff = el("section", "lhm-card");
+    const roffShown = drawRepricingOff(roff, data.repricingOff); // B-2215
     const aged = el("section", "lhm-card");
     drawAged(aged, data.aged);
     const ns = el("section", "lhm-card");
     if (data.base) drawNoSales(ns, data);
+    if (roffShown) box.append(roff);
     box.append(aged, ns);
   }
 

@@ -165,6 +165,7 @@
     else if (tab === "all") pane.appendChild(allTab());
     else {
       var c = data.candidates || { today: [], older: [] };
+      if (data.matchStats && data.matchStats.length) pane.appendChild(U.el("p", "muted small", "Auto-found sources you rejected, last 60 days: " + data.matchStats.join(" · "))); // B-2222 (informational)
       if (!(c.today || []).length && !(c.older || []).length && !(data.filtered || []).length) {
         // B-2074: three empty headed blocks -> one line.
         pane.appendChild(U.el("p", "muted small", st.hasData ? "Nothing new - nothing found today, nothing waiting, nothing filtered." : "No data yet - the first read runs on the computer after 4 AM Central."));
