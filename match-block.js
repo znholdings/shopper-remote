@@ -17,6 +17,8 @@
     return c.sellUnits === 1 ? "buy " + c.buyUnits + ", sell as 1" : c.buyUnits === 1 ? "buy 1, sell as " + c.sellUnits : "buy " + c.buyUnits + ", sell as " + c.sellUnits;
   }
   var REASONS = [["different_product", "Different product"], ["wrong_size", "Wrong size / count"], ["wrong_variant", "Wrong flavor / scent / variant"], ["packaging", "Packaging too different"], ["third_party", "Not sold by the store (3rd party)"], ["price_wrong", "Price wrong"], ["out_of_stock", "Out of stock / limited"], ["other", "Other"]];
+  // B-2225: the laptop handler's answer is in res.result (pages-view send() -> { ok, started, reason, result }) - one reader for every toast
+  function said(res, dflt) { return (res && res.result && res.result.text) || dflt; }
   function pct(v) { return v == null ? "-" : v + "%"; }
   function priceLine(name, price, profit, roi, margin, note, feesNote) {
     if (price == null) return name + ": " + (note || "-");
@@ -42,6 +44,7 @@
       out.push(priceLine("Buy Box", e.bbPrice, e.profitBb, e.roiBb, e.marginBb, c.bbNote, c.feesNote));
       out.push(priceLine("Lowest FBA", e.fbaPrice, e.profitFba, e.roiFba, e.marginFba, c.fbaNote, c.feesNote));
       if (v) out.push("the single on this listing: cost " + money(c.cost) + " \u00b7 ROI " + pct(c.roiBb != null ? c.roiBb : c.roiFba));
+      if (v) out.push("Confirm saves this listing; choose the " + v.label + " on the first buy"); // B-2230: the URL opens on the single
     }
     if (c && c.tags && c.tags.length) out.push(c.tags.join(" \u00b7 "));
     return out;
@@ -52,12 +55,12 @@
     var chips = U.el("div", "pg-sm-chips");
     var noteRow = U.el("div", "pg-row"); noteRow.hidden = true;
     var box = U.input("text", { maxlength: "120", placeholder: "What was wrong? (optional)", "aria-label": "What was wrong with this source (optional)" });
-    var save = U.btn("Save", "mini-btn", function () { U.send("matchReject", { asin: asin, url: c.url, reason: "other", note: box.value }, save).then(function (res) { U.say(res, (res && res.result && res.result.text) || "Rejected"); }); });
+    var save = U.btn("Save", "mini-btn", function () { U.send("matchReject", { asin: asin, url: c.url, reason: "other", note: box.value }, save).then(function (res) { U.say(res, said(res, "Rejected")); }); });
     noteRow.appendChild(box); noteRow.appendChild(save);
     REASONS.forEach(function (r) {
       var b = U.btn(r[1], "mini-btn pg-sm-chip", function () {
         if (r[0] === "other") { noteRow.hidden = false; box.focus(); return; }
-        U.send("matchReject", { asin: asin, url: c.url, reason: r[0], note: "" }, b).then(function (res) { U.say(res, (res && res.result && res.result.text) || "Rejected"); });
+        U.send("matchReject", { asin: asin, url: c.url, reason: r[0], note: "" }, b).then(function (res) { U.say(res, said(res, "Rejected")); });
       });
       chips.appendChild(b);
     });
@@ -68,12 +71,13 @@
     var box = U.el("div", "pg-sm-pick");
     var head = U.el("div", "small");
     head.appendChild(U.el("b", "", (SHOP[c.retailer] || c.retailer || "Store") + " "));
+    if (!c.notSource) head.appendChild(U.el("b", "pg-cp-kind pg-cp-kind-" + (c.matchKind === "upc" ? "upc" : "close"), c.matchKind === "upc" ? "UPC match" : "Close match")); // B-2221
     var a = U.el("a", "", c.title || "the listing"); a.href = c.url; a.target = "_blank"; a.rel = "noopener"; head.appendChild(a);
     box.appendChild(head);
     moneyLines(c).forEach(function (line) { box.appendChild(U.el("div", "muted small", line)); });
     if (c.reason) box.appendChild(U.el("div", "muted small", c.reason));
     var acts = U.el("div", "pg-row");
-    var ok = U.btn("Confirm", "mini-btn", function () { U.send("matchConfirm", { asin: asin, url: c.url }, ok).then(function (res) { U.say(res, (res && res.text) || "Saved"); }); });
+    var ok = U.btn("Confirm", "mini-btn", function () { U.send("matchConfirm", { asin: asin, url: c.url }, ok).then(function (res) { U.say(res, said(res, "Saved")); }); });
     var why = reasonRow(asin, c);
     var no = U.btn("Reject", "mini-btn", function () { why.hidden = !why.hidden; });
     if (!c.notSource) acts.appendChild(ok);
@@ -91,7 +95,7 @@
     if (m.status === "nokey") { w.appendChild(U.el("div", "muted small", "Auto-find needs the Anthropic key in the Settings tab.")); return w; }
     if (m.status === "none") {
       w.appendChild(U.el("div", "muted small", "No source yet" + (m.why ? " - " + m.why : "")));
-      var fa = U.btn("Find again", "mini-btn", function () { U.send("matchFindAgain", { asin: asin }, fa).then(function (res) { U.say(res, (res && res.text) || "Done"); }); });
+      var fa = U.btn("Find again", "mini-btn", function () { U.send("matchFindAgain", { asin: asin }, fa).then(function (res) { U.say(res, said(res, "Done")); }); });
       w.appendChild(fa);
       return w;
     }

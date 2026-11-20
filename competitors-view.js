@@ -8,10 +8,14 @@
   var pane = doc.getElementById("competitorsPane");
   if (!P || !pane) return;
   var U = P.ui;
-  if (typeof REMOTE_LABELS !== "undefined") Object.assign(REMOTE_LABELS, { compSeen: "Competitors: tick off", compSeenAll: "Competitors: mark all seen", compUnseen: "Competitors: take the seen mark off", compTrack: "Competitors: pin / drop / add", compRunNow: "Competitors: run now", compRerank: "Competitors: re-rank now" });
+  if (typeof REMOTE_LABELS !== "undefined") Object.assign(REMOTE_LABELS, { compSeen: "Competitors: tick off", compSeenAll: "Competitors: mark all seen", compUnseen: "Competitors: take the seen mark off", compTrack: "Competitors: pin / drop / add", compRunNow: "Competitors: run now", compLeadBar: "Competitors: leads profit bar", compRerank: "Competitors: re-rank now" });
 
   var data = null;
-  var tab = "candidates";
+  var tab = "leads"; // B-2221 (v2.0.179): Leads is the default
+  var bar = null; // the sliders' local value until it is saved (null = the saved one from the laptop)
+  var barTimer = null;
+  var KIND = { upc: "UPC match", close: "Close match" };
+  var SHOPS = { walmart: "Walmart", samsclub: "Sam's Club", target: "Target", homedepot: "Home Depot" };
   var pick = "";
   var sig = "";
   var f = {};
@@ -32,7 +36,13 @@
     main.appendChild(t);
     main.appendChild(U.el("div", "muted small", [it.asin, "rank " + nz(it.rank), money(it.price), "sold/mo " + nz(it.sold), "offers " + nz(it.offers), it.amazon ? "Amazon on listing" : "", "first seen " + it.firstSeen, "from " + (it.sellers || []).map(label).join(", ")].filter(Boolean).join(" · ")));
     if (it.verdict === "filtered") main.appendChild(U.el("div", "small pg-cp-why", "Filtered: " + it.reason));
-    if (it.tags && it.tags.length) main.appendChild(U.el("div", "muted small", it.tags.join(" · ")));
+    if (it.tags && it.tags.length) main.appendChild(U.el("div", "muted small", it.tags.join(" \u00b7 ")));
+    if (it.leadInfo) { // B-2221: the Leads verdict, at the lower of Buy Box / lowest FBA
+      var li = U.el("div", "small pg-cp-leadline");
+      li.appendChild(U.el("b", "pg-cp-kind pg-cp-kind-" + (it.leadInfo.matchKind === "upc" ? "upc" : "close"), KIND[it.leadInfo.matchKind === "upc" ? "upc" : "close"]));
+      li.appendChild(doc.createTextNode(" " + (SHOPS[it.leadInfo.retailer] || it.leadInfo.retailer) + " \u00b7 ROI " + it.leadInfo.roi + "% \u00b7 profit " + money(it.leadInfo.profit) + " \u00b7 cost " + money(it.leadInfo.cost) + " per item"));
+      main.appendChild(li);
+    }
     if (it.lead) main.appendChild(U.el("div", "muted small", "Tracked as a lead")); // B-2103
     { var mb = root.ShopperMatchBlock ? root.ShopperMatchBlock.block(it.asin, it.match) : null; if (mb) main.appendChild(mb); } // B-2108: the auto-found source
     var links = U.el("div", "pg-cp-links small");
@@ -63,6 +73,69 @@
     var s = U.section(title + " (" + items.length + ")");
     if (!items.length) s.appendChild(U.el("p", "muted small", empty));
     items.forEach(function (it) { s.appendChild(row(it, showSeen)); });
+    return s;
+  }
+
+  // B-2221: the same rule as lib/comp-leads-filter.js leadPasses (a test runs both over a grid)
+  function leadPasses(info, b) { return !!info && isFinite(info.roi) && isFinite(info.profit) && info.roi >= b.minRoi && info.profit >= b.minProfit; }
+  function barNow() {
+    var b = bar || (data && data.leads && data.leads.bar) || { minRoi: 20, minProfit: 0 };
+    return { minRoi: Number(b.minRoi) >= 0 ? Number(b.minRoi) : 20, minProfit: Number(b.minProfit) >= 0 ? Number(b.minProfit) : 0 };
+  }
+  function visibleLeads() { var b = barNow(); return ((data.leads && data.leads.rows) || []).filter(function (r) { return leadPasses(r.leadInfo, b); }); }
+  function saveBar() {
+    var mine = barNow();
+    if (barTimer) clearTimeout(barTimer);
+    barTimer = setTimeout(function () {
+      barTimer = null;
+      U.send("compLeadBar", { minRoi: mine.minRoi, minProfit: mine.minProfit }).then(function (res) {
+        if (res && res.ok) { if (data && data.leads) data.leads.bar = mine; if (bar && bar.minRoi === mine.minRoi && bar.minProfit === mine.minProfit) bar = null; } else U.say(res, "");
+      });
+    }, 500);
+  }
+  function slider(name, min, max, step, value, fmt, set) {
+    var box = U.el("label", "pg-cp-slider");
+    var head = U.el("div", "pg-cp-slider-head small");
+    head.appendChild(U.el("span", "", name));
+    var val = U.el("b", "", fmt(value)); head.appendChild(val);
+    var inp = U.input("range", { min: String(min), max: String(max), step: String(step), "aria-label": name });
+    inp.value = String(value);
+    inp.addEventListener("input", function () { var v = Number(inp.value); val.textContent = fmt(v); set(v); });
+    box.appendChild(head); box.appendChild(inp);
+    return box;
+  }
+  function leadsTab() {
+    var s = U.section("Leads");
+    var L = data.leads || { rows: [], hiddenGating: 0 };
+    s.appendChild(U.el("p", "muted small", "Ungated, with a source at Walmart / Sam's Club / Target / Home Depot that makes this profit at the LOWER of the Buy Box and the lowest FBA price. Close matches first."));
+    var b0 = barNow();
+    var cur = { minRoi: b0.minRoi, minProfit: b0.minProfit };
+    var count = U.el("p", "muted small");
+    var holder = U.el("div", "");
+    var tabBtn = null;
+    function fill() {
+      var rows = visibleLeads();
+      count.textContent = rows.length + " of " + (L.rows || []).length + " leads at this bar";
+      holder.textContent = "";
+      if (!rows.length) holder.appendChild(U.el("p", "muted small", (L.rows || []).length ? "No leads at this bar - slide it down to see more." : "No leads yet - see Waiting for a source."));
+      rows.forEach(function (it) { holder.appendChild(row(it, true)); });
+      if (tabBtn) tabBtn.textContent = "Leads" + (rows.length ? " (" + rows.length + ")" : "");
+    }
+    s.appendChild(slider("Minimum ROI", 0, 100, 5, cur.minRoi, function (v) { return v + "%"; }, function (v) { cur.minRoi = v; bar = { minRoi: cur.minRoi, minProfit: cur.minProfit }; fill(); saveBar(); }));
+    s.appendChild(slider("Minimum profit per item", 0, 10, 0.5, cur.minProfit, function (v) { return "$" + Number(v).toFixed(2); }, function (v) { cur.minProfit = v; bar = { minRoi: cur.minRoi, minProfit: cur.minProfit }; fill(); saveBar(); }));
+    s.appendChild(count);
+    if (L.hiddenGating) s.appendChild(U.el("p", "muted small", L.hiddenGating + " more are hidden: Amazon would not say whether you are gated."));
+    s.appendChild(holder);
+    tabBtn = pane.querySelector("[data-leads-tab]");
+    fill();
+    return s;
+  }
+  function waitingTab() {
+    var W = data.waiting || { rows: [], count: 0 };
+    var s = U.section("Waiting for a source (" + W.count + ")");
+    s.appendChild(U.el("p", "muted small", W.count + " waiting for a source match. Shopper looks overnight (1-5 AM Central), best score first, up to 50 a day."));
+    if (!(W.rows || []).length) s.appendChild(U.el("p", "muted small", "Nothing is waiting for a source match."));
+    (W.rows || []).forEach(function (it) { s.appendChild(row(it, true)); });
     return s;
   }
 
@@ -154,14 +227,17 @@
     runRow.appendChild(rb); runRow.appendChild(rr); head.appendChild(runRow);
     if (st.role403) head.appendChild(U.el("p", "small pg-cp-why", "Amazon refused the daily offer read - the SP-API app needs the Pricing role."));
     var tabs = U.el("div", "pg-row");
-    [["candidates", "Candidates"], ["sellers", "Sellers"], ["all", "All new"]].forEach(function (t) {
-      var n = data.counts ? (t[0] === "candidates" ? data.counts.candidates : t[0] === "all" ? data.counts.all : 0) : 0;
+    [["leads", "Leads"], ["waiting", "Waiting"], ["candidates", "Candidates"], ["sellers", "Sellers"], ["all", "All new"]].forEach(function (t) {
+      var n = t[0] === "leads" ? visibleLeads().length : t[0] === "waiting" ? (data.waiting ? data.waiting.count : 0) : data.counts ? (t[0] === "candidates" ? data.counts.candidates : t[0] === "all" ? data.counts.all : 0) : 0;
       var b = U.btn(t[1] + (n > 0 ? " (" + n + ")" : ""), tab === t[0] ? "primary-btn" : "mini-btn", function () { tab = t[0]; draw(); });
+      if (t[0] === "leads") b.setAttribute("data-leads-tab", "1");
       tabs.appendChild(b);
     });
     head.appendChild(tabs);
     pane.appendChild(head);
-    if (tab === "sellers") pane.appendChild(sellersTab());
+    if (tab === "leads") pane.appendChild(leadsTab());
+    else if (tab === "waiting") pane.appendChild(waitingTab());
+    else if (tab === "sellers") pane.appendChild(sellersTab());
     else if (tab === "all") pane.appendChild(allTab());
     else {
       var c = data.candidates || { today: [], older: [] };

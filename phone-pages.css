@@ -32,6 +32,14 @@
 .pg-cp-links { display: flex; gap: 14px; }
 .pg-cp-links a { color: var(--s-accent); font-weight: 700; min-height: 32px; display: inline-flex; align-items: center; }
 .pg-cp-multi { color: var(--s-accent); }
+/* B-2221 (v2.0.179): the Leads sliders, the lead line, the UPC / Close match tag */
+.pg-cp-slider { display: flex; flex-direction: column; gap: 4px; margin: 6px 0 10px; min-width: 0; }
+.pg-cp-slider-head { display: flex; justify-content: space-between; gap: 8px; }
+.pg-cp-slider input[type="range"] { width: 100%; box-sizing: border-box; margin: 0; min-height: 36px; accent-color: var(--s-accent); }
+.pg-cp-leadline { overflow-wrap: anywhere; }
+.pg-cp-kind { display: inline-block; border-radius: var(--s-r-pill); padding: 1px 8px; font-size: 12px; white-space: nowrap; margin-right: 4px; }
+.pg-cp-kind-close { background: var(--s-accent); color: var(--s-on-accent); }
+.pg-cp-kind-upc { background: var(--s-line-soft); color: var(--s-text-2); }
 .pg-cp-prog { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
 .pg-cp-prog-step { font-weight: 700; overflow-wrap: anywhere; }
 .pg-cp-prog-track { height: 10px; background: var(--s-line-soft); border-radius: var(--s-r-pill); overflow: hidden; }
