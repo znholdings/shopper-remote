@@ -9,7 +9,7 @@
   if (!P || !P.ui) return;
   var U = P.ui;
   var doc = root.document;
-  if (typeof REMOTE_LABELS !== "undefined") Object.assign(REMOTE_LABELS, { matchConfirm: "Source: confirm", matchReject: "Source: reject", matchFindAgain: "Source: find again" });
+  if (typeof REMOTE_LABELS !== "undefined") Object.assign(REMOTE_LABELS, { matchConfirm: "Source: confirm", matchReject: "Source: reject", matchUndo: "Source: undo confirm", matchFindAgain: "Source: find again" });
   var SHOP = { walmart: "Walmart", samsclub: "Sam's Club", target: "Target", homedepot: "Home Depot" };
   function money(v) { return v == null ? "-" : "$" + Number(v).toFixed(2); }
   function packWords(c) {
@@ -19,6 +19,23 @@
   var REASONS = [["different_product", "Different product"], ["wrong_size", "Wrong size / count"], ["wrong_variant", "Wrong flavor / scent / variant"], ["packaging", "Packaging too different"], ["third_party", "Not sold by the store (3rd party)"], ["price_wrong", "Price wrong"], ["out_of_stock", "Out of stock / limited"], ["other", "Other"]];
   // B-2225: the laptop handler's answer is in res.result (pages-view send() -> { ok, started, reason, result }) - one reader for every toast
   function said(res, dflt) { return (res && res.result && res.result.text) || dflt; }
+  // B-2238: the size check in plain words (the same words as sourcing/source-match-block.js; c.size undefined = an old row, drawn as before; null = not checked yet)
+  function unitWords(a) { return !a ? "" : a.unit === "ct" ? "" : " " + a.unit; }
+  function sizeFail(z) {
+    if (!z) return "Size not checked yet";
+    if (z.reason === "split-pack") return "Would need to open packs";
+    if (z.reason === "unit-mismatch") return "Sizes cannot be compared";
+    if (z.reason === "too-small") return "Too small: " + (z.have ? z.have.n : "?") + unitWords(z.have) + " vs " + (z.need ? z.need.n : "?") + unitWords(z.need);
+    return "Size not checked";
+  }
+  function planWords(c) {
+    var z = c && c.size;
+    if (!z || !z.ok) return "";
+    var v = c.bestVariant && z.variant ? c.bestVariant : null;
+    var cost = (v || c).cost;
+    var k = Number(z.k) || 1;
+    return "buy " + k + " \u00d7 " + (z.label || "package") + (z.have && z.need ? " = " + z.have.n + " for " + z.need.n + unitWords(z.need) : "") + (cost != null ? " \u00b7 " + money(cost) + " per Amazon unit" : "") + (k > 6 ? " \u00b7 " + k + " packages per unit" : "");
+  }
   function pct(v) { return v == null ? "-" : v + "%"; }
   function priceLine(name, price, profit, roi, margin, note, feesNote) {
     if (price == null) return name + ": " + (note || "-");
@@ -29,6 +46,11 @@
     var v = c && c.bestVariant ? c.bestVariant : null;
     var e = v || c;
     var out = [];
+    if (c && !c.notSource && c.size !== undefined && !(c.size && c.size.ok)) {
+      out.push(sizeFail(c.size));
+      if (c.tags && c.tags.length) out.push(c.tags.join(" \u00b7 "));
+      return out;
+    }
     if (c && c.notSource) {
       out.push(c.notSource);
       if (c.price != null) out.push("page price " + money(c.price));
@@ -38,13 +60,15 @@
       out.push("price not read yet");
       var pk0 = packWords(c); if (pk0) out.push(pk0);
     } else {
-      if (v) out.push(v.label + " at " + money(v.price) + " = " + money(v.perPiece) + " each (cheaper than the single)");
-      var pk = v ? "" : packWords(c);
+      var planned = c.size !== undefined && c.size && c.size.ok;
+      if (planned) out.push(planWords(c));
+      else if (v) out.push(v.label + " at " + money(v.price) + " = " + money(v.perPiece) + " each (cheaper than the single)");
+      var pk = v || planned ? "" : packWords(c);
       out.push("cost per item you sell " + money(e.cost) + (pk ? " \u00b7 " + pk : ""));
       out.push(priceLine("Buy Box", e.bbPrice, e.profitBb, e.roiBb, e.marginBb, c.bbNote, c.feesNote));
       out.push(priceLine("Lowest FBA", e.fbaPrice, e.profitFba, e.roiFba, e.marginFba, c.fbaNote, c.feesNote));
       if (v) out.push("the single on this listing: cost " + money(c.cost) + " \u00b7 ROI " + pct(c.roiBb != null ? c.roiBb : c.roiFba));
-      if (v) out.push("Confirm saves this listing; choose the " + v.label + " on the first buy"); // B-2230: the URL opens on the single
+      if (v) out.push(planned ? "Pick the " + v.label + " on the store page - the link opens on another size" : "Confirm saves this listing; choose the " + v.label + " on the first buy"); // B-2230: the URL opens on the single
     }
     if (c && c.tags && c.tags.length) out.push(c.tags.join(" \u00b7 "));
     return out;
@@ -71,16 +95,21 @@
     var box = U.el("div", "pg-sm-pick");
     var head = U.el("div", "small");
     head.appendChild(U.el("b", "", (SHOP[c.retailer] || c.retailer || "Store") + " "));
+    if (c.confirmed) head.appendChild(U.el("b", "pg-cp-kind pg-sm-confirmed", "Confirmed")); // B-2240
     if (!c.notSource) head.appendChild(U.el("b", "pg-cp-kind pg-cp-kind-" + (c.matchKind === "upc" ? "upc" : "close"), c.matchKind === "upc" ? "UPC match" : "Close match")); // B-2221
     var a = U.el("a", "", c.title || "the listing"); a.href = c.url; a.target = "_blank"; a.rel = "noopener"; head.appendChild(a);
     box.appendChild(head);
-    moneyLines(c).forEach(function (line) { box.appendChild(U.el("div", "muted small", line)); });
+    var scen = root.ShopperLeadBand ? root.ShopperLeadBand.scenarioTable(c) : null; // B-2242: Buy Box / Lowest FBA as a 5-column table (both rows always)
+    moneyLines(c).filter(function (line) { var planned = c.size !== undefined && c.size && c.size.ok; return (!scen || !/^(Buy Box|Lowest FBA)\b/.test(line)) && !(scen && planned && /^cost per item you sell/.test(line)); }).forEach(function (line) { box.appendChild(U.el("div", "muted small", line)); });
+    if (scen) box.appendChild(scen);
     if (c.reason) box.appendChild(U.el("div", "muted small", c.reason));
     var acts = U.el("div", "pg-row");
     var ok = U.btn("Confirm", "mini-btn", function () { U.send("matchConfirm", { asin: asin, url: c.url }, ok).then(function (res) { U.say(res, said(res, "Saved")); }); });
     var why = reasonRow(asin, c);
     var no = U.btn("Reject", "mini-btn", function () { why.hidden = !why.hidden; });
-    if (!c.notSource) acts.appendChild(ok);
+    var undo = U.btn("Undo", "mini-btn", function () { U.send("matchUndo", { asin: asin }, undo).then(function (res) { U.say(res, said(res, "Undone")); }); }); // B-2240: Confirm becomes Undo
+    if (c.confirmed) acts.appendChild(undo);
+    else if (!c.notSource && (c.size === undefined || (c.size && c.size.ok))) acts.appendChild(ok); // B-2238: a pick that failed the size check has no Confirm
     acts.appendChild(no);
     box.appendChild(acts);
     box.appendChild(why);

@@ -40,6 +40,7 @@
 .pg-cp-kind { display: inline-block; border-radius: var(--s-r-pill); padding: 1px 8px; font-size: 12px; white-space: nowrap; margin-right: 4px; }
 .pg-cp-kind-close { background: var(--s-accent); color: var(--s-on-accent); }
 .pg-cp-kind-upc { background: var(--s-line-soft); color: var(--s-text-2); }
+.pg-sm-confirmed { background: var(--s-surface); color: var(--s-green-ink, var(--s-accent)); border: 1px solid var(--s-green-ink, var(--s-accent)); } /* B-2240 */
 .pg-cp-prog { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
 .pg-cp-prog-step { font-weight: 700; overflow-wrap: anywhere; }
 .pg-cp-prog-track { height: 10px; background: var(--s-line-soft); border-radius: var(--s-r-pill); overflow: hidden; }
@@ -53,4 +54,41 @@
 .pg-sm-chips { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
 .pg-sm-chip { white-space: normal; text-align: left; max-width: 100%; }
 .pg-sm-why .pg-input { flex: 1 1 10rem; min-width: 0; max-width: 100%; }
+/* B-2242 (v2.0.182): the phone Leads band (Source / Cost / Profit / Margin % + ROI bars / Sold) and the Buy Box / Lowest FBA table. Tokens only. */
+.pg-lt-band { display: grid; grid-template-columns: repeat(auto-fit, minmax(6rem, 1fr)); gap: 6px 10px; min-width: 0; padding: 4px 0; }
+.pg-lt-cell { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pg-lt-label { font-size: 12px; color: var(--s-text-muted); }
+.pg-lt-val, .pg-lt-pct { font-weight: 700; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.pg-lt-metric { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.pg-lt-track { height: 6px; border-radius: var(--s-r-pill); background: var(--s-line-soft); overflow: hidden; width: 100%; }
+.pg-lt-fill { height: 100%; border-radius: var(--s-r-pill); background: var(--s-accent); }
+.pg-lt-scen { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 13px; margin-top: 4px; }
+.pg-lt-scen th, .pg-lt-scen td { padding: 2px 3px; text-align: left; font-weight: 400; overflow-wrap: anywhere; }
+.pg-lt-scen thead th { font-size: 12px; color: var(--s-text-muted); font-weight: 600; border-bottom: 1px solid var(--s-line-soft); }
+.pg-lt-scen tbody th { font-weight: 600; }
+.pg-lt-scen .num { text-align: right; font-variant-numeric: tabular-nums; }
+.pg-lt-scen td.num { font-weight: 600; }
+.pg-lt-note { color: var(--s-text-muted); }
+/* B-2242 phone layout fix: band, scenario table and match block span the card width; the SEEN button only sits beside the title. */
+.pg-cp-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 10px; row-gap: 0; align-items: start; }
+.pg-cp-main { display: contents; }
+.pg-cp-main > * { grid-column: 1 / -1; min-width: 0; }
+.pg-cp-main > :nth-child(-n+2) { grid-column: 1; }
+.pg-cp-row > button { grid-column: 2; grid-row: 1 / span 2; }
+.pg-lt-band { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px 8px; }
+.pg-lt-label { font-size: var(--s-t1, 11px); }
+.pg-lt-val, .pg-lt-pct { font-size: 13px; white-space: nowrap; }
+.pg-lt-scen { font-size: var(--s-t1, 12px); }
+.pg-lt-scen th, .pg-lt-scen td { white-space: nowrap; overflow-wrap: normal; padding: 2px 2px; }
+.pg-lt-scen thead th { font-size: 11px; }
+.pg-lt-scen th:first-child { width: 27%; }
+.pg-lt-scen td.pg-lt-note { white-space: normal; overflow-wrap: anywhere; }
+.pg-sm-block { align-self: stretch; }
+:root[data-theme] .pg-lt-scen th, :root[data-theme] .pg-lt-scen td { padding: 2px 1px; white-space: nowrap !important; letter-spacing: 0; }
+:root[data-theme] .pg-lt-scen td.pg-lt-note { white-space: normal !important; }
+:root[data-theme] .pg-lt-scen thead th { font-size: 8px !important; line-height: 1.3 !important; }
+:root[data-theme] .pg-lt-scen td { font-size: 10.5px !important; letter-spacing: -.2px; }
+:root[data-theme] .pg-lt-scen tbody th { font-size: 9px !important; white-space: normal !important; overflow-wrap: anywhere; }
+.pg-lt-scen th:first-child { width: 22%; }
+.pg-sm-block { padding: 6px 4px 6px 6px; }
 [hidden] { display: none !important; }

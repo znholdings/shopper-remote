@@ -71,7 +71,7 @@
     if (r.inCatalog) tags.push("now in your catalog");
     if (r.sentAt) tags.push("On buylist ×" + (r.sentQty || "?"));
     c.appendChild(U.el("div", "muted small", tags.join(" · ")));
-    { var mb = !r.url && root.ShopperMatchBlock ? root.ShopperMatchBlock.block(r.asin, r.match) : null; if (mb) c.appendChild(mb); } // B-2108: no link yet -> what Auto-find sources found
+    { var mb = (!r.url || r.plan) && root.ShopperMatchBlock ? root.ShopperMatchBlock.block(r.asin, r.match) : null; if (mb) c.appendChild(mb); } // B-2108: no link yet -> what Auto-find sources found
     cells(r).forEach(function (line) { c.appendChild(U.el("div", "small", line)); });
     var links = U.el("div", "pg-cp-links small");
     links.appendChild(link("A", "https://www.amazon.com/dp/" + r.asin));

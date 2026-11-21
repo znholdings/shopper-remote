@@ -37,11 +37,11 @@
     main.appendChild(U.el("div", "muted small", [it.asin, "rank " + nz(it.rank), money(it.price), "sold/mo " + nz(it.sold), "offers " + nz(it.offers), it.amazon ? "Amazon on listing" : "", "first seen " + it.firstSeen, "from " + (it.sellers || []).map(label).join(", ")].filter(Boolean).join(" · ")));
     if (it.verdict === "filtered") main.appendChild(U.el("div", "small pg-cp-why", "Filtered: " + it.reason));
     if (it.tags && it.tags.length) main.appendChild(U.el("div", "muted small", it.tags.join(" \u00b7 ")));
-    if (it.leadInfo) { // B-2221: the Leads verdict, at the lower of Buy Box / lowest FBA
+    if (it.leadInfo) { // B-2221 / B-2242: the Leads band (Source, cost, profit, Margin % and ROI bars, sold/mo) - the lower of Buy Box / lowest FBA
       var li = U.el("div", "small pg-cp-leadline");
       li.appendChild(U.el("b", "pg-cp-kind pg-cp-kind-" + (it.leadInfo.matchKind === "upc" ? "upc" : "close"), KIND[it.leadInfo.matchKind === "upc" ? "upc" : "close"]));
-      li.appendChild(doc.createTextNode(" " + (SHOPS[it.leadInfo.retailer] || it.leadInfo.retailer) + " \u00b7 ROI " + it.leadInfo.roi + "% \u00b7 profit " + money(it.leadInfo.profit) + " \u00b7 cost " + money(it.leadInfo.cost) + " per item"));
       main.appendChild(li);
+      if (root.ShopperLeadBand) main.appendChild(root.ShopperLeadBand.band(it.leadInfo, it.sold));
     }
     if (it.lead) main.appendChild(U.el("div", "muted small", "Tracked as a lead")); // B-2103
     { var mb = root.ShopperMatchBlock ? root.ShopperMatchBlock.block(it.asin, it.match) : null; if (mb) main.appendChild(mb); } // B-2108: the auto-found source
@@ -51,6 +51,8 @@
     links.appendChild(link("G", "https://www.google.com/search?q=" + encodeURIComponent(String(it.title || it.asin).slice(0, 120))));
     if (!it.lead) { // B-2103: "+" = track this as a lead (asks for the Source URL)
       var plus = U.btn("+", "mini-btn", function () {
+        var cu = it.match && it.match.confirmed && it.match.confirmed.url; // B-2240: + carries the confirmed source (no link to type)
+        if (cu) { U.send("leadsAdd", { asin: it.asin, url: cu, origin: "comp" }, plus).then(function (res) { U.say(res, "Tracked"); }); return; }
         var u = root.prompt ? root.prompt("Source URL for " + it.asin + " (the store page)") : "";
         if (!u || !String(u).trim()) return;
         U.send("leadsAdd", { asin: it.asin, url: String(u).trim(), origin: "comp" }, plus).then(function (res) { U.say(res, "Tracked"); });
@@ -124,6 +126,7 @@
     s.appendChild(slider("Minimum ROI", 0, 100, 5, cur.minRoi, function (v) { return v + "%"; }, function (v) { cur.minRoi = v; bar = { minRoi: cur.minRoi, minProfit: cur.minProfit }; fill(); saveBar(); }));
     s.appendChild(slider("Minimum profit per item", 0, 10, 0.5, cur.minProfit, function (v) { return "$" + Number(v).toFixed(2); }, function (v) { cur.minProfit = v; bar = { minRoi: cur.minRoi, minProfit: cur.minProfit }; fill(); saveBar(); }));
     s.appendChild(count);
+    if (L.sizeWaiting) s.appendChild(U.el("p", "muted small", L.sizeWaiting + " waiting for a size check.")); // B-2238
     if (L.hiddenGating) s.appendChild(U.el("p", "muted small", L.hiddenGating + " more are hidden: Amazon would not say whether you are gated. Shopper asks Amazon again each morning (up to 100 a day)."));
     s.appendChild(holder);
     tabBtn = pane.querySelector("[data-leads-tab]");
