@@ -133,7 +133,7 @@
   function waitingTab() {
     var W = data.waiting || { rows: [], count: 0 };
     var s = U.section("Waiting for a source (" + W.count + ")");
-    s.appendChild(U.el("p", "muted small", W.count + " waiting for a source match. Shopper looks overnight (1-5 AM Central), best score first, up to 50 a day."));
+    s.appendChild(U.el("p", "muted small", W.count + " waiting for a source match. Shopper looks 7 AM - 12 PM Central (and finishes the day's list if it runs over), best score first, up to 50 a day."));
     if (!(W.rows || []).length) s.appendChild(U.el("p", "muted small", "Nothing is waiting for a source match."));
     (W.rows || []).forEach(function (it) { s.appendChild(row(it, true)); });
     return s;

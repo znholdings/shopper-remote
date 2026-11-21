@@ -108,7 +108,7 @@
   function addBox() {
     var s = U.section("Add a lead");
     f.asin = U.input("text", { placeholder: "ASIN (B0...)", autocapitalize: "characters", maxlength: "10" });
-    f.url = U.input("url", { placeholder: "Source URL (or leave empty - Shopper looks overnight)" });
+    f.url = U.input("url", { placeholder: "Source URL (or leave empty - Shopper looks in the morning)" });
     f.cost = U.input("text", { placeholder: "Cost per item (optional)", inputmode: "decimal" });
     f.sale = U.input("text", { placeholder: "Desired Sale Price (optional)", inputmode: "decimal" }); // B-2135
     s.appendChild(U.field("ASIN", f.asin)); s.appendChild(U.field("Source URL", f.url)); s.appendChild(U.field("Cost (only if the page can't be read)", f.cost)); s.appendChild(U.field("Desired Sale Price (optional)", f.sale));
