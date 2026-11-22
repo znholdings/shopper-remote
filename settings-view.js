@@ -127,7 +127,17 @@
       const entries = { ...got.entries };
       const base = entries[key] ? entries[key].v : null;
       let next;
-      if (spec.pair) next = { goal: val, setAt: t };
+      if (typeof ctl.mutate === "function") {
+        // B-2249 review: the change is applied to the row as read just now (never to the last poll), then checked like a computer would
+        next = isObj(base) ? clone(base) : {};
+        const refused = ctl.mutate(next);
+        const norm = spec.key === VACATION && !refused ? SPEC.normalizeVacationSetting(next) : { ok: !refused, reason: refused };
+        if (!norm.ok) {
+          notes[key] = { text: `Not saved - ${norm.reason}`, at: Date.now(), bad: true };
+          return draw(true);
+        }
+        if (norm.value) next = norm.value;
+      } else if (spec.pair) next = { goal: val, setAt: t };
       else if (!ctl.path) next = val;
       else {
         next = isObj(base) ? clone(base) : {};
@@ -186,8 +196,15 @@
       input.type = "date";
       input.value = typeof cur === "string" ? cur : "";
       input.addEventListener("change", () => {
-        if (/^\d{4}-\d{2}-\d{2}$/.test(input.value)) save(spec, ctl, input.value);
+        if (/^\d{4}-\d{2}-\d{2}$/.test(input.value)) {
+          if (spec.key === VACATION) saveVacation(spec, (cand) => { cand[ctl.path] = input.value; });
+          else save(spec, ctl, input.value);
+        } else if (spec.key === VACATION && input.value === "" && ctl.path === "latestDate") {
+          saveVacation(spec, (cand) => { cand.latestDate = ""; }); // clearing the latest day = no range (the earliest day alone)
+        }
       });
+    } else if (kind === "dayChips") {
+      input = dayChips(spec);
     } else {
       input = el("input", "stg-input");
       input.type = "number";
@@ -211,6 +228,47 @@
     input.setAttribute("aria-label", ctl.label || spec.label);
     if (!row || !row.exists) input.disabled = true;
     return input;
+  }
+
+  // B-2249 (v2.0.188): Walmart vacation mode's range on the phone. Every change goes through the same check the computers run
+  // (lib/walmart-vacation-days.js normalizeVacationSetting, in settings-lib.js) so the phone never saves what a computer would refuse,
+  // and what it saves is already cleaned (skip days outside the range dropped).
+  const VACATION = "shopperWalmartVacation";
+  // mutate(value) changes the fresh value in place and may return a refusal text.
+  function saveVacation(spec, mutate) {
+    return save(spec, { path: "", mutate }, undefined);
+  }
+  function dayChips(spec) {
+    const wrap = el("div", "stg-chips");
+    const cur = entryValue(spec);
+    const range = SPEC.vacationRange(isObj(cur) ? cur : {});
+    if (!range.days.length) {
+      wrap.appendChild(el("span", "muted small", range.noDate ? "Pick the earliest day first." : "The range is longer than 14 days - shorten it."));
+      return wrap;
+    }
+    const skipped = new Set(range.skipDates);
+    for (const d of range.days) {
+      const b = el("button", "stg-chip" + (skipped.has(d) ? " is-skipped" : ""), SPEC.dayWithWeekday(d));
+      b.type = "button";
+      b.setAttribute("aria-pressed", skipped.has(d) ? "true" : "false");
+      b.setAttribute("aria-label", `${SPEC.dayWithWeekday(d)}${skipped.has(d) ? " - skipped, tap to use it" : " - tap to skip it"}`);
+      b.addEventListener("click", () => {
+        saveVacation(spec, (cand) => {
+          // toggled on the FRESH row's range and skips, not on what this page last drew
+          const fresh = SPEC.vacationRange(cand);
+          if (!fresh.days.includes(d)) return "the range changed - look again";
+          const next = new Set(fresh.skipDates);
+          if (next.has(d)) next.delete(d);
+          else next.add(d);
+          if (next.size >= fresh.days.length) return "keep at least one day - every day in the range is skipped";
+          cand.skipDates = fresh.days.filter((x) => next.has(x));
+          return undefined;
+        });
+      });
+      if (!row || !row.exists) b.disabled = true;
+      wrap.appendChild(b);
+    }
+    return wrap;
   }
 
   function controlsOf(spec) {
@@ -257,11 +315,14 @@
           const c = control(spec, ctl);
           if (c.id === "") c.id = "stg_" + spec.key + (ctl.path ? "_" + ctl.path.replace(/\./g, "_") : "");
           lab.htmlFor = c.id;
+          if ((ctl.kind || spec.kind) === "dayChips") r.classList.add("stg-row-chips");
           r.appendChild(lab);
           r.appendChild(c);
           card.appendChild(r);
           if (spec.note && !ctl.path) card.appendChild(el("p", "muted small stg-note", spec.note));
         }
+        // B-2249 / B-2251: what the vacation setting means right now (the computers' own sentence; the "last seen" day lives on the computer that buys).
+        if (spec.key === VACATION) card.appendChild(el("p", "small muted stg-vac-status", SPEC.vacationStatusLine(entryValue(spec), Date.now(), null)));
         const n = notes[spec.key];
         const e = row && row.entries[spec.key];
         let text = n ? n.text : "";
