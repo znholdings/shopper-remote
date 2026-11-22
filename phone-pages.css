@@ -91,4 +91,7 @@
 :root[data-theme] .pg-lt-scen tbody th { font-size: 9px !important; white-space: normal !important; overflow-wrap: anywhere; }
 .pg-lt-scen th:first-child { width: 22%; }
 .pg-sm-block { padding: 6px 4px 6px 6px; }
+/* B-2245 (v2.0.184): Tracked Leads cards use the same band + table; meta / facts lines wrap, the table spans the card. */
+.pg-ld-meta, .pg-ld-facts { overflow-wrap: anywhere; min-width: 0; }
+.pg-ld-row .pg-lt-scen { margin: 4px 0; }
 [hidden] { display: none !important; }

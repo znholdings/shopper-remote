@@ -42,22 +42,33 @@
     }).sort(CMP[sort] || CMP.score);
   }
 
-  function cells(r) {
+  // B-2245: the meta line (same bits as the desktop table: ASIN, rank, offers, FBA/FBM, Amazon, gated, tags, Blacklist, catalog, On buylist)
+  function metaBits(r) {
     var t = function (x) { return x ? x.text : "-"; };
-    var src = r.srcChange ? (r.srcChange.delta === 0 ? "same" : (r.srcChange.delta > 0 ? "▲ " : "▼ ") + money(Math.abs(r.srcChange.delta)) + " (" + r.srcChange.pct + "%)") : "-";
-    var out = [
-      "Cost " + money(r.cost) + (r.costTyped ? " (typed)" : r.packNote ? " (" + r.packNote + ")" : ""),
-      "Buy Box " + money(r.bb) + " · lowest FBA " + money(r.lowFba),
-      "At Buy Box: ROI " + pct(r.roiBB) + " · margin " + pct(r.marginBB),
-      "At lowest FBA: ROI " + pct(r.roiFBA) + " · margin " + pct(r.marginFBA),
-      "Profit per item " + money(r.netProfit) + " · sales/mo " + nz(r.sold) + (r.share != null ? " (about " + r.share + " to you, rough)" : ""),
-      "Offers " + nz(r.offers) + " · 15 days " + t(r.offersTrend15) + " · 30 days " + t(r.offersTrend30) + " · FBA " + nz(r.fbaCount) + " / FBM " + nz(r.fbmCount),
-      "Amazon on listing: " + (r.amazon == null ? "-" : r.amazon ? "yes" : "no") + " · gated: " + (r.gated == null ? "-" : r.gated ? "yes" : "no"),
-      "Rank " + nz(r.bsr) + (r.bsrChange30 == null ? "" : r.bsrChange30 > 0 ? " (30 days: " + r.bsrChange30 + "% worse)" : r.bsrChange30 < 0 ? " (30 days: " + (-r.bsrChange30) + "% better)" : " (30 days: same)"),
-      "Buy Box 90-day average " + money(r.bbAvg90) + " · source price since tracked " + src
-    ];
-    if (r.salePrice != null) out.splice(5, 0, "At your price " + money(r.salePrice) + ": profit " + money(r.profitSP) + " · ROI " + pct(r.roiSP)); // B-2135: after the Profit per item line
-    return out;
+    var bits = [r.asin];
+    if (r.bsr != null) bits.push("rank " + r.bsr + (r.bsrChange30 == null ? "" : r.bsrChange30 > 0 ? " (30 days: " + r.bsrChange30 + "% worse)" : r.bsrChange30 < 0 ? " (30 days: " + (-r.bsrChange30) + "% better)" : " (30 days: same)"));
+    if (r.offers != null) bits.push("offers " + r.offers + " (15 days " + t(r.offersTrend15) + " · 30 days " + t(r.offersTrend30) + ")");
+    if (r.fbaCount != null || r.fbmCount != null) bits.push("FBA " + nz(r.fbaCount) + " / FBM " + nz(r.fbmCount));
+    if (r.amazon) bits.push("Amazon on listing" + (r.amazonShare != null ? " (wins " + r.amazonShare + "% of the Buy Box)" : ""));
+    bits.push(r.gated === true ? "gated" : r.gated === false ? "ungated" : "gating unknown");
+    (r.tags || []).forEach(function (x) { bits.push(x); });
+    if (r.blocked) bits.push("on your Blacklist");
+    if (r.inCatalog) bits.push("now in your catalog");
+    if (r.sentAt) bits.push("On buylist ×" + (r.sentQty || "?"));
+    return bits;
+  }
+  function factsLine(r) {
+    var out = [];
+    if (r.costTyped || r.packNote) out.push("cost " + (r.costTyped ? "typed by you" : r.packNote));
+    if (r.srcChange) out.push("source price since tracked " + (r.srcChange.delta === 0 ? "same" : (r.srcChange.delta > 0 ? "▲ " : "▼ ") + money(Math.abs(r.srcChange.delta)) + " (" + r.srcChange.pct + "%)") + ", was " + money(r.srcChange.was));
+    if (r.bbAvg90 != null || r.bbAvg30 != null) out.push("Buy Box 90-day average " + money(r.bbAvg90) + (r.bbAvg30 != null ? " · 30-day " + money(r.bbAvg30) : ""));
+    return out.join(" · ");
+  }
+  function scenRows(r) {
+    var noCost = r.cost == null ? "cost not read yet" : null;
+    var rows = [{ name: "Buy Box", price: r.bb, profit: r.profitBB, roi: r.roiBB, margin: r.marginBB, feesNote: noCost }, { name: "Lowest FBA", price: r.lowFba, profit: r.profitFBA, roi: r.roiFBA, margin: r.marginFBA, feesNote: noCost }];
+    if (r.salePrice != null) rows.push({ name: "At your price", price: r.salePrice, profit: r.profitSP, roi: r.roiSP, margin: r.marginSP, feesNote: noCost });
+    return rows;
   }
 
   function card(r) {
@@ -66,13 +77,12 @@
     if (r.score != null) t.appendChild(U.el("b", "pg-cp-score", r.score + " "));
     t.appendChild(doc.createTextNode(String(r.title || r.asin)));
     c.appendChild(t);
-    var tags = [r.asin].concat(r.tags || []);
-    if (r.blocked) tags.push("on your Blacklist");
-    if (r.inCatalog) tags.push("now in your catalog");
-    if (r.sentAt) tags.push("On buylist ×" + (r.sentQty || "?"));
-    c.appendChild(U.el("div", "muted small", tags.join(" · ")));
+    c.appendChild(U.el("div", "muted small pg-ld-meta", metaBits(r).join(" · ")));
+    var h = r.headline || null, LB = root.ShopperLeadBand;
+    if (LB) c.appendChild(LB.band({ retailer: r.url ? (r.retailer || "Store") : "No source yet", cost: r.cost, profit: h ? h.profit : null, margin: h ? h.margin : null, roi: h ? h.roi : null }, r.sold)); // B-2245: the B-2242 band from the headline (lower-profit scenario)
     { var mb = (!r.url || r.plan) && root.ShopperMatchBlock ? root.ShopperMatchBlock.block(r.asin, r.match) : null; if (mb) c.appendChild(mb); } // B-2108: no link yet -> what Auto-find sources found
-    cells(r).forEach(function (line) { c.appendChild(U.el("div", "small", line)); });
+    if (LB) c.appendChild(LB.rowsTable(scenRows(r)));
+    var fl = factsLine(r); if (fl) c.appendChild(U.el("div", "muted small pg-ld-facts", fl));
     var links = U.el("div", "pg-cp-links small");
     links.appendChild(link("A", "https://www.amazon.com/dp/" + r.asin));
     links.appendChild(link("K", "https://keepa.com/#!product/1-" + r.asin));

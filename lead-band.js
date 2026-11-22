@@ -58,5 +58,16 @@
     t.appendChild(tb);
     return t;
   }
-  root.ShopperLeadBand = { MARGIN_SCALE: MARGIN_SCALE, ROI_SCALE: ROI_SCALE, barFill: barFill, pctText: pctText, band: band, scenarioTable: scenarioTable };
+  // B-2245: a table from plain rows [{ name, price, profit, roi, margin, note, feesNote }] (Tracked Leads: Buy Box / Lowest FBA / At your price)
+  function rowsTable(rows) {
+    var t = U.el("table", "pg-lt-scen");
+    var hd = U.el("tr", "");
+    ["Scenario", "Price", "Profit", "ROI", "Margin"].forEach(function (h, i) { hd.appendChild(U.el("th", i ? "num" : "", h)); });
+    var th = U.el("thead", ""); th.appendChild(hd); t.appendChild(th);
+    var tb = U.el("tbody", "");
+    rows.forEach(function (r) { tb.appendChild(scenRow(r.name, r.price, r.profit, r.roi, r.margin, r.note, r.feesNote)); });
+    t.appendChild(tb);
+    return t;
+  }
+  root.ShopperLeadBand = { MARGIN_SCALE: MARGIN_SCALE, ROI_SCALE: ROI_SCALE, barFill: barFill, pctText: pctText, band: band, scenarioTable: scenarioTable, rowsTable: rowsTable };
 })(self);
