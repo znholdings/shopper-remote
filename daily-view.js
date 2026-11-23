@@ -238,7 +238,7 @@
       }
     }
     if (r.go && r.go.target && r.go.target !== "expand" && ctx.go) {
-      const label = r.go.target === "runreviews" ? "Run tab" : r.go.label;
+      const label = r.go.target === "runreviews" ? "Old run reviews" : r.go.label;
       wrap.appendChild(button("Open " + label, "secondary-btn dy-go-btn", () => { close(); ctx.go(r.go.target); }));
     }
     return wrap;

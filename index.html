@@ -71,7 +71,7 @@
     <header id="topBar" class="topbar s-topbar" data-state="idle">
       <img src="shoppy-64.png" alt="" class="s-tb-shoppy" aria-hidden="true" />
       <div class="s-tb-main">
-        <h1 class="s-tb-title">Shopper <em id="tbPage">Run</em></h1>
+        <h1 class="s-tb-title">Shopper <em id="tbPage">Buy Queue</em></h1>
         <div class="s-tb-line" role="status" aria-live="polite"><span id="liveBanner" class="live-banner" hidden></span><b class="s-tb-state">READY</b><span class="s-tb-text"></span><span class="s-tb-warn"></span></div>
         <div id="deviceName" class="device-name"></div>
       </div>
@@ -115,7 +115,7 @@
     </section>
 
     <section id="pickerView" class="view" hidden>
-      <h1>Pick your laptop</h1>
+      <h1>Pick your computer</h1>
       <div id="deviceList" class="device-list"></div>
     </section>
 
@@ -469,7 +469,7 @@
            after each Sellerboard read and drawn with its own chart code
            (cashflow-lib.js is built from lib/s-chart.js). -->
       <div id="cashFlowPane" hidden>
-        <div class="cfm-head"><button type="button" class="secondary-btn" id="cfmReload">Reload</button><button type="button" class="primary-btn" id="cfmPull" title="Read Sellerboard now">Read SB</button><button type="button" class="fba-notes-btn" id="cfmNotesToggle" aria-expanded="false">&#9432; Details</button></div>
+        <div class="cfm-head"><button type="button" class="secondary-btn" id="cfmReload">Reload</button><button type="button" class="primary-btn" id="cfmPull" title="Read Sellerboard now">Read SB</button><button type="button" class="fba-notes-btn c55-info" id="cfmNotesToggle" aria-expanded="false" aria-label="About the Cash Flow figures">&#9432;</button></div>
         <!-- B-1058 / B-1059 (v2.0.53): Claude's summary + Ask Claude (remote/claude-screens.js). -->
         <div id="cfmClaude" class="csx-host cfm-card"></div>
         <p id="cfmStatus" class="muted small"></p>
@@ -556,7 +556,7 @@
         <div id="fbaBody" class="fba-paper" hidden>
           <section class="fba-sec" id="fbaNowSec">
             <!-- B-603 (v4.78): notes behind one Details toggle. -->
-            <div class="fba-head-row"><h3 class="ai-h2">Right now</h3><button type="button" class="fba-notes-btn" id="fbaNotesToggle" aria-expanded="false">&#9432; Details</button></div>
+            <div class="fba-head-row"><h3 class="ai-h2">Right now</h3><button type="button" class="fba-notes-btn c55-info" id="fbaNotesToggle" aria-expanded="false" aria-label="About the Right now figures">&#9432;</button></div>
             <p class="ai-note" id="fbaNowNote"></p>
             <div id="fbaBars"></div>
           </section>
@@ -677,6 +677,7 @@
   <script src="phone-nav-list.js"></script><!-- B-1791: draws the drawer (the tab buttons must exist before the main script collects them) -->
   <script src="start-picker.js"></script><!-- B-1535 -->
   <script src="start-watch.js"></script><!-- B-1955 (v2.0.149) -->
+  <script src="menu-kinds.js"></script><!-- B-2280b: group a sheet's moves by kind (before app.js) -->
   <script src="app.js"></script>
   <!-- B-1233 (v2.0.73): the sidebar navigation (after app.js, which wires each tab button). -->
   <script src="pages-view.js"></script><!-- B-1792 (v2.0.135): the registry the new pages hang on -->

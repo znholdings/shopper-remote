@@ -11,6 +11,11 @@
   var drawnKey = "";
   var keyFn = null;
 
+  // B-2283: the same code-dropping words as the laptop's log (lib/activity-plain.js, through the generated activity-view.js).
+  function plain(t) {
+    var AV = root.ShopperActivityView;
+    return AV && typeof AV.stripCodes === "function" ? AV.stripCodes(t) : String(t == null ? "" : t);
+  }
   function clock(at) {
     var n = typeof at === "number" ? at : Date.parse(at);
     if (!isFinite(n)) return "--:--:--";
@@ -50,7 +55,7 @@
       lines.forEach(function (l) {
         var row = mk("div", "als-line");
         row.appendChild(mk("span", "als-time", clock(l && l.at)));
-        row.appendChild(mk("span", "als-text", String((l && l.text) || "")));
+        row.appendChild(mk("span", "als-text", plain((l && l.text) || "")));
         list.appendChild(row);
       });
       var lastLine = lines[lines.length - 1] || {};

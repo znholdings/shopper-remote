@@ -48,7 +48,7 @@
   }
   function rowText(row) {
     var clone = row.cloneNode(true);
-    var drop = clone.querySelectorAll("select, option, button, th");
+    var drop = clone.querySelectorAll("select, option, button, th, [data-nosearch]"); // B-2296: boilerplate is not a search word
     for (var i = 0; i < drop.length; i++) drop[i].remove();
     return clone.textContent;
   }
@@ -63,28 +63,29 @@
   var TAB_NAMES = [["leads", "Leads"], ["waiting", "Waiting for a source"], ["candidates", "Candidates"], ["sellers", "Sellers"], ["all", "All new ASINs"]];
   var SHOPS = { walmart: "Walmart", samsclub: "Sam's Club", target: "Target", homedepot: "Home Depot" };
   function leadPasses(info, b) { return !!info && isFinite(info.roi) && isFinite(info.profit) && info.roi >= b.minRoi && info.profit >= b.minProfit; }
-  function tabsWithHits(data, bar, toks) {
+  function tabsWithHits(data, bar, toks, pick) { // B-2296: counts, and the All tab cut to the storefront pick
     var d = data || {};
     var names = {};
     (d.sellers || []).forEach(function (s) { names[s.id] = s.name || ""; });
     function hit(rows) {
-      return (rows || []).some(function (it) {
+      return (rows || []).filter(function (it) {
         var li = it && it.leadInfo;
         var w = [it.asin, it.title, it.brand, it.category, (it.tags || []).join(" "), (it.sellers || []).map(function (s) { return s + " " + (names[s] || ""); }).join(" "), li && li.retailer, li && SHOPS[li.retailer]].filter(Boolean).join(" ");
         return matches(hayOf(w, ""), toks);
-      });
+      }).length;
     }
     var c = d.candidates || {};
     return {
       leads: hit(((d.leads && d.leads.rows) || []).filter(function (r) { return leadPasses(r.leadInfo, bar); })),
       waiting: hit(d.waiting && d.waiting.rows),
       candidates: hit([].concat(c.today || [], c.older || [], d.filtered || [])),
-      sellers: (d.sellers || []).some(function (s) { return matches(hayOf((s.name || "") + " " + s.id, ""), toks); }),
-      all: hit(d.all)
+      sellers: (d.sellers || []).filter(function (s) { return matches(hayOf((s.name || "") + " " + s.id, ""), toks); }).length,
+      all: hit((d.all || []).filter(function (r) { return !pick || (r.sellers || []).indexOf(pick) >= 0; }))
     };
   }
   function alsoText(tabs, open) {
-    var out = TAB_NAMES.filter(function (t) { return t[0] !== open && tabs && tabs[t[0]]; }).map(function (t) { return t[1]; });
+    var here = Number(tabs && tabs[open]) || 0; // B-2296: only tabs holding MORE hits than the open one
+    var out = TAB_NAMES.filter(function (t) { return t[0] !== open && tabs && Number(tabs[t[0]]) > here; }).map(function (t) { return t[1]; });
     return out.length ? "also in: " + out.join(", ") : "";
   }
 

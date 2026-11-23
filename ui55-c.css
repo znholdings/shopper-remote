@@ -7,9 +7,9 @@
 /* ── ⓘ button (Pricing head, Updated lines) ── */
 .c55-info { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; min-width: 30px; height: 30px; padding: 0 6px; margin: 0; border-radius: 999px; border: 1px solid var(--s-line-soft, #ccc); background: transparent; color: var(--s-text-muted); font: 600 16px/1 var(--s-font); cursor: pointer; vertical-align: middle; }
 .c55-info.is-on, .c55-info[aria-expanded="true"] { color: var(--s-accent); border-color: var(--s-accent); }
-.bmm-head .c55-info { flex: 0 0 auto; min-width: 40px; height: auto; }
+.bmm-head .c55-info, .cfm-head .c55-info, .fba-head-row .c55-info { flex: 0 0 auto; min-width: 40px; height: auto; } /* B-2284b: the Cash Flow / FBA "ⓘ Details" toggles are the plain ⓘ now - same height as their row-mates */
 :root[data-theme="retro"] body .c55-info { font-family: var(--s-font) !important; font-size: 16px !important; font-weight: 600 !important; text-transform: none; min-height: 30px; padding: 0 6px !important; box-shadow: none !important; }
-:root[data-theme="retro"] body .bmm-head .c55-info { min-width: var(--rt-ctl-h); min-height: var(--rt-ctl-h); box-shadow: var(--rt-raise-sm) !important; }
+:root[data-theme="retro"] body :is(.bmm-head, .cfm-head, .fba-head-row) .c55-info { min-width: var(--rt-ctl-h); min-height: var(--rt-ctl-h); box-shadow: var(--rt-raise-sm) !important; }
 :root[data-theme="retro"] body .c55-info[aria-expanded="true"] { background: var(--s-accent) !important; color: var(--s-on-accent) !important; }
 
 /* ── B-1084: Pricing - the once-at-the-top notes ── */

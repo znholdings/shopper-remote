@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.197";
+const APP_BUILD = "v2.0.198";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -526,11 +526,18 @@ async function loadDevices() {
   if (!res.ok) { els.deviceList.textContent = `Could not load devices: ${res.reason}`; return; }
   const rows = res.json || [];
   if (!rows.length) {
-    els.deviceList.innerHTML = `<p class="muted">No laptop has checked in yet. Open Shopper's Phone Remote page on the laptop, sign in there, and this list will fill in.</p>`;
+    els.deviceList.innerHTML = `<p class="muted">No computer has checked in yet. Open Shopper's Phone Remote page on the laptop, sign in there, and this list will fill in.</p>`;
     return;
   }
   els.deviceList.innerHTML = "";
+  // B-2283 L6: computers seen in the last 24 h are listed; older ones sit under one closed "Not seen lately (N)" (still pickable).
+  const staleRows = [];
+  const freshRows = [];
   for (const d of rows) {
+    const seenAge = Date.now() - Date.parse(d.last_seen || 0);
+    (Number.isFinite(seenAge) && seenAge < DEVICE_STALE_MS ? freshRows : staleRows).push(d);
+  }
+  const drawDevice = (d, into) => {
     const age = Date.now() - Date.parse(d.last_seen || 0);
     const fresh = Number.isFinite(age) && age < 90000;
     const btn = document.createElement("button");
@@ -543,9 +550,24 @@ async function loadDevices() {
       store.set("shopper_device", { deviceId, deviceName });
       render();
     });
-    els.deviceList.appendChild(btn);
+    into.appendChild(btn);
+  };
+  for (const d of freshRows) drawDevice(d, els.deviceList);
+  if (staleRows.length) {
+    const det = document.createElement("details");
+    det.className = "device-stale";
+    det.open = !freshRows.length;
+    const sum = document.createElement("summary");
+    sum.textContent = "Not seen lately (" + staleRows.length + ")";
+    det.appendChild(sum);
+    const inner = document.createElement("div");
+    inner.className = "device-list";
+    for (const d of staleRows) drawDevice(d, inner);
+    det.appendChild(inner);
+    els.deviceList.appendChild(det);
   }
 }
+const DEVICE_STALE_MS = 24 * 3600 * 1000; // B-2283 L6
 
 const plainNote = (s) => (self.ShopperPlain ? self.ShopperPlain.note(s) : String(s == null ? "" : s)); // B-2073 (v2.0.158)
 function escapeHtml(s) {
@@ -1771,9 +1793,9 @@ function buylistCard(i) {
   // approve, promote (up), demote to contingency (down), push (right),
   // block (no symbol). The phone now offers that same set and no
   // invented ones.
-  if (i.section === "offbeat") moves.appendChild(sheetMove("Promote", "promote")); // B-1770: only Old Meat is promoted
-  moves.appendChild(sheetMove("Push", "push"));
-  moves.appendChild(sheetMove("Block", "block"));
+  if (i.section === "offbeat") { moves.appendChild(sheetMove("Promote", "promote")); moves.lastChild.dataset.menuKind = "action"; } // B-1770: only Old Meat is promoted
+  moves.appendChild(sheetMove("Push", "push")); moves.lastChild.dataset.menuKind = "action";
+  moves.appendChild(sheetMove("Block", "block")); moves.lastChild.dataset.menuKind = "danger"; moves.lastChild.classList.add("danger-btn"); // B-2280b: Block is last, behind a divider, red (no confirm today - none added)
 
   // P-49: the write half of the Prep Center badge above - mirrors the
   // desktop's own .prep-center-toggle checkbox (buylist.js), same
@@ -1786,7 +1808,9 @@ function buylistCard(i) {
   pcCheckbox.checked = !!i.prepCenter;
   pcCheckbox.addEventListener("change", () => buylistSetPrepCenter(i.asin, pcCheckbox.checked));
   pcLabel.append(pcCheckbox, document.createTextNode("Prep Center"));
+  pcLabel.dataset.menuKind = "setting";
   moves.appendChild(pcLabel);
+  if (window.ShopperMenuKinds) window.ShopperMenuKinds.group(moves); // B-2280b: Prep Center | Promote, Push | Block
   sheetBox.append(moves, more); if (ownEl) sheetBox.append(ownEl); // B-2072: the Owned formula under More
   if (i.v3Note) { const vn = document.createElement("div"); vn.className = "bl-owned muted"; vn.textContent = i.v3Note; sheetBox.append(vn); } // v2.0.172 B-2167/B-2168: why v3 shows this number
 
@@ -3539,8 +3563,14 @@ function glRow(r) {
     // B-1500 (v2.0.104): one row per item (remote/do-next-rows-view.js) instead of one wall of text; the text stays as the fallback.
     const DR = self.ShopperDoNextRows, GG = self.ShopperGlance;
     const dRows = Array.isArray(r.detailRows) ? r.detailRows : [];
-    if (dRows.length) body.appendChild(DR.node(dRows, { moreWhere: r.go && r.go.label, footer: r.detailFooter || "", more: r.detailMore || 0, rowExtra: (r.id === "pricingErrors" || r.id === "pricing") && self.ShopperPhoneFix ? (x) => (x.sku ? self.ShopperPhoneFix.build(x.sku) : null) : null })); // B-1599 (v2.0.116): Fix this one on a pricing-error row
+    if (dRows.length) body.appendChild(DR.node(dRows, { max: r.id === "pricing" ? 5 : undefined, moreWhere: r.go && r.go.label, footer: r.detailFooter || "", more: r.detailMore || 0, rowExtra: (r.id === "pricingErrors" || r.id === "pricing") && self.ShopperPhoneFix ? (x) => (x.sku ? self.ShopperPhoneFix.build(x.sku) : null) : null })); // B-1599 (v2.0.116): Fix this one on a pricing-error row
     else if (r.detail) body.appendChild(invNode("div", "l-meta", r.detail));
+    if (r.id === "pricing" && dRows.length + (Number(r.detailMore) || 0) > 5 && r.go && r.go.target) { // B-2283 L13: the rest is one tap away
+      const openP = invNode("button", "link-btn linkish dnr-open", "Open Pricing \u2192");
+      openP.type = "button";
+      openP.addEventListener("click", (ev) => { ev.stopPropagation(); glGo(r.go.target); });
+      body.appendChild(openP);
+    }
     if (notif) {
       if (notif.examples && notif.examples.length) {
         const ul = invNode("ul", "dash-ex");
@@ -3571,11 +3601,11 @@ function glRow(r) {
   if (!body.hidden) fill();
   // B-1083 (v2.0.55): the whole card is the button - a "›" at its right edge
   // instead of a full-width button under it. Same targets as before (the
-  // label, e.g. "Pricing" / "Run tab", is the card's accessible name);
+  // label, e.g. "Pricing" / "Old run reviews", is the card's accessible name);
   // "expand" rows open in place, and a tap inside the opened part does not
   // fold them again.
   const canGo = !notif || (!!r.go.label && glGoHas(r.go.target)); // B-1773: a notification with no phone page just opens its details
-  const label = r.go.target === "runreviews" ? "Open Run tab" : self.ShopperGlance.doNextVerb(r); // B-2279 (v2.0.196): the same words as the laptop
+  const label = r.go.target === "runreviews" ? "Open Old run reviews" : self.ShopperGlance.doNextVerb(r); // B-2279 (v2.0.196): the same words as the laptop; B-2283 L3 / Q16: the phone's own Old run reviews page
   const openState = () => {
     row.classList.toggle("gl-open", !body.hidden);
     for (const x of [row, more]) if (x && x.hasAttribute("aria-expanded")) x.setAttribute("aria-expanded", String(!body.hidden));
@@ -3730,7 +3760,7 @@ function renderDashboard(d, p) {
   if (key === lastDashboardKey) return;
   lastDashboardKey = key;
   for (const k of ["dashTiles", "dashDoNext"]) els[k].textContent = "";
-  const nyLine = ex.needsYou && ex.needsYou.at && ex.needsYou.counts ? " " + ex.needsYou.counts.total + (ex.needsYou.counts.total === 1 ? " thing needs" : " things need") + " you (Optiplex, " + dashAgoMs(ex.needsYou.at) + ")." : ""; // B-1653
+  const nyLine = ex.needsYou && ex.needsYou.at && ex.needsYou.counts ? " " + ex.needsYou.counts.total + " to do" + (ex.needsYou.counts.items > 0 ? " (" + ex.needsYou.counts.items + (ex.needsYou.counts.items === 1 ? " item" : " items") + ")" : "") + " (Optiplex, " + dashAgoMs(ex.needsYou.at) + ")." : ""; // B-1653; B-2283 L2: tasks, with the items beside
   const dashAsOfText = "Figures from the laptop's last Dashboard refresh, " + dashAgoMs(d.remoteBuiltAt) + "." + nyLine +
     (d.stale ? " Refresh on the laptop for live figures." : "") + " Read-only.";
   // B-1088 (v2.0.55): one "Updated N min ago" line (stale figures still say so); the sentence behind its ⓘ.

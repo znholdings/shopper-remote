@@ -27,7 +27,7 @@
   function node(rows, opts) {
     const o = opts || {};
     const wrap = mk("div", "dnr-wrap");
-    const sp = splitRows(rows, MAX_ROWS);
+    const sp = splitRows(rows, o.max || MAX_ROWS); // B-2283 L13: Pricing shows its top 5
     const ul = mk("ul", "dnr-list");
     for (const r of sp.shown) {
       const li = mk("li", "dnr-row" + (r.badge ? " dnr-" + r.badge.kind : ""));

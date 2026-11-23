@@ -22,7 +22,7 @@
   var SB = root.ShopperSourcingSearch; // B-2288
   var sbar = SB ? SB.bar(pane, {
     units: "#competitorsPane .pg-cp-row, #competitorsPane .pg-cp-seller", placeholder: "ASIN, brand, product, seller, store",
-    also: function (toks) { return data ? SB.alsoText(SB.tabsWithHits(data, barNow(), toks), tab) : ""; },
+    also: function (toks) { return data ? SB.alsoText(SB.tabsWithHits(data, barNow(), toks, pick), tab) : ""; },
     cut: function () { return cutNow(); }
   }) : null;
   // true when the open tab holds only part of its list (the phone gets the top 100 rows of each)
@@ -244,8 +244,8 @@
     if (data.handover && data.handover.text) head.appendChild(U.el("p", "small", data.handover.text)); // B-2060
     var runRow = U.el("div", "pg-row"); // B-2060: on a Viewer these are handed to the main computer
     var sentText = function (res, fallback) { var r = res && res.result; return r && r.handedOver ? "Sent to the " + r.handedTo : fallback; };
-    var rb = U.btn("Run now", "mini-btn", function () { U.send("compRunNow", {}, rb).then(function (res) { U.say(res, sentText(res, "Started")); }); });
-    var rr = U.btn("Re-rank now", "mini-btn", function () { U.send("compRerank", {}, rr).then(function (res) { U.say(res, sentText(res, "Re-ranked")); }); });
+    var rb = U.btn("Run today's read", "mini-btn", function () { U.send("compRunNow", {}, rb).then(function (res) { U.say(res, sentText(res, "Started")); }); });
+    var rr = U.btn("Re-rank sellers", "mini-btn", function () { U.send("compRerank", {}, rr).then(function (res) { U.say(res, sentText(res, "Re-ranked")); }); });
     runRow.appendChild(rb); runRow.appendChild(rr); head.appendChild(runRow);
     if (st.role403) head.appendChild(U.el("p", "small pg-cp-why", "Amazon refused the daily offer read - the SP-API app needs the Pricing role."));
     var tabs = U.el("div", "pg-row");

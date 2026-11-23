@@ -3611,6 +3611,10 @@ function drawPlanTab(body, o) {
   let makeSeq = 0;
   // the whole tab: the make-a-plan card (or the rest check) OR the plan; used when the plan itself changes (load, a new plan, Plan again)
   function showAll() {
+    showAllBody();
+    if (o.onShown) o.onShown(); // B-2283 L5
+  }
+  function showAllBody() {
     makeSeq++;
     paintNote();
     clear(makeHost);
@@ -3621,6 +3625,8 @@ function drawPlanTab(body, o) {
     say(rowMsg, "");
     paint(["head", "acts", "forms", "table", "panel"]);
   }
+  // B-2283 L5: which batch the plan on screen is for (the strip says "Showing ..." instead of "No batch picked" above a full plan).
+  const shownPlan = () => (S.r && ppBatch(S.r) ? { batchId: ppBatch(S.r), name: String(S.r.name || "") } : null);
   function paintNote() { clear(noteHost); if (S.msg && !(S.r && !S.check)) noteHost.appendChild(el("div", "pk-msg pk-msg-ok", S.msg)); }
 
   // ------------------------------------------------------------ B-1831: paint one part, keep the page where it is
@@ -4328,7 +4334,7 @@ function drawPlanTab(body, o) {
   }
 
   load();
-  return { reload: load };
+  return { reload: load, shown: shownPlan };
 }
 
 // ================================================================ Rules tab
@@ -4821,11 +4827,18 @@ function mountPackingUi(host, opts) {
     if (S.mode === "rules") return drawRulesTab(body, { doc, call });
     return typeof o.drawBoxes === "function" ? o.drawBoxes(body, { doc, api, canSeed: !!o.canSeed, onChange: drawStatus }) : drawBoxes();
   }
-  const planOpts = () => ({ doc, call, surface, onChange: () => { drawStatus(); redrawSections(); }, getBatch: () => S.batch, statusShowsLow: true, progressFeed: o.progressFeed, fold: o.fold }); // v2.0.113: B-1544 the Shipment tab's batch; B-1553 "Running low" once
+  const planOpts = () => ({ doc, call, surface, onChange: () => { drawStatus(); redrawSections(); }, onShown: () => paintNoBatch(), getBatch: () => S.batch, statusShowsLow: true, progressFeed: o.progressFeed, fold: o.fold }); // v2.0.113: B-1544 the Shipment tab's batch; B-1553 "Running low" once
 
   // ------------------------------------------------------------ B-1832: the strip (the batch + the products needing data) and the replay host
   const redo = (into) => (ONE ? again(into) : draw());
   const again = (into) => (into === replayHost ? paintReplay() : paintStrip());
+  let noBatchEls = null;
+  function paintNoBatch() { // only the two words move when the plan's batch changes: an open form / picker below is left alone
+    if (!noBatchEls || S.batch || !noBatchEls.t.isConnected) return;
+    const sh = planApi && typeof planApi.shown === "function" ? planApi.shown() : null;
+    noBatchEls.t.textContent = sh ? "Showing " + (sh.name || sh.batchId) : "No batch picked";
+    noBatchEls.pb.textContent = sh ? "Pick another" : "Pick a batch";
+  }
   function paintStrip() {
     clear(stripLine); clear(stripBody);
     if (S.batch) {
@@ -4835,8 +4848,13 @@ function mountPackingUi(host, opts) {
       stripLine.appendChild(btn(S.listOpen ? "Hide the list" : "Show the list", "pk-quiet", () => { S.listOpen = !S.listOpen; S.pickerOpen = false; S.form = S.form && S.form.replay ? S.form : null; paintStrip(); }));
       stripLine.appendChild(btn("Other batch", "pk-quiet", () => { S.pickerOpen = !S.pickerOpen; S.form = S.form && S.form.replay ? S.form : null; paintStrip(); }));
     } else {
-      stripLine.appendChild(el("span", "pk-strip-t", "No batch picked"));
-      stripLine.appendChild(btn("Pick a batch", "pk-quiet", () => { S.pickerOpen = !S.pickerOpen; paintStrip(); }));
+      // B-2283 L5: a plan on screen for a batch nobody picked here: say which ("Showing ..."), never "No batch picked" above a full plan.
+      const t = el("span", "pk-strip-t", "No batch picked");
+      const pb = btn("Pick a batch", "pk-quiet", () => { S.pickerOpen = !S.pickerOpen; paintStrip(); });
+      stripLine.appendChild(t);
+      stripLine.appendChild(pb);
+      noBatchEls = { t, pb };
+      paintNoBatch();
     }
     stripLine.appendChild(btn(S.replayOpen ? "Hide the replay" : "Replay a finished batch", "pk-quiet", () => { S.replayOpen = !S.replayOpen; S.pickOther = false; if (!S.replayOpen && S.form && S.form.replay) S.form = null; paintReplay(); paintStrip(); }));
     if (S.replay) stripLine.appendChild(el("span", "pk-meta pk-strip-replay", `Replay loaded: ${S.replay.name}`));

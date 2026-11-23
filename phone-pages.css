@@ -103,4 +103,6 @@
 .src-search .src-search-clear { flex: 0 0 auto; }
 .src-search .src-search-count { flex: 1 1 100%; min-width: 0; overflow-wrap: anywhere; }
 .src-miss { display: none !important; }
+/* B-2296: "90-day avg (9 d old)" wraps in its first column. */
+.pg-lt-scen tbody th { white-space: normal; overflow-wrap: anywhere; }
 [hidden] { display: none !important; }

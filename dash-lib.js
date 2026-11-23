@@ -390,7 +390,7 @@ function buildDoNext(input = {}) {
       severity: "high",
       title: `${plural(severe, "severe finding")} on the latest run`,
       detail: "The run review flagged things worth a look.",
-      go: { label: "Run reviews", target: "runreviews" },
+      go: { label: "Old run reviews", target: "runreviews" },
       count: severe,
     });
   }
@@ -1557,7 +1557,7 @@ const BY_ID = {
   listingIssues: "Fix listings",
   arrivals: "Open Pipeline", overdueOrder: "Open Pipeline",
   voc: "Open Voice of the Customer",
-  runReviews: "Open Run reviews",
+  runReviews: "Open Old run reviews",
   fba: "Open FBA Inventory", stranded: "Open FBA Inventory",
   checks: "Open Activity",
   taxDates: "Open Books", tax1099: "Open Books", booksNeeds: "Open Books",
@@ -2819,7 +2819,7 @@ function homeTodayWords(h) {
 }
 
 const GO_LABEL = Object.freeze({
-  pipeline: "Pipeline", arrivals: "Pipeline", buyqueue: "Buy Queue", runreviews: "Run reviews", wizard: "Ship to Amazon",
+  pipeline: "Pipeline", arrivals: "Pipeline", buyqueue: "Buy Queue", runreviews: "Old run reviews", wizard: "Ship to Amazon",
   accounts: "Settings", plaid: "Settings", setup: "Settings", petsmartSignIn: "PetSmart", scanpowerSignIn: "ScanPower", voc: "Voice of the Customer",
 });
 const goLabel = (target) => (Object.prototype.hasOwnProperty.call(GO_LABEL, target) ? GO_LABEL[target] : "");

@@ -58,7 +58,7 @@
     if (!c || c.notSource || !e || e.cost == null) return null;
     if (c.size !== undefined && !(c.size && c.size.ok)) return null; // B-2238: failed the size check - no money to show
     if (c.dead) return null; // B-2270: not available on the store - no money to show
-    var t = U.el("table", "pg-lt-scen");
+    var t = U.el("table", "pg-lt-scen"); t.setAttribute("data-nosearch", "1"); // B-2296
     var hd = U.el("tr", "");
     ["Scenario", "Price", "Profit", "ROI", "Margin"].forEach(function (h, i) { hd.appendChild(U.el("th", i ? "num" : "", h)); });
     var th = U.el("thead", ""); th.appendChild(hd); t.appendChild(th);
@@ -72,7 +72,7 @@
   }
   // B-2245: a table from plain rows [{ name, price, profit, roi, margin, note, feesNote }] (Tracked Leads: Buy Box / Lowest FBA / At your price)
   function rowsTable(rows) {
-    var t = U.el("table", "pg-lt-scen");
+    var t = U.el("table", "pg-lt-scen"); t.setAttribute("data-nosearch", "1"); // B-2296
     var hd = U.el("tr", "");
     ["Scenario", "Price", "Profit", "ROI", "Margin"].forEach(function (h, i) { hd.appendChild(U.el("th", i ? "num" : "", h)); });
     var th = U.el("thead", ""); th.appendChild(hd); t.appendChild(th);

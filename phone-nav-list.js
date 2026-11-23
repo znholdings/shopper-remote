@@ -155,7 +155,7 @@
           var info = SPEC.ALSO_CURRENT[path];
           if (info.group !== g.group) return;
           var key = "path:" + path;
-          var label = { "status/status.html": "Run status", "runreviews/runreviews.html": "Run reviews", "buyqueue/endofrun.html": "End-of-run report" }[path] || path;
+          var label = { "status/status.html": "Run status", "runreviews/runreviews.html": "Old run reviews", "buyqueue/endofrun.html": "End-of-run report" }[path] || path;
           items.appendChild(pageRow({ label: label, path: path }, key));
         });
       }
@@ -182,7 +182,10 @@
       var g = heads[i].hasAttribute("data-nav-badge") ? heads[i].getAttribute("data-nav-badge") : heads[i].getAttribute("data-nav-group"); // B-2126: "" = this group shows no count
       var n = byGroup && typeof byGroup === "object" ? (g ? Math.max(0, Math.floor(Number(byGroup[g]) || 0)) : 0) : 0;
       var b = heads[i].querySelector(".pn-badge");
-      if (b) b.textContent = n > 0 ? (n > 99 ? "99+" : String(n)) : "";
+      if (b) {
+        b.textContent = n > 0 ? (n > 99 ? "99+" : String(n)) : "";
+        b.title = n > 0 ? n + " task" + (n === 1 ? "" : "s") + " to do on these pages (one task can hold several items)" : ""; // B-2283 L2: the same words as the laptop sidebar
+      }
     }
   }
 

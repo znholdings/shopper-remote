@@ -1357,4 +1357,9 @@ body.pn-float .ctm-table tr > :last-child { padding-right: 62px; }
 .inv-key.inv-shade-partShipped { border-left-color: var(--s-ao-ps); }
 .inv-key.inv-shade-shipped { border-left-color: var(--s-ao-s); }
 
+/* B-2283 L6: computers not seen in 24 h fold under one line on the pick screen */
+.device-stale { margin-top: 4px; }
+.device-stale > summary { cursor: pointer; padding: 8px 2px; color: var(--muted); font-size: 14px; }
+.device-stale[open] > summary { margin-bottom: 4px; }
+
 [hidden] { display: none !important; }

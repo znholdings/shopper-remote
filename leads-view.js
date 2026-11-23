@@ -24,9 +24,10 @@
     NOT_READ: "not read yet", NO_COST: "cost not read yet", NO_FEES: "Amazon fees not read yet", NO_PRICE: "no price to work from - add a Desired sale price",
     bbNote: function (r) { return r.offersAt ? "no Buy Box right now" : "not read yet"; },
     fbaNote: function (r) { return r.offersAt && r.fbaCount === 0 ? "no FBA seller" : r.offersAt ? "no FBA price" : "not read yet"; },
-    noPrice: function (r) { return [r.bb, r.lowFba, r.lowNew, r.bbAvg90, r.bbAvg30, r.salePrice].every(function (v) { return v == null; }); }, // B-2292 (a)
+    noPrice: function (r) { var avgOk = !(r.alt && r.alt.avg && r.alt.avg.stale); return [r.bb, r.lowFba, r.lowNew, avgOk ? r.bbAvg90 : null, avgOk ? r.bbAvg30 : null, r.salePrice].every(function (v) { return v == null; }); }, // B-2292 (a) / B-2296: a stale average is not a price // B-2292 (a)
     feesNote: function (r) { return r.cost == null ? "cost not read yet" : r.feesMissing ? (W.noPrice(r) ? W.NO_PRICE : "Amazon fees not read yet") : null; },
-    scenario: { low: "at lowest offer", avg90: "at 90-day average", avg30: "at 30-day average", sp: "at your price" }
+    scenario: { low: "at lowest offer", avg90: "at 90-day average", avg30: "at 30-day average", sp: "at your price" },
+    ageWords: function (h) { return h && (h.scenario === "avg90" || h.scenario === "avg30") && Number(h.ageDays) >= 2 ? ", " + Math.floor(Number(h.ageDays)) + " days old" : ""; } // B-2296: a Buy Box average 2+ days old says so
   };
   function soldText(r) { return r.sold == null ? "-" : r.soldEst ? "~" + r.sold : String(r.sold); } // B-2290: "~N" = estimated from rank drops
   function money(v) { return v == null ? "-" : "$" + Number(v).toFixed(2); }
@@ -83,7 +84,7 @@
     var noCost = W.feesNote(r); // B-2290: "cost not read yet" or "Amazon fees not read yet"
     var rows = [{ name: "Buy Box", price: r.bb, profit: r.profitBB, roi: r.roiBB, margin: r.marginBB, note: W.bbNote(r), feesNote: noCost }, { name: "Lowest FBA", price: r.lowFba, profit: r.profitFBA, roi: r.roiFBA, margin: r.marginFBA, note: W.fbaNote(r), feesNote: noCost }];
     if (r.lowNew != null && r.lowNew !== r.bb && r.lowNew !== r.lowFba) rows.push({ name: "Lowest offer", price: r.lowNew, profit: alt.low.profit, roi: alt.low.roi, margin: alt.low.margin, feesNote: noCost }); // B-2290
-    if (alt.avg.price != null) rows.push({ name: alt.avg.days === 30 ? "30-day avg" : "90-day avg", price: alt.avg.price, profit: alt.avg.profit, roi: alt.avg.roi, margin: alt.avg.margin, feesNote: noCost }); // B-2290
+    if (alt.avg.price != null) rows.push({ name: (alt.avg.days === 30 ? "30-day avg" : "90-day avg") + (alt.avg.ageDays >= 2 ? " (" + Math.floor(alt.avg.ageDays) + "\u00a0d\u00a0old)" : ""), price: alt.avg.price, profit: alt.avg.profit, roi: alt.avg.roi, margin: alt.avg.margin, feesNote: noCost }); // B-2290
     if (r.salePrice != null) rows.push({ name: "At your price", price: r.salePrice, profit: r.profitSP, roi: r.roiSP, margin: r.marginSP, feesNote: noCost });
     return rows;
   }
@@ -92,8 +93,9 @@
   function suggestLine(c, r) {
     var s = r.suggest;
     if (!s) return;
-    if (!s.qty) { c.appendChild(U.el("div", "muted small pg-ld-sug", "No suggestion: " + ((s.why && s.why[0]) || "not enough data"))); return; }
+    if (!s.qty) { var nd = U.el("div", "muted small pg-ld-sug", "No suggestion: " + ((s.why && s.why[0]) || "not enough data")); nd.setAttribute("data-nosearch", "1"); c.appendChild(nd); return; } // B-2296: boilerplate is not a search word
     var d = U.el("details", "pg-ld-sug");
+    d.setAttribute("data-nosearch", "1");
     d.appendChild(U.el("summary", "muted small", "Suggested " + s.qty + " \u00b7 " + s.days + "-day test - why?"));
     var ul = U.el("ul", "muted small pg-ld-sug-why");
     (s.why || []).forEach(function (w) { ul.appendChild(U.el("li", "", w)); });
@@ -110,7 +112,7 @@
     c.appendChild(U.el("div", "muted small pg-ld-meta", metaBits(r).join(" · ")));
     var h = r.headline || null, LB = root.ShopperLeadBand;
     if (LB) c.appendChild(LB.band({ retailer: r.url ? (r.retailer || "Store") : "No source yet", cost: r.cost, profit: h ? h.profit : null, margin: h ? h.margin : null, roi: h ? h.roi : null }, soldText(r))); // B-2245: the B-2242 band from the headline (lower-profit scenario)
-    { var sw = h && W.scenario[h.scenario]; if (sw) c.appendChild(U.el("div", "muted small pg-ld-scen", "Profit " + sw)); else if (!h && r.feesMissing && W.noPrice(r)) c.appendChild(U.el("div", "muted small pg-ld-scen", W.NO_PRICE)); } // B-2292 (a) // B-2290: says which price the headline used
+    { var sw = h && W.scenario[h.scenario] ? W.scenario[h.scenario] + W.ageWords(h) : ""; if (sw) c.appendChild(U.el("div", "muted small pg-ld-scen", "Profit " + sw)); else if (!h && r.feesMissing && W.noPrice(r)) c.appendChild(U.el("div", "muted small pg-ld-scen", W.NO_PRICE)); } // B-2292 (a) // B-2290: says which price the headline used
     if (r.soldEst) c.appendChild(U.el("div", "muted small pg-ld-scen", "Sold/mo est. from rank drops (30 days)")); // B-2290: parity with the desktop sold cell
     suggestLine(c, r); // B-2289
     { var mb = (!r.url || r.plan) && root.ShopperMatchBlock ? root.ShopperMatchBlock.block(r.asin, r.match) : null; if (mb) c.appendChild(mb); } // B-2108: no link yet -> what Auto-find sources found
@@ -188,7 +190,7 @@
     head.appendChild(U.el("p", "muted small", (data.total || 0) + " leads · last read " + (st.lastRunAt ? new Date(st.lastRunAt).toLocaleString() : "never") + " · next " + (st.nextSlot || "-") + " Central · " + (st.tokensToday || 0) + " of " + (st.cap || 0) + " Keepa tokens used today"));
     if (st.noCredentials) head.appendChild(U.el("p", "small pg-cp-why", "Amazon is not connected on the main computer - the live Buy Box and offers are not being read."));
     if (st.keepaUsedUp) head.appendChild(U.el("p", "small pg-cp-why", "Keepa numbers are from " + (st.keepaAt ? new Date(st.keepaAt).toLocaleString() : "an earlier read") + " - today's lead tokens are used."));
-    var rb = U.btn("Refresh now", "mini-btn", function () { U.send("leadsRefreshNow", {}, rb).then(function (res) { U.say(res, "Started"); }); });
+    var rb = U.btn("Read leads now", "mini-btn", function () { U.send("leadsRefreshNow", {}, rb).then(function (res) { U.say(res, "Started"); }); });
     head.appendChild(rb);
     pane.appendChild(head);
     pane.appendChild(addBox());

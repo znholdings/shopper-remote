@@ -78,3 +78,5 @@
 :root[data-theme="retro"] #goalBox { border: 0 !important; box-shadow: none !important; padding: 0 !important; background: none; }
 /* Retro: the "›" in the normal font at full size (the pixel font draws it tiny). */
 :root[data-theme="retro"] :is(.gl-row .gl-chev, .cl-sum-chev):not(#no-id) { font-family: var(--s-font) !important; font-size: 26px !important; line-height: 1 !important; }
+/* v2.0.198 B-2280b: the Buylist line's More sheet groups its moves by kind (remote/menu-kinds.js): a divider row between the groups, Block last and red. */
+.bl-sheet-moves > .pg-menu-sep { flex: 0 0 100%; height: 0; margin: 2px 0; border-top: 1px solid var(--s-line); }

@@ -20,7 +20,7 @@
     if (s === sig) return;
     sig = s;
     pane.textContent = "";
-    var sec = U.section("Run reviews");
+    var sec = U.section("Old run reviews");
     pane.appendChild(sec);
     if (!d) { sec.appendChild(U.el("p", "muted", "Run reviews load from the computer...")); return; }
     // B-2073 (v2.0.158): newest first (the feed is oldest first), Central time, plain words, Fix shown.
