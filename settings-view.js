@@ -68,7 +68,7 @@
     const out = [];
     for (const r of res.json) {
       const v = r && r.payload && r.payload.value;
-      if (v && v.id) out.push({ id: String(v.id), name: String(v.name || "computer"), role: v.role === "viewer" ? "viewer" : "main", seenAt: Number(v.seenAt) || 0, settingsV: Number(v.settingsV) || 0, settingsAt: Number(v.settingsAt) || 0, settingsFps: isObj(v.settingsFps) ? v.settingsFps : null });
+      if (v && v.id) out.push({ id: String(v.id), name: String(v.name || "computer"), role: v.role === "viewer" ? "viewer" : "main", seenAt: Number(v.seenAt) || 0, settingsV: Number(v.settingsV) || 0, settingsAt: Number(v.settingsAt) || 0, settingsFps: isObj(v.settingsFps) ? v.settingsFps : null, vacationSeen: isObj(v.vacationSeen) ? v.vacationSeen : null });
     }
     out.sort((a, b) => (a.name < b.name ? -1 : 1));
     return out;
@@ -132,6 +132,11 @@
         next = isObj(base) ? clone(base) : {};
         const refused = ctl.mutate(next);
         const norm = spec.key === VACATION && !refused ? SPEC.normalizeVacationSetting(next) : { ok: !refused, reason: refused };
+        const vr = spec.key === VACATION && norm.ok ? vacationRefusal(base, next) : "";
+        if (vr) {
+          notes[key] = { text: `Not saved - ${vr}`, at: Date.now(), bad: true };
+          return draw(true);
+        }
         if (!norm.ok) {
           notes[key] = { text: `Not saved - ${norm.reason}`, at: Date.now(), bad: true };
           return draw(true);
@@ -142,6 +147,11 @@
       else {
         next = isObj(base) ? clone(base) : {};
         setPath(next, ctl.path, val);
+        const vr = spec.key === VACATION ? vacationRefusal(base, next) : "";
+        if (vr) {
+          notes[key] = { text: `Not saved - ${vr}`, at: Date.now(), bad: true };
+          return draw(true);
+        }
       }
       entries[key] = { v: next, at: t, by: "phone", byName: "Phone" };
       const res = await self.ShopperRemote.sb(`device_state?device_id=eq.${ROW}&v=eq.${got.v}&select=device_id,v`, {
@@ -234,6 +244,16 @@
   // (lib/walmart-vacation-days.js normalizeVacationSetting, in settings-lib.js) so the phone never saves what a computer would refuse,
   // and what it saves is already cleaned (skip days outside the range dropped).
   const VACATION = "shopperWalmartVacation";
+  // B-2262 (1): turning vacation on (or moving its earliest day while on) runs the computers' own save check - the earliest day must be after today.
+  function vacationRefusal(base, next) {
+    if (!isObj(next) || next.on !== true) return "";
+    const was = isObj(base) ? base : {};
+    if (was.on === true && was.returnDate === next.returnDate) return "";
+    // the phone saves each control on its own: turning vacation on before a date is picked stays allowed (as before; lines are held until a date is set) -
+    // only a picked date that is today or earlier is refused, with the computers' own words
+    if (!String(next.returnDate || "").trim()) return "";
+    return SPEC.vacationSaveRefusal(next, Date.now());
+  }
   // mutate(value) changes the fresh value in place and may return a refusal text.
   function saveVacation(spec, mutate) {
     return save(spec, { path: "", mutate }, undefined);
@@ -322,7 +342,7 @@
           if (spec.note && !ctl.path) card.appendChild(el("p", "muted small stg-note", spec.note));
         }
         // B-2249 / B-2251: what the vacation setting means right now (the computers' own sentence; the "last seen" day lives on the computer that buys).
-        if (spec.key === VACATION) card.appendChild(el("p", "small muted stg-vac-status", SPEC.vacationStatusLine(entryValue(spec), Date.now(), null)));
+        if (spec.key === VACATION) card.appendChild(el("p", "small muted stg-vac-status", SPEC.vacationStatusLine(entryValue(spec), Date.now(), SPEC.newestVacationSeen(computers.map((c) => c.vacationSeen)))));
         const n = notes[spec.key];
         const e = row && row.entries[spec.key];
         let text = n ? n.text : "";

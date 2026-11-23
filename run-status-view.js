@@ -88,7 +88,13 @@
       else { var pa = U.btn("Pause", "secondary-btn", function () { control("runPause", pa); }); acts.appendChild(pa); }
       var ab = U.btn("Abort run", "danger-btn", function () {
         // B-2180 (v2.0.175): the in-page confirm, not the browser's
-        inPageConfirm(ab, "Abort this run? The product on the screen stops now.").then(function (yes) { if (yes) control("runAbort", ab); });
+        // B-2211 (b): the same live-run signature as the main Abort button (app.js liveRunSig) - the run ended / changed while asked -> nothing sent
+        var runSig = function () { try { var r = typeof lastPayload !== "undefined" && lastPayload && lastPayload.run; return r ? [r.queueId, r.startedAt, ["running", "paused", "collecting_urls", "aborting"].indexOf(r.status) >= 0] : null; } catch (e) { return null; } };
+        var drawnRun = runSig();
+        var asked = typeof inPageConfirmStill === "function"
+          ? inPageConfirmStill(ab, "Abort this run? The product on the screen stops now.", runSig, { drawn: drawnRun }, function () { try { if (typeof toast === "function") toast("That changed while you were being asked - look again, then press again.", true); } catch (e) { /* toast only */ } })
+          : inPageConfirm(ab, "Abort this run? The product on the screen stops now.");
+        asked.then(function (yes) { if (yes) control("runAbort", ab); });
       });
       acts.appendChild(ab);
       sec.appendChild(acts);

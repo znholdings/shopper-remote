@@ -36,6 +36,18 @@
     const n = Number(v) || 0;
     return typeof self.shopperUnitsFraction === "function" ? self.shopperUnitsFraction(n) : (Math.round(n * 1000) / 1000).toLocaleString();
   }
+  // B-2211 (b): the last payload drawn - a confirm's answer is checked against it (inPageConfirmStill), so Yes never acts on an old picture.
+  let lastP = null;
+  const MOVED = "That changed while you were being asked - look again, then press again.";
+  // drawn = what the button was drawn from; readNow() = what is true when Yes lands. Moved -> nothing is sent, a toast says so.
+  function askStill(anchor, text, readNow, drawn) {
+    if (typeof self.inPageConfirmStill !== "function") return inPageConfirm(anchor, text); // an old shell without the helper: the plain card
+    return self.inPageConfirmStill(anchor, text, readNow, { drawn }, () => { if (typeof toast === "function") toast(MOVED, true); });
+  }
+  const needsList = (name) => ((lastP && lastP.needs && lastP.needs[name]) || []);
+  const frozenUnits = (f) => { const x = needsList("frozen").find((y) => y.orderNumber === f.orderNumber && y.asin === f.asin); return x ? x.units : null; };
+  const openUnits = (o) => { const x = needsList("overdue").find((y) => y.orderNumber === o.orderNumber && y.asin === o.asin); return x ? x.open : null; };
+  const countNow = (asin, dest) => { const x = ((lastP && lastP.inventory && lastP.inventory.rows) || []).find((y) => y.asin === asin); return x ? (dest === "prep" ? x.prep : x.house) : null; };
   function editing(container) {
     const a = document.activeElement;
     return !!(container && a && a !== document.body && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && container.contains(a));
@@ -233,7 +245,7 @@
         btn("Restore the row", "primary-btn", (e) => run("orderRestore", { orderNumber: f.orderNumber, asin: f.asin }, e.target, null, DROP)),
         fix,
         btn("Repair", "secondary-btn", (e) => { if (fix.value.trim()) run("orderRepair", { orderNumber: f.orderNumber, asin: f.asin, newOrderNumber: fix.value.trim() }, e.target, null, DROP); }),
-        btn("Cancel this order", "danger-btn", async (e) => { const t = e.target; if (await inPageConfirm(t, `Cancel order ${f.orderNumber} (${units(f.units)} units)?`)) run("orderCancel", { orderNumber: f.orderNumber, asin: f.asin, units: f.units }, e.target, null, DROP); })
+        btn("Cancel this order", "danger-btn", async (e) => { const t = e.target; const drawnUnits = f.units; if (await askStill(t, `Cancel order ${f.orderNumber} (${units(f.units)} units)?`, () => frozenUnits(f), drawnUnits)) run("orderCancel", { orderNumber: f.orderNumber, asin: f.asin, units: f.units }, e.target, null, DROP); })
       );
       c.append(a);
       host.append(c);
@@ -260,7 +272,7 @@
           run("arrivedQty", { asin: o.asin, destination: o.destination === "prep" ? "prep" : "house", orders: [{ orderNumber: o.orderNumber, units: o.open }], ...(p.quantity == null ? {} : { quantity: p.quantity }), at: noonIso(day.value, o.destination) || new Date().toISOString(), section: "Phone › Needs you" }, e.target, null, { drop: p.quantity == null });
         }),
         day,
-        btn("It never arrived", "danger-btn", async (e) => { const t = e.target; if (await inPageConfirm(t, `Mark ${units(o.open)} units of order ${o.orderNumber} as never arrived?`)) run("orderNeverArrived", { orderNumber: o.orderNumber, asin: o.asin, units: o.open }, e.target, null, DROP); }),
+        btn("It never arrived", "danger-btn", async (e) => { const t = e.target; const drawnOpen = o.open; if (await askStill(t, `Mark ${units(o.open)} units of order ${o.orderNumber} as never arrived?`, () => openUnits(o), drawnOpen)) run("orderNeverArrived", { orderNumber: o.orderNumber, asin: o.asin, units: o.open }, e.target, null, DROP); }),
         btn("Keep waiting", "secondary-btn", (e) => run("orderKeepWaiting", { key: o.key }, e.target, null, DROP))
       );
       c.append(a, qb.bad);
@@ -452,7 +464,8 @@
       const save = btn("Save", "primary-btn", async () => {
         if (num.value === "") return;
         const now = where.value === "prep" ? r.prep : r.house;
-        if (!(await inPageConfirm(null, `Set ${where.value === "prep" ? "Prep" : "House"} for ${r.title || r.asin} from ${units(now)} to ${units(num.value)}? Only this product changes.`))) return;
+        const dest = where.value;
+        if (!(await askStill(null, `Set ${dest === "prep" ? "Prep" : "House"} for ${r.title || r.asin} from ${units(now)} to ${units(num.value)}? Only this product changes.`, () => countNow(r.asin, dest), now))) return; // B-2211 (b): the count moved while asked -> nothing sent
         // B-1321 (v2.0.79): "Done - saved" stays readable for a moment before the box closes.
         run("setCount", { asin: r.asin, destination: where.value, units: Number(num.value) || 0, note: note.value || "Set from the phone" }, save, async () => setTimeout(() => box.remove(), (self.ShopperPress && self.ShopperPress.LINGER_MS) || 0));
       });
@@ -564,6 +577,7 @@
 
   function render(p) {
     if (!p) return;
+    lastP = p;
     expiry = p.houseExpiry || {};
     const inv = p.inventory;
     const rkey = JSON.stringify(p.refresh || null);

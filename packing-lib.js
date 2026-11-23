@@ -1092,7 +1092,22 @@ function packHeightmap(box, groupsIn, cfg, H) {
   return best;
 }
 
+// B-2213: the four grid arrays are reused from one run to the next (same size = same box inner size, which is nearly always the case in a search) instead of being
+// allocated per run; the run that holds them says so (gridBusy), so a run started while another is open (never happens today) gets fresh arrays.
+const HM_GRID = { n: -1, hgt: null, runR: null, runD: null, isAnchor: null };
+let gridBusy = false;
 function runVariant(box, groups, cfg, H, variant) {
+  if (gridBusy) return runVariantImpl(box, groups, cfg, H, variant, false);
+  gridBusy = true;
+  try { return runVariantImpl(box, groups, cfg, H, variant, true); } finally { gridBusy = false; }
+}
+function gridFor(n, owner) {
+  if (owner && HM_GRID.n === n) { HM_GRID.hgt.fill(0); HM_GRID.isAnchor.fill(0); return HM_GRID; } // runR / runD are filled in full by the run itself
+  const g = { n, hgt: new Float64Array(n), runR: new Float64Array(n), runD: new Float64Array(n), isAnchor: new Uint8Array(n) };
+  if (owner) Object.assign(HM_GRID, g);
+  return g;
+}
+function runVariantImpl(box, groups, cfg, H, variant, owner) {
   const hasFragile = groups.some((g) => g.fragility !== "none");
   const strips = cfg.sideStrips && hasFragile;
   const t = strips ? SHEET_T : 0;
@@ -1161,9 +1176,7 @@ function runVariant(box, groups, cfg, H, variant) {
   };
 
   // ---- the height map
-  const hgt = new Float64Array(gx * gy);
-  const runR = new Float64Array(gx * gy);
-  const runD = new Float64Array(gx * gy);
+  const { hgt, runR, runD, isAnchor } = gridFor(gx * gy, owner);
   const blocks = [];
   const bearIdx = []; // B-1513: per block, is it a bearing layer
   const solids = []; // v2.0.146 (B-1916): per block { x, y, z (its own bottom), colZ (bottom of the same-product column it stands in), l, w, top, holds, pi, ux, uy, uh, lv } for the "does it stand?" rules
@@ -1185,14 +1198,42 @@ function runVariant(box, groups, cfg, H, variant) {
       }
     }
   }
+  // B-2213: refresh() for a rectangle that was just set to ONE height (a commit): inside it every neighbour is equal, so a row's run is the run of its last cell
+  // and a column's run is the run of its last cell; only the cells to the left / below of the rectangle can then change (the same early stop as refresh()).
+  const tmpD = new Float64Array(gx);
+  function refreshFlat(i0, i1, j0, j1) {
+    for (let j = j0; j <= j1; j++) {
+      const row = j * gx, c1 = row + i1, v1 = i1 < gx - 1 && Math.abs(hgt[c1 + 1] - hgt[c1]) <= TOL ? runR[c1 + 1] : i1;
+      runR.fill(v1, row + i0, c1 + 1);
+      for (let i = i0 - 1; i >= 0; i--) {
+        const c = row + i, v = i < gx - 1 && Math.abs(hgt[c + 1] - hgt[c]) <= TOL ? runR[c + 1] : i;
+        if (v === runR[c]) break;
+        runR[c] = v;
+      }
+    }
+    for (let i = i0; i <= i1; i++) { const c1 = j1 * gx + i; tmpD[i - i0] = j1 < gy - 1 && Math.abs(hgt[c1 + gx] - hgt[c1]) <= TOL ? runD[c1 + gx] : j1; }
+    for (let j = j0; j <= j1; j++) runD.set(tmpD.subarray(0, i1 - i0 + 1), j * gx + i0);
+    for (let i = i0; i <= i1; i++) {
+      for (let j = j0 - 1; j >= 0; j--) {
+        const c = j * gx + i, v = j < gy - 1 && Math.abs(hgt[c + gx] - hgt[c]) <= TOL ? runD[c + gx] : j;
+        if (v === runD[c]) break;
+        runD[c] = v;
+      }
+    }
+  }
   for (let j = 0; j < gy; j++) runR.fill(gx - 1, j * gx, j * gx + gx);
   runD.fill(gy - 1);
   // the extreme points: cells whose left and back neighbours (or the walls) are at another height - the lower-left corners of the plateaus
   const anchorSet = new Set([0]);
+  // B-2213: isAnchor = the membership flag, so a cell whose status did not change costs no Set operation
+  isAnchor[0] = 1;
   function touch(i, j) {
     if (i >= gx || j >= gy) return;
     const c = j * gx + i, h = hgt[c];
-    if ((i === 0 || Math.abs(hgt[c - 1] - h) > TOL) && (j === 0 || Math.abs(hgt[c - gx] - h) > TOL)) anchorSet.add(c); else anchorSet.delete(c);
+    const now = (i === 0 || Math.abs(hgt[c - 1] - h) > TOL) && (j === 0 || Math.abs(hgt[c - gx] - h) > TOL) ? 1 : 0;
+    if (now === isAnchor[c]) return;
+    isAnchor[c] = now;
+    if (now) anchorSet.add(c); else anchorSet.delete(c);
   }
   function anchorsNow() {
     const out = [];
@@ -1236,7 +1277,6 @@ function runVariant(box, groups, cfg, H, variant) {
     }
     for (const a of anchors) describe(a);
     const cands = [];
-    const seen = new Set();
     const others = prods.filter((q) => q !== p && q.n > 0);
     const minFootO = others.length ? Math.min(...others.map((q) => q.minFoot)) : Infinity;
 
@@ -1247,9 +1287,10 @@ function runVariant(box, groups, cfg, H, variant) {
       const l = nx * cl, w = ny * cw, x = a.i * Q, y = a.j * Q;
       if (x + l > A + p.tol + EPS || y + w > B + p.tol + EPS) return;
       if (lv > 1 && p.weak && !(H.spansFor ? H.spansFor(p.g, l, w, A, B) : H.spansWall(l, w, A, B))) return; // a weak product stacks on itself only as a wall-to-wall (bearing) layer
-      const key = `${oi}|${nx}|${ny}|${lv}|${a.i}|${a.j}`;
-      if (seen.has(key)) return;
-      seen.add(key);
+      const seenA = a.seen || (a.seen = new Set()); // B-2213: one Set per anchor, a number key (the string key was a top allocation); out-of-range values keep a string key
+      const key = (oi & 4095) === oi && (nx & 4095) === nx && (ny & 4095) === ny && (lv & 4095) === lv ? ((oi * 4096 + nx) * 4096 + ny) * 4096 + lv : `${oi}|${nx}|${ny}|${lv}`; // number key only for whole numbers 0..4095 (exact, unique); anything else keeps the string
+      if (seenA.has(key)) return;
+      seenA.add(key);
       const z = a.zmax[dc - 1];
       const hb = lv * o.h;
       if (z + hb > C + EPS) return;
@@ -1393,9 +1434,19 @@ function runVariant(box, groups, cfg, H, variant) {
     solids.push({ x: c.x, y: c.y, z: zb, colZ: c.colZ != null ? c.colZ : zb, l: c.l, w: c.w, top: topZ, holds: !p.g.nocarry, pi: p.pi, ux: c.o.fl, uy: c.o.fw, uh: c.o.h, lv: c.colLv || c.lv });
     bearIdx.push(bear);
     if (c.th) sheets.push({ z: c.z, kind: "between", x: t + c.x, y: t + c.y, l: c.l, w: c.w, why: c.why });
-    for (let r = 0; r < c.dc; r++) for (let q = 0; q < c.wc; q++) { const cc = (c.j + r) * gx + c.i + q; hgt[cc] = topZ; }
-    refresh(c.i, c.i + c.wc - 1, c.j, c.j + c.dc - 1);
-    for (let r = 0; r <= c.dc; r++) for (let q = 0; q <= c.wc; q++) touch(c.i + q, c.j + r);
+    for (let r = 0; r < c.dc; r++) { const row = (c.j + r) * gx + c.i; hgt.fill(topZ, row, row + c.wc); }
+    refreshFlat(c.i, c.i + c.wc - 1, c.j, c.j + c.dc - 1);
+    // B-2213: a cell inside the rectangle (not on its left column or bottom row) has equal left / back neighbours, so it is never an anchor; only the border cells need the full test
+    for (let r = 0; r <= c.dc; r++) {
+      if (r === 0 || r === c.dc) { for (let q = 0; q <= c.wc; q++) touch(c.i + q, c.j + r); continue; }
+      touch(c.i, c.j + r);
+      touch(c.i + c.wc, c.j + r);
+    }
+    // the anchors that were inside the rectangle (there are only a few; deleting from a Set while walking it is fine)
+    for (const cc of anchorSet) {
+      const aj = Math.floor(cc / gx), ai = cc - aj * gx;
+      if (ai > c.i && ai < c.i + c.wc && aj > c.j && aj < c.j + c.dc) { isAnchor[cc] = 0; anchorSet.delete(cc); }
+    }
     p.n -= c.c;
     return k;
   }

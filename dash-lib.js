@@ -2253,6 +2253,10 @@ function classifyListing(l) {
   }
   const usCount = l && Number.isFinite(Number(l.usIssueCount)) ? Number(l.usIssueCount) : 0; // stored over ALL the listing's issues (the kept list is capped)
   const kind = us.length || usCount > 0 ? (l && l.buyable === false ? "blocked" : "errors") : "other";
+  // B-2226: in stock, Amazon says not buyable on Amazon.com, and the only errors are another marketplace's -> still a problem, reason not given.
+  if (kind === "other" && l && l.buyable === false) {
+    return { kind: "blocked", us, other, reasons: ["not buyable on Amazon.com - Amazon gave no reason"], markets, message: "" };
+  }
   const used = kind === "other" ? other : us;
   const reasons = [];
   for (const i of used) { const w = reasonWords(i); if (!reasons.includes(w)) reasons.push(w); }

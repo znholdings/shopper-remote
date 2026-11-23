@@ -117,7 +117,8 @@
     var tabBtn = null;
     function fill() {
       var rows = visibleLeads();
-      count.textContent = rows.length + " of " + (L.rows || []).length + " leads at this bar";
+      var sent = (L.rows || []).length;
+      count.textContent = rows.length + " of " + (L.atBar != null ? L.atBar : sent) + " leads at this bar" + (L.atBar > sent ? " - showing the top " + sent + " of " + L.atBar + "; let go of the slider to reload" : "");
       holder.textContent = "";
       if (!rows.length) holder.appendChild(U.el("p", "muted small", (L.rows || []).length ? "No leads at this bar - slide it down to see more." : "No leads yet - see Waiting for a source."));
       rows.forEach(function (it) { holder.appendChild(row(it, true)); });

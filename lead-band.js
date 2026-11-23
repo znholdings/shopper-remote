@@ -44,10 +44,20 @@
     tr.appendChild(U.el("td", "num", pctText(margin)));
     return tr;
   }
+  function feeLineText(fl) {
+    if (!fl || (fl.referral == null && fl.fba == null && fl.inbound == null && !fl.note)) return "";
+    var m = function (v) { return "$" + Number(v).toFixed(2); };
+    var parts = [];
+    if (fl.referral != null) parts.push("referral " + m(fl.referral));
+    if (fl.fba != null) parts.push("FBA " + m(fl.fba));
+    if (fl.inbound != null) parts.push("inbound " + m(fl.inbound));
+    return "Fees: " + parts.join(" \u00b7 ") + (fl.src === "keepa" ? " (fees from Keepa)" : "") + (fl.note ? " \u00b7 " + fl.note : "");
+  }
   function scenarioTable(c) {
     var e = c && (c.bestVariant || c);
     if (!c || c.notSource || !e || e.cost == null) return null;
     if (c.size !== undefined && !(c.size && c.size.ok)) return null; // B-2238: failed the size check - no money to show
+    if (c.dead) return null; // B-2270: not available on the store - no money to show
     var t = U.el("table", "pg-lt-scen");
     var hd = U.el("tr", "");
     ["Scenario", "Price", "Profit", "ROI", "Margin"].forEach(function (h, i) { hd.appendChild(U.el("th", i ? "num" : "", h)); });
@@ -56,6 +66,8 @@
     tb.appendChild(scenRow("Buy Box", e.bbPrice, e.profitBb, e.roiBb, e.marginBb, c.bbNote, c.feesNote));
     tb.appendChild(scenRow("Lowest FBA", e.fbaPrice, e.profitFba, e.roiFba, e.marginFba, c.fbaNote, c.feesNote));
     t.appendChild(tb);
+    var ft = feeLineText(c.fees); // B-2271: the same words as lib/inbound-cost.js feeLineText (pinned by test)
+    if (ft) { var tf = U.el("tfoot", ""); var fr = U.el("tr", ""); var fd = U.el("td", "pg-lt-note", ft); fd.colSpan = 5; fr.appendChild(fd); tf.appendChild(fr); t.appendChild(tf); }
     return t;
   }
   // B-2245: a table from plain rows [{ name, price, profit, roi, margin, note, feesNote }] (Tracked Leads: Buy Box / Lowest FBA / At your price)

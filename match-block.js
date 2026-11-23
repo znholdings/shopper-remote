@@ -46,6 +46,11 @@
     var v = c && c.bestVariant ? c.bestVariant : null;
     var e = v || c;
     var out = [];
+    if (c && !c.notSource && c.dead) { // B-2270: the store says the listing is not available - no money lines, greyed
+      out.push("Not available on the store");
+      if (c.tags && c.tags.length) out.push(c.tags.join(" \u00b7 "));
+      return out;
+    }
     if (c && !c.notSource && c.size !== undefined && !(c.size && c.size.ok)) {
       out.push(sizeFail(c.size));
       if (c.tags && c.tags.length) out.push(c.tags.join(" \u00b7 "));
@@ -93,6 +98,7 @@
   }
   function pickLine(asin, c) {
     var box = U.el("div", "pg-sm-pick");
+    if (c.dead && !c.notSource) box.style.opacity = "0.55"; // B-2270
     var head = U.el("div", "small");
     head.appendChild(U.el("b", "", (SHOP[c.retailer] || c.retailer || "Store") + " "));
     if (c.confirmed) head.appendChild(U.el("b", "pg-cp-kind pg-sm-confirmed", "Confirmed")); // B-2240
@@ -109,7 +115,7 @@
     var no = U.btn("Reject", "mini-btn", function () { why.hidden = !why.hidden; });
     var undo = U.btn("Undo", "mini-btn", function () { U.send("matchUndo", { asin: asin }, undo).then(function (res) { U.say(res, said(res, "Undone")); }); }); // B-2240: Confirm becomes Undo
     if (c.confirmed) acts.appendChild(undo);
-    else if (!c.notSource && (c.size === undefined || (c.size && c.size.ok))) acts.appendChild(ok); // B-2238: a pick that failed the size check has no Confirm
+    else if (!c.notSource && !c.dead && (c.size === undefined || (c.size && c.size.ok))) acts.appendChild(ok); // B-2238: a pick that failed the size check has no Confirm
     acts.appendChild(no);
     box.appendChild(acts);
     box.appendChild(why);

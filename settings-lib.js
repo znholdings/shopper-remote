@@ -129,6 +129,31 @@ function normalizeVacationSetting(v) {
 }
 
 /**
+ * B-2262 (3): the newest "last seen" record among this computer's own and the computers' heartbeat rows ({ at, lastDayOffered }).
+ * Entries that are not a record with a real day are ignored. -> the record or null.
+ */
+function newestVacationSeen(list) {
+  let best = null;
+  for (const r of Array.isArray(list) ? list : []) {
+    if (!r || typeof r !== "object" || !(Number(r.at) > 0) || dayNumber(r.lastDayOffered) == null) continue;
+    if (!best || Number(r.at) > Number(best.at)) best = { at: Number(r.at), lastDayOffered: String(r.lastDayOffered) };
+  }
+  return best;
+}
+
+/**
+ * B-2262 (1): the check a computer's Save and the phone's save both run when vacation mode would be ON. -> a refusal text, or "" (fine).
+ * Same words everywhere: the earliest day must be after today (Central).
+ */
+function vacationSaveRefusal(v, nowMs) {
+  if (!v || v.on !== true) return "";
+  const n = dayNumber(cleanDate(v.returnDate));
+  if (n == null) return "Pick a return date first.";
+  if (n <= dayNumber(todayCentral(nowMs))) return "The return date must be after today (Central).";
+  return "";
+}
+
+/**
  * The stored setting + now -> what is in force: { active, autoOff, invalid, reason, returnDate, latestDate, skipDates, days, allowedDays,
  * earliestAllowed, ranged }. Off / absent = active false. On with the return day passed = autoOff (off by itself). On with no valid return day
  * or a range that cannot work = active TRUE + invalid (house Walmart lines are HELD, never ordered to the house).
@@ -174,7 +199,7 @@ function vacationStatusLine(stored, nowMs, seen) {
   const last = pickerSeenDay(seen, nowMs);
   return `On: ${arrives}. Shopper checks Walmart's day picker at checkout${last ? `; last seen up to ${last}` : ""}.`;
 }
-__m["walmart-vacation-days.js"] = { VACATION_PREHOLD_DAYS, VACATION_MAX_RANGE_DAYS, VACATION_DEFAULT_WINDOW_DAYS, VACATION_MAX_SKIPS, todayCentral, dayNumber, addDays, dayShort, dayWithWeekday, vacationRangeText, vacationRange, normalizeVacationSetting, vacationView, pickerSeenDay, vacationStatusLine };
+__m["walmart-vacation-days.js"] = { VACATION_PREHOLD_DAYS, VACATION_MAX_RANGE_DAYS, VACATION_DEFAULT_WINDOW_DAYS, VACATION_MAX_SKIPS, todayCentral, dayNumber, addDays, dayShort, dayWithWeekday, vacationRangeText, vacationRange, normalizeVacationSetting, newestVacationSeen, vacationSaveRefusal, vacationView, pickerSeenDay, vacationStatusLine };
 })();
 // ---- lib/shared-settings-spec.js ----
 (function () {
@@ -298,6 +323,8 @@ const SHARED_SETTINGS_SPEC = Object.freeze([
   S({ key: "shopperCompLeadBar", group: "sourcing", label: "Competitor leads: the profit bar (ROI % / $ profit)", kind: "object" }), // B-2221 (v2.0.179): { minRoi: 20, minProfit: 0 } - the sliders on the Leads view (page + phone)
   S({ key: "shopperCompLimitsMove", group: "sourcing", label: "Competitors: the 7 to 25 sellers / 300 to 500 tokens move (marker)", kind: "object" }), // B-2221 review: shared, so a role switch or a not-yet-updated computer cannot re-run or hide it
   S({ key: "shopperLeadKeepaDailyCap", group: "sourcing", label: "Keepa tokens a day for Tracked Leads", kind: "number", min: 50, max: 3000, step: 10 }), // B-2103 (v2.0.162)
+  // B-2271 (v2.0.195): inbound FBA shipping, $ per pound of Keepa package weight, counted as a cost of every Amazon unit in the source-match / Leads profit. One shared value (settings row); the phone shows it too.
+  S({ key: "shopperInboundPerLb", group: "sourcing", label: "Inbound FBA shipping ($ / lb)", kind: "number", min: 0, max: 10, step: 0.05, def: 0.75, phone: true, unit: "$", note: "Counted as a cost of every Amazon unit in the Leads profit. 0 = off." }),
   // ---- Appearance / misc -------------------------------------------------
   S({ key: "shopperTheme", group: "appearance", label: "Computers' theme", kind: "enum", options: [["light", "Light"], ["dark", "Dark"], ["retro", "Retro"]], phone: true }),
   S({ key: "shopperBuyShots", group: "appearance", label: "Buy snapshots", kind: "object", phone: [

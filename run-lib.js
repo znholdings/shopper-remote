@@ -323,13 +323,15 @@ __m["queue-order.js"] = { QUEUE_ORDER_AUTOMATIC, QUEUE_ORDER_MANUAL, assignQueue
 // same file, bundled), background via import (projection, last report).
 
 const OUTCOME_KINDS = Object.freeze([
-  "inProgress", "needsYou", "success", "partial", "outOfStock", "failed", "skipped", "notStarted", "other",
+  "inProgress", "needsYou", "success", "partial", "outOfStock", "held", "failed", "skipped", "notStarted", "other",
 ]);
 
 const OUTCOME_META = Object.freeze({
   success: Object.freeze({ label: "Bought", plural: "Bought", tone: "good" }),
   partial: Object.freeze({ label: "Partial", plural: "Partial", tone: "partial" }),
   outOfStock: Object.freeze({ label: "Out of stock", plural: "Out of stock", tone: "oos" }),
+  // B-2276 (v2.0.195): a line that was opened, read and stopped on a hold (the Walmart shipping hold, a vacation hold) with nothing ordered.
+  held: Object.freeze({ label: "Held", plural: "Held - nothing ordered", tone: "quiet" }),
   failed: Object.freeze({ label: "Failed", plural: "Failed", tone: "bad" }),
   needsYou: Object.freeze({ label: "Needs you", plural: "Need you", tone: "you" }),
   skipped: Object.freeze({ label: "Skipped", plural: "Skipped", tone: "quiet" }),
@@ -362,8 +364,23 @@ const BY_STATUS = {
   not_needed: "other",
 };
 
+// B-2276 (v2.0.195): HELD = the line was started and ended on a hold - nothing ordered, a stop reason set, and the engine marked it
+// (vacationHold from the Walmart shipping / vacation holds, limitReached, or held). It is NOT "never attempted": not_attempted is only for a
+// line the queue truly never opened (abort / finish now / fatal), which carries no stop reason. The status itself stays "not_attempted"
+// (resume and retry logic read it); the outcome and the report bucket derive from this one rule. A held line the engine also called out
+// of stock (endedOutOfStock) is counted as Out of stock - one answer in the log and the report.
+function isHeldLine(line) {
+  if (!line || String(line.status || "") !== "not_attempted") return false;
+  if (!String(line.stopReason || "").trim()) return false;
+  // review (lead 11/22): `held` is cleared when the line starts / resumes and set by this attempt's hold, so a stale vacationHold / limitReached from an
+  // earlier attempt can never label a line Held. Only data written before that rule (held absent) falls back to the flags.
+  if (typeof line.held === "boolean") return line.held;
+  return !!(line.vacationHold || line.limitReached);
+}
+
 function outcomeOf(line) {
   const status = String((line && line.status) || "pending");
+  if (isHeldLine(line)) return line.endedOutOfStock ? "outOfStock" : "held";
   return BY_STATUS[status] || "other";
 }
 
@@ -385,8 +402,8 @@ function endedOutOfStock(line) {
 // the queue's retryLaterLineIds (lines left for the end-of-run retry).
 function outcomeLabel(line, statusLabels = {}, { retryLater = null } = {}) {
   const status = String((line && line.status) || "pending");
-  const base = (statusLabels && statusLabels[status]) || OUTCOME_META[outcomeOf(line)].label;
   const kind = outcomeOf(line);
+  const base = kind === "held" ? OUTCOME_META.held.label : (statusLabels && statusLabels[status]) || OUTCOME_META[kind].label; // B-2276: a held line reads "Held", not "Not attempted"
   const bits = [];
   if (kind === "partial") {
     if (line.limitReached) bits.push("Walmart limit reached");
@@ -410,7 +427,7 @@ function countOutcomes(lines) {
   }
   return out;
 }
-__m["line-outcome.js"] = { OUTCOME_KINDS, OUTCOME_META, outcomeOf, outcomeLabel, countOutcomes };
+__m["line-outcome.js"] = { OUTCOME_KINDS, OUTCOME_META, isHeldLine, outcomeOf, outcomeLabel, countOutcomes };
 })();
 // ---- lib/buy-stage.js ----
 (function () {
@@ -791,6 +808,7 @@ function describeLastReport(lr) {
   if (o.partial) bits.push(`${o.partial} partial`);
   if (o.outOfStock) bits.push(`${o.outOfStock} out of stock`);
   if (o.failed) bits.push(`${o.failed} failed`);
+  if (o.held) bits.push(`${o.held} held`); // B-2276
   if (o.needsYou) bits.push(`${o.needsYou} need you`);
   return `Buy Queue ${how} - spent ${money(lr.totalSpent)}${lr.spendTarget ? ` of ${money(lr.spendTarget)}` : ""}. ${bits.join(", ")}.`;
 }

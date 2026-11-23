@@ -205,13 +205,20 @@
     await refresh({ tapped: true });
   }
   async function resetOrder(b) { const r = await withBusy(b, () => run("queueResetOrder", {})); await after(r, "Back to the ranked order."); }
+  // B-2211 (b): Yes acts on the line as it is NOW (the list may have been redrawn while the card was open); moved -> nothing sent.
+  const lineSig = (l) => { const x = lines().find((y) => y.asin === l.asin && (y.planId || null) === (l.planId || null)); return x ? [x.g, x.status || null, x.qty == null ? null : x.qty] : null; };
+  function askStill(b, text, l) {
+    const drawn = [l.g, l.status || null, l.qty == null ? null : l.qty];
+    if (typeof inPageConfirmStill !== "function") return inPageConfirm(b, text);
+    return inPageConfirmStill(b, text, () => lineSig(l), { drawn }, () => say("That changed while you were being asked - look again, then press again.", true));
+  }
   async function remove(l, b) {
-    if (!(await inPageConfirm(b, "Take " + (l.title || l.asin) + " off tonight's buy? It goes back to undecided on the Buylist."))) return;
+    if (!(await askStill(b, "Take " + (l.title || l.asin) + " off tonight's buy? It goes back to undecided on the Buylist.", l))) return;
     const r = await withBusy(b, () => run("buylistAction", { asin: l.asin, action: "unapprove" }));
     await after(r, "Taken off tonight's buy.");
   }
   async function skipToday(l, b) {
-    if (!(await inPageConfirm(b, "Skip today's part of " + (l.title || l.asin) + "? The Target plan carries on tomorrow."))) return;
+    if (!(await askStill(b, "Skip today's part of " + (l.title || l.asin) + "? The Target plan carries on tomorrow.", l))) return;
     const r = await withBusy(b, () => run("targetPlanSkipToday", { planId: l.planId }));
     await after(r, "Skipped today.");
   }
