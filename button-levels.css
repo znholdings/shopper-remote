@@ -21,18 +21,18 @@
     .pp-tab, .cfm-tab, .tab, .ai-seg-btn, .density-btn, .fba-ser, .kc-range, .spending-goal-snap-btn, .s-tb-seg, .s-plain-btn, .icon-btn,
     .s-btn-icon, .theme-btn, .s-nav-link, .s-nav-sublink, .s-nav-toggle, .s-nav-burger, .nav-link-btn, .ui60-info-btn, .s-tb-info, .it-btn,
     .c55-info, .cat-sort, .s-menu-toggle, .score-handle, .pp-pencil, .pp-search-clear, .src-search-clear, .pp-order-more, .pp-order-link,
-    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon
+    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon, .rc-btn, .rc-x, .pr-x, .pr-move, .pr-remove, .prp-move, .als-x, .als-new, .pn-actlog-btn, .inv-pk-btn, .mp-row-btn, .s55-toggle, .s55-arr-toggle, .pn-close, .pn-group-head, .inv-search-clear, .pk-sheet-x, .ny-snooze-opt, .pk-prod, .bk-acct-link
   ):not(.s-menu-list *, [id="belowMinPane"] *) {
   background: var(--s-surface) !important; border: 1px solid var(--s-line) !important; color: var(--s-text) !important; font-family: var(--s-font) !important; text-decoration: none !important;
 }
 :root:not([data-theme="retro"]) body :is(
-    .s-btn-quiet, .ghost-btn, .link-btn, .pk-quiet
+    .s-btn-quiet, .ghost-btn, .link-btn, .pk-quiet, .linkish
   ):not(#no-id):not(
     .active, .is-active, .is-on, [aria-pressed="true"], :disabled, [class^="has-"], [class*=" has-"], [class$="-on"], [class*="-on "], .s-tab,
     .pp-tab, .cfm-tab, .tab, .ai-seg-btn, .density-btn, .fba-ser, .kc-range, .spending-goal-snap-btn, .s-tb-seg, .s-plain-btn, .icon-btn,
     .s-btn-icon, .theme-btn, .s-nav-link, .s-nav-sublink, .s-nav-toggle, .s-nav-burger, .nav-link-btn, .ui60-info-btn, .s-tb-info, .it-btn,
     .c55-info, .cat-sort, .s-menu-toggle, .score-handle, .pp-pencil, .pp-search-clear, .src-search-clear, .pp-order-more, .pp-order-link,
-    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon
+    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon, .rc-btn, .rc-x, .pr-x, .pr-move, .pr-remove, .prp-move, .als-x, .als-new, .pn-actlog-btn, .inv-pk-btn, .mp-row-btn, .s55-toggle, .s55-arr-toggle, .pn-close, .pn-group-head, .inv-search-clear, .pk-sheet-x, .ny-snooze-opt, .pk-prod, .bk-acct-link
   ):not(.s-menu-list *, [id="belowMinPane"] *) {
   background: transparent !important; border-color: transparent !important; box-shadow: none !important; color: var(--s-accent) !important; font-family: var(--s-font) !important; text-decoration: underline !important; text-underline-offset: 2px;
 }
@@ -43,7 +43,7 @@
     .pp-tab, .cfm-tab, .tab, .ai-seg-btn, .density-btn, .fba-ser, .kc-range, .spending-goal-snap-btn, .s-tb-seg, .s-plain-btn, .icon-btn,
     .s-btn-icon, .theme-btn, .s-nav-link, .s-nav-sublink, .s-nav-toggle, .s-nav-burger, .nav-link-btn, .ui60-info-btn, .s-tb-info, .it-btn,
     .c55-info, .cat-sort, .s-menu-toggle, .score-handle, .pp-pencil, .pp-search-clear, .src-search-clear, .pp-order-more, .pp-order-link,
-    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon
+    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon, .rc-btn, .rc-x, .pr-x, .pr-move, .pr-remove, .prp-move, .als-x, .als-new, .pn-actlog-btn, .inv-pk-btn, .mp-row-btn, .s55-toggle, .s55-arr-toggle, .pn-close, .pn-group-head, .inv-search-clear, .pk-sheet-x, .ny-snooze-opt, .pk-prod, .bk-acct-link
   ):not(.s-menu-list *, [id="belowMinPane"] *) {
   background: var(--s-accent) !important; border: 1px solid var(--s-accent) !important; color: var(--s-on-accent) !important; font-family: var(--s-font) !important; text-decoration: none !important;
 }
@@ -54,7 +54,7 @@
     .pp-tab, .cfm-tab, .tab, .ai-seg-btn, .density-btn, .fba-ser, .kc-range, .spending-goal-snap-btn, .s-tb-seg, .s-plain-btn, .icon-btn,
     .s-btn-icon, .theme-btn, .s-nav-link, .s-nav-sublink, .s-nav-toggle, .s-nav-burger, .nav-link-btn, .ui60-info-btn, .s-tb-info, .it-btn,
     .c55-info, .cat-sort, .s-menu-toggle, .score-handle, .pp-pencil, .pp-search-clear, .src-search-clear, .pp-order-more, .pp-order-link,
-    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon
+    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon, .rc-btn, .rc-x, .pr-x, .pr-move, .pr-remove, .prp-move, .als-x, .als-new, .pn-actlog-btn, .inv-pk-btn, .mp-row-btn, .s55-toggle, .s55-arr-toggle, .pn-close, .pn-group-head, .inv-search-clear, .pk-sheet-x, .ny-snooze-opt, .pk-prod, .bk-acct-link
   ):not(.s-menu-list *, [id="belowMinPane"] *) {
   background: var(--s-accent) !important; border: 1px solid var(--s-accent) !important; color: var(--s-on-accent) !important; font-family: var(--s-font) !important; text-decoration: none !important;
 }
@@ -65,7 +65,7 @@
     .pp-tab, .cfm-tab, .tab, .ai-seg-btn, .density-btn, .fba-ser, .kc-range, .spending-goal-snap-btn, .s-tb-seg, .s-plain-btn, .icon-btn,
     .s-btn-icon, .theme-btn, .s-nav-link, .s-nav-sublink, .s-nav-toggle, .s-nav-burger, .nav-link-btn, .ui60-info-btn, .s-tb-info, .it-btn,
     .c55-info, .cat-sort, .s-menu-toggle, .score-handle, .pp-pencil, .pp-search-clear, .src-search-clear, .pp-order-more, .pp-order-link,
-    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon
+    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon, .rc-btn, .rc-x, .pr-x, .pr-move, .pr-remove, .prp-move, .als-x, .als-new, .pn-actlog-btn, .inv-pk-btn, .mp-row-btn, .s55-toggle, .s55-arr-toggle, .pn-close, .pn-group-head, .inv-search-clear, .pk-sheet-x, .ny-snooze-opt, .pk-prod, .bk-acct-link
   ):not(.s-menu-list *, [id="belowMinPane"] *) {
   background: var(--s-surface) !important; border: 1px solid var(--s-red) !important; color: var(--s-btn-danger-ink) !important; font-family: var(--s-font) !important; text-decoration: none !important;
 }
@@ -76,18 +76,18 @@
     .pp-tab, .cfm-tab, .tab, .ai-seg-btn, .density-btn, .fba-ser, .kc-range, .spending-goal-snap-btn, .s-tb-seg, .s-plain-btn, .icon-btn,
     .s-btn-icon, .theme-btn, .s-nav-link, .s-nav-sublink, .s-nav-toggle, .s-nav-burger, .nav-link-btn, .ui60-info-btn, .s-tb-info, .it-btn,
     .c55-info, .cat-sort, .s-menu-toggle, .score-handle, .pp-pencil, .pp-search-clear, .src-search-clear, .pp-order-more, .pp-order-link,
-    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon
+    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon, .rc-btn, .rc-x, .pr-x, .pr-move, .pr-remove, .prp-move, .als-x, .als-new, .pn-actlog-btn, .inv-pk-btn, .mp-row-btn, .s55-toggle, .s55-arr-toggle, .pn-close, .pn-group-head, .inv-search-clear, .pk-sheet-x, .ny-snooze-opt, .pk-prod, .bk-acct-link
   ):not(.s-menu-list *, [id="belowMinPane"] *):hover:not(:disabled) {
   border-color: var(--s-accent) !important;
 }
 :root:not([data-theme="retro"]) body :is(
-    .s-btn-quiet, .ghost-btn, .link-btn, .pk-quiet
+    .s-btn-quiet, .ghost-btn, .link-btn, .pk-quiet, .linkish
   ):not(#no-id):not(
     .active, .is-active, .is-on, [aria-pressed="true"], :disabled, [class^="has-"], [class*=" has-"], [class$="-on"], [class*="-on "], .s-tab,
     .pp-tab, .cfm-tab, .tab, .ai-seg-btn, .density-btn, .fba-ser, .kc-range, .spending-goal-snap-btn, .s-tb-seg, .s-plain-btn, .icon-btn,
     .s-btn-icon, .theme-btn, .s-nav-link, .s-nav-sublink, .s-nav-toggle, .s-nav-burger, .nav-link-btn, .ui60-info-btn, .s-tb-info, .it-btn,
     .c55-info, .cat-sort, .s-menu-toggle, .score-handle, .pp-pencil, .pp-search-clear, .src-search-clear, .pp-order-more, .pp-order-link,
-    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon
+    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon, .rc-btn, .rc-x, .pr-x, .pr-move, .pr-remove, .prp-move, .als-x, .als-new, .pn-actlog-btn, .inv-pk-btn, .mp-row-btn, .s55-toggle, .s55-arr-toggle, .pn-close, .pn-group-head, .inv-search-clear, .pk-sheet-x, .ny-snooze-opt, .pk-prod, .bk-acct-link
   ):not(.s-menu-list *, [id="belowMinPane"] *):hover:not(:disabled) {
   background: var(--s-n2) !important; border-color: transparent !important;
 }
@@ -98,7 +98,7 @@
     .pp-tab, .cfm-tab, .tab, .ai-seg-btn, .density-btn, .fba-ser, .kc-range, .spending-goal-snap-btn, .s-tb-seg, .s-plain-btn, .icon-btn,
     .s-btn-icon, .theme-btn, .s-nav-link, .s-nav-sublink, .s-nav-toggle, .s-nav-burger, .nav-link-btn, .ui60-info-btn, .s-tb-info, .it-btn,
     .c55-info, .cat-sort, .s-menu-toggle, .score-handle, .pp-pencil, .pp-search-clear, .src-search-clear, .pp-order-more, .pp-order-link,
-    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon
+    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon, .rc-btn, .rc-x, .pr-x, .pr-move, .pr-remove, .prp-move, .als-x, .als-new, .pn-actlog-btn, .inv-pk-btn, .mp-row-btn, .s55-toggle, .s55-arr-toggle, .pn-close, .pn-group-head, .inv-search-clear, .pk-sheet-x, .ny-snooze-opt, .pk-prod, .bk-acct-link
   ):not(.s-menu-list *, [id="belowMinPane"] *):hover:not(:disabled) {
   background: var(--s-red-bg) !important; border-color: var(--s-red) !important;
 }
@@ -110,18 +110,18 @@
     .pp-tab, .cfm-tab, .tab, .ai-seg-btn, .density-btn, .fba-ser, .kc-range, .spending-goal-snap-btn, .s-tb-seg, .s-plain-btn, .icon-btn,
     .s-btn-icon, .theme-btn, .s-nav-link, .s-nav-sublink, .s-nav-toggle, .s-nav-burger, .nav-link-btn, .ui60-info-btn, .s-tb-info, .it-btn,
     .c55-info, .cat-sort, .s-menu-toggle, .score-handle, .pp-pencil, .pp-search-clear, .src-search-clear, .pp-order-more, .pp-order-link,
-    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon
+    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon, .rc-btn, .rc-x, .pr-x, .pr-move, .pr-remove, .prp-move, .als-x, .als-new, .pn-actlog-btn, .inv-pk-btn, .mp-row-btn, .s55-toggle, .s55-arr-toggle, .pn-close, .pn-group-head, .inv-search-clear, .pk-sheet-x, .ny-snooze-opt, .pk-prod, .bk-acct-link
   ):not(.s-menu-list *, [id="belowMinPane"] *) {
   background: var(--s-surface) !important; border: var(--rt-line) !important; color: var(--s-text) !important; font-family: var(--s-pixel) !important; text-decoration: none !important; box-shadow: var(--rt-raise-sm) !important;
 }
 :root[data-theme="retro"] body :is(
-    .s-btn-quiet, .ghost-btn, .link-btn, .pk-quiet
+    .s-btn-quiet, .ghost-btn, .link-btn, .pk-quiet, .linkish
   ):not(#no-id):not(
     .active, .is-active, .is-on, [aria-pressed="true"], :disabled, [class^="has-"], [class*=" has-"], [class$="-on"], [class*="-on "], .s-tab,
     .pp-tab, .cfm-tab, .tab, .ai-seg-btn, .density-btn, .fba-ser, .kc-range, .spending-goal-snap-btn, .s-tb-seg, .s-plain-btn, .icon-btn,
     .s-btn-icon, .theme-btn, .s-nav-link, .s-nav-sublink, .s-nav-toggle, .s-nav-burger, .nav-link-btn, .ui60-info-btn, .s-tb-info, .it-btn,
     .c55-info, .cat-sort, .s-menu-toggle, .score-handle, .pp-pencil, .pp-search-clear, .src-search-clear, .pp-order-more, .pp-order-link,
-    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon
+    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon, .rc-btn, .rc-x, .pr-x, .pr-move, .pr-remove, .prp-move, .als-x, .als-new, .pn-actlog-btn, .inv-pk-btn, .mp-row-btn, .s55-toggle, .s55-arr-toggle, .pn-close, .pn-group-head, .inv-search-clear, .pk-sheet-x, .ny-snooze-opt, .pk-prod, .bk-acct-link
   ):not(.s-menu-list *, [id="belowMinPane"] *) {
   background: transparent !important; border-color: transparent !important; box-shadow: none !important; color: var(--s-accent) !important; font-family: var(--s-font) !important; text-transform: none !important; text-decoration: underline !important; text-underline-offset: 2px;
 }
@@ -132,7 +132,7 @@
     .pp-tab, .cfm-tab, .tab, .ai-seg-btn, .density-btn, .fba-ser, .kc-range, .spending-goal-snap-btn, .s-tb-seg, .s-plain-btn, .icon-btn,
     .s-btn-icon, .theme-btn, .s-nav-link, .s-nav-sublink, .s-nav-toggle, .s-nav-burger, .nav-link-btn, .ui60-info-btn, .s-tb-info, .it-btn,
     .c55-info, .cat-sort, .s-menu-toggle, .score-handle, .pp-pencil, .pp-search-clear, .src-search-clear, .pp-order-more, .pp-order-link,
-    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon
+    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon, .rc-btn, .rc-x, .pr-x, .pr-move, .pr-remove, .prp-move, .als-x, .als-new, .pn-actlog-btn, .inv-pk-btn, .mp-row-btn, .s55-toggle, .s55-arr-toggle, .pn-close, .pn-group-head, .inv-search-clear, .pk-sheet-x, .ny-snooze-opt, .pk-prod, .bk-acct-link
   ):not(.s-menu-list *, [id="belowMinPane"] *) {
   background: var(--s-accent) !important; border: var(--rt-line) !important; color: var(--s-on-accent) !important; font-family: var(--s-pixel) !important; text-decoration: none !important; box-shadow: var(--rt-raise-sm) !important;
 }
@@ -143,7 +143,7 @@
     .pp-tab, .cfm-tab, .tab, .ai-seg-btn, .density-btn, .fba-ser, .kc-range, .spending-goal-snap-btn, .s-tb-seg, .s-plain-btn, .icon-btn,
     .s-btn-icon, .theme-btn, .s-nav-link, .s-nav-sublink, .s-nav-toggle, .s-nav-burger, .nav-link-btn, .ui60-info-btn, .s-tb-info, .it-btn,
     .c55-info, .cat-sort, .s-menu-toggle, .score-handle, .pp-pencil, .pp-search-clear, .src-search-clear, .pp-order-more, .pp-order-link,
-    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon
+    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon, .rc-btn, .rc-x, .pr-x, .pr-move, .pr-remove, .prp-move, .als-x, .als-new, .pn-actlog-btn, .inv-pk-btn, .mp-row-btn, .s55-toggle, .s55-arr-toggle, .pn-close, .pn-group-head, .inv-search-clear, .pk-sheet-x, .ny-snooze-opt, .pk-prod, .bk-acct-link
   ):not(.s-menu-list *, [id="belowMinPane"] *) {
   background: var(--s-accent) !important; border: var(--rt-line) !important; color: var(--s-on-accent) !important; font-family: var(--s-pixel) !important; text-decoration: none !important; box-shadow: var(--rt-raise-sm) !important;
 }
@@ -154,7 +154,7 @@
     .pp-tab, .cfm-tab, .tab, .ai-seg-btn, .density-btn, .fba-ser, .kc-range, .spending-goal-snap-btn, .s-tb-seg, .s-plain-btn, .icon-btn,
     .s-btn-icon, .theme-btn, .s-nav-link, .s-nav-sublink, .s-nav-toggle, .s-nav-burger, .nav-link-btn, .ui60-info-btn, .s-tb-info, .it-btn,
     .c55-info, .cat-sort, .s-menu-toggle, .score-handle, .pp-pencil, .pp-search-clear, .src-search-clear, .pp-order-more, .pp-order-link,
-    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon
+    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon, .rc-btn, .rc-x, .pr-x, .pr-move, .pr-remove, .prp-move, .als-x, .als-new, .pn-actlog-btn, .inv-pk-btn, .mp-row-btn, .s55-toggle, .s55-arr-toggle, .pn-close, .pn-group-head, .inv-search-clear, .pk-sheet-x, .ny-snooze-opt, .pk-prod, .bk-acct-link
   ):not(.s-menu-list *, [id="belowMinPane"] *) {
   background: var(--s-surface) !important; border: 2px solid var(--s-red) !important; color: var(--s-btn-danger-ink) !important; font-family: var(--s-pixel) !important; text-decoration: none !important; text-transform: uppercase !important; box-shadow: var(--rt-raise-sm) !important;
 }
@@ -165,18 +165,18 @@
     .pp-tab, .cfm-tab, .tab, .ai-seg-btn, .density-btn, .fba-ser, .kc-range, .spending-goal-snap-btn, .s-tb-seg, .s-plain-btn, .icon-btn,
     .s-btn-icon, .theme-btn, .s-nav-link, .s-nav-sublink, .s-nav-toggle, .s-nav-burger, .nav-link-btn, .ui60-info-btn, .s-tb-info, .it-btn,
     .c55-info, .cat-sort, .s-menu-toggle, .score-handle, .pp-pencil, .pp-search-clear, .src-search-clear, .pp-order-more, .pp-order-link,
-    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon
+    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon, .rc-btn, .rc-x, .pr-x, .pr-move, .pr-remove, .prp-move, .als-x, .als-new, .pn-actlog-btn, .inv-pk-btn, .mp-row-btn, .s55-toggle, .s55-arr-toggle, .pn-close, .pn-group-head, .inv-search-clear, .pk-sheet-x, .ny-snooze-opt, .pk-prod, .bk-acct-link
   ):not(.s-menu-list *, [id="belowMinPane"] *):hover:not(:disabled) {
   background: var(--s-accent-bg) !important;
 }
 :root[data-theme="retro"] body :is(
-    .s-btn-quiet, .ghost-btn, .link-btn, .pk-quiet
+    .s-btn-quiet, .ghost-btn, .link-btn, .pk-quiet, .linkish
   ):not(#no-id):not(
     .active, .is-active, .is-on, [aria-pressed="true"], :disabled, [class^="has-"], [class*=" has-"], [class$="-on"], [class*="-on "], .s-tab,
     .pp-tab, .cfm-tab, .tab, .ai-seg-btn, .density-btn, .fba-ser, .kc-range, .spending-goal-snap-btn, .s-tb-seg, .s-plain-btn, .icon-btn,
     .s-btn-icon, .theme-btn, .s-nav-link, .s-nav-sublink, .s-nav-toggle, .s-nav-burger, .nav-link-btn, .ui60-info-btn, .s-tb-info, .it-btn,
     .c55-info, .cat-sort, .s-menu-toggle, .score-handle, .pp-pencil, .pp-search-clear, .src-search-clear, .pp-order-more, .pp-order-link,
-    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon
+    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon, .rc-btn, .rc-x, .pr-x, .pr-move, .pr-remove, .prp-move, .als-x, .als-new, .pn-actlog-btn, .inv-pk-btn, .mp-row-btn, .s55-toggle, .s55-arr-toggle, .pn-close, .pn-group-head, .inv-search-clear, .pk-sheet-x, .ny-snooze-opt, .pk-prod, .bk-acct-link
   ):not(.s-menu-list *, [id="belowMinPane"] *):hover:not(:disabled) {
   background: var(--s-accent-bg) !important; border-color: transparent !important;
 }
@@ -187,7 +187,7 @@
     .pp-tab, .cfm-tab, .tab, .ai-seg-btn, .density-btn, .fba-ser, .kc-range, .spending-goal-snap-btn, .s-tb-seg, .s-plain-btn, .icon-btn,
     .s-btn-icon, .theme-btn, .s-nav-link, .s-nav-sublink, .s-nav-toggle, .s-nav-burger, .nav-link-btn, .ui60-info-btn, .s-tb-info, .it-btn,
     .c55-info, .cat-sort, .s-menu-toggle, .score-handle, .pp-pencil, .pp-search-clear, .src-search-clear, .pp-order-more, .pp-order-link,
-    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon
+    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon, .rc-btn, .rc-x, .pr-x, .pr-move, .pr-remove, .prp-move, .als-x, .als-new, .pn-actlog-btn, .inv-pk-btn, .mp-row-btn, .s55-toggle, .s55-arr-toggle, .pn-close, .pn-group-head, .inv-search-clear, .pk-sheet-x, .ny-snooze-opt, .pk-prod, .bk-acct-link
   ):not(.s-menu-list *, [id="belowMinPane"] *):hover:not(:disabled) {
   background: var(--s-red) !important;
 }
@@ -198,7 +198,7 @@
     .pp-tab, .cfm-tab, .tab, .ai-seg-btn, .density-btn, .fba-ser, .kc-range, .spending-goal-snap-btn, .s-tb-seg, .s-plain-btn, .icon-btn,
     .s-btn-icon, .theme-btn, .s-nav-link, .s-nav-sublink, .s-nav-toggle, .s-nav-burger, .nav-link-btn, .ui60-info-btn, .s-tb-info, .it-btn,
     .c55-info, .cat-sort, .s-menu-toggle, .score-handle, .pp-pencil, .pp-search-clear, .src-search-clear, .pp-order-more, .pp-order-link,
-    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon
+    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon, .rc-btn, .rc-x, .pr-x, .pr-move, .pr-remove, .prp-move, .als-x, .als-new, .pn-actlog-btn, .inv-pk-btn, .mp-row-btn, .s55-toggle, .s55-arr-toggle, .pn-close, .pn-group-head, .inv-search-clear, .pk-sheet-x, .ny-snooze-opt, .pk-prod, .bk-acct-link
   ):not(.s-menu-list *, [id="belowMinPane"] *):hover:not(:disabled) {
   background: var(--s-red) !important;
 }
@@ -209,7 +209,7 @@
     .pp-tab, .cfm-tab, .tab, .ai-seg-btn, .density-btn, .fba-ser, .kc-range, .spending-goal-snap-btn, .s-tb-seg, .s-plain-btn, .icon-btn,
     .s-btn-icon, .theme-btn, .s-nav-link, .s-nav-sublink, .s-nav-toggle, .s-nav-burger, .nav-link-btn, .ui60-info-btn, .s-tb-info, .it-btn,
     .c55-info, .cat-sort, .s-menu-toggle, .score-handle, .pp-pencil, .pp-search-clear, .src-search-clear, .pp-order-more, .pp-order-link,
-    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon
+    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon, .rc-btn, .rc-x, .pr-x, .pr-move, .pr-remove, .prp-move, .als-x, .als-new, .pn-actlog-btn, .inv-pk-btn, .mp-row-btn, .s55-toggle, .s55-arr-toggle, .pn-close, .pn-group-head, .inv-search-clear, .pk-sheet-x, .ny-snooze-opt, .pk-prod, .bk-acct-link
   ):not(.s-menu-list *, [id="belowMinPane"] *):hover:not(:disabled) {
   background: var(--s-red-bg) !important; border-color: var(--s-red) !important;
 }
@@ -220,7 +220,7 @@
     .pp-tab, .cfm-tab, .tab, .ai-seg-btn, .density-btn, .fba-ser, .kc-range, .spending-goal-snap-btn, .s-tb-seg, .s-plain-btn, .icon-btn,
     .s-btn-icon, .theme-btn, .s-nav-link, .s-nav-sublink, .s-nav-toggle, .s-nav-burger, .nav-link-btn, .ui60-info-btn, .s-tb-info, .it-btn,
     .c55-info, .cat-sort, .s-menu-toggle, .score-handle, .pp-pencil, .pp-search-clear, .src-search-clear, .pp-order-more, .pp-order-link,
-    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon
+    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon, .rc-btn, .rc-x, .pr-x, .pr-move, .pr-remove, .prp-move, .als-x, .als-new, .pn-actlog-btn, .inv-pk-btn, .mp-row-btn, .s55-toggle, .s55-arr-toggle, .pn-close, .pn-group-head, .inv-search-clear, .pk-sheet-x, .ny-snooze-opt, .pk-prod, .bk-acct-link
   ):not(.s-menu-list *, [id="belowMinPane"] *):active:not(:disabled) {
   box-shadow: none !important;
 }

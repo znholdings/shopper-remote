@@ -23,7 +23,7 @@
   const sec = (el, key, cnt) => { if (el) F.section(el, { key, count: cnt == null ? null : cnt }); };
 
   // Every key a fold uses on the phone (the tests read this list).
-  const SECTION_KEYS = ["arrivals:shipments", "arrivals:unmatched", "arrivals:edits", "arrivals:removals", "buylist:carryover", "run:clientNotes", "run:waiting", "blacklist:add", "books:forClaude"];
+  const SECTION_KEYS = ["arrivals:shipments", "arrivals:unmatched", "arrivals:edits", "arrivals:removals", "buylist:carryover", "run:clientNotes", "run:waiting", "blacklist:add", "books:forClaude", "settings:buying", "settings:pricing", "settings:pipeline", "settings:receive", "settings:labels", "settings:books", "settings:appearance"];
   const GROUP_KEYS = ["run:reportDetail", "dashboard:checks", "dashboard:sustainWhy", "cash:claudeMore", "fba:claudeMore", "cash:claudeAnswers", "fba:claudeAnswers"];
 
   function decorateAll() {
@@ -37,6 +37,8 @@
     sec(byHead("#waitingHost", ".wax-box", /^Waiting on RP/), "run:waiting", null);
     sec(byHead("#blacklistPane", ".pg-sec", /Add to the Blacklist/), "blacklist:add", null);
     sec($("#bkmForClaudeCard"), "books:forClaude", null);
+    // B-2285 item 2a: the Settings group cards (each count = its rows)
+    $$("#stgBody > section.stg-card[data-gid]").forEach((c) => { sec(c, "settings:" + c.dataset.gid, count(c, ".stg-row")); });
 
     // Groups: a button + the elements hidden while closed (urgent + summary of the report stay visible).
     el = $("#reportBuckets");

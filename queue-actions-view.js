@@ -97,10 +97,9 @@
     if (key === drawnKey || typing(host) || rankOpen) return;
     drawnKey = key;
     host.textContent = "";
-    const box = el("div", "section qax-box");
+    const box = el("div", "qax-box");
     const finished = !!(run && FINISHED.has(run.status));
     if (finished) {
-      box.appendChild(btnOf("Clear finished queue", "secondary-btn danger-btn", (b) => act("queueClear", {}, { btn: b, confirm: "Clear the finished queue? The report stays in Last run." })));
       if (!staleSent) {
         const gen = p.buylist && p.buylist.generatedAt, started = run.startedAt;
         if (gen && started && new Date(gen).getTime() > new Date(started).getTime()) { staleSent = true; act("queueClearStale", {}); }
@@ -124,12 +123,20 @@
     }
     // B-2074: a rarely wanted, destructive button lives behind a menu (same command, same confirm).
     const more = el("details", "sfold-more");
-    const moreSum = el("summary", "", "⋯");
+    const moreSum = el("summary", "", "More ▾"); // B-2285 item 9: a word, not a stray "…"
     moreSum.setAttribute("aria-label", "More");
     more.appendChild(moreSum);
     more.appendChild(btnOf("Forget what Recovery learned", "secondary-btn danger-btn", (b) => act("recoveryClearLearned", {}, { btn: b, confirm: "Forget everything Recovery has learned? It will learn again from the next run." })));
     box.appendChild(more);
-    host.appendChild(box);
+    // B-2285 item 9: "Clear finished queue" is destructive and apart - its own row at the END of the box, with a rule above (same command, same confirm).
+    if (finished) {
+      const clearRow = el("div", "qax-clear-row");
+      clearRow.appendChild(btnOf("Clear finished queue", "danger-btn qax-clear", (b) => act("queueClear", {}, { btn: b, confirm: "Clear the finished queue? The report stays in Last run." })));
+      box.appendChild(clearRow);
+    }
+    // the card only when the box holds a button of its own; a box with just the More menu is no empty card
+    if (finished || (!run && lines.length) || rankState) { box.classList.add("section"); host.appendChild(box); }
+    else host.appendChild(more);
   }
   function start() { draw(); setInterval(draw, 2000); }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start); else start();

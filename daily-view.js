@@ -45,6 +45,10 @@
     return b;
   }
 
+  // B-2299 (v2.0.199): the step rows - Main's own (the laptop's function on its inbox: dashboard.extra.dailyRows), so the phone has the laptop's
+  // step list; null (an older laptop, or an inbox over 2 hours old) = the phone's own list. An empty list from Main is respected.
+  function dailyRowsOf(c) { return c && Array.isArray(c.dailyRows) ? c.dailyRows : (c && c.rows) || []; }
+
   // The payload's state with this phone's not-yet-confirmed taps on top.
   function effectiveState() {
     const G = self.ShopperGlance;
@@ -96,7 +100,7 @@
     if (!ctx) return;
     const G = self.ShopperGlance;
     // B-1286 (v2.0.75): the laptop's FULL pricing-error / stranded lists (dashboard.extra.daily.lists).
-    const m = G.buildDailySteps(ctx.rows, effectiveState(), Date.now(), { fresh: (ctx.daily && ctx.daily.fresh) || {}, listings: (ctx.daily && ctx.daily.lists) || {} });
+    const m = G.buildDailySteps(dailyRowsOf(ctx), effectiveState(), Date.now(), { fresh: (ctx.daily && ctx.daily.fresh) || {}, listings: (ctx.daily && ctx.daily.lists) || {} });
     steps = m.steps;
     doneToday = m.doneToday;
     autoReviewed = m.autoReviewed || [];

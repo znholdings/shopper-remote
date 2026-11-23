@@ -104,4 +104,7 @@
 :root[data-theme="retro"] .s-copy:hover, :root[data-theme="retro"] .s-copy:focus-visible { color: var(--s-n7) !important; }
 :root[data-theme="retro"] .s-copy.is-done { color: var(--s-green-ink) !important; }
 
+/* B-2285 item 6: the Cash Flow tile headings in the retro pixel label (remote/retro-core.css is the byte twin of lib/ - not edited) */
+:root[data-theme="retro"] .cfm-stat-label { font-family: var(--s-pixel) !important; font-weight: 400 !important; font-size: var(--rt-label) !important; }
+
 [hidden] { display: none !important; }

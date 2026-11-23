@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.198";
+const APP_BUILD = "v2.0.199";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -609,6 +609,12 @@ function laptopStaleShort(updatedAtIso, nowMs) {
   const m = Math.round((nowMs - t) / 60000), h = Math.round(m / 60);
   return (deviceName || "The computer") + " · " + (m < 60 ? m + " min ago" : h < 48 ? h + " h ago" : Math.round(h / 24) + " days ago");
 }
+// B-2285 item 4: the calm form for the header chip ("Optiplex · just now" / "Optiplex · 3 min ago") - only for a calm run state (finished / idle) away from the Buy Queue.
+function laptopFreshShort(updatedAtIso, nowMs) {
+  const t = Date.parse(updatedAtIso || "");
+  const m = Number.isFinite(t) ? Math.max(0, Math.round((nowMs - t) / 60000)) : 0;
+  return (deviceName || "The computer") + " \u00b7 " + (m < 1 ? "just now" : m + " min ago");
+}
 
 // The banner Zach asked for: "running" and "go to the machine" must never
 // look the same.
@@ -637,6 +643,15 @@ function renderLiveness(live) {
   }[live.status] || live.status;
   b.textContent = label; // B-2068: one word in the bar; the reason behind the tap
   b.dataset.full = live.reason ? `${label} - ${live.reason}` : "";
+  // B-2285 item 4 (Q14): finished / idle away from the Buy Queue show the computer and how fresh it is; running / waiting / paused / stalled / offline keep their word on every page.
+  // ...but not while a background job runs (or has stalled): the top bar's own word for it ("42%" / "WORKING") must stay on screen.
+  const A = self.ShopperActivityView, act = lastPayload && lastPayload.activity;
+  let busy = false;
+  try { busy = !!(A && act && A.activityDisplay(act, Date.now()).mode === "run"); } catch (e) { busy = false; }
+  if ((live.status === "finished" || live.status === "idle") && currentTab !== "run" && !busy) {
+    b.className = "live-banner tone-fresh";
+    b.textContent = laptopFreshShort(lastUpdatedAt, Date.now());
+  }
 }
 
 function renderPayload() {
@@ -2421,6 +2436,7 @@ document.addEventListener("visibilitychange", () => { if (document.hidden) remem
 
 function switchTab(which) {
   // B-1074: the Bank view belongs to Home (no tab button of its own).
+  const was = currentTab; // B-2285 item 1
   currentTab = which === "bank" ? "dashboard" : which;
   rememberView();
   // B-874 (v2.0.24): the top bar names the tab ("SHOPPER Run").
@@ -2462,6 +2478,9 @@ function switchTab(which) {
   // B-1792 (v2.0.135): the new panes (remote/pages-view.js) and the generated drawer's marked row (remote/phone-nav-list.js).
   if (self.ShopperPhonePages) self.ShopperPhonePages.switched(which);
   if (self.ShopperPhoneNavList) self.ShopperPhoneNavList.setActive(which);
+  // B-2285 items 1 + 4: a real page change opens at the top (so the header and its menu button stay on screen); the header follows the page at once.
+  if (currentTab !== was && which !== "bank") scrollAppTop();
+  renderLiveness(lastPayload && lastPayload.liveness);
 }
 
 // ------------------------------------------------ B-459: Inventory (read-only)
@@ -3013,7 +3032,7 @@ function invPkSchedule() {
 
 // B-1512 (v2.0.106): "Packing" on each Products row - the one-product packing form in the phone's packing sheet.
 function invPackingButton(r) {
-  const b = invNode("button", "rc-row-btn inv-packing-btn", "Packing");
+  const b = invNode("button", "secondary-btn rc-row-btn inv-packing-btn", "Packing");
   b.type = "button";
   b.dataset.asin = r.asin;
   b.title = "Packing data - size, weight, prep";
@@ -3609,6 +3628,7 @@ function glRow(r) {
   const openState = () => {
     row.classList.toggle("gl-open", !body.hidden);
     for (const x of [row, more]) if (x && x.hasAttribute("aria-expanded")) x.setAttribute("aria-expanded", String(!body.hidden));
+    if (more) more.textContent = body.hidden ? "Details \u25BE" : "Details \u25B4"; // B-2285 item 8
   };
   const flip = () => {
     if (glOpen.has(r.id)) glOpen.delete(r.id); else glOpen.add(r.id);
@@ -3619,7 +3639,7 @@ function glRow(r) {
   // B-1256: the detail's own small button (not on an "expand" card - the card opens it).
   let more = null;
   if (hasMore && r.go.target !== "expand") {
-    more = invNode("button", "gl-more gl-more-link", "\u25BE");
+    more = invNode("button", "gl-more gl-more-link", "Details \u25BE"); // B-2285 item 8 (Q15): the word shows
     more.type = "button";
     more.setAttribute("aria-label", "Details");
     more.title = "Details";
@@ -3731,6 +3751,7 @@ function renderDashboard(d, p) {
   const dvOut = DV ? DV.update({
     rows: allRows,
     daily: ex.daily || null,
+    dailyRows: Array.isArray(ex.dailyRows) ? ex.dailyRows : null, // B-2299: Main's step rows (null = an older laptop: the phone's own list)
     go: glGo,
     rerender: () => { lastDashboardKey = ""; if (lastPayload) renderDashboard(lastPayload.dashboard, lastPayload); },
     overviewInput: {

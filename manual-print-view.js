@@ -272,7 +272,7 @@
         if (!(Number.isFinite(q) && q >= 1 && q <= MAX_QTY)) { A.toast("Type how many labels (1 to " + MAX_QTY + ").", true); return; }
         A.run({ name: "labelsMarkPrinted", payload: { batchId: hit.batchId, batchName: hit.batchName, msku: l.msku, title: String(r.title || (m.facts && m.facts.title) || row.title || "").slice(0, 200), count: q }, btn: mark, ok: "Marked " + q + " printed" });
       });
-      const forget = A.btn("Forget printed", "rc-btn mp-forget");
+      const forget = A.btn("Forget printed", "rc-btn rc-danger mp-forget");
       forget.addEventListener("click", () => A.run({ name: "labelsForget", payload: { batchId: hit.batchId, msku: l.msku }, confirm: "Forget the printed count for this listing in " + (hit.batchName || "the batch") + "?", btn: forget, ok: "Printed count forgotten" }));
       rowEl.append(mark, forget);
       batchBox.appendChild(rowEl);

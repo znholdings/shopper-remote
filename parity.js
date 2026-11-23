@@ -514,7 +514,7 @@
     const a = actions();
     if (i.ding) {
       const label = (DING.find((x) => x[0] === i.ding.level) || [null, i.ding.level])[1];
-      a.append(node("span", "l-meta", `Dinged ${label}: ${i.ding.note}`), btn("Remove ding", "secondary-btn", (e) => run("dingRemove", { asin: i.asin }, e.target)));
+      a.append(node("span", "l-meta", `Dinged ${label}: ${i.ding.note}`), btn("Remove ding", "danger-btn", (e) => run("dingRemove", { asin: i.asin }, e.target)));
     } else {
       a.append(btn("Ding…", "secondary-btn", () => {
         if (cardEl.querySelector(".parity-ding")) return;

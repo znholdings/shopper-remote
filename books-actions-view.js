@@ -523,7 +523,7 @@
         note.value = clip(loan.note, 200);
         lender.focus();
       });
-      const rm = btn("Remove", "ops-loan-rm");
+      const rm = btn("Remove", "danger-btn ops-loan-rm");
       rm.addEventListener("click", () => run({ name: "booksLoanRemove", payload: { id: clip(loan.id, 120) }, confirm: "Remove this loan from Books?", btn: rm, ok: "Loan removed" }));
       row.append(edit, rm);
       line.appendChild(row);

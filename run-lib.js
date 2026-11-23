@@ -1050,9 +1050,9 @@ function renderDestBoard(host, lines, opts = {}) {
   board.appendChild(cols);
 
   const foot = el("div", "bq-dest-foot");
-  const cancelBtn = el("button", "bq-dest-cancel", "Cancel");
+  const cancelBtn = el("button", "s-btn-quiet bq-dest-cancel", "Cancel");
   cancelBtn.type = "button";
-  const approveBtn = el("button", "bq-dest-approve primary", "Approve and start");
+  const approveBtn = el("button", "s-btn-primary bq-dest-approve primary", "Approve and start");
   approveBtn.type = "button";
   foot.appendChild(cancelBtn);
   foot.appendChild(approveBtn);
@@ -1084,7 +1084,7 @@ function renderDestBoard(host, lines, opts = {}) {
     if (t.locked) bits.push("plan");
     d.appendChild(el("div", "bq-dest-tile-meta", bits.join(" · ")));
     if (!t.locked) {
-      const b = el("button", "bq-dest-move", t.prep ? "← House" : "Prep →");
+      const b = el("button", "s-btn bq-dest-move", t.prep ? "← House" : "Prep →");
       b.type = "button";
       b.setAttribute("aria-label", t.prep ? `Move ${t.asin} to house` : `Move ${t.asin} to prep center`);
       b.addEventListener("click", (ev) => { ev.stopPropagation(); move(t, !t.prep); });

@@ -112,7 +112,7 @@
       nl.appendChild(el("span", "", "never"));
       li.appendChild(nl);
       if (v && v.boxSplit) {
-        const sep = el("button", "prp-box-split", v.number + " separate");
+        const sep = el("button", "secondary-btn prp-box-split", v.number + " separate");
         sep.type = "button";
         sep.addEventListener("click", () => {
           pieces.value = v.boxSplit;

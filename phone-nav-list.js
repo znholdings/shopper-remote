@@ -37,12 +37,12 @@
     books: { tab: "books", id: "tabBooks", legacy: true },
     fba: { tab: "fba", id: "tabFba", legacy: true },
     cashflow: { tab: "cashflow", id: "tabCashFlow", legacy: true },
-    "setup#accounts": { tab: "settings", id: "tabSettings", legacy: true, post: "settings", hash: "accounts" },
+    "setup#accounts": { tab: "settings", id: "tabSettings", legacy: true, post: "settings", hash: "accounts", label: "On the computer" }, // B-2285 item 2b: ONE drawer row for the computer-level pages
     "setup#buying": { tab: "settings", id: "tabSettings_buying", post: "settings", hash: "buying" },
     "setup#pipeline": { tab: "settings", id: "tabSettings_pipeline", post: "settings", hash: "pipeline" },
-    "setup#phone": { tab: "settings", id: "tabSettings_phone", post: "settings", hash: "phone" },
+    "setup#phone": { tab: "settings", id: "tabSettings_phone", post: "settings", hash: "phone", merged: true },
     "setup#labels": { tab: "settings", id: "tabSettings_labels", post: "settings", hash: "labels" },
-    "setup#data": { tab: "settings", id: "tabSettings_data", post: "settings", hash: "data" },
+    "setup#data": { tab: "settings", id: "tabSettings_data", post: "settings", hash: "data", merged: true },
     "path:books/rules.html": { tab: "booksrules", id: "tabBooksRules" },
     "path:setup/shipping.html": { desktop: true },
     "path:amazon/settings.html": { desktop: true },
@@ -92,7 +92,7 @@
     if (entry.tab) b.setAttribute("data-tab", entry.tab);
     if (entry.hash) b.setAttribute("data-hash", entry.hash);
     if (entry.also) b.setAttribute("data-also", "1");
-    b.appendChild(el("span", "tab-label", item.label));
+    b.appendChild(el("span", "tab-label", entry.label || item.label));
     if (entry.also) b.appendChild(el("span", "pn-alias", "also"));
     if (entry.desktop) {
       b.title = "On the computer only";
@@ -148,6 +148,7 @@
       g.items.forEach(function (item) {
         var key = keyOf(item);
         seen[key] = true;
+        if (entryOf(key).merged) return; // B-2285 item 2b: reachable through the one "On the computer" row
         items.appendChild(pageRow(item, key));
       });
       if (g.group === "buy") {

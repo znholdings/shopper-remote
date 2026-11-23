@@ -12,7 +12,7 @@
 // #packingHost (index.html, the Ship tab). Built with textContent only.
 (function (root) {
   "use strict";
-  const OFFLINE = "The laptop isn't connected - try again when it is.";
+  const OFFLINE = "The computer isn't connected - try again when it is.";
   let cur = null;
 
   function el(tag, cls, text) {
@@ -36,10 +36,10 @@
     const out = await M.runCommand(name, payload || {});
     if (out.status === "done" && out.result && typeof out.result === "object") return out.result;
     if (out.status === "offline" || (out.status === "rejected" && /was not connected/.test(String(out.reason || "")))) throw new Error(OFFLINE);
-    if (out.status === "not sent") throw new Error("That did not reach the laptop.");
-    if (out.status === "timeout") throw new Error("The laptop did not answer in 3 minutes.");
-    if (out.status === "rejected") throw new Error("The laptop refused it" + (out.reason ? " - " + out.reason : "") + ".");
-    throw new Error(out.reason || "The laptop gave no answer.");
+    if (out.status === "not sent") throw new Error("That did not reach the computer.");
+    if (out.status === "timeout") throw new Error("The computer did not answer in 3 minutes.");
+    if (out.status === "rejected") throw new Error("The computer refused it" + (out.reason ? " - " + out.reason : "") + ".");
+    throw new Error(out.reason || "The computer gave no answer.");
   }
 
   function close() {
@@ -104,7 +104,7 @@
     const sheet = openSheet("Packing data");
     const host = el("div", "pk-root pk-phone");
     sheet.appendChild(host);
-    host.appendChild(el("div", "pk-note", "Asking the laptop..."));
+    host.appendChild(el("div", "pk-note", "Asking the computer..."));
     Promise.resolve().then(() => call("packingProduct", { asin: p.asin, msku: p.msku || "", title: p.title || "" })).then((r) => {
       if (!cur || !host.isConnected) return;
       host.textContent = "";

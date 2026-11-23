@@ -321,7 +321,7 @@
         card.appendChild(node("div", l.g != null ? "l-meta bx-group-line" : "l-meta", l.q + " × " + skuName(b, l.i) + (l.r ? " (the rest)" : "")));
       }
       if (withRemove && x.key) {
-        const rm = btn("Remove", "ghost-btn bx-remove", async () => {
+        const rm = btn("Remove", "danger-btn bx-remove", async () => {
           if (!(await confirmStill(b, "Remove box " + x.key + " from the saved boxes?"))) return;
           rm.disabled = true;
           R().sendCommand("boxesRemove", { id: b.id, key: x.key });
@@ -343,7 +343,7 @@
       const card = node("div", "line bx-box");
       card.appendChild(node("div", "l-meta", t));
       if (withRemove) {
-        const rm = btn("Remove", "ghost-btn bx-remove", async () => {
+        const rm = btn("Remove", "danger-btn bx-remove", async () => {
           if (!(await confirmStill(b, "Remove this saved message?"))) return;
           rm.disabled = true;
           R().sendCommand("boxesRemove", { id: b.id, key: "w" + n });

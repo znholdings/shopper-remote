@@ -186,7 +186,14 @@ h2 { font-size: 14px; margin: 14px 0 6px; }
 .p-field input { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--s-n0); color: var(--text); font-size: 16px; }
 .prompt-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
-.statline { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
+.statline { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0; min-width: 0; }
+/* B-2285 item 9: the status pill and the outcome chips share one row; the step text takes its own line when there is one */
+.statline .run-outcomes { margin: 0; min-width: 0; }
+.statline .step-text:not(:empty) { flex: 1 1 100%; min-width: 0; }
+/* B-2285 item 9: "Clear finished queue" is destructive and apart - last in its box, on its own row with a rule above */
+.qax-clear { min-height: 44px; }
+#queueActionsHost details.sfold-more > summary { font-size: 14px; font-weight: 700; }
+.qax-clear-row { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--s-line-soft); }
 .pill { padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; background: var(--line); }
 .step-text { color: var(--muted); font-size: 13px; flex: 1; }
 
@@ -1255,6 +1262,7 @@ body.pn-float .ctm-table tr > :last-child { padding-right: 62px; }
 #fbaPane:not(.fba-notes-on) #fbaTrend > .ai-note { display: none; }
 .cfm-head { flex-wrap: wrap; }
 .cfm-head .fba-notes-btn { flex: 0 0 auto; }
+#cashFlowPane .cfm-head { flex-wrap: wrap; } /* B-2285 item 6: "Read Sellerboard" is longer - the row wraps rather than overflows */
 
 
 /* B-1057 (v2.0.53): Manual Print (remote/manual-print-view.js). The row keeps its height: a

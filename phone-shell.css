@@ -17,10 +17,14 @@
 :root[data-theme="retro"] body .s-topbar .s-tb-line > .s-tb-more::before { content: ""; display: block; margin: 4px auto 0; border: 4px solid transparent; border-top-color: currentColor; border-bottom: 0; }
 :root body .s-topbar .s-tb-line > .s-tb-more { min-height: 24px; }
 /* RETRO: the chip is already coloured and wide - the dot would take a row of its own. */
-:root[data-theme="retro"] body .s-topbar .s-tb-line:has(> .live-banner:not([hidden]):not(.tone-idle))::before { display: none; }
+:root[data-theme="retro"] body .s-topbar .s-tb-line:has(> .live-banner:not([hidden]):not(.tone-idle):not(.tone-fresh))::before { display: none; }
 :root body .s-topbar .s-tb-detail { margin: 4px 0 0; font: 600 11px/1.35 var(--s-font); color: var(--s-tb-dim); overflow-wrap: break-word; }
 :root[data-theme="retro"] body .s-topbar .s-tb-detail { font-family: var(--s-pixel) !important; font-weight: 400; font-size: 8px !important; line-height: 1.7; text-transform: uppercase; }
 :root body .s-topbar:not(.tb-open) .s-tb-detail { display: none; }
 :root[data-theme="retro"] body .s-topbar .s-tb-title { overflow-wrap: normal; word-break: normal; }
 .pn-foot .app-footer { margin: 0 0 6px; padding-top: 0; border-top: 0; gap: 6px; }
 .pn-foot .app-footer .ghost-btn { min-height: 36px; }
+/* B-2285 item 4: the calm header chip ("Optiplex · 3 min ago") - muted, no fill, no border and no padding (it must not make the header taller than the idle word did); the dot stays */
+:root body .s-topbar .s-tb-line .live-banner.tone-fresh { background: none; border: 0; color: inherit; font-weight: 700 !important; padding: 0;
+  /* one line that shortens (…) instead of wrapping: a wrapped chip made the header taller until the menu button floated out, which shifted every jumped-to section by that much */
+  display: block; flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

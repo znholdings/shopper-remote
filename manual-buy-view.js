@@ -46,7 +46,7 @@
     x.kind = U.select([["packs", "Packs (the store's own count)"], ["pieces", "Pieces"], ["units", "Amazon units (sellable)"]]);
     x.total = U.input("text", { inputmode: "decimal", placeholder: "This product's total ($)" });
     x.row = U.el("div", "pg-note");
-    x.remove = U.btn("Remove", "secondary-btn", function () {
+    x.remove = U.btn("Remove", "danger-btn", function () {
       var i = extra.indexOf(x);
       if (i >= 0) extra.splice(i, 1);
       if (x.row.parentNode) x.row.parentNode.removeChild(x.row);

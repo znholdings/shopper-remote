@@ -3,7 +3,7 @@
 
 /* B-1256: the one-line card. */
 .gl-row .gl-line { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.gl-row .gl-line .gl-title { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gl-row .gl-line .gl-title { display: block; min-width: 0; white-space: normal; overflow-wrap: anywhere; } /* B-2285 item 8: wraps, no ellipsis */
 .gl-row .gl-cnt {
   flex: none; min-width: 22px; padding: 1px 7px; border-radius: var(--s-r-pill, 999px);
   background: var(--s-accent-bg); color: var(--s-accent); font-size: 12px; font-weight: 800; text-align: center;
@@ -11,11 +11,11 @@
 .gl-row .gl-row-top { align-items: center; }
 /* a small caret (its name is "Details") - the card keeps its width for the line */
 .gl-row button.gl-more {
-  flex: none; align-self: center; width: 32px; height: 32px; min-height: 32px; padding: 0; margin: 0;
+  flex: none; align-self: center; width: auto; height: auto; min-width: 40px; min-height: 40px; padding: 0 10px; margin: 0; white-space: nowrap; /* B-2285 item 8: the word "Details" shows */
   border: 1px solid var(--s-line); border-radius: var(--s-r-sm, 6px); background: var(--s-surface); color: var(--s-text);
-  font: inherit; font-size: 16px; line-height: 1; cursor: pointer; text-decoration: none;
+  font: inherit; font-size: 13px; font-weight: 700; line-height: 1; cursor: pointer; text-decoration: none;
 }
-.gl-row.gl-open button.gl-more { border-color: var(--s-accent); color: var(--s-accent); transform: rotate(180deg); }
+.gl-row.gl-open button.gl-more { border-color: var(--s-accent); color: var(--s-accent); }
 .gl-row .gl-full { font-weight: 700; font-size: 13px; overflow-wrap: anywhere; }
 .dash-do-hidden { margin: 6px 2px 0; }
 

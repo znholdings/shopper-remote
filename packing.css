@@ -286,3 +286,5 @@ body.pk-open { overflow: hidden; }
 /* B-2279 (v2.0.196): "Reject the plan" is destructive and set apart - the far end of the row on a laptop, its own line on a phone. */
 .pk-actrow > .pk-sep { margin-left: auto; }
 @media (max-width: 520px) { .pk-actrow > .pk-sep { margin-left: 0; flex-basis: 100%; } }
+/* B-2285 (v2.0.199): the section head is the one heading - the drawn body's own h2 ("Box library" / "Packing rules") is not repeated under it. */
+.pk-section-body > h2.pk-h:first-child { display: none; }

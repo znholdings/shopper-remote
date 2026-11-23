@@ -372,13 +372,19 @@
     if (differ === 0) sync.appendChild(el("p", "stg-ok small", "All shared settings match on both computers."));
     else if (differ > 0) sync.appendChild(el("p", "stg-wait small", `${differ} setting${differ === 1 ? "" : "s"} differ between the computers - Settings → Data & logs → This computer lists them.`));
     host.appendChild(sync);
+    // B-2285 item 2b: ONE "On the computer" card for the computer-level things (the drawer has one row for it).
+    const onComp = el("section", "section stg-oncomp");
+    onComp.appendChild(el("h3", "section-head", "On the computer"));
+    onComp.appendChild(el("p", "muted small", "Accounts and sign-ins, Phone remote set-up, label printer, Data & logs."));
+    host.appendChild(onComp);
     if (row && !row.exists) host.appendChild(el("p", "muted small", "Not shared yet - open Shopper on a computer and give it a minute."));
     for (const [gid, glabel] of SPEC.SETTINGS_GROUPS) {
       const specs = SPEC.SHARED_SETTINGS_SPEC.filter((s) => s.row === SPEC.SETTINGS_ROW && s.group === gid && s.phone);
       if (!specs.length) continue;
-      const card = el("details", "section stg-card");
-      if (gid === "buying") card.open = true;
-      card.appendChild(el("summary", "section-head", glabel));
+      // B-2285 item 2a: a fold with a visible arrow and a remembered open state (fold-targets.js adds the toggle; settings:<gid> in shopperFoldState); starts closed.
+      const card = el("section", "section stg-card");
+      card.dataset.gid = gid;
+      card.appendChild(el("h3", "section-head", glabel));
       for (const spec of specs) {
         // what this setting's last save said (a computer that put it back wins over our own "Saved")
         const n = notes[spec.key];
@@ -412,6 +418,7 @@
         // the card-level line carries the final Saved / refusal; "Saving…" shows in the tapped row when there is one
         const shownInRow = n && n.busy && controlsOf(spec).some((c) => (c.path || "") === n.path);
         if (text && !single && !shownInRow) card.appendChild(el("p", bad ? "small stg-bad" : "small muted", text));
+        if (bad) card.dataset.sfoldReveal = "1"; // a refusal never hides in a closed card
       }
       host.appendChild(card);
     }
@@ -447,29 +454,25 @@
   // B-1791 (v2.0.135): a Settings row in the drawer -> its card. Accounts / Phone remote / Data & logs are computer-level: they land on the
   // Computers card with one line saying so (the phone never reads the secrets row).
   const JUMP_CARD = { buying: "buying", pipeline: "pipeline", labels: "labels" };
-  const JUMP_NOTE = { accounts: "Sign-ins and keys live on the computer.", phone: "This phone's pairing lives on the computer (Settings > Phone remote).", data: "This computer's logs and data tools live on the computer (Settings > Data & logs)." };
   let pendingJump = "";
   function applyJump(h) {
     const host = $("stgBody");
     if (!host) return false;
     let target = null;
     if (JUMP_CARD[h]) {
-      const labels = new Map(SPEC.SETTINGS_GROUPS);
-      const want = String(labels.get(JUMP_CARD[h]) || "").toLowerCase();
-      for (const c of host.querySelectorAll("details.stg-card")) {
-        const s = c.querySelector("summary");
-        if (s && s.textContent.toLowerCase() === want) { target = c; break; }
-      }
-      if (target) target.open = true;
+      target = host.querySelector('section.stg-card[data-gid="' + JUMP_CARD[h] + '"]');
+      // a drawer pick opens and remembers that section (B-2285 item 2a)
+      if (target && self.ShopperFold) self.ShopperFold.set("settings:" + JUMP_CARD[h], true);
     } else {
-      target = host.querySelector(".stg-sync");
-      if (target && JUMP_NOTE[h]) {
-        let n = target.querySelector(".stg-jump-note");
-        if (!n) { n = el("p", "muted small stg-jump-note"); target.appendChild(n); }
-        n.textContent = JUMP_NOTE[h];
-      }
+      target = host.querySelector(".stg-oncomp"); // B-2285 item 2b: accounts / phone / data all land on the one card
     }
-    if (target && target.scrollIntoView) target.scrollIntoView({ block: "start" });
+    // B-2285 item 1: scroll only when the card is off the visible part of the screen (above the header or below the fold) - and then to just under the header, never to the very top edge
+    if (target && target.getBoundingClientRect) {
+      const bar = $("topBar");
+      const headerH = bar ? Math.max(0, bar.getBoundingClientRect().bottom) : 0;
+      const t = target.getBoundingClientRect().top;
+      if (t < headerH || t > (window.innerHeight || 0) - 120) window.scrollTo(0, Math.max(0, (window.scrollY || 0) + t - headerH - 8));
+    }
     return !!target;
   }
   // The pane draws after it is shown (it reads the shared row first), so the jump is also applied once after the next draw.

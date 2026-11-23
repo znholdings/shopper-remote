@@ -93,7 +93,7 @@
     const btn = $("cfmPull");
     btn.disabled = !!(pull && pull.running);
     // B-1087 (v2.0.55): short enough for one row with Reload and Details at 375 (the full words in the tooltip).
-    btn.textContent = pull && pull.running ? "Reading..." : "Read SB";
+    btn.textContent = pull && pull.running ? "Reading..." : "Read Sellerboard";
     btn.title = pull && pull.running ? "Reading Sellerboard..." : "Read Sellerboard now";
   }
 

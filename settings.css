@@ -6,7 +6,8 @@
 #settingsPane .stg-ok { margin: 4px 0; font-size: 13px; font-weight: 700; color: var(--s-green-ink); }
 #settingsPane .stg-bad { margin: 2px 0 6px; color: var(--s-red-ink); overflow-wrap: anywhere; }
 #settingsPane .stg-card { margin-top: 10px; }
-#settingsPane .stg-card > summary { cursor: pointer; padding: 6px 0; }
+#settingsPane .stg-oncomp { margin-top: 10px; }
+#settingsPane .stg-oncomp p { margin: 4px 0 0; }
 #settingsPane .stg-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; min-height: 44px; border-top: 1px solid var(--s-line-soft); padding: 4px 0; min-width: 0; }
 /* B-2282a (v2.0.196): a long setting name is a sentence - the body font, not retro pixel caps */
 #settingsPane .stg-label { flex: 1 1 auto; min-width: 0; font-family: var(--s-font); font-size: 14px; text-transform: none; letter-spacing: normal; color: var(--s-text); overflow-wrap: anywhere; }

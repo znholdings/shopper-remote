@@ -61,12 +61,12 @@
     shownRows.forEach(function (e) {
       var row = U.el("div", "line pg-bl-row");
       var main = U.el("div", "pg-bl-main");
-      main.appendChild(U.el("b", "", e.asin));
-      if (e.title) main.appendChild(U.el("div", "small", String(e.title).slice(0, 200)));
+      // B-2285 item 3: the name first (the ASIN is a code), then the ASIN and the reason under it
+      main.appendChild(U.el("b", "", e.title ? String(e.title).slice(0, 200) : "Name not on file"));
       var meta = [e.reason, e.blockedOn].filter(Boolean).map(function (x) { return String(x).slice(0, 200); }).join(" - ");
-      if (meta) main.appendChild(U.el("div", "muted small", meta));
+      main.appendChild(U.el("div", "muted small", e.asin + (meta ? " - " + meta : "")));
       row.appendChild(main);
-      var rm = U.btn("Remove", "danger-btn", function () {
+      var rm = U.btn("Remove", "link-btn linkish pg-bl-rm", function () {
         U.confirmSend("Remove " + e.asin + " from the Blacklist? It can be bought again.", "blacklistRemove", { asin: String(e.asin) }, rm, "Removed");
       });
       row.appendChild(rm);

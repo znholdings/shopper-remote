@@ -186,12 +186,14 @@
           </label>
           <button id="startBtn" class="primary-btn big">Start Buy Queue</button>
           <button id="resumeSavedBtn" class="secondary-btn" hidden>Resume saved queue</button>
-          <button id="discardSavedBtn" class="ghost-btn" hidden>Discard saved queue</button>
+          <button id="discardSavedBtn" class="danger-btn" hidden>Discard saved queue</button>
           <button id="previewBtn" class="ghost-btn" title="Refresh preview" aria-label="Refresh preview">Preview</button>
         </div>
         <!-- B-2278 (v2.0.196): the status line and Resume / Retry / Skip / Abort sit on top whenever a queue exists (the prompt card stays above everything). Same elements, same ids - moved. -->
         <div class="statline">
           <span id="runStatus" class="pill">idle</span>
+          <!-- B-774 (v2.0.9): out of stock and failed, counted apart (B-2285: beside the status pill). -->
+          <div id="runOutcomes" class="run-outcomes" hidden></div>
           <span id="currentStep" class="step-text"></span>
         </div>
         <div id="controlRow" class="controls" hidden>
@@ -228,8 +230,6 @@
           <div class="total"><span class="t-label">Safety cap (line)</span><span id="tCap" class="t-value">-</span></div>
           <div class="total"><span class="t-label">Lines bought</span><span id="tBought" class="t-value">0</span></div>
         </div>
-        <!-- B-774 (v2.0.9): out of stock and failed, counted apart. -->
-        <div id="runOutcomes" class="run-outcomes" hidden></div>
         <!-- P-246 (v3.60): where today's spending goal came from. Mirrored
              from the desktop, never set here. -->
         <div id="tDefaultNote" class="default-note" hidden></div>
@@ -469,7 +469,7 @@
            after each Sellerboard read and drawn with its own chart code
            (cashflow-lib.js is built from lib/s-chart.js). -->
       <div id="cashFlowPane" hidden>
-        <div class="cfm-head"><button type="button" class="secondary-btn" id="cfmReload">Reload</button><button type="button" class="primary-btn" id="cfmPull" title="Read Sellerboard now">Read SB</button><button type="button" class="fba-notes-btn c55-info" id="cfmNotesToggle" aria-expanded="false" aria-label="About the Cash Flow figures">&#9432;</button></div>
+        <div class="cfm-head"><button type="button" class="secondary-btn" id="cfmReload">Reload</button><button type="button" class="primary-btn" id="cfmPull" title="Read Sellerboard now">Read Sellerboard</button><button type="button" class="fba-notes-btn c55-info" id="cfmNotesToggle" aria-expanded="false" aria-label="About the Cash Flow figures">&#9432;</button></div>
         <!-- B-1058 / B-1059 (v2.0.53): Claude's summary + Ask Claude (remote/claude-screens.js). -->
         <div id="cfmClaude" class="csx-host cfm-card"></div>
         <p id="cfmStatus" class="muted small"></p>
