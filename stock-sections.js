@@ -219,6 +219,7 @@
   function productRow(r, h) {
     const units = (h && h.units) || ((v) => String(v));
     const row = node("div", "line inv-product s55-prod");
+    if (r.shade) row.classList.add("inv-shade-" + r.shade); // B-2281 (v2.0.196): the All Orders colour as a left edge
     row.dataset.asin = r.asin;
     const top = node("div", "inv-row-top s55-prod-top");
     top.setAttribute("role", "button");

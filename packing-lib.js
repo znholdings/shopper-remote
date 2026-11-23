@@ -3903,11 +3903,11 @@ function drawPlanTab(body, o) {
     if (!allDone) acts.appendChild(btn(r.noSend ? r.approveLabel : "Approve all boxes", "pk-primary", () => act("packingApprove", withBatch({ boxId: "all" }), rowMsg)));
     // v2.0.139 (B-1835): the re-plan buttons are always there - no "Re-plan" menu
     const toggle = (name) => () => { S.forms = S.forms === name ? "" : name; paint(["forms"]); };
-    if (!r.packed) acts.appendChild(btn("Plan again", "pk-quiet", () => { S.r = null; S.check = null; S.forms = ""; showAll(); })); // B-1574: a packed box is locked - the plan as a whole is no longer rejected or planned again, it is re-planned from the remaining
-    acts.appendChild(btn("Re-plan remaining", "pk-quiet", toggle("rest")));
+    if (!r.packed) acts.appendChild(btn("Plan again", "", () => { S.r = null; S.check = null; S.forms = ""; showAll(); })); // B-1574: a packed box is locked - the plan as a whole is no longer rejected or planned again, it is re-planned from the remaining
+    acts.appendChild(btn("Re-plan remaining", "", toggle("rest")));
     // B-1547: the same one Claude call (the daily cap applies), with an optional note
-    if (!r.boxes.some((b) => b.status === "approved") || r.packed) acts.appendChild(btn("Re-plan with Claude", "pk-quiet", toggle("claude")));
-    if (!r.packed) acts.appendChild(btn("Reject the plan", "pk-quiet pk-danger", toggle("reject:all")));
+    if (!r.boxes.some((b) => b.status === "approved") || r.packed) acts.appendChild(btn("Re-plan with Claude", "", toggle("claude")));
+    if (!r.packed) acts.appendChild(btn("Reject the plan", "pk-danger pk-sep", toggle("reject:all"))); // B-2279 (v2.0.196): destructive, set apart from the routine buttons
     actsHost.appendChild(acts);
     if (batchSel) batchHost.appendChild(batchSel.card); // B-1754: after the boxes (value() is read when Approve is pressed)
   }

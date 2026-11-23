@@ -50,6 +50,7 @@
   <link rel="stylesheet" href="info-tip.css" /><!-- B-2069 (v2.0.158) -->
   <link rel="stylesheet" href="phone-rows.css" /><!-- B-2071/B-2072 (v2.0.158) -->
   <link rel="stylesheet" href="r6-phone.css" /><!-- v2.0.158 R6: folds, dark inputs, arrival stripes, Books rules -->
+  <link rel="stylesheet" href="button-levels.css" /><!-- B-2279 (v2.0.196): the four button levels -->
   <!-- Shopper 2 (v2.00, B-732): light / dark before first paint. The phone
        follows its own setting unless the top-bar button picked one. -->
   <script>
@@ -188,6 +189,22 @@
           <button id="discardSavedBtn" class="ghost-btn" hidden>Discard saved queue</button>
           <button id="previewBtn" class="ghost-btn" title="Refresh preview" aria-label="Refresh preview">Preview</button>
         </div>
+        <!-- B-2278 (v2.0.196): the status line and Resume / Retry / Skip / Abort sit on top whenever a queue exists (the prompt card stays above everything). Same elements, same ids - moved. -->
+        <div class="statline">
+          <span id="runStatus" class="pill">idle</span>
+          <span id="currentStep" class="step-text"></span>
+        </div>
+        <div id="controlRow" class="controls" hidden>
+          <button id="pauseBtn" class="secondary-btn">Pause</button>
+          <button id="resumeBtn" class="primary-btn" hidden>Resume</button>
+          <button id="retryFailedBtn" class="secondary-btn" hidden>Retry failed buy</button>
+          <!-- P-53: a paused run offered Resume / Retry / Abort and no way
+               to give up on just the one line that failed. skipLine was
+               already whitelisted and already wired for a line in flight. -->
+          <button id="skipFailedBtn" class="secondary-btn" hidden>Skip failed buy</button>
+          <button id="finishNowBtn" class="secondary-btn" hidden>Finish now</button>
+          <button id="abortBtn" class="danger-btn">Abort</button>
+        </div>
         <div id="queuePreviewHost"></div><!-- B-1927: remote/queue-preview-view.js -->
         <!-- B-774 (v2.0.9): RIGHT NOW - the line, order k of N, and the step of
              the buy (remote/run-lib.js = lib/buy-stage.js; remote/run-view.js
@@ -201,10 +218,6 @@
           <p id="rhEngine" class="rh-engine" hidden></p>
         </section>
 
-        <div class="statline">
-          <span id="runStatus" class="pill">idle</span>
-          <span id="currentStep" class="step-text"></span>
-        </div>
 
         <!-- B-774 (v2.0.9): MONEY - spent and LEFT to spend, this run and today. -->
         <div class="totals money-band">
@@ -224,17 +237,6 @@
         <div id="goalBox" class="section"></div>
 
 
-        <div id="controlRow" class="controls" hidden>
-          <button id="pauseBtn" class="secondary-btn">Pause</button>
-          <button id="resumeBtn" class="secondary-btn" hidden>Resume</button>
-          <button id="retryFailedBtn" class="secondary-btn" hidden>Retry failed buy</button>
-          <!-- P-53: a paused run offered Resume / Retry / Abort and no way
-               to give up on just the one line that failed. skipLine was
-               already whitelisted and already wired for a line in flight. -->
-          <button id="skipFailedBtn" class="secondary-btn" hidden>Skip failed buy</button>
-          <button id="finishNowBtn" class="secondary-btn" hidden>Finish now</button>
-          <button id="abortBtn" class="danger-btn">Abort</button>
-        </div>
         <div id="queueActionsHost"></div><!-- B-1794: remote/queue-actions-view.js -->
         <!-- B-1457 (v2.0.96): where the Target orders still to come ship; orders already placed keep theirs. -->
         <div id="targetDestRow" class="controls" hidden>
@@ -451,6 +453,7 @@
         <div id="fbaStockHost"></div><!-- B-1811 (v2.0.138): remote/fba-stock-view.js -->
         <div id="invProductsSection" class="section">
           <h3>Products <span id="invProductCount" class="count"></span></h3>
+          <p class="inv-shade-legend small muted">Left edge: <span class="inv-key inv-shade-partDelivered">Partly delivered</span> <span class="inv-key inv-shade-delivered">Delivered</span> <span class="inv-key inv-shade-prep">Prep Center</span> <span class="inv-key inv-shade-partShipped">Partly sent out</span> <span class="inv-key inv-shade-shipped">Sent out</span> · white = nothing arrived</p>
           <div id="invRows" class="lines"></div>
         </div>
       </div>
@@ -716,6 +719,7 @@
   <script src="blacklist-view.js"></script>
   <script src="lead-band.js"></script><!-- B-2242 -->
   <script src="match-block.js"></script><!-- B-2108 -->
+  <script src="sourcing-search.js"></script><!-- B-2288 -->
   <script src="competitors-view.js"></script><!-- B-2043 -->
   <script src="leads-view.js"></script><!-- B-2103 -->
   <script src="run-status-view.js"></script>

@@ -1,0 +1,227 @@
+/* remote/button-levels.css - B-2279 (v2.0.196): the four button levels, once.
+   Primary (filled) = the one main action of a section. Secondary (outlined) = other real actions. Quiet (text link) = go to another
+   page, Why / Details, Snooze, Undo. Destructive (red outline) = Reject, Abort, Remove, Clear. The phone's own button classes are aliases of the four (canonical: .s-btn-primary / .s-btn / .s-btn-quiet / .s-btn-danger).
+   PAINT only: background, border, text colour, font family, text decoration, retro shadow. Never height, padding, width or font size.
+   Not painted (they keep their own look): pressed / active toggles, disabled buttons, icon-only buttons, tabs and chips (the guard list is BUTTON_CONTROLS of lib/button-levels.js), state classes (has-*, *-on), and the whole below-min page / pane (#belowMinPane): below-min pricing cards are never touched.
+   An armed "Sure?" confirm (.is-armed) takes the destructive paint.
+   "@import"-ed LAST by remote/index.html (linked after r6-phone.css) so it wins ties. ":not(#no-id)" is the ID-weight trick of retro-sweep.css / type-floor.css: it beats the older sheets' !important rules.
+   Every rule has the same weight, so where one button carries two levels the LATER rule wins: danger > primary > quiet > secondary. Tokens only. */
+
+:root { --s-btn-danger-ink: var(--s-red-ink); }
+:root[data-theme="dark"], :root[data-theme="retro"] { --s-btn-danger-ink: var(--s-red); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-theme="retro"]) { --s-btn-danger-ink: var(--s-red); }
+}
+
+/* -- Light and Dark -- */
+:root:not([data-theme="retro"]) body :is(
+    .s-btn, .secondary-btn, .mini-btn, .pk-btn
+  ):not(#no-id):not(
+    .active, .is-active, .is-on, [aria-pressed="true"], :disabled, [class^="has-"], [class*=" has-"], [class$="-on"], [class*="-on "], .s-tab,
+    .pp-tab, .cfm-tab, .tab, .ai-seg-btn, .density-btn, .fba-ser, .kc-range, .spending-goal-snap-btn, .s-tb-seg, .s-plain-btn, .icon-btn,
+    .s-btn-icon, .theme-btn, .s-nav-link, .s-nav-sublink, .s-nav-toggle, .s-nav-burger, .nav-link-btn, .ui60-info-btn, .s-tb-info, .it-btn,
+    .c55-info, .cat-sort, .s-menu-toggle, .score-handle, .pp-pencil, .pp-search-clear, .src-search-clear, .pp-order-more, .pp-order-link,
+    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon
+  ):not(.s-menu-list *, [id="belowMinPane"] *) {
+  background: var(--s-surface) !important; border: 1px solid var(--s-line) !important; color: var(--s-text) !important; font-family: var(--s-font) !important; text-decoration: none !important;
+}
+:root:not([data-theme="retro"]) body :is(
+    .s-btn-quiet, .ghost-btn, .link-btn, .pk-quiet
+  ):not(#no-id):not(
+    .active, .is-active, .is-on, [aria-pressed="true"], :disabled, [class^="has-"], [class*=" has-"], [class$="-on"], [class*="-on "], .s-tab,
+    .pp-tab, .cfm-tab, .tab, .ai-seg-btn, .density-btn, .fba-ser, .kc-range, .spending-goal-snap-btn, .s-tb-seg, .s-plain-btn, .icon-btn,
+    .s-btn-icon, .theme-btn, .s-nav-link, .s-nav-sublink, .s-nav-toggle, .s-nav-burger, .nav-link-btn, .ui60-info-btn, .s-tb-info, .it-btn,
+    .c55-info, .cat-sort, .s-menu-toggle, .score-handle, .pp-pencil, .pp-search-clear, .src-search-clear, .pp-order-more, .pp-order-link,
+    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon
+  ):not(.s-menu-list *, [id="belowMinPane"] *) {
+  background: transparent !important; border-color: transparent !important; box-shadow: none !important; color: var(--s-accent) !important; font-family: var(--s-font) !important; text-decoration: underline !important; text-underline-offset: 2px;
+}
+:root:not([data-theme="retro"]) body :is(
+    .s-btn-primary
+  ):not(#no-id):not(
+    .active, .is-active, .is-on, [aria-pressed="true"], :disabled, [class^="has-"], [class*=" has-"], [class$="-on"], [class*="-on "], .s-tab,
+    .pp-tab, .cfm-tab, .tab, .ai-seg-btn, .density-btn, .fba-ser, .kc-range, .spending-goal-snap-btn, .s-tb-seg, .s-plain-btn, .icon-btn,
+    .s-btn-icon, .theme-btn, .s-nav-link, .s-nav-sublink, .s-nav-toggle, .s-nav-burger, .nav-link-btn, .ui60-info-btn, .s-tb-info, .it-btn,
+    .c55-info, .cat-sort, .s-menu-toggle, .score-handle, .pp-pencil, .pp-search-clear, .src-search-clear, .pp-order-more, .pp-order-link,
+    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon
+  ):not(.s-menu-list *, [id="belowMinPane"] *) {
+  background: var(--s-accent) !important; border: 1px solid var(--s-accent) !important; color: var(--s-on-accent) !important; font-family: var(--s-font) !important; text-decoration: none !important;
+}
+:root:not([data-theme="retro"]) body :is(
+    .primary-btn, .pk-primary
+  ):not(#no-id):not(
+    .active, .is-active, .is-on, [aria-pressed="true"], :disabled, [class^="has-"], [class*=" has-"], [class$="-on"], [class*="-on "], .s-tab,
+    .pp-tab, .cfm-tab, .tab, .ai-seg-btn, .density-btn, .fba-ser, .kc-range, .spending-goal-snap-btn, .s-tb-seg, .s-plain-btn, .icon-btn,
+    .s-btn-icon, .theme-btn, .s-nav-link, .s-nav-sublink, .s-nav-toggle, .s-nav-burger, .nav-link-btn, .ui60-info-btn, .s-tb-info, .it-btn,
+    .c55-info, .cat-sort, .s-menu-toggle, .score-handle, .pp-pencil, .pp-search-clear, .src-search-clear, .pp-order-more, .pp-order-link,
+    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon
+  ):not(.s-menu-list *, [id="belowMinPane"] *) {
+  background: var(--s-accent) !important; border: 1px solid var(--s-accent) !important; color: var(--s-on-accent) !important; font-family: var(--s-font) !important; text-decoration: none !important;
+}
+:root:not([data-theme="retro"]) body :is(
+    .s-btn-danger, .danger-btn, .pk-danger, .is-armed
+  ):not(#no-id):not(
+    .active, .is-active, .is-on, [aria-pressed="true"], :disabled, [class^="has-"], [class*=" has-"], [class$="-on"], [class*="-on "], .s-tab,
+    .pp-tab, .cfm-tab, .tab, .ai-seg-btn, .density-btn, .fba-ser, .kc-range, .spending-goal-snap-btn, .s-tb-seg, .s-plain-btn, .icon-btn,
+    .s-btn-icon, .theme-btn, .s-nav-link, .s-nav-sublink, .s-nav-toggle, .s-nav-burger, .nav-link-btn, .ui60-info-btn, .s-tb-info, .it-btn,
+    .c55-info, .cat-sort, .s-menu-toggle, .score-handle, .pp-pencil, .pp-search-clear, .src-search-clear, .pp-order-more, .pp-order-link,
+    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon
+  ):not(.s-menu-list *, [id="belowMinPane"] *) {
+  background: var(--s-surface) !important; border: 1px solid var(--s-red) !important; color: var(--s-btn-danger-ink) !important; font-family: var(--s-font) !important; text-decoration: none !important;
+}
+:root:not([data-theme="retro"]) body :is(
+    .s-btn, .secondary-btn, .mini-btn, .pk-btn
+  ):not(#no-id):not(
+    .active, .is-active, .is-on, [aria-pressed="true"], :disabled, [class^="has-"], [class*=" has-"], [class$="-on"], [class*="-on "], .s-tab,
+    .pp-tab, .cfm-tab, .tab, .ai-seg-btn, .density-btn, .fba-ser, .kc-range, .spending-goal-snap-btn, .s-tb-seg, .s-plain-btn, .icon-btn,
+    .s-btn-icon, .theme-btn, .s-nav-link, .s-nav-sublink, .s-nav-toggle, .s-nav-burger, .nav-link-btn, .ui60-info-btn, .s-tb-info, .it-btn,
+    .c55-info, .cat-sort, .s-menu-toggle, .score-handle, .pp-pencil, .pp-search-clear, .src-search-clear, .pp-order-more, .pp-order-link,
+    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon
+  ):not(.s-menu-list *, [id="belowMinPane"] *):hover:not(:disabled) {
+  border-color: var(--s-accent) !important;
+}
+:root:not([data-theme="retro"]) body :is(
+    .s-btn-quiet, .ghost-btn, .link-btn, .pk-quiet
+  ):not(#no-id):not(
+    .active, .is-active, .is-on, [aria-pressed="true"], :disabled, [class^="has-"], [class*=" has-"], [class$="-on"], [class*="-on "], .s-tab,
+    .pp-tab, .cfm-tab, .tab, .ai-seg-btn, .density-btn, .fba-ser, .kc-range, .spending-goal-snap-btn, .s-tb-seg, .s-plain-btn, .icon-btn,
+    .s-btn-icon, .theme-btn, .s-nav-link, .s-nav-sublink, .s-nav-toggle, .s-nav-burger, .nav-link-btn, .ui60-info-btn, .s-tb-info, .it-btn,
+    .c55-info, .cat-sort, .s-menu-toggle, .score-handle, .pp-pencil, .pp-search-clear, .src-search-clear, .pp-order-more, .pp-order-link,
+    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon
+  ):not(.s-menu-list *, [id="belowMinPane"] *):hover:not(:disabled) {
+  background: var(--s-n2) !important; border-color: transparent !important;
+}
+:root:not([data-theme="retro"]) body :is(
+    .s-btn-danger, .danger-btn, .pk-danger, .is-armed
+  ):not(#no-id):not(
+    .active, .is-active, .is-on, [aria-pressed="true"], :disabled, [class^="has-"], [class*=" has-"], [class$="-on"], [class*="-on "], .s-tab,
+    .pp-tab, .cfm-tab, .tab, .ai-seg-btn, .density-btn, .fba-ser, .kc-range, .spending-goal-snap-btn, .s-tb-seg, .s-plain-btn, .icon-btn,
+    .s-btn-icon, .theme-btn, .s-nav-link, .s-nav-sublink, .s-nav-toggle, .s-nav-burger, .nav-link-btn, .ui60-info-btn, .s-tb-info, .it-btn,
+    .c55-info, .cat-sort, .s-menu-toggle, .score-handle, .pp-pencil, .pp-search-clear, .src-search-clear, .pp-order-more, .pp-order-link,
+    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon
+  ):not(.s-menu-list *, [id="belowMinPane"] *):hover:not(:disabled) {
+  background: var(--s-red-bg) !important; border-color: var(--s-red) !important;
+}
+/* -- Retro: pixel font, raised outline; quiet stays a body-font text link -- */
+:root[data-theme="retro"] body :is(
+    .s-btn, .secondary-btn, .mini-btn, .pk-btn
+  ):not(#no-id):not(
+    .active, .is-active, .is-on, [aria-pressed="true"], :disabled, [class^="has-"], [class*=" has-"], [class$="-on"], [class*="-on "], .s-tab,
+    .pp-tab, .cfm-tab, .tab, .ai-seg-btn, .density-btn, .fba-ser, .kc-range, .spending-goal-snap-btn, .s-tb-seg, .s-plain-btn, .icon-btn,
+    .s-btn-icon, .theme-btn, .s-nav-link, .s-nav-sublink, .s-nav-toggle, .s-nav-burger, .nav-link-btn, .ui60-info-btn, .s-tb-info, .it-btn,
+    .c55-info, .cat-sort, .s-menu-toggle, .score-handle, .pp-pencil, .pp-search-clear, .src-search-clear, .pp-order-more, .pp-order-link,
+    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon
+  ):not(.s-menu-list *, [id="belowMinPane"] *) {
+  background: var(--s-surface) !important; border: var(--rt-line) !important; color: var(--s-text) !important; font-family: var(--s-pixel) !important; text-decoration: none !important; box-shadow: var(--rt-raise-sm) !important;
+}
+:root[data-theme="retro"] body :is(
+    .s-btn-quiet, .ghost-btn, .link-btn, .pk-quiet
+  ):not(#no-id):not(
+    .active, .is-active, .is-on, [aria-pressed="true"], :disabled, [class^="has-"], [class*=" has-"], [class$="-on"], [class*="-on "], .s-tab,
+    .pp-tab, .cfm-tab, .tab, .ai-seg-btn, .density-btn, .fba-ser, .kc-range, .spending-goal-snap-btn, .s-tb-seg, .s-plain-btn, .icon-btn,
+    .s-btn-icon, .theme-btn, .s-nav-link, .s-nav-sublink, .s-nav-toggle, .s-nav-burger, .nav-link-btn, .ui60-info-btn, .s-tb-info, .it-btn,
+    .c55-info, .cat-sort, .s-menu-toggle, .score-handle, .pp-pencil, .pp-search-clear, .src-search-clear, .pp-order-more, .pp-order-link,
+    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon
+  ):not(.s-menu-list *, [id="belowMinPane"] *) {
+  background: transparent !important; border-color: transparent !important; box-shadow: none !important; color: var(--s-accent) !important; font-family: var(--s-font) !important; text-transform: none !important; text-decoration: underline !important; text-underline-offset: 2px;
+}
+:root[data-theme="retro"] body :is(
+    .s-btn-primary
+  ):not(#no-id):not(
+    .active, .is-active, .is-on, [aria-pressed="true"], :disabled, [class^="has-"], [class*=" has-"], [class$="-on"], [class*="-on "], .s-tab,
+    .pp-tab, .cfm-tab, .tab, .ai-seg-btn, .density-btn, .fba-ser, .kc-range, .spending-goal-snap-btn, .s-tb-seg, .s-plain-btn, .icon-btn,
+    .s-btn-icon, .theme-btn, .s-nav-link, .s-nav-sublink, .s-nav-toggle, .s-nav-burger, .nav-link-btn, .ui60-info-btn, .s-tb-info, .it-btn,
+    .c55-info, .cat-sort, .s-menu-toggle, .score-handle, .pp-pencil, .pp-search-clear, .src-search-clear, .pp-order-more, .pp-order-link,
+    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon
+  ):not(.s-menu-list *, [id="belowMinPane"] *) {
+  background: var(--s-accent) !important; border: var(--rt-line) !important; color: var(--s-on-accent) !important; font-family: var(--s-pixel) !important; text-decoration: none !important; box-shadow: var(--rt-raise-sm) !important;
+}
+:root[data-theme="retro"] body :is(
+    .primary-btn, .pk-primary
+  ):not(#no-id):not(
+    .active, .is-active, .is-on, [aria-pressed="true"], :disabled, [class^="has-"], [class*=" has-"], [class$="-on"], [class*="-on "], .s-tab,
+    .pp-tab, .cfm-tab, .tab, .ai-seg-btn, .density-btn, .fba-ser, .kc-range, .spending-goal-snap-btn, .s-tb-seg, .s-plain-btn, .icon-btn,
+    .s-btn-icon, .theme-btn, .s-nav-link, .s-nav-sublink, .s-nav-toggle, .s-nav-burger, .nav-link-btn, .ui60-info-btn, .s-tb-info, .it-btn,
+    .c55-info, .cat-sort, .s-menu-toggle, .score-handle, .pp-pencil, .pp-search-clear, .src-search-clear, .pp-order-more, .pp-order-link,
+    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon
+  ):not(.s-menu-list *, [id="belowMinPane"] *) {
+  background: var(--s-accent) !important; border: var(--rt-line) !important; color: var(--s-on-accent) !important; font-family: var(--s-pixel) !important; text-decoration: none !important; box-shadow: var(--rt-raise-sm) !important;
+}
+:root[data-theme="retro"] body :is(
+    .s-btn-danger, .danger-btn, .pk-danger, .is-armed
+  ):not(#no-id):not(
+    .active, .is-active, .is-on, [aria-pressed="true"], :disabled, [class^="has-"], [class*=" has-"], [class$="-on"], [class*="-on "], .s-tab,
+    .pp-tab, .cfm-tab, .tab, .ai-seg-btn, .density-btn, .fba-ser, .kc-range, .spending-goal-snap-btn, .s-tb-seg, .s-plain-btn, .icon-btn,
+    .s-btn-icon, .theme-btn, .s-nav-link, .s-nav-sublink, .s-nav-toggle, .s-nav-burger, .nav-link-btn, .ui60-info-btn, .s-tb-info, .it-btn,
+    .c55-info, .cat-sort, .s-menu-toggle, .score-handle, .pp-pencil, .pp-search-clear, .src-search-clear, .pp-order-more, .pp-order-link,
+    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon
+  ):not(.s-menu-list *, [id="belowMinPane"] *) {
+  background: var(--s-surface) !important; border: 2px solid var(--s-red) !important; color: var(--s-btn-danger-ink) !important; font-family: var(--s-pixel) !important; text-decoration: none !important; text-transform: uppercase !important; box-shadow: var(--rt-raise-sm) !important;
+}
+:root[data-theme="retro"] body :is(
+    .s-btn, .secondary-btn, .mini-btn, .pk-btn
+  ):not(#no-id):not(
+    .active, .is-active, .is-on, [aria-pressed="true"], :disabled, [class^="has-"], [class*=" has-"], [class$="-on"], [class*="-on "], .s-tab,
+    .pp-tab, .cfm-tab, .tab, .ai-seg-btn, .density-btn, .fba-ser, .kc-range, .spending-goal-snap-btn, .s-tb-seg, .s-plain-btn, .icon-btn,
+    .s-btn-icon, .theme-btn, .s-nav-link, .s-nav-sublink, .s-nav-toggle, .s-nav-burger, .nav-link-btn, .ui60-info-btn, .s-tb-info, .it-btn,
+    .c55-info, .cat-sort, .s-menu-toggle, .score-handle, .pp-pencil, .pp-search-clear, .src-search-clear, .pp-order-more, .pp-order-link,
+    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon
+  ):not(.s-menu-list *, [id="belowMinPane"] *):hover:not(:disabled) {
+  background: var(--s-accent-bg) !important;
+}
+:root[data-theme="retro"] body :is(
+    .s-btn-quiet, .ghost-btn, .link-btn, .pk-quiet
+  ):not(#no-id):not(
+    .active, .is-active, .is-on, [aria-pressed="true"], :disabled, [class^="has-"], [class*=" has-"], [class$="-on"], [class*="-on "], .s-tab,
+    .pp-tab, .cfm-tab, .tab, .ai-seg-btn, .density-btn, .fba-ser, .kc-range, .spending-goal-snap-btn, .s-tb-seg, .s-plain-btn, .icon-btn,
+    .s-btn-icon, .theme-btn, .s-nav-link, .s-nav-sublink, .s-nav-toggle, .s-nav-burger, .nav-link-btn, .ui60-info-btn, .s-tb-info, .it-btn,
+    .c55-info, .cat-sort, .s-menu-toggle, .score-handle, .pp-pencil, .pp-search-clear, .src-search-clear, .pp-order-more, .pp-order-link,
+    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon
+  ):not(.s-menu-list *, [id="belowMinPane"] *):hover:not(:disabled) {
+  background: var(--s-accent-bg) !important; border-color: transparent !important;
+}
+:root[data-theme="retro"] body :is(
+    .s-btn-primary
+  ):not(#no-id):not(
+    .active, .is-active, .is-on, [aria-pressed="true"], :disabled, [class^="has-"], [class*=" has-"], [class$="-on"], [class*="-on "], .s-tab,
+    .pp-tab, .cfm-tab, .tab, .ai-seg-btn, .density-btn, .fba-ser, .kc-range, .spending-goal-snap-btn, .s-tb-seg, .s-plain-btn, .icon-btn,
+    .s-btn-icon, .theme-btn, .s-nav-link, .s-nav-sublink, .s-nav-toggle, .s-nav-burger, .nav-link-btn, .ui60-info-btn, .s-tb-info, .it-btn,
+    .c55-info, .cat-sort, .s-menu-toggle, .score-handle, .pp-pencil, .pp-search-clear, .src-search-clear, .pp-order-more, .pp-order-link,
+    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon
+  ):not(.s-menu-list *, [id="belowMinPane"] *):hover:not(:disabled) {
+  background: var(--s-red) !important;
+}
+:root[data-theme="retro"] body :is(
+    .primary-btn, .pk-primary
+  ):not(#no-id):not(
+    .active, .is-active, .is-on, [aria-pressed="true"], :disabled, [class^="has-"], [class*=" has-"], [class$="-on"], [class*="-on "], .s-tab,
+    .pp-tab, .cfm-tab, .tab, .ai-seg-btn, .density-btn, .fba-ser, .kc-range, .spending-goal-snap-btn, .s-tb-seg, .s-plain-btn, .icon-btn,
+    .s-btn-icon, .theme-btn, .s-nav-link, .s-nav-sublink, .s-nav-toggle, .s-nav-burger, .nav-link-btn, .ui60-info-btn, .s-tb-info, .it-btn,
+    .c55-info, .cat-sort, .s-menu-toggle, .score-handle, .pp-pencil, .pp-search-clear, .src-search-clear, .pp-order-more, .pp-order-link,
+    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon
+  ):not(.s-menu-list *, [id="belowMinPane"] *):hover:not(:disabled) {
+  background: var(--s-red) !important;
+}
+:root[data-theme="retro"] body :is(
+    .s-btn-danger, .danger-btn, .pk-danger, .is-armed
+  ):not(#no-id):not(
+    .active, .is-active, .is-on, [aria-pressed="true"], :disabled, [class^="has-"], [class*=" has-"], [class$="-on"], [class*="-on "], .s-tab,
+    .pp-tab, .cfm-tab, .tab, .ai-seg-btn, .density-btn, .fba-ser, .kc-range, .spending-goal-snap-btn, .s-tb-seg, .s-plain-btn, .icon-btn,
+    .s-btn-icon, .theme-btn, .s-nav-link, .s-nav-sublink, .s-nav-toggle, .s-nav-burger, .nav-link-btn, .ui60-info-btn, .s-tb-info, .it-btn,
+    .c55-info, .cat-sort, .s-menu-toggle, .score-handle, .pp-pencil, .pp-search-clear, .src-search-clear, .pp-order-more, .pp-order-link,
+    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon
+  ):not(.s-menu-list *, [id="belowMinPane"] *):hover:not(:disabled) {
+  background: var(--s-red-bg) !important; border-color: var(--s-red) !important;
+}
+:root[data-theme="retro"] body :is(
+    .s-btn, .secondary-btn, .mini-btn, .pk-btn, .s-btn-primary, .primary-btn, .pk-primary, .s-btn-danger, .danger-btn, .pk-danger
+  ):not(#no-id):not(
+    .active, .is-active, .is-on, [aria-pressed="true"], :disabled, [class^="has-"], [class*=" has-"], [class$="-on"], [class*="-on "], .s-tab,
+    .pp-tab, .cfm-tab, .tab, .ai-seg-btn, .density-btn, .fba-ser, .kc-range, .spending-goal-snap-btn, .s-tb-seg, .s-plain-btn, .icon-btn,
+    .s-btn-icon, .theme-btn, .s-nav-link, .s-nav-sublink, .s-nav-toggle, .s-nav-burger, .nav-link-btn, .ui60-info-btn, .s-tb-info, .it-btn,
+    .c55-info, .cat-sort, .s-menu-toggle, .score-handle, .pp-pencil, .pp-search-clear, .src-search-clear, .pp-order-more, .pp-order-link,
+    .copy-asin-btn, .fba-notes-btn, .s-stat, .start-btn-fun, .setup-nav-btn, .gl-more, .bka-icon, .stg-seg-btn, .s-ask-icon
+  ):not(.s-menu-list *, [id="belowMinPane"] *):active:not(:disabled) {
+  box-shadow: none !important;
+}
+[hidden] { display: none !important; }

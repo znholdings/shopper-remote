@@ -6,8 +6,10 @@
 :root[data-theme="retro"] .ops-checks-menu > summary { font-family: var(--s-pixel); }
 #buylistItems .bl-stats { grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); }
 :root[data-theme="retro"] #buylistItems .bl-stats { grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); }
-.co-note { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
-.co-note.co-note-open { white-space: normal; overflow: visible; text-overflow: clip; }
+.co-reasonrow { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+.co-reason { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.co-why-btn { flex: none; }
+.co-why { white-space: normal; overflow-wrap: anywhere; }
 .co-extra { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; flex-basis: 100%; }
 .co-extra[hidden] { display: none; }
 #wizardPane .wz-row:not(.srf-open) > .wz-row-actions.srf-folded { display: none; }

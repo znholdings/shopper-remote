@@ -122,7 +122,7 @@
     sec.appendChild(f.moreBox);
     f.addLine = U.btn("Add another product on this order", "secondary-btn", addExtraRow);
     sec.appendChild(f.addLine);
-    f.plan = U.btn("Work it out", "primary-btn", doPlan);
+    f.plan = U.btn("Work it out", "secondary-btn", doPlan);
     f.save = U.btn("Save this buy", "primary-btn", doSave);
     f.save.disabled = true;
     var acts = U.el("div", "pg-row");

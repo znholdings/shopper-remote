@@ -15,7 +15,19 @@
   var sort = "score";
   var flt = { minRoi: null, offers: "", hideGated: false, hideAmazon: false };
   var f = {};
+  var SB = root.ShopperSourcingSearch; // B-2288
+  var sbar = SB ? SB.bar(pane, { units: "#leadsPane .pg-ld-row", placeholder: "ASIN, brand, product, store", cut: function () { return !!(data && data.total > (data.rows || []).length); } }) : null;
 
+  var SHOPNAME = { walmart: "Walmart", samsclub: "Sam's Club", target: "Target", homedepot: "Home Depot" };
+  // B-2290: the words of lib/lead-blank-words.js - a pinned copy (the phone cannot import a module); test/v20196-b2290-*.test.mjs keeps the two equal
+  var W = {
+    NOT_READ: "not read yet", NO_COST: "cost not read yet", NO_FEES: "Amazon fees not read yet",
+    bbNote: function (r) { return r.offersAt ? "no Buy Box right now" : "not read yet"; },
+    fbaNote: function (r) { return r.offersAt && r.fbaCount === 0 ? "no FBA seller" : r.offersAt ? "no FBA price" : "not read yet"; },
+    feesNote: function (r) { return r.cost == null ? "cost not read yet" : r.feesMissing ? "Amazon fees not read yet" : null; },
+    scenario: { low: "at lowest offer", avg90: "at 90-day average", avg30: "at 30-day average", sp: "at your price" }
+  };
+  function soldText(r) { return r.sold == null ? "-" : r.soldEst ? "~" + r.sold : String(r.sold); } // B-2290: "~N" = estimated from rank drops
   function money(v) { return v == null ? "-" : "$" + Number(v).toFixed(2); }
   function pct(v) { return v == null ? "-" : v + "%"; }
   function nz(v) { return v == null ? "-" : String(v); }
@@ -52,6 +64,7 @@
     if (r.amazon) bits.push("Amazon on listing" + (r.amazonShare != null ? " (wins " + r.amazonShare + "% of the Buy Box)" : ""));
     bits.push(r.gated === true ? "gated" : r.gated === false ? "ungated" : "gating unknown");
     (r.tags || []).forEach(function (x) { bits.push(x); });
+    if (r.scoreNote) bits.push(r.scoreNote); // B-2290
     if (r.blocked) bits.push("on your Blacklist");
     if (r.inCatalog) bits.push("now in your catalog");
     if (r.sentAt) bits.push("On buylist ×" + (r.sentQty || "?"));
@@ -65,21 +78,40 @@
     return out.join(" · ");
   }
   function scenRows(r) {
-    var noCost = r.cost == null ? "cost not read yet" : null;
-    var rows = [{ name: "Buy Box", price: r.bb, profit: r.profitBB, roi: r.roiBB, margin: r.marginBB, feesNote: noCost }, { name: "Lowest FBA", price: r.lowFba, profit: r.profitFBA, roi: r.roiFBA, margin: r.marginFBA, feesNote: noCost }];
+    var alt = { low: (r.alt && r.alt.low) || {}, avg: (r.alt && r.alt.avg) || {} };
+    var noCost = W.feesNote(r); // B-2290: "cost not read yet" or "Amazon fees not read yet"
+    var rows = [{ name: "Buy Box", price: r.bb, profit: r.profitBB, roi: r.roiBB, margin: r.marginBB, note: W.bbNote(r), feesNote: noCost }, { name: "Lowest FBA", price: r.lowFba, profit: r.profitFBA, roi: r.roiFBA, margin: r.marginFBA, note: W.fbaNote(r), feesNote: noCost }];
+    if (r.lowNew != null && r.lowNew !== r.bb && r.lowNew !== r.lowFba) rows.push({ name: "Lowest offer", price: r.lowNew, profit: alt.low.profit, roi: alt.low.roi, margin: alt.low.margin, feesNote: noCost }); // B-2290
+    if (r.bbAvg90 != null) rows.push({ name: "90-day avg", price: r.bbAvg90, profit: alt.avg.profit, roi: alt.avg.roi, margin: alt.avg.margin, feesNote: noCost }); // B-2290
     if (r.salePrice != null) rows.push({ name: "At your price", price: r.salePrice, profit: r.profitSP, roi: r.roiSP, margin: r.marginSP, feesNote: noCost });
     return rows;
   }
 
+  // B-2289: "Suggested 12 · 21-day test" with the Why lines under a tap; no suggestion -> the one reason line
+  function suggestLine(c, r) {
+    var s = r.suggest;
+    if (!s) return;
+    if (!s.qty) { c.appendChild(U.el("div", "muted small pg-ld-sug", "No suggestion: " + ((s.why && s.why[0]) || "not enough data"))); return; }
+    var d = U.el("details", "pg-ld-sug");
+    d.appendChild(U.el("summary", "muted small", "Suggested " + s.qty + " \u00b7 " + s.days + "-day test - why?"));
+    var ul = U.el("ul", "muted small pg-ld-sug-why");
+    (s.why || []).forEach(function (w) { ul.appendChild(U.el("li", "", w)); });
+    d.appendChild(ul);
+    c.appendChild(d);
+  }
   function card(r) {
     var c = U.el("div", "line pg-card pg-ld-row" + (r.blocked ? " pg-ld-off" : ""));
+    c.setAttribute("data-search", [r.brand, r.url, r.retailer, SHOPNAME[r.retailer]].filter(Boolean).join(" ")); // B-2288: hidden search words
     var t = U.el("div", "");
     if (r.score != null) t.appendChild(U.el("b", "pg-cp-score", r.score + " "));
     t.appendChild(doc.createTextNode(String(r.title || r.asin)));
     c.appendChild(t);
     c.appendChild(U.el("div", "muted small pg-ld-meta", metaBits(r).join(" · ")));
     var h = r.headline || null, LB = root.ShopperLeadBand;
-    if (LB) c.appendChild(LB.band({ retailer: r.url ? (r.retailer || "Store") : "No source yet", cost: r.cost, profit: h ? h.profit : null, margin: h ? h.margin : null, roi: h ? h.roi : null }, r.sold)); // B-2245: the B-2242 band from the headline (lower-profit scenario)
+    if (LB) c.appendChild(LB.band({ retailer: r.url ? (r.retailer || "Store") : "No source yet", cost: r.cost, profit: h ? h.profit : null, margin: h ? h.margin : null, roi: h ? h.roi : null }, soldText(r))); // B-2245: the B-2242 band from the headline (lower-profit scenario)
+    { var sw = h && W.scenario[h.scenario]; if (sw) c.appendChild(U.el("div", "muted small pg-ld-scen", "Profit " + sw)); } // B-2290: says which price the headline used
+    if (r.soldEst) c.appendChild(U.el("div", "muted small pg-ld-scen", "Sold/mo est. from rank drops (30 days)")); // B-2290: parity with the desktop sold cell
+    suggestLine(c, r); // B-2289
     { var mb = (!r.url || r.plan) && root.ShopperMatchBlock ? root.ShopperMatchBlock.block(r.asin, r.match) : null; if (mb) c.appendChild(mb); } // B-2108: no link yet -> what Auto-find sources found
     if (LB) c.appendChild(LB.rowsTable(scenRows(r)));
     var fl = factsLine(r); if (fl) c.appendChild(U.el("div", "muted small pg-ld-facts", fl));
@@ -101,7 +133,7 @@
     var sp = U.btn("Save price", "mini-btn", function () { var v = sale.value.trim(); U.send("leadsSetSalePrice", { asin: r.asin, salePrice: v || null }, sp).then(function (res) { U.say(res, /^[\s$,]*$/.test(v) ? "Price cleared" : "Price saved"); }); });
     acts.appendChild(sale); acts.appendChild(sp);
     var sb = U.btn("Send to Buylist", "mini-btn", function () {
-      var q = root.prompt ? root.prompt("How many of " + r.asin + " for the Buylist? (1 to 9999)", "1") : null;
+      var q = root.prompt ? root.prompt("How many of " + r.asin + " for the Buylist? (1 to 9999)", String(r.suggest && r.suggest.qty ? r.suggest.qty : 1)) : null;
       if (q == null) return;
       var n = Math.round(Number(q));
       if (!(n >= 1 && n <= 9999)) { U.toast("Type a number from 1 to 9999.", true); return; }
@@ -147,6 +179,7 @@
   }
 
   function draw() {
+    if (sbar) sbar.remember(); // B-2288: the search box keeps its focus across the wipe
     pane.textContent = "";
     if (!data) { pane.appendChild(U.el("p", "muted small pg-sec", "Tracked Leads load from the computer...")); return; }
     var st = data.status || {};
@@ -158,7 +191,9 @@
     head.appendChild(rb);
     pane.appendChild(head);
     pane.appendChild(addBox());
-    pane.appendChild(chips());
+    var chipsNode = chips();
+    pane.appendChild(chipsNode);
+    if (sbar) sbar.reattach(chipsNode); // B-2288
     var rows = visible();
     var s = U.section("Leads (" + rows.length + (rows.length !== (data.total || 0) ? " of " + data.total : "") + ")");
     if (!rows.length) s.appendChild(U.el("p", "muted small", (data.total ? "No lead matches these filters." : "No leads yet. Add one above, or press + on a Competitor ASINs row.")));

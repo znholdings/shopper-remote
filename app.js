@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.195";
+const APP_BUILD = "v2.0.196";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -3525,7 +3525,7 @@ function glRow(r) {
   const main = invNode("div", "gl-main");
   const head = invNode("div", "gl-line");
   head.appendChild(invNode("b", "gl-title", r.short || r.title));
-  if (GL_COUNT_HIDDEN.indexOf(r.id) < 0 && Number(r.count) > 0 && !new RegExp("^\\s*" + Number(r.count) + "(\\D|$)").test(r.short || r.title)) head.appendChild(invNode("span", "gl-cnt", r.count));
+  if (GL_COUNT_HIDDEN.indexOf(r.id) < 0 && Number(r.count) > 0 && !self.ShopperGlance.countInSentence(r.count, r.short || r.title)) head.appendChild(invNode("span", "gl-cnt", r.count)); // B-2279 (v2.0.196): chip only when the sentence lacks the number
   main.appendChild(head);
   if (notif && self.ShopperNotifActions) main.appendChild(self.ShopperNotifActions.build(notif, () => { lastDashboardKey = ""; if (lastPayload) renderDashboard(lastPayload.dashboard, lastPayload); })); // B-1773: Mark done / Dismiss on the row
   top.appendChild(main);
@@ -3575,7 +3575,7 @@ function glRow(r) {
   // "expand" rows open in place, and a tap inside the opened part does not
   // fold them again.
   const canGo = !notif || (!!r.go.label && glGoHas(r.go.target)); // B-1773: a notification with no phone page just opens its details
-  const label = r.go.target === "runreviews" ? "Run tab" : r.go.label;
+  const label = r.go.target === "runreviews" ? "Open Run tab" : self.ShopperGlance.doNextVerb(r); // B-2279 (v2.0.196): the same words as the laptop
   const openState = () => {
     row.classList.toggle("gl-open", !body.hidden);
     for (const x of [row, more]) if (x && x.hasAttribute("aria-expanded")) x.setAttribute("aria-expanded", String(!body.hidden));

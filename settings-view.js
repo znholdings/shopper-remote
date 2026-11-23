@@ -165,7 +165,7 @@
       }
       if (Array.isArray(res.json) && res.json.length === 1) {
         sent = { v: got.v + 1, at: t };
-        notes[key] = { text: "Saved", at: t, sentAt: t };
+        notes[key] = { text: "Saved ✓", at: t, sentAt: t };
         await load();
         return;
       }
@@ -182,17 +182,37 @@
       input = el("input");
       input.type = "checkbox";
       input.checked = cur === true;
-      input.addEventListener("change", () => save(spec, ctl, input.checked));
+      // B-2282a (v2.0.196): an on / off setting is a switch (still a real checkbox)
+      input.className = "stg-switch";
+      input.setAttribute("role", "switch");
+      input.setAttribute("aria-checked", input.checked ? "true" : "false");
+      input.addEventListener("change", () => { input.setAttribute("aria-checked", input.checked ? "true" : "false"); save(spec, ctl, input.checked); });
     } else if (kind === "enum") {
-      input = el("select", "stg-input");
       const opts = ctl.options || spec.options || [];
-      for (const o of opts) {
-        const op = el("option", "", o[1]);
-        op.value = o[0];
-        input.appendChild(op);
+      if (opts.length >= 2 && opts.length <= 4) {
+        // B-2282a (v2.0.196): up to four choices = segmented buttons (a pick saves at once, through the same save); more stays a select
+        input = el("div", "stg-seg");
+        input.setAttribute("role", "radiogroup");
+        for (const o of opts) {
+          const on = typeof cur === "string" && cur === o[0];
+          const b = el("button", "stg-seg-btn" + (on ? " is-on" : ""), o[1]);
+          b.type = "button";
+          b.setAttribute("role", "radio");
+          b.setAttribute("aria-checked", on ? "true" : "false");
+          b.dataset.value = o[0];
+          b.addEventListener("click", () => { if (b.getAttribute("aria-checked") !== "true") save(spec, ctl, o[0]); });
+          input.appendChild(b);
+        }
+      } else {
+        input = el("select", "stg-input");
+        for (const o of opts) {
+          const op = el("option", "", o[1]);
+          op.value = o[0];
+          input.appendChild(op);
+        }
+        input.value = typeof cur === "string" ? cur : "";
+        input.addEventListener("change", () => save(spec, ctl, input.value));
       }
-      input.value = typeof cur === "string" ? cur : "";
-      input.addEventListener("change", () => save(spec, ctl, input.value));
     } else if (kind === "time") {
       input = el("input", "stg-input");
       input.type = "time";
@@ -236,7 +256,10 @@
       });
     }
     input.setAttribute("aria-label", ctl.label || spec.label);
-    if (!row || !row.exists) input.disabled = true;
+    if (!row || !row.exists) {
+      if (input.classList.contains("stg-seg")) for (const b of input.querySelectorAll("button")) b.disabled = true;
+      else input.disabled = true;
+    }
     return input;
   }
 
@@ -328,6 +351,18 @@
       if (gid === "buying") card.open = true;
       card.appendChild(el("summary", "section-head", glabel));
       for (const spec of specs) {
+        // what this setting's last save said (a computer that put it back wins over our own "Saved")
+        const n = notes[spec.key];
+        const e = row && row.entries[spec.key];
+        let text = n ? n.text : "";
+        let bad = !!(n && n.bad);
+        // A computer refused it and put its own back: the row now holds somebody else's newer value.
+        if (n && n.sentAt && e && e.by !== "phone" && Number(e.at) >= n.sentAt) {
+          text = `${e.byName || "A computer"} put it back`;
+          bad = true;
+        }
+        // B-2282a: a setting with one control shows its "Saved ✓" / refusal INSIDE its row; several controls keep one line under them
+        const single = controlsOf(spec).length === 1;
         for (const ctl of controlsOf(spec)) {
           const r = el("div", "stg-row");
           const lab = el("label", "stg-label", ctl.label || spec.label);
@@ -338,21 +373,13 @@
           if ((ctl.kind || spec.kind) === "dayChips") r.classList.add("stg-row-chips");
           r.appendChild(lab);
           r.appendChild(c);
+          if (single && text) r.appendChild(el("p", bad ? "small stg-bad stg-row-note" : "small stg-saved stg-row-note", text));
           card.appendChild(r);
           if (spec.note && !ctl.path) card.appendChild(el("p", "muted small stg-note", spec.note));
         }
         // B-2249 / B-2251: what the vacation setting means right now (the computers' own sentence; the "last seen" day lives on the computer that buys).
         if (spec.key === VACATION) card.appendChild(el("p", "small muted stg-vac-status", SPEC.vacationStatusLine(entryValue(spec), Date.now(), SPEC.newestVacationSeen(computers.map((c) => c.vacationSeen)))));
-        const n = notes[spec.key];
-        const e = row && row.entries[spec.key];
-        let text = n ? n.text : "";
-        let bad = !!(n && n.bad);
-        // A computer refused it and put its own back: the row now holds somebody else's newer value.
-        if (n && n.sentAt && e && e.by !== "phone" && Number(e.at) >= n.sentAt) {
-          text = `${e.byName || "A computer"} put it back`;
-          bad = true;
-        }
-        if (text) card.appendChild(el("p", bad ? "small stg-bad" : "small muted", text));
+        if (text && !single) card.appendChild(el("p", bad ? "small stg-bad" : "small muted", text));
       }
       host.appendChild(card);
     }

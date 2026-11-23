@@ -7,9 +7,32 @@
 #settingsPane .stg-bad { margin: 2px 0 6px; color: var(--s-red-ink); overflow-wrap: anywhere; }
 #settingsPane .stg-card { margin-top: 10px; }
 #settingsPane .stg-card > summary { cursor: pointer; padding: 6px 0; }
-#settingsPane .stg-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 44px; border-top: 1px solid var(--s-line-soft); padding: 4px 0; min-width: 0; }
-#settingsPane .stg-label { flex: 1 1 auto; min-width: 0; font-size: 14px; color: var(--s-text); overflow-wrap: anywhere; }
+#settingsPane .stg-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; min-height: 44px; border-top: 1px solid var(--s-line-soft); padding: 4px 0; min-width: 0; }
+/* B-2282a (v2.0.196): a long setting name is a sentence - the body font, not retro pixel caps */
+#settingsPane .stg-label { flex: 1 1 auto; min-width: 0; font-family: var(--s-font); font-size: 14px; text-transform: none; letter-spacing: normal; color: var(--s-text); overflow-wrap: anywhere; }
 #settingsPane .stg-row input[type="checkbox"] { flex: 0 0 auto; width: 22px; height: 22px; }
+/* B-2282a (v2.0.196): on / off switch, up-to-four-choices segmented buttons, and the row's own "Saved ✓" */
+#settingsPane .stg-row input.stg-switch { -webkit-appearance: none; appearance: none; position: relative; box-sizing: border-box; width: 46px; height: 26px; margin: 0; border: 2px solid var(--s-n5); border-radius: 999px; background: var(--s-n3); cursor: pointer; }
+#settingsPane .stg-row input.stg-switch::before { content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: var(--s-n0); border: 1px solid var(--s-n5); box-sizing: border-box; transition: transform .12s; }
+#settingsPane .stg-row input.stg-switch:checked { background: var(--s-accent); border-color: var(--s-accent); }
+#settingsPane .stg-row input.stg-switch:checked::before { transform: translateX(20px); border-color: var(--s-n0); }
+#settingsPane .stg-row input.stg-switch:disabled { opacity: .5; }
+:root[data-theme="retro"] #settingsPane .stg-row input.stg-switch { border: 2px solid var(--s-n7); border-radius: 0; background: var(--s-surface); }
+:root[data-theme="retro"] #settingsPane .stg-row input.stg-switch::before { border: 0; border-radius: 0; background: var(--s-n7); }
+:root[data-theme="retro"] #settingsPane .stg-row input.stg-switch:checked { background: var(--s-accent); border-color: var(--s-n7); }
+:root[data-theme="retro"] #settingsPane .stg-row input.stg-switch:checked::before { background: var(--s-on-accent); }
+#settingsPane .stg-seg { display: flex; flex-wrap: wrap; max-width: 100%; min-width: 0; }
+#settingsPane .stg-seg-btn { min-height: 40px; padding: 6px 12px; margin: 0 0 0 -1px; border: 1px solid var(--s-line); border-radius: 0; background: var(--s-surface); color: var(--s-text); font-family: var(--s-font); font-size: 14px; font-weight: 600; text-transform: none; letter-spacing: normal; cursor: pointer; }
+#settingsPane .stg-seg-btn:first-child { margin-left: 0; border-radius: var(--s-r-sm) 0 0 var(--s-r-sm); }
+#settingsPane .stg-seg-btn:last-child { border-radius: 0 var(--s-r-sm) var(--s-r-sm) 0; }
+#settingsPane .stg-seg-btn.is-on, #settingsPane .stg-seg-btn[aria-checked="true"] { background: var(--s-accent); border-color: var(--s-accent); color: var(--s-on-accent); }
+#settingsPane .stg-seg-btn:disabled { opacity: .5; }
+:root[data-theme="retro"] #settingsPane .stg-seg-btn { background: var(--s-surface) !important; color: var(--s-text) !important; border: 2px solid var(--s-n7) !important; border-radius: 0 !important; box-shadow: none !important; margin-left: -2px; }
+:root[data-theme="retro"] #settingsPane .stg-seg-btn:first-child { margin-left: 0; }
+:root[data-theme="retro"] #settingsPane .stg-seg-btn[aria-checked="true"] { background: var(--s-accent) !important; color: var(--s-on-accent) !important; }
+:root[data-theme="retro"] #settingsPane .stg-row .stg-label { font-family: var(--s-font) !important; font-size: 14px !important; text-transform: none !important; letter-spacing: normal !important; }
+#settingsPane .stg-row-note { flex: 0 0 100%; margin: 0 0 4px; }
+#settingsPane .stg-saved { color: var(--s-green-ink); font-weight: 700; }
 #settingsPane .stg-input { flex: 0 1 150px; min-width: 0; max-width: 100%; padding: 8px; border: 1px solid var(--s-line); border-radius: var(--s-r-sm); background: var(--s-surface); color: var(--s-text); font-size: 14px; }
 #settingsPane .stg-note { margin: 2px 0 6px; }
 /* B-2249 (v2.0.188): the vacation day range - one tap-to-skip chip per day, and the status sentence under it */

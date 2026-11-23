@@ -94,4 +94,13 @@
 /* B-2245 (v2.0.184): Tracked Leads cards use the same band + table; meta / facts lines wrap, the table spans the card. */
 .pg-ld-meta, .pg-ld-facts { overflow-wrap: anywhere; min-width: 0; }
 .pg-ld-row .pg-lt-scen { margin: 4px 0; }
+/* B-2289 / B-2290: the suggested first-buy line + its Why lines; the "which price" line under the band. */
+.pg-ld-sug, .pg-ld-scen { overflow-wrap: anywhere; min-width: 0; }
+.pg-ld-sug-why { margin: 2px 0 0; padding-left: 18px; }
+/* B-2288: the search box on the Tracked Leads + Competitor ASINs pages; a row the search does not match is hidden. */
+.src-search { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; min-width: 0; margin: 8px 0; }
+.src-search .src-search-input { flex: 1 1 10rem; min-width: 0; }
+.src-search .src-search-clear { flex: 0 0 auto; }
+.src-search .src-search-count { flex: 1 1 100%; min-width: 0; overflow-wrap: anywhere; }
+.src-miss { display: none !important; }
 [hidden] { display: none !important; }

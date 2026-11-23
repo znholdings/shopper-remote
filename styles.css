@@ -109,6 +109,7 @@
 :root[data-theme="dark"] { --s-pack-multi-bg: #2f5fd0; --s-pack-multi-fg: #ffffff; }
 /* B-801 (v2.0.10): destination tokens (rules at the end of this file). */
 :root { --s-dest-prep: #00ffff; --s-dest-house: #ffff00; --s-dest-prep-bg: var(--s-dest-prep); --s-dest-house-bg: var(--s-dest-house); --s-dest-ink: #1a1d2b; --s-dest-ink-2: #3a3f55; }
+:root { --s-ao-pd: #fff9c4; --s-ao-d: #ffff00; --s-ao-ps: #00ff00; --s-ao-s: #34a853; --s-ao-pc: #00ffff; }
 :root[data-theme="dark"] { --s-dest-prep-bg: color-mix(in srgb, var(--s-dest-prep) 16%, var(--s-surface)); --s-dest-house-bg: color-mix(in srgb, var(--s-dest-house) 14%, var(--s-surface)); --s-dest-ink: var(--s-text); --s-dest-ink-2: var(--s-text-muted); }
 
 /* B-2132 (v2.0.167): Buylist table tokens (colour-mix of existing tokens; same names on the phone). */
@@ -1336,4 +1337,24 @@ body.pn-float .ctm-table tr > :last-child { padding-right: 62px; }
 .ctm-cost-result.ctm-cost-result-bad { color: var(--s-red-ink); }
 .ctm-table td.ctm-cost-td { position: static; width: auto; min-width: 0; max-width: none; padding: 4px 8px; border-right: 0; white-space: normal; }
 .ctm-table td.ctm-cost-td .ctm-cost-strip { position: sticky; left: 8px; width: min(calc(100vw - 48px), 420px); }
+/* B-2281 (v2.0.196): the Pipeline's All Orders colours as a 4 px left edge on each Products card, with the one-line key. */
+.inv-product.inv-shade-partDelivered { border-left: 4px solid var(--s-ao-pd); }
+.inv-product.inv-shade-delivered { border-left: 4px solid var(--s-ao-d); }
+.inv-product.inv-shade-prep { border-left: 4px solid var(--s-ao-pc); }
+.inv-product.inv-shade-partShipped { border-left: 4px solid var(--s-ao-ps); }
+.inv-product.inv-shade-shipped { border-left: 4px solid var(--s-ao-s); }
+/* retro draws every card edge with !important - the colour edge has to as well */
+:root[data-theme="retro"] .inv-product.inv-shade-partDelivered { border-left: 4px solid var(--s-ao-pd) !important; }
+:root[data-theme="retro"] .inv-product.inv-shade-delivered { border-left: 4px solid var(--s-ao-d) !important; }
+:root[data-theme="retro"] .inv-product.inv-shade-prep { border-left: 4px solid var(--s-ao-pc) !important; }
+:root[data-theme="retro"] .inv-product.inv-shade-partShipped { border-left: 4px solid var(--s-ao-ps) !important; }
+:root[data-theme="retro"] .inv-product.inv-shade-shipped { border-left: 4px solid var(--s-ao-s) !important; }
+.inv-shade-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; margin: 4px 0 8px; }
+.inv-key { display: inline-block; padding-left: 6px; border-left: 4px solid var(--s-line, currentColor); white-space: nowrap; }
+.inv-key.inv-shade-partDelivered { border-left-color: var(--s-ao-pd); }
+.inv-key.inv-shade-delivered { border-left-color: var(--s-ao-d); }
+.inv-key.inv-shade-prep { border-left-color: var(--s-ao-pc); }
+.inv-key.inv-shade-partShipped { border-left-color: var(--s-ao-ps); }
+.inv-key.inv-shade-shipped { border-left-color: var(--s-ao-s); }
+
 [hidden] { display: none !important; }

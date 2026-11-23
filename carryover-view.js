@@ -1,6 +1,6 @@
 // remote/carryover-view.js - B-1803 (v2.0.137): the Buylist's carry-over panel ("Not fully bought - last 3 days") on the phone.
 // Host: #carryOverHost (remote/index.html, under the Buylist actions). Data: payload.pages.carryOver (lib/remote-pages.js part
-// `carryOver`, the same buildCarryOver the laptop panel uses). Buttons: Ignore / Undo ignore (carryOverDecide), Remaining N /
+// `carryOver`, the same buildCarryOver the laptop panel uses). Buttons: Ignore / Undo ignore (carryOverDecide), Add remaining N /
 // Today's N / Custom (carryOverApply - the laptop's own two paths), Check stock (carryOverStockCheck - opens the retailer pages on the
 // computer, read-only; refused while the Buy Queue runs). Text nodes only.
 (function () {
@@ -71,20 +71,29 @@
     if (d && d.choice !== "ignore") flags.push("Sent " + d.qty + " to today's list");
     card.appendChild(el("div", "muted small", flags.join(" · ")));
     if (line.note) {
-      // B-2072 (v2.0.158): the reason is one line; a tap opens the whole text. B-2073: no backlog codes.
-      const nt = el("div", "muted small co-note" + (noteOpen.has(line.key) ? " co-note-open" : ""), self.ShopperPlain ? self.ShopperPlain.note(line.note) : line.note);
-      nt.setAttribute("role", "button"); nt.tabIndex = 0; nt.setAttribute("aria-expanded", String(noteOpen.has(line.key)));
-      const flip = () => { const on = nt.classList.toggle("co-note-open"); if (on) noteOpen.add(line.key); else noteOpen.delete(line.key); nt.setAttribute("aria-expanded", String(on)); };
-      nt.addEventListener("click", flip);
-      nt.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flip(); } });
-      card.appendChild(nt);
+      // B-2277 (v2.0.196): ONE plain reason on one line (worked out on the computer: the engine's own first sentence, no backlog codes); "Why" opens the whole text (B-2072's in-memory open set). B-2073: no backlog codes.
+      const full = self.ShopperPlain ? self.ShopperPlain.note(line.note) : line.note;
+      const rr = el("div", "co-reasonrow");
+      rr.appendChild(el("div", "muted small co-reason", line.reason || full));
+      const why = el("div", "muted small co-why", full);
+      why.hidden = !noteOpen.has(line.key);
+      const wb = btnOf(why.hidden ? "Why \u25be" : "Why \u25b4", "mini-btn co-why-btn", () => {
+        why.hidden = !why.hidden;
+        if (why.hidden) noteOpen.delete(line.key); else noteOpen.add(line.key);
+        wb.setAttribute("aria-expanded", String(!why.hidden));
+        wb.textContent = why.hidden ? "Why \u25be" : "Why \u25b4";
+      });
+      wb.setAttribute("aria-expanded", String(!why.hidden));
+      rr.appendChild(wb);
+      card.appendChild(rr);
+      card.appendChild(why);
     }
     const acts = el("div", "co-actions");
     if (d && d.choice === "ignore") {
       acts.appendChild(btnOf("Undo ignore", "mini-btn", (b) => act("carryOverDecide", { key: line.key, asin: line.asin, fromDay: day.day, choice: "undo" }, { btn: b })));
     } else {
       acts.appendChild(btnOf("Ignore", "mini-btn", (b) => act("carryOverDecide", { key: line.key, asin: line.asin, fromDay: day.day, choice: "ignore" }, { btn: b })));
-      acts.appendChild(btnOf(line.stockCap && line.remainingPick < line.remaining ? "Remaining " + line.remainingPick + " (stock cap)" : "Remaining " + line.remainingPick, "mini-btn primary-btn", (b) => apply(line, "remaining", line.remainingPick, b)));
+      acts.appendChild(btnOf(line.stockCap && line.remainingPick < line.remaining ? "Add remaining " + line.remainingPick + " (stock cap)" : "Add remaining " + line.remainingPick, "mini-btn primary-btn", (b) => apply(line, "remaining", line.remainingPick, b)));
       // B-2072 (v2.0.158): Today's / Qty / Custom sit behind a ⋯ (payloads unchanged).
       const more = btnOf("⋯", "mini-btn co-more", () => {
         const on = extra.hidden; extra.hidden = !on;

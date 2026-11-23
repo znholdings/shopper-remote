@@ -323,6 +323,7 @@ const SHARED_SETTINGS_SPEC = Object.freeze([
   S({ key: "shopperCompLeadBar", group: "sourcing", label: "Competitor leads: the profit bar (ROI % / $ profit)", kind: "object" }), // B-2221 (v2.0.179): { minRoi: 20, minProfit: 0 } - the sliders on the Leads view (page + phone)
   S({ key: "shopperCompLimitsMove", group: "sourcing", label: "Competitors: the 7 to 25 sellers / 300 to 500 tokens move (marker)", kind: "object" }), // B-2221 review: shared, so a role switch or a not-yet-updated computer cannot re-run or hide it
   S({ key: "shopperLeadKeepaDailyCap", group: "sourcing", label: "Keepa tokens a day for Tracked Leads", kind: "number", min: 50, max: 3000, step: 10 }), // B-2103 (v2.0.162)
+  S({ key: "shopperLeadTestDays", group: "sourcing", label: "First buy: days of sales for a new lead", kind: "number", min: 7, max: 30, step: 1 }), // B-2289
   // B-2271 (v2.0.195): inbound FBA shipping, $ per pound of Keepa package weight, counted as a cost of every Amazon unit in the source-match / Leads profit. One shared value (settings row); the phone shows it too.
   S({ key: "shopperInboundPerLb", group: "sourcing", label: "Inbound FBA shipping ($ / lb)", kind: "number", min: 0, max: 10, step: 0.05, def: 0.75, phone: true, unit: "$", note: "Counted as a cost of every Amazon unit in the Leads profit. 0 = off." }),
   // ---- Appearance / misc -------------------------------------------------
@@ -337,6 +338,12 @@ const SHARED_SETTINGS_SPEC = Object.freeze([
   S({ key: "shopperCatalogTable", group: "appearance", label: "Catalog table (columns, widths, filters)", kind: "object" }),
   // B-1790 (v2.0.134): dragged column widths for every other table - one object, both computers.
   S({ key: "shopperTableWidths", group: "appearance", label: "Table column widths", kind: "object" }),
+  // B-2281 (v2.0.196): which extra columns the Pipeline table shows (Pick, FNSKU, Expires, Last count, RP/SB) - one choice for both computers. Not on the phone (no table there).
+  S({ key: "shopperPipelineColumns", group: "appearance", label: "Pipeline table: extra columns", kind: "object" }),
+  // B-2277 (v2.0.196): the Buylist's Columns ▾ choice - one set on both computers (last save wins whole). Not on the phone (no table there).
+  S({ key: "shopperBuylistColumns", group: "appearance", label: "Buylist columns", kind: "object" }),
+  // B-2278 (v2.0.196): the Buy Queue preview's Columns ▾ choice (Sheet line) - one set on both computers. Not on the phone.
+  S({ key: "shopperBuyQueueColumns", group: "appearance", label: "Buy Queue columns", kind: "object" }),
   // B-2057 / B-2070 (v2.0.158): which sections are open - one state on both computers and the phone. { "<page>:<section>": { o, at } }.
   S({ key: "shopperFoldState", group: "appearance", label: "Folded sections", kind: "object" }),
   // ---- Secrets (own row; the phone never reads it) -----------------------

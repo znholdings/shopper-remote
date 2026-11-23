@@ -19,6 +19,22 @@
   var pick = "";
   var sig = "";
   var f = {};
+  var SB = root.ShopperSourcingSearch; // B-2288
+  var sbar = SB ? SB.bar(pane, {
+    units: "#competitorsPane .pg-cp-row, #competitorsPane .pg-cp-seller", placeholder: "ASIN, brand, product, seller, store",
+    also: function (toks) { return data ? SB.alsoText(SB.tabsWithHits(data, barNow(), toks), tab) : ""; },
+    cut: function () { return cutNow(); }
+  }) : null;
+  // true when the open tab holds only part of its list (the phone gets the top 100 rows of each)
+  function cutNow() {
+    if (!data) return false;
+    var c = data.counts || {}, n = function (a) { return (a || []).length; };
+    if (tab === "leads") return !!(data.leads && data.leads.atBar > n(data.leads.rows));
+    if (tab === "waiting") return !!(data.waiting && data.waiting.count > n(data.waiting.rows));
+    if (tab === "all") return c.all > n(data.all);
+    if (tab === "candidates") return c.candidates > n(data.candidates && data.candidates.today) + n(data.candidates && data.candidates.older);
+    return false;
+  }
 
   function money(v) { return v == null ? "-" : "$" + Number(v).toFixed(2); }
   function nz(v) { return v == null ? "-" : String(v); }
@@ -27,6 +43,7 @@
 
   function row(it, showSeen) {
     var r = U.el("div", "line pg-cp-row" + (it.seen ? " pg-cp-seen" : ""));
+    r.setAttribute("data-search", [it.brand].concat(it.sellers || []).filter(Boolean).join(" ")); // B-2288: hidden search words
     var main = U.el("div", "pg-cp-main");
     var t = U.el("div", "");
     if (it.score != null) t.appendChild(U.el("b", "pg-cp-score", it.score + " "));
@@ -156,7 +173,7 @@
     var out = doc.createDocumentFragment();
     var s = U.section("Sellers (" + (data.sellers || []).length + ")");
     (data.sellers || []).forEach(function (r) {
-      var c = U.el("div", "pg-card");
+      var c = U.el("div", "pg-card pg-cp-seller");
       var tracked = r.state === "dropped" ? "dropped" : r.tracked === "pinned" ? "pinned" : r.tracked === "added" ? "added by you" : r.tracked === "auto" ? "tracked (auto)" : "not tracked";
       c.appendChild(U.el("b", "", r.name || r.id));
       c.appendChild(U.el("div", "muted small", [r.name ? r.id : "", r.overlapPct + "% overlap", r.asins + " ASINs shared", r.fbaAsins + " FBA / " + r.fbmAsins + " FBM", r.bbDays + " Buy Box days", tracked, (r.unseenCandidates || 0) + " new to look at", (r.unseen != null ? r.unseen : r.unseenCandidates || 0) + " not seen yet"].filter(Boolean).join(" · ")));
@@ -208,6 +225,7 @@
   }
 
   function draw() {
+    if (sbar) sbar.remember(); // B-2288: the search box keeps its focus across the wipe
     pane.textContent = "";
     if (!data) { pane.appendChild(U.el("p", "muted small pg-sec", "Competitor ASINs load from the computer...")); return; }
     var st = data.status || {};
@@ -239,6 +257,7 @@
     });
     head.appendChild(tabs);
     pane.appendChild(head);
+    if (sbar) sbar.reattach(head); // B-2288
     if (tab === "leads") pane.appendChild(leadsTab());
     else if (tab === "waiting") pane.appendChild(waitingTab());
     else if (tab === "sellers") pane.appendChild(sellersTab());

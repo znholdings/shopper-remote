@@ -283,3 +283,6 @@ body.pk-open { overflow: hidden; }
 .pk-draw-grid { display: flex; flex-wrap: nowrap; gap: 8px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; padding-bottom: 6px; }
 .pk-draw-grid > .pk-svg { flex: 0 0 clamp(280px, 85%, 420px); max-width: none; scroll-snap-align: start; margin: 4px 0 2px; }
 .pk-panel .pk-pair > .pk-svg { flex: 1 1 240px; }
+/* B-2279 (v2.0.196): "Reject the plan" is destructive and set apart - the far end of the row on a laptop, its own line on a phone. */
+.pk-actrow > .pk-sep { margin-left: auto; }
+@media (max-width: 520px) { .pk-actrow > .pk-sep { margin-left: 0; flex-basis: 100%; } }
