@@ -77,7 +77,7 @@
       rr.appendChild(el("div", "muted small co-reason", line.reason || full));
       const why = el("div", "muted small co-why", full);
       why.hidden = !noteOpen.has(line.key);
-      const wb = btnOf(why.hidden ? "Why \u25be" : "Why \u25b4", "mini-btn co-why-btn", () => {
+      const wb = btnOf(why.hidden ? "Why \u25be" : "Why \u25b4", "s-btn-quiet co-why-btn", () => {
         why.hidden = !why.hidden;
         if (why.hidden) noteOpen.delete(line.key); else noteOpen.add(line.key);
         wb.setAttribute("aria-expanded", String(!why.hidden));

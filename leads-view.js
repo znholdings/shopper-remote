@@ -21,10 +21,11 @@
   var SHOPNAME = { walmart: "Walmart", samsclub: "Sam's Club", target: "Target", homedepot: "Home Depot" };
   // B-2290: the words of lib/lead-blank-words.js - a pinned copy (the phone cannot import a module); test/v20196-b2290-*.test.mjs keeps the two equal
   var W = {
-    NOT_READ: "not read yet", NO_COST: "cost not read yet", NO_FEES: "Amazon fees not read yet",
+    NOT_READ: "not read yet", NO_COST: "cost not read yet", NO_FEES: "Amazon fees not read yet", NO_PRICE: "no price to work from - add a Desired sale price",
     bbNote: function (r) { return r.offersAt ? "no Buy Box right now" : "not read yet"; },
     fbaNote: function (r) { return r.offersAt && r.fbaCount === 0 ? "no FBA seller" : r.offersAt ? "no FBA price" : "not read yet"; },
-    feesNote: function (r) { return r.cost == null ? "cost not read yet" : r.feesMissing ? "Amazon fees not read yet" : null; },
+    noPrice: function (r) { return [r.bb, r.lowFba, r.lowNew, r.bbAvg90, r.bbAvg30, r.salePrice].every(function (v) { return v == null; }); }, // B-2292 (a)
+    feesNote: function (r) { return r.cost == null ? "cost not read yet" : r.feesMissing ? (W.noPrice(r) ? W.NO_PRICE : "Amazon fees not read yet") : null; },
     scenario: { low: "at lowest offer", avg90: "at 90-day average", avg30: "at 30-day average", sp: "at your price" }
   };
   function soldText(r) { return r.sold == null ? "-" : r.soldEst ? "~" + r.sold : String(r.sold); } // B-2290: "~N" = estimated from rank drops
@@ -82,7 +83,7 @@
     var noCost = W.feesNote(r); // B-2290: "cost not read yet" or "Amazon fees not read yet"
     var rows = [{ name: "Buy Box", price: r.bb, profit: r.profitBB, roi: r.roiBB, margin: r.marginBB, note: W.bbNote(r), feesNote: noCost }, { name: "Lowest FBA", price: r.lowFba, profit: r.profitFBA, roi: r.roiFBA, margin: r.marginFBA, note: W.fbaNote(r), feesNote: noCost }];
     if (r.lowNew != null && r.lowNew !== r.bb && r.lowNew !== r.lowFba) rows.push({ name: "Lowest offer", price: r.lowNew, profit: alt.low.profit, roi: alt.low.roi, margin: alt.low.margin, feesNote: noCost }); // B-2290
-    if (r.bbAvg90 != null) rows.push({ name: "90-day avg", price: r.bbAvg90, profit: alt.avg.profit, roi: alt.avg.roi, margin: alt.avg.margin, feesNote: noCost }); // B-2290
+    if (alt.avg.price != null) rows.push({ name: alt.avg.days === 30 ? "30-day avg" : "90-day avg", price: alt.avg.price, profit: alt.avg.profit, roi: alt.avg.roi, margin: alt.avg.margin, feesNote: noCost }); // B-2290
     if (r.salePrice != null) rows.push({ name: "At your price", price: r.salePrice, profit: r.profitSP, roi: r.roiSP, margin: r.marginSP, feesNote: noCost });
     return rows;
   }
@@ -109,7 +110,7 @@
     c.appendChild(U.el("div", "muted small pg-ld-meta", metaBits(r).join(" · ")));
     var h = r.headline || null, LB = root.ShopperLeadBand;
     if (LB) c.appendChild(LB.band({ retailer: r.url ? (r.retailer || "Store") : "No source yet", cost: r.cost, profit: h ? h.profit : null, margin: h ? h.margin : null, roi: h ? h.roi : null }, soldText(r))); // B-2245: the B-2242 band from the headline (lower-profit scenario)
-    { var sw = h && W.scenario[h.scenario]; if (sw) c.appendChild(U.el("div", "muted small pg-ld-scen", "Profit " + sw)); } // B-2290: says which price the headline used
+    { var sw = h && W.scenario[h.scenario]; if (sw) c.appendChild(U.el("div", "muted small pg-ld-scen", "Profit " + sw)); else if (!h && r.feesMissing && W.noPrice(r)) c.appendChild(U.el("div", "muted small pg-ld-scen", W.NO_PRICE)); } // B-2292 (a) // B-2290: says which price the headline used
     if (r.soldEst) c.appendChild(U.el("div", "muted small pg-ld-scen", "Sold/mo est. from rank drops (30 days)")); // B-2290: parity with the desktop sold cell
     suggestLine(c, r); // B-2289
     { var mb = (!r.url || r.plan) && root.ShopperMatchBlock ? root.ShopperMatchBlock.block(r.asin, r.match) : null; if (mb) c.appendChild(mb); } // B-2108: no link yet -> what Auto-find sources found

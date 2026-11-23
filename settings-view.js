@@ -22,6 +22,10 @@
   let status = "";
   let sent = null; // { v, at } of the last save from this phone
   const notes = {}; // key -> { text, at }
+  // B-2293 (d): what a tapped control shows while its save runs (memory only; the stored value is drawn again the moment the save ends)
+  const pending = {}; // pendKey -> the value just tapped
+  const pendKey = (spec, ctl) => spec.key + "|" + (ctl.path || "");
+  const NET_MS = 15000; // a stalled network ends a save (and its disabled control) instead of waiting for ever
   let drawnSig = "";
 
   function el(tag, cls, text) {
@@ -54,7 +58,7 @@
   async function readRow() {
     const R = self.ShopperRemote;
     if (!R || !R.sb) return { ok: false, reason: "not ready" };
-    const res = await R.sb(`device_state?device_id=eq.${ROW}&select=device_id,v,payload,updated_at&limit=1`);
+    const res = await R.sb(`device_state?device_id=eq.${ROW}&select=device_id,v,payload,updated_at&limit=1`, { timeoutMs: NET_MS });
     if (!res.ok) return { ok: false, reason: res.reason || "no answer" };
     const r = Array.isArray(res.json) ? res.json[0] : null;
     if (!r) return { ok: true, exists: false, v: 0, entries: {}, sv: 1 };
@@ -63,7 +67,7 @@
   }
   async function readComputers() {
     const R = self.ShopperRemote;
-    const res = await R.sb(`device_state?device_id=like.${COMPUTERS}*&select=device_id,payload,updated_at`);
+    const res = await R.sb(`device_state?device_id=like.${COMPUTERS}*&select=device_id,payload,updated_at`, { timeoutMs: NET_MS });
     if (!res.ok || !Array.isArray(res.json)) return [];
     const out = [];
     for (const r of res.json) {
@@ -109,9 +113,23 @@
     return computers.filter((c) => now - c.seenAt < STALE_MS && c.settingsV < sent.v).map((c) => c.name);
   }
 
+  // B-2293 (d): a tap shows its own value (and "Saving…") until the save ends, then the stored value is drawn - never a snap back to the old pick.
   async function save(spec, ctl, val) {
+    const track = !ctl.mutate;
+    const pk = pendKey(spec, ctl);
+    if (track) pending[pk] = val;
+    try {
+      await saveCore(spec, ctl, val);
+    } catch (err) {
+      notes[spec.key] = { text: `Not saved - ${(err && err.message) || "no answer"}`, at: Date.now(), bad: true }; // never a stuck "Saving…"
+    } finally {
+      if (track) delete pending[pk]; // on EVERY exit
+      draw(true);
+    }
+  }
+  async function saveCore(spec, ctl, val) {
     const key = spec.key;
-    notes[key] = { text: "Saving...", at: Date.now(), sentAt: 0 };
+    notes[key] = { text: "Saving…", at: Date.now(), sentAt: 0, path: ctl.path || "", busy: true };
     draw(true);
     for (let tries = 0; tries < 2; tries++) {
       const got = await readRow();
@@ -158,7 +176,15 @@
         method: "PATCH",
         prefer: "return=representation",
         body: { device_name: "Phone", v: got.v + 1, payload: { value: { sv: 1, entries }, by: "phone", byName: "Phone", at: t }, updated_at: new Date(t).toISOString() },
+        timeoutMs: NET_MS,
       });
+      if (!res.ok && res.reason === "timed out") {
+        // the write may or may not have landed: say so, then show what is stored (the reload below)
+        notes[key] = { text: "Not sure it saved - showing what is stored", at: Date.now(), bad: true };
+        if (!ctl.mutate) delete pending[pendKey(spec, ctl)];
+        await load();
+        return;
+      }
       if (!res.ok) {
         notes[key] = { text: `Not saved - ${res.reason || "no answer"}`, at: Date.now(), bad: true };
         return draw(true);
@@ -166,6 +192,7 @@
       if (Array.isArray(res.json) && res.json.length === 1) {
         sent = { v: got.v + 1, at: t };
         notes[key] = { text: "Saved ✓", at: t, sentAt: t };
+        if (!ctl.mutate) delete pending[pendKey(spec, ctl)]; // the stored value is drawn by the reload
         await load();
         return;
       }
@@ -175,7 +202,9 @@
   }
 
   function control(spec, ctl) {
-    const cur = controlValue(spec, ctl);
+    const pk = pendKey(spec, ctl);
+    const busy = pk in pending; // a save of this control is running: show what was tapped, and no second tap
+    const cur = busy ? pending[pk] : controlValue(spec, ctl);
     const kind = ctl.kind || spec.kind;
     let input;
     if (kind === "bool") {
@@ -256,8 +285,8 @@
       });
     }
     input.setAttribute("aria-label", ctl.label || spec.label);
-    if (!row || !row.exists) {
-      if (input.classList.contains("stg-seg")) for (const b of input.querySelectorAll("button")) b.disabled = true;
+    if (busy || !row || !row.exists) {
+      if (input.classList.contains("stg-seg")) { for (const b of input.querySelectorAll("button")) b.disabled = true; if (busy) input.setAttribute("aria-busy", "true"); }
       else input.disabled = true;
     }
     return input;
@@ -373,13 +402,16 @@
           if ((ctl.kind || spec.kind) === "dayChips") r.classList.add("stg-row-chips");
           r.appendChild(lab);
           r.appendChild(c);
-          if (single && text) r.appendChild(el("p", bad ? "small stg-bad stg-row-note" : "small stg-saved stg-row-note", text));
+          const here = n && n.busy && n.path === (ctl.path || "");
+          if ((single || here) && text) r.appendChild(el("p", bad ? "small stg-bad stg-row-note" : "small stg-saved stg-row-note", text));
           card.appendChild(r);
           if (spec.note && !ctl.path) card.appendChild(el("p", "muted small stg-note", spec.note));
         }
         // B-2249 / B-2251: what the vacation setting means right now (the computers' own sentence; the "last seen" day lives on the computer that buys).
         if (spec.key === VACATION) card.appendChild(el("p", "small muted stg-vac-status", SPEC.vacationStatusLine(entryValue(spec), Date.now(), SPEC.newestVacationSeen(computers.map((c) => c.vacationSeen)))));
-        if (text && !single) card.appendChild(el("p", bad ? "small stg-bad" : "small muted", text));
+        // the card-level line carries the final Saved / refusal; "Saving…" shows in the tapped row when there is one
+        const shownInRow = n && n.busy && controlsOf(spec).some((c) => (c.path || "") === n.path);
+        if (text && !single && !shownInRow) card.appendChild(el("p", bad ? "small stg-bad" : "small muted", text));
       }
       host.appendChild(card);
     }

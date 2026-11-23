@@ -3,6 +3,7 @@
 :root[data-theme="retro"] body .it-btn.c55-info { font-size: 14px !important; min-height: 24px; }
 .it-text { margin: 4px 0 8px; white-space: normal; overflow-wrap: break-word; }
 .it-text[hidden] { display: none; }
+.it-text .it-close { display: inline-flex; margin: 0 0 0 8px; vertical-align: baseline; }
 #booksPane .bkm-card .section-head > .it-btn { margin-right: auto; }
 /* v2.0.158 merge: an ⓘ sits in a fold's heading, so its opened text must show even while the fold below it is closed. */
 .s55-sec.s55-closed > .it-text:not([hidden]) { display: block !important; }
