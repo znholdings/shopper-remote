@@ -36,6 +36,16 @@
     return false;
   }
 
+  // B-2312: the Auto-find ready line (same words as lib/ready-line.js)
+  function readyWords(job, left) {
+    var f = function (ms, o) { return new Intl.DateTimeFormat("en-US", Object.assign({ timeZone: "America/Chicago" }, o)).format(ms); };
+    var now = Date.now(), p = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Chicago", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+    var j = job && job.day === p ? job : null;
+    if (j && j.finished) return "Auto-find done" + (j.finishedAt > 0 ? " " + f(j.finishedAt, { hour: "numeric", minute: "2-digit" }) : "") + " (" + (j.searches || 0) + " searched)";
+    if (j && j.started) return "Auto-find searching - " + Math.max(0, Number(left) || 0) + " left";
+    return Number(f(now, { hour: "numeric", hour12: false })) % 24 >= 9 ? "Auto-find did not start today" : "Auto-find starts 4 AM";
+  }
+
   function money(v) { return v == null ? "-" : "$" + Number(v).toFixed(2); }
   function nz(v) { return v == null ? "-" : String(v); }
   function label(id) { var s = data && (data.sellers || []).filter(function (x) { return x.id === id; })[0]; return s && s.name ? s.name : id; }
@@ -154,7 +164,7 @@
   function waitingTab() {
     var W = data.waiting || { rows: [], count: 0 };
     var s = U.section("Waiting for a source (" + W.count + ")");
-    s.appendChild(U.el("p", "muted small", W.count + " waiting for a source match. Shopper looks 7 AM - 12 PM Central (and finishes the day's list if it runs over), best score first, up to 50 a day."));
+    s.appendChild(U.el("p", "muted small", W.count + " waiting for a source match. Shopper looks 4 - 9 AM Central (and finishes the day's list if it runs over), best score first, up to 50 a day."));
     if (!(W.rows || []).length) s.appendChild(U.el("p", "muted small", "Nothing is waiting for a source match."));
     (W.rows || []).forEach(function (it) { s.appendChild(row(it, true)); });
     return s;
@@ -241,6 +251,7 @@
       head.appendChild(box);
     }
     head.appendChild(U.el("p", "muted small", "Last read " + (st.lastRunAt ? new Date(st.lastRunAt).toLocaleString() : "never") + " · " + (st.tokensToday || 0) + " of " + (st.cap || 0) + " Keepa tokens used today"));
+    head.appendChild(U.el("p", "muted small", readyWords(data.matchJob, data.waiting && data.waiting.count))); // B-2312: same words as the desktop
     if (data.handover && data.handover.text) head.appendChild(U.el("p", "small", data.handover.text)); // B-2060
     var runRow = U.el("div", "pg-row"); // B-2060: on a Viewer these are handed to the main computer
     var sentText = function (res, fallback) { var r = res && res.result; return r && r.handedOver ? "Sent to the " + r.handedTo : fallback; };

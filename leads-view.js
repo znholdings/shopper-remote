@@ -25,7 +25,7 @@
     bbNote: function (r) { return r.offersAt ? "no Buy Box right now" : "not read yet"; },
     fbaNote: function (r) { return r.offersAt && r.fbaCount === 0 ? "no FBA seller" : r.offersAt ? "no FBA price" : "not read yet"; },
     noPrice: function (r) { var avgOk = !(r.alt && r.alt.avg && r.alt.avg.stale); return [r.bb, r.lowFba, r.lowNew, avgOk ? r.bbAvg90 : null, avgOk ? r.bbAvg30 : null, r.salePrice].every(function (v) { return v == null; }); }, // B-2292 (a) / B-2296: a stale average is not a price // B-2292 (a)
-    feesNote: function (r) { return r.cost == null ? "cost not read yet" : r.feesMissing ? (W.noPrice(r) ? W.NO_PRICE : "Amazon fees not read yet") : null; },
+    feesNote: function (r) { return r.cost == null ? "cost not read yet" : r.feesMissing ? (r.feesErr === "403" ? "Amazon refused the fee read" : r.feesErr ? "Amazon gave no fee estimate (" + r.feesErr + ")" : W.noPrice(r) ? W.NO_PRICE : "Amazon fees not read yet") : null; }, // B-2307
     scenario: { low: "at lowest offer", avg90: "at 90-day average", avg30: "at 30-day average", sp: "at your price" },
     ageWords: function (h) { return h && (h.scenario === "avg90" || h.scenario === "avg30") && Number(h.ageDays) >= 2 ? ", " + Math.floor(Number(h.ageDays)) + " days old" : ""; } // B-2296: a Buy Box average 2+ days old says so
   };
@@ -74,7 +74,7 @@
   }
   function factsLine(r) {
     var out = [];
-    if (r.costTyped || r.packNote) out.push("cost " + (r.costTyped ? "typed by you" : r.packNote));
+    if (r.costTyped || r.packNote || r.amzPack) out.push("cost " + (r.costTyped ? "typed by you" : [r.packNote, r.amzPack ? "\u00d7" + r.amzPack.n + ": Amazon " + r.amzPack.n + "-pk" : ""].filter(Boolean).join(" \u00b7 ")));
     if (r.srcChange) out.push("source price since tracked " + (r.srcChange.delta === 0 ? "same" : (r.srcChange.delta > 0 ? "▲ " : "▼ ") + money(Math.abs(r.srcChange.delta)) + " (" + r.srcChange.pct + "%)") + ", was " + money(r.srcChange.was));
     if (r.bbAvg90 != null || r.bbAvg30 != null) out.push("Buy Box 90-day average " + money(r.bbAvg90) + (r.bbAvg30 != null ? " · 30-day " + money(r.bbAvg30) : ""));
     return out.join(" · ");
@@ -102,6 +102,21 @@
     d.appendChild(ul);
     c.appendChild(d);
   }
+  // B-2308: the answer next to the Save button (the toast is easy to miss); kept 4 s through a redraw
+  var sendingNow = {}; // B-2327: ASINs whose Send to Buylist is running (a redraw keeps their button off)
+  var savedMap = {};
+  function savedSpan(asin, kind) {
+    var k = asin + "|" + kind, v = savedMap[k], sp = U.el("span", "small pg-ld-saved" + (v && v.warn ? " pg-ld-saved-warn" : ""), v && v.until > Date.now() ? v.text : "");
+    sp.setAttribute("aria-live", "polite"); sp.setAttribute("data-kind", kind); sp.setAttribute("data-nosearch", "1");
+    sp.style.display = "inline-block"; sp.style.minWidth = "5rem";
+    return sp;
+  }
+  function flash(sp, asin, kind, res, cleared) {
+    var bad = !res || res.ok === false, text = bad ? String((res && (res.reason || res.error)) || "That did not work.").slice(0, 120) : cleared ? "Cleared \u2713" : "Saved \u2713";
+    var k = asin + "|" + kind; savedMap[k] = { text: text, warn: bad, until: Date.now() + 4000 };
+    sp.textContent = text; sp.className = "small pg-ld-saved" + (bad ? " pg-ld-saved-warn" : "");
+    if (typeof setTimeout === "function") setTimeout(function () { if (savedMap[k] && savedMap[k].until <= Date.now()) { delete savedMap[k]; } sp.textContent = ""; }, 4050);
+  }
   function card(r) {
     var c = U.el("div", "line pg-card pg-ld-row" + (r.blocked ? " pg-ld-off" : ""));
     c.setAttribute("data-search", [r.brand, r.url, r.retailer, SHOPNAME[r.retailer]].filter(Boolean).join(" ")); // B-2288: hidden search words
@@ -110,6 +125,7 @@
     t.appendChild(doc.createTextNode(String(r.title || r.asin)));
     c.appendChild(t);
     c.appendChild(U.el("div", "muted small pg-ld-meta", metaBits(r).join(" · ")));
+    if (r.offer && r.offer.sku) c.appendChild(U.el("div", (r.offer.warn ? "warn-text" : "muted") + " small pg-ld-offer", r.offer.warn ? "⚠ Existing SKU " + r.offer.sku + " reused" : "Offer " + r.offer.sku + " created")); // B-2327: the last Send to Buylist's Amazon offer
     var h = r.headline || null, LB = root.ShopperLeadBand;
     if (LB) c.appendChild(LB.band({ retailer: r.url ? (r.retailer || "Store") : "No source yet", cost: r.cost, profit: h ? h.profit : null, margin: h ? h.margin : null, roi: h ? h.roi : null }, soldText(r))); // B-2245: the B-2242 band from the headline (lower-profit scenario)
     { var sw = h && W.scenario[h.scenario] ? W.scenario[h.scenario] + W.ageWords(h) : ""; if (sw) c.appendChild(U.el("div", "muted small pg-ld-scen", "Profit " + sw)); else if (!h && r.feesMissing && W.noPrice(r)) c.appendChild(U.el("div", "muted small pg-ld-scen", W.NO_PRICE)); } // B-2292 (a) // B-2290: says which price the headline used
@@ -125,24 +141,36 @@
     if (r.url) links.appendChild(link("Source", r.url));
     c.appendChild(links);
     var acts = U.el("div", "pg-row");
-    if (r.costState === "ask" || r.costState === "reading") {
-      c.appendChild(U.el("div", "small pg-cp-why", r.costState === "reading" ? "Reading the store page..." : "Cost not read - enter it."));
-      var cost = U.input("text", { placeholder: "Enter cost", inputmode: "decimal" });
-      var sc = U.btn("Save cost", "mini-btn", function () { var v = cost.value.trim(); if (!v) { U.toast("Type the cost first.", true); return; } U.send("leadsSetCost", { asin: r.asin, cost: v }, sc).then(function (res) { U.say(res, "Cost saved"); }); });
-      acts.appendChild(cost); acts.appendChild(sc);
+    if (r.costState === "ask" || r.costState === "reading") c.appendChild(U.el("div", "small pg-cp-why", r.costState === "reading" ? "Reading the store page..." : "Cost not read - enter it."));
+    { // B-2313: the cost box is always there; blank + Save clears the typed cost
+      var cost = U.input("text", { placeholder: r.costTyped ? "Cost per item" : r.cost != null ? "Cost (read $" + Number(r.cost).toFixed(2) + ")" : "Enter cost", inputmode: "decimal" });
+      if (r.costTyped && r.cost != null) cost.value = String(r.cost);
+      var csv = savedSpan(r.asin, "cost");
+      var sc = U.btn("Save cost", "mini-btn", function () { var v = cost.value.trim(); U.send("leadsSetCost", { asin: r.asin, cost: v || null }, sc).then(function (res) { flash(csv, r.asin, "cost", res, !v); U.say(res, v ? "Cost saved" : "Cost cleared"); }); });
+      acts.appendChild(cost); acts.appendChild(sc); acts.appendChild(csv);
     }
     var sale = U.input("text", { placeholder: "Desired sale price", inputmode: "decimal" }); // B-2135: empty + Save clears it
     if (r.salePrice != null) sale.value = String(r.salePrice);
-    var sp = U.btn("Save price", "mini-btn", function () { var v = sale.value.trim(); U.send("leadsSetSalePrice", { asin: r.asin, salePrice: v || null }, sp).then(function (res) { U.say(res, /^[\s$,]*$/.test(v) ? "Price cleared" : "Price saved"); }); });
-    acts.appendChild(sale); acts.appendChild(sp);
+    var psv = savedSpan(r.asin, "price");
+    var sp = U.btn("Save price", "mini-btn", function () { var v = sale.value.trim(); U.send("leadsSetSalePrice", { asin: r.asin, salePrice: v || null }, sp).then(function (res) { flash(psv, r.asin, "price", res, /^[\s$,]*$/.test(v)); U.say(res, /^[\s$,]*$/.test(v) ? "Price cleared" : "Price saved"); }); });
+    acts.appendChild(sale); acts.appendChild(sp); acts.appendChild(psv);
     var sb = U.btn("Send to Buylist", "mini-btn", function () {
+      if (sendingNow[r.asin]) return; // B-2327: never two at once - it makes an Amazon offer
       var q = root.prompt ? root.prompt("How many of " + r.asin + " for the Buylist? (1 to 9999)", String(r.suggest && r.suggest.qty ? r.suggest.qty : 1)) : null;
       if (q == null) return;
       var n = Math.round(Number(q));
       if (!(n >= 1 && n <= 9999)) { U.toast("Type a number from 1 to 9999.", true); return; }
-      U.send("leadsSendToBuylist", { asin: r.asin, qty: n }, sb).then(function (res) { U.say(res, "Sent to the Buylist"); });
+      if (sendingNow[r.asin]) return;
+      sendingNow[r.asin] = true;
+      U.send("leadsSendToBuylist", { asin: r.asin, qty: n }, sb).then(function (res) {
+        delete sendingNow[r.asin];
+        var ans = res && res.result && typeof res.result === "object" ? res.result : null;
+        if (res && res.ok && ans && ans.offerWarn) U.toast(String(ans.offerWarn) + " Sent to the Buylist.", true); // B-2327: the warning leads the text, in the warning style
+        else U.say(res, ans && ans.offerSku && ans.offerMade ? "Sent to the Buylist - offer " + ans.offerSku + " created" : "Sent to the Buylist");
+      });
     });
-    sb.disabled = !!r.blocked;
+    sb.disabled = !!r.blocked || !!sendingNow[r.asin];
+    if (sendingNow[r.asin]) sb.textContent = "Working...";
     acts.appendChild(sb);
     var ut = U.btn("Untrack", "danger-btn", function () { U.confirmSend("Stop tracking " + r.asin + "?", "leadsUntrack", { asin: r.asin }, ut, "Untracked"); });
     acts.appendChild(ut);

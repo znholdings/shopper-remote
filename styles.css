@@ -310,9 +310,11 @@ button { font: inherit; cursor: pointer; }
 }
 .bs-label { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--s-blue); }
 .bs-value { font-size: 14px; font-weight: 600; }
+/* B-2322 (v2.0.203): the Supplier stat's store badge (colours come inline from remote/store-badge.js). */
+.store-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; padding: 0 3px; box-sizing: border-box; border-radius: 11px; font-size: 11px; font-weight: 700; line-height: 1; }
 
 .line.bl-rejected, .line.bl-blocked { border-left: 3px solid var(--s-red); opacity: .75; }
-.line.bl-past-goal .bl-stats, .line.bl-past-goal .bl-headtext { opacity: .6; } /* B-1741 (v2.0.127) */
+.line.bl-past-goal .bl-stats, .line.bl-past-goal .bl-headtext { opacity: 1; } /* B-1741 (v2.0.127); B-2329: no longer faded - the past-goal tag says it */
 
 .l-src { color: var(--s-blue-soft); }
 
@@ -355,6 +357,7 @@ button { font: inherit; cursor: pointer; }
 .approved-progress-fill { height: 100%; width: 0%; border-radius: 999px;
   background: var(--accent); transition: width 0.35s ease; }
 .approved-progress-fill.pc-met { background: var(--good); }
+.approved-progress-fill.pc-over { background: var(--warn); }
 
 /* P-48 (2026-09-09): "a bold yellow line around each section... to make
    it more obvious" (Confirmed Buys / Contingency / Old Meat). */
@@ -1369,5 +1372,12 @@ body.pn-float .ctm-table tr > :last-child { padding-right: 62px; }
 .device-stale { margin-top: 4px; }
 .device-stale > summary { cursor: pointer; padding: 8px 2px; color: var(--muted); font-size: 14px; }
 .device-stale[open] > summary { margin-bottom: 4px; }
+
+/* B-2330: "N Walmart products need a pack rank - Rank" right under the Start buttons (remote/queue-actions-view.js); Rank is a 44px target. */
+#packRankPhoneLine { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; width: 100%; margin: 6px 0 0; color: var(--s-yellow-ink, var(--text)); font-size: 13px; font-weight: 600; }
+#packRankPhoneLine::before { content: ""; width: 4px; align-self: stretch; background: var(--s-bl-warn-bar, var(--s-yellow)); border-radius: 2px; }
+#packRankPhoneLine .pr-start-text { min-width: 0; overflow-wrap: anywhere; }
+#packRankPhoneLine .mini-btn { min-height: 44px; min-width: 44px; }
+:root[data-theme="retro"] #packRankPhoneLine::before { border-radius: 0; }
 
 [hidden] { display: none !important; }

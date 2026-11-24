@@ -89,7 +89,7 @@
 
   Object.assign(typeof REMOTE_LABELS !== "undefined" ? REMOTE_LABELS : {}, {
     agedCheck: "Check aged inventory", cogsCheckRun: "Run COGS check", cogsCheckApply: "Apply COGS picks",
-    pricingErrorsCheck: "Check pricing errors", pricingIssuesScan: "Scan pricing issues", pricingErrorsDismiss: "Dismiss pricing error", pricingFixStop: "Stop price fix",
+    pricingErrorsCheck: "Check pricing errors", pricingIssuesScan: "Scan pricing issues", pricingErrorsDismiss: "Dismiss pricing error", pricingFixStop: "Stop price fix", pricingFixDismiss: "Dismiss price fix",
   });
 
   const $ = (id) => document.getElementById(id);
@@ -197,14 +197,20 @@
     const rows = arr(Array.isArray(fx) ? fx : obj(fx).rows);
     if (!rows.length) return null;
     const card = el("section", "ops-card ops-pricing-fixes");
-    card.appendChild(el("h3", "", "Running price fixes (" + rows.length + ")"));
+    card.appendChild(el("h3", "", "Price fixes (" + rows.length + ")"));
     for (const r of rows.slice(0, 20)) {
       const line = el("div", "ops-line ops-fix-row");
       line.appendChild(el("div", "", clip(r.title || r.asin || r.sku, 80)));
       line.appendChild(el("div", "muted small", [clip(r.mode, 20), "start " + money(r.start), "target " + money(r.target), "floor " + money(r.floor), clip(r.state, 30)].join(" · ")));
-      const s = btn("Stop this fix", "ops-fix-stop");
-      s.addEventListener("click", () => run({ name: "pricingFixStop", payload: { sku: clip(r.sku, 60) }, confirm: "Stop this fix? Min/max go back to what they were.", btn: s, ok: "Fix stopped" }));
-      line.appendChild(s);
+      if (r.canDismiss === true) { // B-2325: a finished fix that owes nothing - Dismiss hides its card (nothing changes in Seller Snap / Amazon)
+        const d = btn("Dismiss", "ops-fix-dismiss");
+        d.addEventListener("click", () => run({ name: "pricingFixDismiss", payload: { sku: clip(r.sku, 60) }, btn: d, ok: "Dismissed", done: () => line.remove() }));
+        line.appendChild(d);
+      } else {
+        const s = btn("Stop this fix", "ops-fix-stop");
+        s.addEventListener("click", () => run({ name: "pricingFixStop", payload: { sku: clip(r.sku, 60) }, confirm: "Stop this fix? Min/max go back to what they were.", btn: s, ok: "Fix stopped" }));
+        line.appendChild(s);
+      }
       card.appendChild(line);
     }
     return card;

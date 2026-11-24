@@ -92,7 +92,7 @@
 .pg-lt-scen th:first-child { width: 22%; }
 .pg-sm-block { padding: 6px 4px 6px 6px; }
 /* B-2245 (v2.0.184): Tracked Leads cards use the same band + table; meta / facts lines wrap, the table spans the card. */
-.pg-ld-meta, .pg-ld-facts { overflow-wrap: anywhere; min-width: 0; }
+.pg-ld-meta, .pg-ld-facts, .pg-ld-offer { overflow-wrap: anywhere; min-width: 0; }
 .pg-ld-row .pg-lt-scen { margin: 4px 0; }
 /* B-2289 / B-2290: the suggested first-buy line + its Why lines; the "which price" line under the band. */
 .pg-ld-sug, .pg-ld-scen { overflow-wrap: anywhere; min-width: 0; }

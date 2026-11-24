@@ -170,6 +170,12 @@
 
         <!-- B-1082 (v2.0.55): idle, Start + the approval mode come first. -->
         <div id="startRow" class="controls" hidden>
+          <!-- B-1535: which computer runs it - the Main (Optiplex) is preselected. B-2330: Run on comes before the approval. -->
+          <label class="mode-row">
+            <span>Run on</span>
+            <select id="runOnSelect"></select>
+            <span id="runOnNote" class="muted" role="status"></span>
+          </label>
           <label class="mode-row">
             <span>Order approval</span>
             <select id="modeSelect">
@@ -178,13 +184,8 @@
               <option value="per-order">Per-order - ask every time</option>
             </select>
           </label>
-          <!-- B-1535: which computer runs it - the Main (Optiplex) is preselected. -->
-          <label class="mode-row">
-            <span>Run on</span>
-            <select id="runOnSelect"></select>
-            <span id="runOnNote" class="muted" role="status"></span>
-          </label>
-          <button id="startBtn" class="primary-btn big">Start Buy Queue</button>
+          <!-- B-2324 (v2.0.203): one "Start on <computer>" button per computer (app.js fillRunOn) - the same buttons as the Buylist's Buy card. -->
+          <div id="startBtns" class="start-btns"></div>
           <button id="resumeSavedBtn" class="secondary-btn" hidden>Resume saved queue</button>
           <button id="discardSavedBtn" class="danger-btn" hidden>Discard saved queue</button>
           <button id="previewBtn" class="ghost-btn" title="Refresh preview" aria-label="Refresh preview">Preview</button>
@@ -671,6 +672,7 @@
   <script src="info-tip.js"></script><!-- B-2069 (v2.0.158) -->
   <script src="why-fold.js"></script><!-- B-2085 (v2.0.161): ShopperWhy.wrap, the phone twin of lib/info-tip.js wrapWhy -->
   <script src="plain-text.js"></script><!-- B-2073 (v2.0.158) -->
+  <script src="store-badge.js"></script><!-- B-2322 (v2.0.203): ShopperStoreBadge, the Supplier stat's store badge (before app.js) -->
   <!-- B-1137 (v2.0.60): the Walmart pack-rank editor (app.js renderPrompt draws it). -->
   <script src="pack-rank-view.js"></script>
   <script src="nav-lib.js"></script><!-- B-1791 (v2.0.135): GENERATED from lib/sidenav.js -->

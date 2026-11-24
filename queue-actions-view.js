@@ -45,7 +45,7 @@
     packRankStatus: "Pack rank check", recoveryClearLearned: "Forget what Recovery learned",
   });
   const FINISHED = new Set(["done", "aborted", "error"]);
-  let host = null, drawnKey = "", staleSent = false, rankState = null, rankOpen = null;
+  let host = null, drawnKey = "", staleSent = false, rankState = null, rankOpen = null, autoSig = null;
 
   // B-1927 (v2.0.146): the idle payload has no lines (run: null); the approved lines are the ones Main answered to "Preview"
   // (remote/queue-preview-view.js), which also owns the up / down order buttons now.
@@ -54,20 +54,44 @@
     const lines = Q && typeof Q.buyLines === "function" ? Q.buyLines() : [];
     return lines.filter((l) => l && l.asin);
   }
+  // Sorted, so moving a line up or down (same lines, new order) does not count as another line set and re-run the check.
+  const lineSig = (lines) => lines.map((l) => l.asin).sort().join(",");
+  // b = the pressed button, or null for B-2330's automatic check (no button to grey out, and a miss is silent - the button is still there).
   async function checkRanks(lines, b) {
     const M = self.ShopperManualPrint;
-    if (!M || !M.runCommand) { say("Not connected.", true); return; }
+    if (!M || !M.runCommand) { if (b) say("Not connected.", true); return; }
     const asins = [...new Set(lines.map((l) => l.asin))].slice(0, 200);
-    b.disabled = true;
-    const was = b.textContent; b.textContent = "Checking...";
+    const sig = lineSig(lines);
+    let was = "";
+    if (b) { b.disabled = true; was = b.textContent; b.textContent = "Checking..."; }
     const out = await M.runCommand("packRankStatus", { asins });
-    b.disabled = false; b.textContent = was;
+    if (b) { b.disabled = false; b.textContent = was; }
     const r = out && out.result;
-    if (!out || out.status !== "done" || !r || r.ok === false) { say(((r && (r.reason || r.error)) || (out && out.reason) || "Could not check the pack rank.").toString().slice(0, 200), true); return; }
+    if (!out || out.status !== "done" || !r || r.ok === false) { if (b) say(((r && (r.reason || r.error)) || (out && out.reason) || "Could not check the pack rank.").toString().slice(0, 200), true); return; }
     const unranked = [].concat(r.unranked || r.needsRank || []).map((x) => (typeof x === "string" ? x : x && x.asin)).filter(Boolean);
-    rankState = { unranked, ranked: [].concat(r.ranked || []).length, at: Date.now() };
+    rankState = { unranked, ranked: [].concat(r.ranked || []).length, at: Date.now(), sig };
     drawnKey = "";
     draw();
+  }
+  // B-2330: "N Walmart products need a pack rank - Rank" right under the Start buttons; Rank scrolls to the per-line Rank buttons below.
+  function startLine(on) {
+    let line = document.getElementById("packRankPhoneLine");
+    if (!on) { if (line) line.hidden = true; return; }
+    const row = document.getElementById("startBtns");
+    if (!row || !row.parentNode) return;
+    const n = rankState.unranked.length;
+    if (!line) {
+      line = el("p", "pr-start-line");
+      line.id = "packRankPhoneLine";
+      row.parentNode.insertBefore(line, row.nextSibling);
+    }
+    if (line.dataset.n !== String(n)) {
+      line.dataset.n = String(n);
+      line.textContent = "";
+      line.appendChild(el("span", "pr-start-text", n + " Walmart product" + (n === 1 ? "" : "s") + " need" + (n === 1 ? "s" : "") + " a pack rank \u00b7"));
+      line.appendChild(btnOf("Rank", "mini-btn", () => { try { host && host.scrollIntoView({ block: "start" }); } catch (e) { /* the buttons are just below */ } }));
+    }
+    line.hidden = false;
   }
   async function openRank(line, slot, b) {
     const M = self.ShopperManualPrint;
@@ -83,7 +107,7 @@
     if (!self.ShopperPackRankPhone) { say("The pack-rank editor is not loaded.", true); return; }
     self.ShopperPackRankPhone.render(slot, q, async (choice) => {
       const r = await act("packRankSave", { token: q.token, choice });
-      if (r && r.ok) { say("Pack rank saved."); slot.textContent = ""; rankOpen = null; rankState = null; drawnKey = ""; draw(); }
+      if (r && r.ok) { say("Pack rank saved."); slot.textContent = ""; rankOpen = null; rankState = null; autoSig = null; drawnKey = ""; draw(); }
     });
   }
 
@@ -93,12 +117,17 @@
     const p = pl() || {};
     const run = p.run || null;
     const lines = previewLines(p);
+    const sig = lineSig(lines);
+    if (rankState && rankState.sig !== sig) rankState = null; // an answer for another line set is no answer
     const key = JSON.stringify([run && [run.status, run.startedAt], lines.map((l) => l.asin), rankState]);
     if (key === drawnKey || typing(host) || rankOpen) return;
     drawnKey = key;
     host.textContent = "";
     const box = el("div", "qax-box");
     const finished = !!(run && FINISHED.has(run.status));
+    // B-2330: one automatic pack-rank check per line set (never on a timer); a save re-arms it.
+    if (!run && lines.length && !rankState && autoSig !== sig) { autoSig = sig; checkRanks(lines, null); }
+    startLine(!run && !!(rankState && rankState.unranked.length));
     if (finished) {
       if (!staleSent) {
         const gen = p.buylist && p.buylist.generatedAt, started = run.startedAt;

@@ -54,6 +54,18 @@
     return { options, value, online: !!(picked && picked.online), note: picked && !picked.online ? `${c.name} is offline - choose another computer, or turn it on with Chrome open.` : "" };
   }
 
+  // B-2324 (v2.0.203): one "Start on <computer>" button per computer - the same labels / order as lib/buy-start-picker.js buttons().
+  //   -> { ready, buttons:[{ id, label, online, main, title }] }
+  function buttons(list, now) {
+    if (!list || !Array.isArray(list.computers) || !list.computers.length) return { ready: false, buttons: [{ id: "", label: "Start Buy Queue", online: true, main: true, title: "" }] };
+    const out = list.computers.map((c) => {
+      const main = c.role !== "viewer";
+      return { id: c.id, label: `Start on ${c.name || "computer"}${main ? " (Main)" : ""}`, online: !!c.online, main, title: c.online ? "" : `${c.name} is offline - turn it on with Chrome open, or start on the other computer.` };
+    });
+    const rank = (b) => (b.id === list.defaultId ? 0 : b.main ? 1 : 2);
+    return { ready: true, buttons: out.map((b, i) => ({ b, i })).sort((x, y) => rank(x.b) - rank(y.b) || x.i - y.i).map((x) => x.b) };
+  }
+
   // Which device the `start` command row is addressed to. B-1936 (v2.0.147): the read-only `preview` follows the same pick (payload.targetId =
   // the Run-on pick) so the phone shows the list of the computer that will run the queue. Everything else keeps the paired device.
   function commandDevice(name, payload, list, pairedId) {
@@ -73,5 +85,5 @@
     return "";
   }
 
-  root.ShopperPhoneStartPicker = { fromRegistry, pickList, build, commandDevice, handoverToast, STALE_MS };
+  root.ShopperPhoneStartPicker = { fromRegistry, pickList, build, buttons, commandDevice, handoverToast, STALE_MS };
 })(typeof globalThis !== "undefined" ? globalThis : this);

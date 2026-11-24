@@ -405,18 +405,28 @@
     // it). ONE arrivedQty command for every order behind the row - the laptop
     // books a part quantity oldest order first and the row keeps the rest.
     const qb = qtyBox(sumUnits(r.closeOrders));
-    const b = btn("It arrived", "primary-btn", async () => {
+    // B-2333 (16): the button says what it books ("Receive 12 units") and follows the box; the command below is unchanged.
+    const openUnits = sumUnits(r.closeOrders);
+    const recvLabel = () => {
+      const p = readQty(qb.input.value, openUnits);
+      if (!p.ok) return "Receive";
+      const q = p.quantity == null ? openUnits : p.quantity;
+      return "Receive " + units(q) + " unit" + (q === 1 ? "" : "s");
+    };
+    const b = btn(recvLabel(), "primary-btn", async () => {
       if (!day.value) return;
       const p = qb.pick();
       if (!p) { openMore(true); return; }
       const where = kind === "overdue" ? "Overdue" : "Upcoming";
       await run("arrivedQty", { asin: r.asin, destination: dest, orders: r.closeOrders.map((o) => ({ orderNumber: o.orderNumber, units: o.units })), ...(p.quantity == null ? {} : { quantity: p.quantity }), at: noonIso(day.value, dest), note: "Marked arrived from the phone's Arrivals › " + where, section: "Phone › " + where }, b, null, { drop: p.quantity == null, row: rowEl });
     });
-    const label = node("span", "s55-diff-label muted small", "Different amount:");
+    qb.input.addEventListener("input", () => { if (!b.disabled) { delete b.dataset.pressLabel; b.textContent = recvLabel(); } });
+    const label = node("span", "s55-diff-label muted small", "Receive:");
     a.append(label, qb.wrap, day);
     diff.append(a, qb.bad);
     const reset = () => {
       qb.input.value = String(r3(sumUnits(r.closeOrders)));
+      if (!b.disabled) { delete b.dataset.pressLabel; b.textContent = recvLabel(); }
       qb.bad.hidden = true;
       day.value = todayFor(dest);
     };

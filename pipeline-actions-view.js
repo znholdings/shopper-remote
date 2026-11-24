@@ -237,7 +237,7 @@
   function unmatchedCard(un) {
     const rows = arr(obj(un).rows);
     const card = el("section", "ops-card ops-unmatched");
-    card.appendChild(el("h3", "", "Emails not matched" + (rows.length ? " (" + rows.length + ")" : "")));
+    card.appendChild(el("h3", "", rows.length ? "Unmatched emails (" + rows.length + ") \u00b7 for reference" : "Unmatched emails"));
     const re = el("div", "ops-row");
     const days = el("input", "ops-in ops-rescan-days");
     days.type = "number"; days.min = "1"; days.max = "30"; days.value = "3";
@@ -280,6 +280,17 @@
     if (!Number.isFinite(d.getTime())) return "";
     return d.toLocaleString("en-US", { timeZone: "America/Chicago", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
   }
+  // B-2334: "shelf · Nov 21, 9:22 AM · note" with the time in a nowrap span, so a narrow line breaks between the parts, never inside the time.
+  function editMeta(parts, whenText) {
+    const d = el("div", "muted small");
+    parts.forEach((part, i) => {
+      if (!part) return;
+      if (d.children.length) d.appendChild(el("span", "", " · "));
+      if (part === whenText) { const s = el("span", "ops-when", part); s.style.whiteSpace = "nowrap"; d.appendChild(s); }
+      else d.appendChild(el("span", "", part));
+    });
+    return d;
+  }
   function editsCard(edits) {
     const rows = arr(Array.isArray(edits) ? edits : obj(edits).rows);
     if (!rows.length) return null;
@@ -295,12 +306,12 @@
       const when = centralTime(e.at);
       if (prods > 1) {
         line.appendChild(el("div", "", (e.kind === "count" ? "Full count" : "Count") + " · " + prods + " products"));
-        line.appendChild(el("div", "muted small", [shelf, when, clip(e.note, 80)].filter(Boolean).join(" · ")));
+        line.appendChild(editMeta([shelf, when, clip(e.note, 80)], when));
       } else {
         const name = clip(e.title || e.asin || "Product", 80) + (e.title && e.asin ? " (" + e.asin + ")" : "");
         line.appendChild(el("div", "", name));
         const change = e.units == null ? "" : e.before != null && Number.isFinite(Number(e.before)) ? r3(e.before) + " → " + r3(e.units) : "set to " + r3(e.units);
-        line.appendChild(el("div", "muted small", [shelf + (change ? " " + change : ""), when, clip(e.note, 80)].filter(Boolean).join(" · ")));
+        line.appendChild(editMeta([shelf + (change ? " " + change : ""), when, clip(e.note, 80)], when));
       }
       if (e.undoOnLaptop) line.appendChild(el("div", "muted small", "Undo this one on the laptop (too many products for the phone)."));
       if (prods && keys.length) {

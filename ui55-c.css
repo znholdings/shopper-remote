@@ -44,7 +44,10 @@
 .cfm-head #cfmReload, .cfm-head #cfmPull { flex: 1 1 auto; white-space: nowrap; }
 :root[data-theme="retro"] .cfm-head > button { padding: 6px 8px !important; white-space: nowrap; }
 /* Run idle: Start Buy Queue + Refresh preview */
-:root[data-theme="retro"] #startRow #startBtn { flex: 1 1 auto; padding: 8px 10px !important; white-space: nowrap; }
+/* B-2324 (v2.0.203): one Start button per computer (was a single button). */
+#startRow #startBtns { display: flex; flex-wrap: wrap; gap: 8px; flex: 1 1 auto; min-width: 0; }
+#startRow .start-on-btn { flex: 1 1 auto; min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+:root[data-theme="retro"] #startRow .start-on-btn { flex: 1 1 auto; padding: 8px 10px !important; white-space: normal; }
 :root[data-theme="retro"] #startRow #previewBtn { flex: 0 0 auto; padding: 6px 8px !important; white-space: nowrap; }
 /* Stock: Print FNSKU labels */
 :root[data-theme="retro"] #invPrintLabelsBtn { padding: 6px 8px !important; white-space: nowrap; }

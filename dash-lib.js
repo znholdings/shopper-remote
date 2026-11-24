@@ -1676,7 +1676,7 @@ function addressByChip(day, now) {
 }
 function healthViolationRows(list, alerts = [], now = null) {
   return list.filter(Boolean).map((v) => {
-    const page = v.source === "page"; // B-2129: Seller Central's own list - the specific violation + the listing
+    const page = v.source === "page" || v.source === "listing" || v.source === "api"; // B-2224: the API listing rows explain themselves too. B-2129: Seller Central's own list - the specific violation + the listing
     const al = page ? alerts.find((a) => a && a.category === v.category) : null;
     // B-2139: page rows - "$82 sales at risk" and an "Address by Nov 20 · 3 days left" chip (the deadline text is dropped when the chip shows).
     const sales = page ? str(v.sales).trim() : "";
@@ -1694,7 +1694,7 @@ function healthViolationRows(list, alerts = [], now = null) {
       page && !v.asin ? "Account-level - no listing" : "",
       page && v.category ? (al && al.src === "page" ? `${v.category}: new violation listed` : `${v.category}${al && al.from != null ? `: ${al.from} → ${al.to}` : ""}${al && al.src === "report" ? " (Amazon's report - may be off)" : ""}`) : "", // B-2153
       !page && v.policy ? `Policy: ${v.policy}` : "",
-      dateOf(v.flaggedAt) ? `${v.flaggedExact ? "Flagged" : "First seen by Shopper"}: ${dateOf(v.flaggedAt)}` : "",
+      dateOf(v.flaggedAt || v.firstSeenAt) ? `${v.flaggedExact ? "Flagged" : "First seen by Shopper"}: ${dateOf(v.flaggedAt || v.firstSeenAt)}` : "", // B-2224: API listing rows carry firstSeenAt
       v.action ? `Amazon asks: ${v.action}` : "",
       !dayChip && deadlineText ? `Deadline: ${deadlineText}` : "",
     ],
@@ -1760,7 +1760,7 @@ function detailRowsFor(row, input = {}) {
       const hasPage = vios.some((v) => v.source === "page");
       // v2.0.167 review M1: a NEW listing / report violation (B-1413) still shows once page rows exist.
       const shown = hasPage ? [...vios.filter((v) => v.source === "page" && (v.isNew || v.recent)), ...vios.filter((v) => v.source !== "page" && v.isNew)] : alertsH.length ? vios.filter((v) => v.isNew) : vios;
-      const covered = new Set(shown.filter((v) => v.source === "page").map((v) => v.category));
+      const covered = new Set(shown.filter((v) => v.source === "page" || v.source === "listing" || v.source === "api").map((v) => v.category)); // B-2224
       const signedOutH = !!ah.pageSignedOut;
       out = healthViolationRows(shown, alertsH, num(input.now));
       const failKindH = str(ah.pageFailKind);

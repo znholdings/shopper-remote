@@ -344,6 +344,8 @@ const SHARED_SETTINGS_SPEC = Object.freeze([
   S({ key: "shopperBuylistColumns", group: "appearance", label: "Buylist columns", kind: "object" }),
   // B-2278 (v2.0.196): the Buy Queue preview's Columns ▾ choice (Sheet line) - one set on both computers. Not on the phone.
   S({ key: "shopperBuyQueueColumns", group: "appearance", label: "Buy Queue columns", kind: "object" }),
+  // B-2324 (v2.0.203): the Buy Queue's order approval (Auto / Per product / Per order) - one choice for the Buylist's Buy card (stage 3), the Buy Queue page and the phone (last save wins). Absent = each screen's own default (the card: Per order).
+  S({ key: "shopperBuyApprovalMode", group: "buying", label: "Buy Queue order approval", kind: "enum", options: [["auto", "Auto"], ["per-product", "Per product"], ["per-order", "Per order"]] }),
   // B-2057 / B-2070 (v2.0.158): which sections are open - one state on both computers and the phone. { "<page>:<section>": { o, at } }.
   S({ key: "shopperFoldState", group: "appearance", label: "Folded sections", kind: "object" }),
   // ---- Secrets (own row; the phone never reads it) -----------------------

@@ -224,7 +224,11 @@
     const top = node("div", "inv-row-top s55-prod-top");
     top.setAttribute("role", "button");
     top.tabIndex = 0;
-    top.append(node("span", "inv-title", r.title || r.asin));
+    // B-2332 (10): the All Orders colour in words, under the title (the left edge stays).
+    const head = node("span", "s55-prod-head");
+    head.append(node("span", "inv-title", r.title || r.asin));
+    if (r.shade && r.shade !== "none" && r.shadeLabel) head.append(node("span", "inv-shade-word inv-shade-word-" + r.shade, r.shadeLabel));
+    top.append(head);
     const nums = node("span", "s55-nums");
     nums.append(
       node("span", "inv-n inv-house" + (r.house < 0 ? " inv-neg" : ""), "H " + units(r.house) + pcsText(r.house, r.packOf)),

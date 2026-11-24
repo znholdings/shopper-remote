@@ -30,5 +30,6 @@
 .dnr-fix-bad { color: var(--s-red-ink); }
 .dnr-fix-del { display: flex; gap: 6px; align-items: flex-start; font-size: 13px; }
 .dnr-fix-bar { display: flex; flex-wrap: wrap; gap: 8px; }
+.dnr-fix .dnr-fix-floor { width: 7em; max-width: 100%; }
 
 [hidden] { display: none !important; }

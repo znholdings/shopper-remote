@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.200";
+const APP_BUILD = "v2.0.203";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -27,7 +27,7 @@ for (const id of [
   "pickerView","deviceList","mainView","tabRun","tabBuylist","runPane","buylistPane",
   "promptCard","promptTitle","promptDetail","promptExpiry","promptFields","promptActions",
   "runStatus","currentStep","tSpent","tNeeded","tToday","tBought","tDefaultNote",
-  "startRow","modeSelect","runOnSelect","runOnNote","startBtn","resumeSavedBtn","controlRow","pauseBtn","resumeBtn",
+  "startRow","modeSelect","runOnSelect","runOnNote","startBtns","resumeSavedBtn","controlRow","pauseBtn","resumeBtn",
   "retryFailedBtn","finishNowBtn","abortBtn","targetDestRow","targetDestHouseBtn","targetDestPrepBtn","unstickNote","addAsin","addQty","addPriority","addBtn",
   "lineCount","lines","log","generateBtn","approveAllBtn","blMatchLine","buylistMeta","buylistApproved",
   "buylistApprovedBar","buylistApprovedFill","buylistItems","toast","installHint",
@@ -416,6 +416,53 @@ function fillRunOn(payloadTargets) {
   els.runOnSelect.value = built.value;
   els.runOnNote.textContent = built.note;
   els.runOnNote.hidden = !built.note;
+  fillStartBtns(list);
+}
+// B-2324 (v2.0.203): the order approval is the shared setting shopperBuyApprovalMode (the Buylist's Buy card and the Buy Queue page use it too).
+// Read at most once a minute while the Start card shows (the same shared row the Settings screen writes); a change here is saved to it.
+// Nothing remembered = the select keeps its own choice. A slow answer changes nothing.
+const APPROVAL_MODE_KEY = "shopperBuyApprovalMode";
+let approvalModeAt = 0;
+let approvalModeChangedAt = 0; // when the person last picked a mode here: a read that began before it is stale and is dropped
+async function syncApprovalMode() {
+  const V = self.ShopperSettingsView;
+  if (!V || !V.readValue || Date.now() - approvalModeAt < 60000) return;
+  approvalModeAt = Date.now();
+  const began = approvalModeAt;
+  try {
+    const got = await Promise.race([V.readValue(APPROVAL_MODE_KEY), new Promise((res) => setTimeout(() => res(undefined), 1500))]);
+    if (began <= approvalModeChangedAt) return; // the person picked a mode while this read was out
+    if ((got === "auto" || got === "per-product" || got === "per-order") && document.activeElement !== els.modeSelect) els.modeSelect.value = got;
+  } catch (e) { /* the select keeps its choice */ }
+}
+els.modeSelect.addEventListener("change", () => {
+  approvalModeAt = approvalModeChangedAt = Math.max(Date.now(), approvalModeChangedAt + 1);
+  const V = self.ShopperSettingsView;
+  if (V && V.writeValue) {
+    V.writeValue(APPROVAL_MODE_KEY, els.modeSelect.value).then((saved) => { if (saved === false) toast("The order approval was not saved for the other screens - it applies on this phone only.", true); }, () => toast("The order approval was not saved for the other screens - it applies on this phone only.", true));
+  }
+});
+// B-2324 (v2.0.203): one "Start on <computer>" button per computer (Main first; an offline one is disabled) - the Buylist card's buttons.
+// A button is the pick AND the press: phoneStart(id) below is the old Start handler with that computer as the target.
+function fillStartBtns(list) {
+  const SP = globalThis.ShopperPhoneStartPicker;
+  if (!SP || !els.startBtns || typeof SP.buttons !== "function") return;
+  const set = SP.buttons(list, Date.now());
+  const sig = JSON.stringify(set.buttons.map((b) => [b.id, b.label, b.online]));
+  if (els.startBtns.dataset.sig === sig) return;
+  els.startBtns.dataset.sig = sig;
+  els.startBtns.textContent = "";
+  for (const b of set.buttons) {
+    const el = document.createElement("button");
+    el.type = "button";
+    el.className = "primary-btn big start-on-btn";
+    el.textContent = b.label;
+    el.dataset.computer = b.id;
+    el.disabled = !b.online;
+    if (!b.online && b.title) el.title = b.title;
+    el.addEventListener("click", () => phoneStart(b.id || null));
+    els.startBtns.appendChild(el);
+  }
 }
 els.runOnSelect.addEventListener("change", () => fillRunOn(lastPayload && lastPayload.startTargets));
 
@@ -691,6 +738,7 @@ function renderPayload() {
   els.unstickNote.hidden = !(p.liveness && (p.liveness.status === "offline" || p.liveness.status === "stalled"));
   els.resumeSavedBtn.hidden = !(p.savedQueue && p.savedQueue.exists) || live;
   fillRunOn(p.startTargets);
+  if (!live) syncApprovalMode();
   if (p.savedQueue && p.savedQueue.exists) {
     els.resumeSavedBtn.textContent = `Resume saved queue (${p.savedQueue.lineCount} lines)`;
   }
@@ -1565,22 +1613,25 @@ function renderBuylist(bl) {
     .reduce((sum, i) => sum + lineCostPhone(i), 0);
   const approvedTotal = approvedItemsTotal + tpAdjust;
   const tpToday = !!(bl.targetPlans && Number(bl.targetPlans.todayDollars) > 0);
-  els.buylistApproved.textContent = (bl.items || []).length ? `Approved: ${money(approvedTotal)}${tpToday ? " (with today's Target plans)" : ""}` : "";
-
-  // P-47: "a horizontal version of what's on the desktop." Desktop's tube
-  // (buylist.js) fills against 1.5x Spend Needed, with "met" once Approved
-  // reaches Spend Needed itself - same math here. Spend Needed IS
-  // day.neededToday (background.js: `neededToday: spendBreakdown.spendTarget`,
-  // the exact field buylist.js's own tube reads as spendTarget), already on
-  // the phone for the Run tab's own "Needed today" tile - no new field.
+  // B-2329: the line reads "Approved $X of $GOAL goal · $Y left" (or "goal met" / "over goal"); the bar fills against the goal itself.
+  // The goal IS day.neededToday (background.js: `neededToday: spendBreakdown.spendTarget`) - already on the phone, no new field.
   const neededToday = Number(lastPayload && lastPayload.day && lastPayload.day.neededToday) || 0;
   const hasTarget = (bl.items || []).length > 0 && neededToday > 0;
+  const tpNote = tpToday ? " (with today's Target plans)" : "";
+  if (!(bl.items || []).length) els.buylistApproved.textContent = "";
+  else if (!hasTarget) els.buylistApproved.textContent = `Approved: ${money(approvedTotal)}${tpNote}`;
+  else {
+    const leftCents = Math.round((neededToday - approvedTotal) * 100) / 100;
+    const tail = leftCents > 0 ? `${money(leftCents)} left` : leftCents === 0 ? "goal met" : `${money(-leftCents)} over goal`;
+    els.buylistApproved.textContent = `Approved ${money(approvedTotal)} of ${money(neededToday)} goal \u00b7 ${tail}${tpNote}`;
+  }
   els.buylistApprovedBar.hidden = !hasTarget;
   if (hasTarget) {
-    const tubeTop = neededToday * 1.5;
-    const fillPct = Math.min(100, (approvedTotal / tubeTop) * 100);
+    const fillPct = Math.max(0, Math.min(100, (approvedTotal / neededToday) * 100));
     els.buylistApprovedFill.style.width = `${fillPct}%`;
-    els.buylistApprovedFill.classList.toggle("pc-met", approvedTotal >= neededToday);
+    const overCents = Math.round((neededToday - approvedTotal) * 100) / 100;
+    els.buylistApprovedFill.classList.toggle("pc-met", overCents === 0);
+    els.buylistApprovedFill.classList.toggle("pc-over", overCents < 0);
   }
 
   els.buylistItems.innerHTML = "";
@@ -1660,6 +1711,17 @@ function renderBuylist(bl) {
   }
 }
 
+// B-2328: the "Tracked lead · est. ROI 34% · margin 15% · $3.12/unit at $19.97" chip words (same as lib/buylist-lead-fill.js leadChipText; the phone has no imports)
+function leadChipWords(e) {
+  if (!e || typeof e !== "object") return "";
+  const n = (v) => (v == null || v === "" || !Number.isFinite(Number(v)) ? null : Number(v));
+  const parts = [];
+  if (n(e.roi) != null) parts.push(`ROI ${Math.round(n(e.roi))}%`);
+  if (n(e.margin) != null) parts.push(`margin ${Math.round(n(e.margin))}%`);
+  if (n(e.profit) != null) parts.push(`$${n(e.profit).toFixed(2)}/unit${n(e.price) != null ? ` at $${n(e.price).toFixed(2)}` : ""}`);
+  return parts.length ? `Tracked lead \u00b7 est. ${parts.join(" \u00b7 ")}` : "";
+}
+
 // The card builder - unchanged from the pre-P-41 renderBuylist() body
 // except for the P-40 Prep Center badge. Returns the row; the caller
 // appends it (grouped by section as of P-41).
@@ -1697,7 +1759,8 @@ function buylistCard(i) {
     `${i.prepCenter ? `<span class="pc-badge">Prep Center</span>` : ""}` +
     `${statusText ? `<span class="l-status">${statusText}</span>` : ""}${okBadge}</div>` +
     `<div class="l-title">${escapeHtml(i.title)}</div>` +
-    `${i.vacChip ? `<div class="l-meta vac-chip">${escapeHtml(i.vacChip)}</div>` : ""}`; // B-2179: Walmart vacation mode chip
+    `${i.vacChip ? `<div class="l-meta vac-chip">${escapeHtml(i.vacChip)}</div>` : ""}` + // B-2179: Walmart vacation mode chip
+    `${leadChipWords(i.leadEstimate) ? `<div class="bl-lead-chip">${escapeHtml(leadChipWords(i.leadEstimate))}</div>` : ""}`; // B-2328: a line sent from Tracked Leads
   head.appendChild(headText);
   row.appendChild(head);
 
@@ -1733,7 +1796,7 @@ function buylistCard(i) {
     statCell("RP vel", fmtQty(i.rpVelocity)) +
     statCell("RP inbound", fmtQty(i.rpInboundQty)) +
     statCell("RP total", fmtQty(i.rpTotalQuantity)) +
-    statCell("Supplier", i.supplierNames ? escapeHtml(i.supplierNames) : "-");
+    statCell("Supplier", i.supplierNames ? (typeof ShopperStoreBadge !== "undefined" ? ShopperStoreBadge.badgeHtml(i.supplierNames) : escapeHtml(i.supplierNames)) : "-"); // B-2322: a store badge, the name stays in its tip
 
   // B-1080 (v2.0.55): the card keeps its number row, Approve and Qty. Promote /
   // Demote / Push / Block, Prep Center, the Details figures, "Why this Buy
@@ -1884,8 +1947,14 @@ function decisionSuffix(i) {
 els.signInBtn.addEventListener("click", signIn);
 els.signOutBtn.addEventListener("click", signOut);
 // v2.0.73 review (M3): the list signature this phone was shown - the laptop refuses a list that moved.
-els.startBtn.addEventListener("click", () => {
-  const pick = els.runOnSelect.value || null;
+function phoneStart(pickId) {
+  const pressMode = els.modeSelect.value; // B-2324 review: the mode at the tap - a synced change during the board must not change what is sent
+  const SPk = globalThis.ShopperPhoneStartPicker;
+  if (pickId && SPk) { // the pressed button is the pick: the Preview follows it (B-1936) and the offline check below reads it
+    if (Array.prototype.some.call(els.runOnSelect.options, (o) => o.value === pickId)) els.runOnSelect.value = pickId;
+    startBuilt = SPk.build(currentStartList(), pickId, Date.now());
+  }
+  const pick = pickId || els.runOnSelect.value || null;
   // B-1955 (v2.0.149): one Start at a time - the first is still waiting for the computer's answer (up to 100 s, lib/remote-start-answer.js).
   // Two minutes at most: after that a Start the computer never picked up no longer blocks a new one.
   if ([...inFlight.values()].some((c) => c.name === "start" && Date.now() - c.at < START_WAIT_MS)) { toast("Start was already sent - waiting for the computer's answer.", true); return; }
@@ -1900,11 +1969,11 @@ els.startBtn.addEventListener("click", () => {
   // B-2194 (v2.0.175): one extra confirmation - the House / Prep board (tap a tile to move it). Cancel = nothing sent. The moves ride in the Start.
   const RL = self.ShopperRunLib;
   const boardLines = Q && typeof Q.buyLines === "function" ? Q.buyLines() : [];
-  const send = (destChanges) => sendCommand("start", { approvalMode: els.modeSelect.value, listSig: sigs.listSig, shownSig: sigs.shownSig, ...(pick ? { targetId: pick } : {}), ...(destChanges && destChanges.length ? { destChanges } : {}) });
+  const send = (destChanges) => sendCommand("start", { approvalMode: pressMode, listSig: sigs.listSig, shownSig: sigs.shownSig, ...(pick ? { targetId: pick } : {}), ...(destChanges && destChanges.length ? { destChanges } : {}) });
   if (!boardLines.length) { send([]); return; }
   if (!RL || typeof RL.renderDestBoard !== "function") { toast("The House / Prep board did not load - reload the app, then press Start. Nothing was started.", true); return; }
   RL.renderDestBoard(document.body, boardLines, { touch: true, onApprove: (changes) => send(changes), onCancel: () => {} });
-});
+}
 els.resumeSavedBtn.addEventListener("click", () => {
   const pick = els.runOnSelect.value || null;
   if (pick && startBuilt && !startBuilt.online) { toast(startBuilt.note || "That computer is offline.", true); return; }
