@@ -45,6 +45,7 @@
     packRankStatus: "Pack rank check", recoveryClearLearned: "Forget what Recovery learned",
   });
   const FINISHED = new Set(["done", "aborted", "error"]);
+  const BUYABLE = new Set(["walmart", "samsclub", "homedepot", "target", "amazon", "petsmart", "walgreens"]); // lib/retailers.js
   let host = null, drawnKey = "", staleSent = false, rankState = null, rankOpen = null, autoSig = null;
 
   // B-1927 (v2.0.146): the idle payload has no lines (run: null); the approved lines are the ones Main answered to "Preview"
@@ -52,7 +53,8 @@
   function previewLines(p) {
     const Q = self.ShopperQueuePreview;
     const lines = Q && typeof Q.buyLines === "function" ? Q.buyLines() : [];
-    return lines.filter((l) => l && l.asin);
+    // B-2375: every store Shopper buys from asks for a pack rank; a line already on a store Shopper does not buy from (a manual store) never does.
+    return lines.filter((l) => l && l.asin && (!l.retailer || BUYABLE.has(String(l.retailer).toLowerCase())));
   }
   // Sorted, so moving a line up or down (same lines, new order) does not count as another line set and re-run the check.
   const lineSig = (lines) => lines.map((l) => l.asin).sort().join(",");
@@ -73,7 +75,7 @@
     drawnKey = "";
     draw();
   }
-  // B-2330: "N Walmart products need a pack rank - Rank" right under the Start buttons; Rank scrolls to the per-line Rank buttons below.
+  // B-2330: "N products need a pack rank - Rank" right under the Start buttons; Rank scrolls to the per-line Rank buttons below.
   function startLine(on) {
     let line = document.getElementById("packRankPhoneLine");
     if (!on) { if (line) line.hidden = true; return; }
@@ -88,7 +90,7 @@
     if (line.dataset.n !== String(n)) {
       line.dataset.n = String(n);
       line.textContent = "";
-      line.appendChild(el("span", "pr-start-text", n + " Walmart product" + (n === 1 ? "" : "s") + " need" + (n === 1 ? "s" : "") + " a pack rank \u00b7"));
+      line.appendChild(el("span", "pr-start-text", n + " product" + (n === 1 ? "" : "s") + " need" + (n === 1 ? "s" : "") + " a pack rank \u00b7"));
       line.appendChild(btnOf("Rank", "mini-btn", () => { try { host && host.scrollIntoView({ block: "start" }); } catch (e) { /* the buttons are just below */ } }));
     }
     line.hidden = false;
@@ -98,7 +100,7 @@
     const per = Number(line.itemsPerUnit) > 0 ? Number(line.itemsPerUnit) : 1;
     const unit = Number(line.expectedCost) > 0 && Number(line.qty) > 0 ? Number(line.expectedCost) / Number(line.qty) : 0;
     b.disabled = true;
-    const out = await M.runCommand("packRankQuestion", { asin: line.asin, url: line.sourceUrl || "", title: String(line.title || "").slice(0, 200), itemsPerUnit: per, unitCost: unit });
+    const out = await M.runCommand("packRankQuestion", { asin: line.asin, url: line.sourceUrl || "", title: String(line.title || "").slice(0, 200), itemsPerUnit: per, unitCost: unit, retailer: String(line.retailer || "").toLowerCase() });
     b.disabled = false;
     const q = out && out.result;
     if (!out || out.status !== "done" || !q || q.ok === false || !q.token) { say(((q && (q.reason || q.error)) || "No pack-rank question for that line.").toString().slice(0, 200), true); return; }

@@ -1,4 +1,4 @@
-// remote/pack-rank-view.js - B-1137 (v2.0.60): the Walmart pack-rank pop-up on
+// remote/pack-rank-view.js - B-1137 (v2.0.60): the pack-rank pop-up on
 // the phone. The laptop sends the question with the prompt (lib/remote-protocol.js
 // phoneRankQuestion); this draws the same editor as the Buy Queue page - drag
 // (a pointer drag on the grip) or up / down, pieces per pack, "never", and
@@ -66,11 +66,15 @@
     container.dataset.packRankAsk = String(q.askedAt);
     const vars = new Map((q.variations || []).map((v) => [v.key, v]));
     const wrap = el("div", "prp");
+    // B-2375: a question for another store (Sam's, Target, ...) names it and has no Walmart link; a Walmart question keeps its words.
+    const store = q.retailer && q.retailer !== "walmart" ? String(q.storeLabel || q.retailer) : null;
     if (q.amazonTitle) wrap.appendChild(el("p", "prp-product", "Amazon: " + q.amazonTitle));
-    if (q.walmartTitle) wrap.appendChild(el("p", "prp-product", "Walmart: " + q.walmartTitle));
+    if (q.walmartTitle && !store) wrap.appendChild(el("p", "prp-product", "Walmart: " + q.walmartTitle));
     if (q.titleDoubt) wrap.appendChild(el("p", "prp-doubt", q.titleDoubt));
     if (q.landedNote) wrap.appendChild(el("p", "prp-doubt", q.landedNote));
-    wrap.appendChild(el("p", "prp-help", "Drag (or ▲▼) into buying order. Pieces = Amazon units in ONE Walmart checkout unit (4/3 is fine). One pack per Walmart order. A box is never split: a smaller pack on an Amazon multipack, or a bigger pack on a single, comes pre-marked never."));
+    wrap.appendChild(el("p", "prp-help", store
+      ? "Pieces = Amazon units in ONE " + store + " checkout unit of this listing (4/3 is fine). Saving also sets columns C / M in the Source Database to match."
+      : "Drag (or ▲▼) into buying order. Pieces = Amazon units in ONE Walmart checkout unit (4/3 is fine). One pack per Walmart order. A box is never split: a smaller pack on an Amazon multipack, or a bigger pack on a single, comes pre-marked never."));
     const list = el("ol", "prp-list");
     wrap.appendChild(list);
     const renumber = () => {
@@ -134,8 +138,10 @@
         if (li.nextElementSibling) list.insertBefore(li.nextElementSibling, li);
         renumber();
       });
-      li.appendChild(up);
-      li.appendChild(down);
+      if (!store) { // a store's rank is one row - nothing to move
+        li.appendChild(up);
+        li.appendChild(down);
+      }
       if (isUrl) {
         const rm = el("button", "prp-move", "✕");
         rm.type = "button";
@@ -189,7 +195,7 @@
     add.appendChild(url);
     add.appendChild(pcs);
     add.appendChild(addBtn);
-    wrap.appendChild(add);
+    if (!store) wrap.appendChild(add); // a store's rank is this listing only - no Walmart link
     const err = el("p", "prp-error");
     err.hidden = true;
     wrap.appendChild(err);
