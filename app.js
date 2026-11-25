@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.209";
+const APP_BUILD = "v2.0.210";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -799,6 +799,7 @@ function renderPayload() {
   if (self.ShopperPackingView && typeof self.ShopperPackingView.pushProgress === "function") self.ShopperPackingView.pushProgress(p.packingProgress || null);
   // B-765 (v2.0.8): the Cash tab.
   if (self.ShopperCashFlowView) self.ShopperCashFlowView.render(p.cashFlow);
+  if (self.ShopperMarginView) self.ShopperMarginView.render(p.cashFlow); // B-2397 (v2.0.210)
   // B-1058 / B-1059 (v2.0.53): Claude's box on the FBA and Cash tabs (remote/claude-screens.js).
   if (self.ShopperClaudeScreens) self.ShopperClaudeScreens.render(p, { offline: !!laptopStaleness(lastUpdatedAt, Date.now()) || !!(p.liveness && p.liveness.status === "offline") });
   // B-1023 (v2.0.49): the Catalog tab.
@@ -2194,6 +2195,7 @@ els.tabSettings.addEventListener("click", () => switchTab("settings"));
 if (self.ShopperBooksView) self.ShopperBooksView.wire();
 if (self.ShopperBelowMinView) self.ShopperBelowMinView.wire();
 if (self.ShopperCashFlowView) self.ShopperCashFlowView.wire();
+if (self.ShopperMarginView) self.ShopperMarginView.wire(); // B-2397 (v2.0.210)
 if (self.ShopperCatalogView) self.ShopperCatalogView.wire();
 // B-663 (v4.85): the arrivals line opens the Arrivals boxes on the Inventory tab.
 function openArrivals() {
@@ -2494,6 +2496,7 @@ function switchTab(which) {
   els.cashFlowPane.hidden = which !== "cashflow";
   els.tabCashFlow.classList.toggle("active", which === "cashflow");
   if (which === "cashflow" && self.ShopperCashFlowView) self.ShopperCashFlowView.shown();
+  if (which === "cashflow" && self.ShopperMarginView) self.ShopperMarginView.shown(); // B-2397 (v2.0.210)
   // B-1023 (v2.0.49): the Catalog tab.
   els.catalogPane.hidden = which !== "catalog";
   els.tabCatalog.classList.toggle("active", which === "catalog");

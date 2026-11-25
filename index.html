@@ -49,6 +49,7 @@
   <link rel="stylesheet" href="phone-shell.css" /><!-- B-2068 (v2.0.158) -->
   <link rel="stylesheet" href="info-tip.css" /><!-- B-2069 (v2.0.158) -->
   <link rel="stylesheet" href="phone-rows.css" /><!-- B-2071/B-2072 (v2.0.158) -->
+  <link rel="stylesheet" href="margin.css" /><!-- B-2397 (v2.0.210): Cash | Margin -->
   <link rel="stylesheet" href="r6-phone.css" /><!-- v2.0.158 R6: folds, dark inputs, arrival stripes, Books rules -->
   <link rel="stylesheet" href="buy-tabs.css" /><!-- B-2359 (v2.0.205): the Buy page tab bar -->
   <link rel="stylesheet" href="button-levels.css" /><!-- B-2279 (v2.0.196): the four button levels -->
@@ -444,7 +445,10 @@
       <!-- B-765 (v2.0.8): the laptop's Cash Flow page, worked out on the laptop
            after each Sellerboard read and drawn with its own chart code
            (cashflow-lib.js is built from lib/s-chart.js). -->
-      <div id="cashFlowPane" hidden>
+      <div id="cashFlowPane" hidden data-cfm-mode="cash">
+        <!-- B-2397 (v2.0.210): Cash | Margin (remote/margin-view.js fills #cfmMarginHost). -->
+        <div class="cfm-tabs" role="group" aria-label="Cash or Margin" id="cfmMode"><button type="button" class="cfm-tab" data-mode="cash" aria-pressed="true">Cash</button><button type="button" class="cfm-tab" data-mode="margin" aria-pressed="false">Margin</button></div>
+        <div id="cfmMarginHost" class="mgm-host"></div>
         <div class="cfm-head"><button type="button" class="secondary-btn" id="cfmReload">Reload</button><button type="button" class="primary-btn" id="cfmPull" title="Read Sellerboard now">Read Sellerboard</button><button type="button" class="fba-notes-btn c55-info" id="cfmNotesToggle" aria-expanded="false" aria-label="About the Cash Flow figures">&#9432;</button></div>
         <!-- B-1058 / B-1059 (v2.0.53): Claude's summary + Ask Claude (remote/claude-screens.js). -->
         <div id="cfmClaude" class="csx-host cfm-card"></div>
@@ -624,6 +628,7 @@
   <!-- B-765 (v2.0.8): cashflow-lib.js is GENERATED from lib/s-chart.js (test/_cashflow-bundle.mjs). -->
   <script src="cashflow-lib.js"></script>
   <script src="cashflow-view.js"></script>
+  <script src="margin-view.js"></script><!-- B-2397 (v2.0.210): the Margin view in the Cash tab -->
   <!-- B-1058 / B-1059 (v2.0.53): claude-screen-lib.js is GENERATED from lib/claude-screen-view.js (test/_claude-screen-bundle.mjs). -->
   <script src="claude-screen-lib.js"></script>
   <script src="claude-screens.js"></script>

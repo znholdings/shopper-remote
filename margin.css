@@ -1,0 +1,5 @@
+/* remote/margin.css - B-2397 (v2.0.210): the phone's Cash | Margin switch. Theme variables only. */
+#cashFlowPane[data-cfm-mode="cash"] #cfmMarginHost { display: none; }
+#cashFlowPane[data-cfm-mode="margin"] :is(#cfmBody, #cfmRange, #cfmStatus, #cfmBanner, #cfmClaude, #cashFlowPane > .cfm-head) { display: none; }
+.mgm-answer .cfm-stat-value { font-size: 18px; }
+.mgm-head { display: flex; gap: 8px; margin: 10px 0 6px; }
