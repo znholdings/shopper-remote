@@ -15,10 +15,11 @@
   const $ = (id) => document.getElementById(id);
   const SHOW_KEY = "shopperClaudeChipsPhone";
   // B-1081 (v2.0.55): the panel is one line ("Claude: 2 questions · matched
-  // 79% ›") until tapped; open / shut is remembered on this phone.
-  const OPEN_KEY = "shopperClaudePanelOpenPhone";
-  let panelOpen = false;
-  try { panelOpen = localStorage.getItem(OPEN_KEY) === "1"; } catch (e) { panelOpen = false; }
+  // 79% ›") until tapped. B-2358 (v2.0.205): open / shut is the ONE shared fold (self.ShopperFold, key "buylist:claudeLearning" - the same
+  // key the laptop's Buylist uses), folded by default; it is no longer remembered per phone.
+  const FOLD_KEY = "buylist:claudeLearning";
+  const foldOpen = function () { return !!(self.ShopperFold && self.ShopperFold.get(FOLD_KEY, false)); };
+  let foldWired = false;
   const WARN_RE = /limit|failed|not usable|did not run/i;
   function summaryText(d) {
     const n = (d.scenarios || []).length;
@@ -156,11 +157,17 @@
   function draw(host, d) {
     host.textContent = "";
     const panel = el("details", "cl-panel cl-phone cl-fold");
-    panel.open = panelOpen;
+    panel.open = foldOpen();
     panel.addEventListener("toggle", function () {
-      panelOpen = !!panel.open;
-      try { localStorage.setItem(OPEN_KEY, panelOpen ? "1" : "0"); } catch (e) { /* this phone only */ }
+      if (self.ShopperFold && panel.open !== foldOpen()) self.ShopperFold.set(FOLD_KEY, !!panel.open);
     });
+    if (!foldWired && self.ShopperFold && typeof self.ShopperFold.onChange === "function") { // the laptop's (or another phone's) choice arrives
+      foldWired = true;
+      self.ShopperFold.onChange(function () {
+        const cur = document.querySelector("#claudeLearnHost details.cl-fold");
+        if (cur && cur.isConnected && cur.open !== foldOpen()) cur.open = foldOpen();
+      });
+    }
     const head = el("summary", "cl-head cl-sum");
     head.appendChild(el("span", "cl-sum-text", summaryText(d)));
     const chev = el("span", "cl-sum-chev", "\u203A");

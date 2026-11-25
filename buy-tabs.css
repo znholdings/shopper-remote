@@ -1,0 +1,22 @@
+/* remote/buy-tabs.css - B-2359 / B-2360 (v2.0.205): the phone's Buy page tab bar (1 Generate - 2 Approve - 3 Buy) + the one + Add ASIN. Look = lib/buy-tabs.css, phone-sized. */
+.buy-tabbar { display: flex; flex-direction: column; gap: 6px; margin: 0 0 10px; min-width: 0; }
+.buy-tabbar .bl-stages { list-style: none; display: flex; gap: 4px; margin: 0; padding: 0; min-width: 0; border-bottom: 2px solid var(--s-line); }
+.buy-tabbar .bl-stage { flex: 1 1 0; min-width: 0; }
+.buy-tabbar .bl-stage-btn { width: 100%; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 4px; text-align: center; cursor: pointer; min-height: 52px;
+  border: 1px solid var(--s-line); border-bottom: none; background: var(--s-surface); color: var(--s-text); font: inherit; border-radius: 8px 8px 0 0; }
+.buy-tabbar .bl-stage-dot { display: none; }
+.buy-tabbar .bl-stage-text { display: flex; flex-direction: column; min-width: 0; max-width: 100%; }
+.buy-tabbar .bl-stage-label { font-weight: 700; font-size: 13px; }
+.buy-tabbar .bl-stage-sub { font-size: 11px; opacity: .8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.buy-tabbar .bl-stage-current .bl-stage-btn { background: var(--s-accent); color: var(--s-on-accent); border-color: transparent; }
+.buy-tabbar .bl-stage-action .bl-stage-btn { border-style: dashed; }
+.buy-tabbar .bl-stage-btn:disabled { opacity: .6; cursor: not-allowed; }
+.buy-tabbar .bl-stage-alert .bl-stage-sub { font-weight: 700; opacity: 1; color: var(--s-red); }
+.buy-tabbar .bl-stage-current.bl-stage-alert .bl-stage-sub { color: inherit; }
+.buy-add-host { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.buy-add-btn { align-self: flex-end; }
+.buy-add-panel { display: grid; grid-template-columns: 1fr 90px; gap: 6px; padding: 8px; border: 1px solid var(--s-line); border-radius: 10px; background: var(--s-surface); min-width: 0; }
+.buy-add-panel[hidden] { display: none; }
+.buy-add-panel > h3 { grid-column: 1 / -1; margin: 0; font-size: 14px; }
+.buy-add-panel > select, .buy-add-panel > button, .buy-add-panel > .buy-add-status { grid-column: 1 / -1; }
+.buy-add-panel input, .buy-add-panel select { padding: 10px; border-radius: 8px; border: 1px solid var(--s-line); background: var(--s-n0); color: var(--s-text); font-size: 16px; min-width: 0; }

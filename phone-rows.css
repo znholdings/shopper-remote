@@ -41,3 +41,7 @@
 .ops-lp-title { font-weight: 600; }
 .ops-lp-msg { white-space: pre-wrap; }
 .ops-lp-fix { justify-self: start; font-weight: 600; color: inherit; text-decoration: underline; }
+/* B-2345: Close & Delete Listing on the phone's Listing problems. */
+.ops-lp-row .ops-lp-cb, .ops-lp-bulk .ops-lp-all { width: 22px; height: 22px; }
+.ops-lp-del, .ops-lp-bulk-go { color: var(--s-red); }
+.ops-lp-typed { display: grid; gap: 6px; }

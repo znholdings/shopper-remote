@@ -74,7 +74,7 @@
   }
   function factsLine(r) {
     var out = [];
-    if (r.costTyped || r.packNote || r.amzPack) out.push("cost " + (r.costTyped ? "typed by you" : [r.packNote, r.amzPack ? "\u00d7" + r.amzPack.n + ": Amazon " + r.amzPack.n + "-pk" : ""].filter(Boolean).join(" \u00b7 ")));
+    if (r.costTyped || r.packNote || r.packNeeded || r.amzPack) out.push("cost " + (r.costTyped ? "typed by you" : [r.packNeeded ? "store pack not read (type it on the desktop)" : r.packNote, r.amzPack ? "\u00d7" + r.amzPack.n + ": Amazon " + r.amzPack.n + "-pk" : ""].filter(Boolean).join(" \u00b7 ")));
     if (r.srcChange) out.push("source price since tracked " + (r.srcChange.delta === 0 ? "same" : (r.srcChange.delta > 0 ? "▲ " : "▼ ") + money(Math.abs(r.srcChange.delta)) + " (" + r.srcChange.pct + "%)") + ", was " + money(r.srcChange.was));
     if (r.bbAvg90 != null || r.bbAvg30 != null) out.push("Buy Box 90-day average " + money(r.bbAvg90) + (r.bbAvg30 != null ? " · 30-day " + money(r.bbAvg30) : ""));
     return out.join(" · ");

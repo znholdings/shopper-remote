@@ -50,6 +50,7 @@
   <link rel="stylesheet" href="info-tip.css" /><!-- B-2069 (v2.0.158) -->
   <link rel="stylesheet" href="phone-rows.css" /><!-- B-2071/B-2072 (v2.0.158) -->
   <link rel="stylesheet" href="r6-phone.css" /><!-- v2.0.158 R6: folds, dark inputs, arrival stripes, Books rules -->
+  <link rel="stylesheet" href="buy-tabs.css" /><!-- B-2359 (v2.0.205): the Buy page tab bar -->
   <link rel="stylesheet" href="button-levels.css" /><!-- B-2279 (v2.0.196): the four button levels -->
   <!-- Shopper 2 (v2.00, B-732): light / dark before first paint. The phone
        follows its own setting unless the top-bar button picked one. -->
@@ -149,6 +150,7 @@
       </nav>
 
       <div id="runPane">
+        <div id="buyTabsHostRun"></div><!-- B-2359 (v2.0.205): remote/buy-tabs-view.js -->
         <!-- the pause prompt outranks everything else on the screen -->
         <div id="promptCard" class="prompt-card" hidden>
           <h2 id="promptTitle"></h2>
@@ -252,25 +254,6 @@
           extension from the page itself, which a remote command can't do.
         </p>
 
-        <details class="section">
-          <summary>Add an ASIN</summary>
-          <div class="add-row">
-            <input id="addAsin" placeholder="ASIN" maxlength="10" autocapitalize="characters" />
-            <input id="addQty" type="number" min="1" placeholder="Qty" />
-            <select id="addPriority">
-              <option value="high">High - next</option>
-              <option value="medium" selected>Medium - end</option>
-              <option value="low">Low - last</option>
-            </select>
-            <!-- B-466 (v4.51): where it ships. -->
-            <select id="addDest" aria-label="Ships to">
-              <option value="house" selected>House</option>
-              <option value="prep">Prep</option>
-            </select>
-            <button id="addBtn" class="secondary-btn">Add</button>
-          </div>
-        </details>
-
         <!-- P-56: was the last block in this pane, under everything. Zach
              wants it near the top - it is the only window into what the
              extension is doing while he is away from the laptop. -->
@@ -304,22 +287,14 @@
       </div>
 
       <div id="buylistPane" hidden>
+        <div id="buyTabsHostBuylist"></div><!-- B-2359 (v2.0.205): remote/buy-tabs-view.js -->
         <div class="controls">
-          <button id="generateBtn" class="primary-btn">Generate buylist</button>
+          <!-- B-2359 (v2.0.205): Generate is the tab bar's "1" (remote/buy-tabs-view.js) - the one place. -->
           <button id="approveAllBtn" class="secondary-btn">Approve Adjusted</button>
         </div>
         <p id="blMatchLine" class="muted small" hidden></p>
 
-        <!-- P-29: add straight to the buylist, not only to the queue.
-             B-1081 (v2.0.55): folded to one "Add an ASIN" line (open / shut remembered). -->
-        <details id="blAddFold" class="section bl-add-fold">
-          <summary>Add an ASIN</summary>
-        <div class="add-row">
-          <input id="blAddAsin" placeholder="ASIN (e.g. B07XBQ1TSK)" autocapitalize="characters" />
-          <input id="blAddQty" type="number" min="1" placeholder="Qty" />
-          <button id="blAddBtn" class="secondary-btn">Add to buylist</button>
-        </div>
-        </details>
+        <!-- B-2360 (v2.0.205): "Add an ASIN" is the tab bar's one + Add ASIN now (remote/buy-tabs-view.js; buylist or live queue by state). -->
         <p id="buylistMeta" class="muted"></p>
         <!-- P-43 (2026-09-09): "I need to know how much $ approved we have" -->
         <p id="buylistApproved" class="approved-total"></p>
@@ -667,6 +642,8 @@
   <script src="count-any.js"></script>
   <!-- B-874 (v2.0.24): the top bar's wording (generated from lib/activity-view.js) and the bar. -->
   <script src="activity-view.js"></script>
+  <script src="shoppy-queue-state.js"></script><!-- B-2361 (v2.0.205): = lib/shoppy-queue-state.js -->
+  <script src="shoppy-queue-view.js"></script><!-- B-2361: the queue Shoppy in the header (before topbar-view.js, which calls its tab()) -->
   <script src="topbar-view.js"></script>
   <script src="phone-shell.js"></script><!-- B-2068 (v2.0.158) -->
   <script src="info-tip.js"></script><!-- B-2069 (v2.0.158) -->
@@ -690,6 +667,7 @@
   <!-- B-1103 (v2.0.57) -->
   <script src="target-plans-view.js"></script>
   <script src="run-view.js"></script>
+  <script src="buy-tabs-view.js"></script><!-- B-2359 / B-2360 (v2.0.205): the Buy page tab bar + the one + Add ASIN -->
   <!-- B-1173 (v2.0.64): buy-tab snapshots on the Buy Queue lines (signed URLs, private bucket). -->
   <script src="buy-shots-view.js"></script>
   <!-- B-683 (v4.93): typed MM/DD/YYYY date box, used by parity.js. -->

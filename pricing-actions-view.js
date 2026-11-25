@@ -89,13 +89,14 @@
 
   Object.assign(typeof REMOTE_LABELS !== "undefined" ? REMOTE_LABELS : {}, {
     agedCheck: "Check aged inventory", cogsCheckRun: "Run COGS check", cogsCheckApply: "Apply COGS picks",
-    pricingErrorsCheck: "Check pricing errors", pricingIssuesScan: "Scan pricing issues", pricingErrorsDismiss: "Dismiss pricing error", pricingFixStop: "Stop price fix", pricingFixDismiss: "Dismiss price fix",
+    pricingErrorsCheck: "Check pricing errors", pricingIssuesScan: "Scan pricing issues", pricingErrorsDismiss: "Dismiss pricing error", pricingFixStop: "Stop price fix", pricingFixDismiss: "Dismiss price fix", listingsRemove: "Close & delete listings",
   });
 
   const $ = (id) => document.getElementById(id);
   let sig = "";
   const money = (v) => (Number.isFinite(Number(v)) && v !== "" && v != null ? "$" + Number(v).toFixed(2) : "-");
 
+  let curOpen = []; // B-2345: SKUs with an open pricing error (set by render) - those cannot be closed & deleted
   let menuOpen = false; // B-2071 (v2.0.158): the Checks menu's open state (this phone, in memory)
   const when = (v) => (self.ShopperPlain ? self.ShopperPlain.when(v) : clip(v, 30)); // B-2073
 
@@ -159,7 +160,7 @@
   // B-2217 (v2.0.178): Listing problems - the laptop Pricing page's section (lib/listing-problems-view.js), read-only here:
   // blocked first (Amazon says not buyable on Amazon.com), then errors on listings that still sell. Each row: product, ASIN / SKU,
   // units, the reason in words, Amazon's message in full, and "Fix in Seller Central". Dismiss / snooze is on the laptop.
-  function listingCard(lp) {
+  function listingCard(lp, ctx) {
     const p = obj(lp);
     const blocked = arr(p.blocked), errors = arr(p.errors);
     if (!blocked.length && !errors.length) return null;
@@ -168,6 +169,55 @@
     const inStock = [...blocked, ...errors].filter((r) => r && r.counted).length; // the count the laptop tab and Do next show: listings WITH stock; a zero-stock row is listed, not counted
     card.appendChild(el("h3", "", "Listing problems (" + inStock + ")"));
     card.appendChild(el("p", "muted small", "Problems with the listing's details (not its price). Fix them in Seller Central."));
+    // B-2345: Close & Delete Listing - a tick box + button per row, select all, one bulk button. Same words / checks as the laptop
+    // (lib/listing-problems-remove.js through ShopperGlance); Main checks the list again (shownSig) and every delete keeps its live gates.
+    const G = self.ShopperGlance || null;
+    const openSkus = new Set(arr(obj(ctx).openSkus || curOpen));
+    const picked = new Set();
+    const itemOf = (r) => ({ sku: clip(r.sku, 80), asin: clip(r.asin, 10), title: clip(r.title, 120) });
+    const whyNot = (r) => (G ? G.lprWhy({ sku: r.sku, asin: r.asin, units: r.units }, { openSkus }) : "not ready");
+    const shownRows = [...blocked, ...errors].slice(0, 60).filter((r) => r && r.sku);
+    const sendRemove = async (rows, anchor) => {
+      const items = rows.map(itemOf);
+      const out = await run({ name: "listingsRemove", payload: { items, close: true, shownSig: G.lprSig(items.map((x) => x.sku)), confirmed: true }, btn: anchor, ok: "Started on the computer - the listing leaves this list when it is deleted", fail: "Not deleted" });
+      if (out.ok) picked.clear();
+    };
+    const bar = el("div", "ops-row ops-lp-bulk");
+    const all = el("label", "small");
+    const allCb = el("input", "ops-lp-all"); allCb.type = "checkbox";
+    all.append(allCb, document.createTextNode(" Select all shown"));
+    const bulk = btn("Close & Delete 0 selected...", "ops-lp-bulk-go");
+    const typedBox = el("div", "ops-card ops-lp-typed"); typedBox.hidden = true;
+    const eligible = () => shownRows.filter((r) => !whyNot(r));
+    const sync = () => {
+      const able = eligible();
+      allCb.checked = able.length > 0 && able.every((r) => picked.has(r.sku));
+      allCb.disabled = !able.length;
+      bulk.textContent = "Close & Delete " + picked.size + " selected...";
+      bulk.disabled = !picked.size;
+      for (const cb of card.querySelectorAll("input.ops-lp-cb")) cb.checked = picked.has(cb.dataset.sku);
+    };
+    allCb.addEventListener("change", () => { for (const r of eligible()) { if (allCb.checked) picked.add(r.sku); else picked.delete(r.sku); } sync(); });
+    bulk.addEventListener("click", () => {
+      const rows = shownRows.filter((r) => picked.has(r.sku) && !whyNot(r));
+      if (!rows.length || !G) return;
+      const words = G.lprConfirmWords(rows.map(itemOf));
+      typedBox.textContent = "";
+      typedBox.hidden = false;
+      typedBox.appendChild(el("div", "", words.title));
+      typedBox.appendChild(el("div", "muted small", words.body));
+      for (const l of words.lines.slice(0, 50)) typedBox.appendChild(el("div", "small", l));
+      const inp = el("input", "ops-in ops-lp-typed-in"); inp.type = "text"; inp.placeholder = "Type " + words.typed + " to continue"; inp.setAttribute("aria-label", "Type " + words.typed + " to continue");
+      const go = btn(words.button, "ops-lp-typed-go"); go.disabled = true;
+      const no = btn("Cancel", "ops-lp-typed-no");
+      inp.addEventListener("input", () => { go.disabled = inp.value.trim() !== words.typed; });
+      go.addEventListener("click", async () => { if (go.disabled) return; typedBox.hidden = true; await sendRemove(rows, bulk); });
+      no.addEventListener("click", () => { typedBox.hidden = true; });
+      typedBox.append(inp, go, no);
+    });
+    bar.append(all, bulk);
+    card.appendChild(bar);
+    card.appendChild(typedBox);
     const group = (rows, title) => {
       if (!rows.length) return;
       card.appendChild(el("h4", "ops-lp-h", title + " (" + rows.length + ")"));
@@ -184,11 +234,27 @@
           a.href = r.url; a.target = "_blank"; a.rel = "noopener noreferrer";
           line.appendChild(a);
         }
+        const why = whyNot(r);
+        const del = btn("Close & Delete Listing", "ops-lp-del");
+        del.disabled = !!why;
+        if (why) line.appendChild(el("div", "muted small ops-lp-why", "Cannot close & delete: " + clip(why, 80)));
+        const cb = el("input", "ops-lp-cb"); cb.type = "checkbox"; cb.dataset.sku = clip(r.sku, 80); cb.disabled = !!why;
+        cb.setAttribute("aria-label", "Select " + clip(r.title || r.sku, 60) + " for Close & Delete");
+        cb.addEventListener("change", () => { if (cb.checked) picked.add(r.sku); else picked.delete(r.sku); sync(); });
+        del.addEventListener("click", async () => {
+          if (!G || del.disabled) return;
+          const it = itemOf(r), w = G.lprConfirmWords([it]);
+          if (!(await inPageConfirm(del, w.title + "\n" + w.lines[0] + "\n" + w.body, { yes: w.button }))) return;
+          await sendRemove([r], del);
+        });
+        line.insertBefore(cb, line.firstChild);
+        line.appendChild(del);
         card.appendChild(line);
       }
     };
     group(blocked, "Not buyable on Amazon.com");
     group(errors, "Errors to fix (still selling)");
+    sync();
     if (p.otherCount > 0) card.appendChild(el("p", "muted small", p.otherCount + " more listing(s) have a problem only in another marketplace - not counted."));
     return card;
   }
@@ -258,6 +324,7 @@
     if (editing(host)) return;
     sig = s;
     host.textContent = "";
+    curOpen = arr(obj(pages.pricingErrors).rows || pages.pricingErrors).map((x) => x && x.sku).filter(Boolean);
     for (const c of [checksMenu(pages.cogs), listingCard(pages.listingProblems), errorsCard(pages.pricingErrors), fixesCard(pages.pricingFixes), cogsCard(pages.cogs)]) if (c) host.appendChild(c);
   }
 

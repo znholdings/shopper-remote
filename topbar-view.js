@@ -47,6 +47,7 @@
   function tab(which) {
     var n = document.getElementById("tbPage");
     if (n) n.textContent = TAB_NAMES[which] || "Remote";
+    if (root.ShopperShoppyView) root.ShopperShoppyView.tab(which); // B-2361 (v2.0.205): the queue Shoppy shows on the Buylist and Buy Queue tabs only
   }
 
   root.ShopperTopbar = Object.freeze({ update: update, tab: tab, draw: draw, TAB_NAMES: TAB_NAMES });

@@ -103,4 +103,21 @@
   .s-tb-shoppy, .s-tb-rider, .s-tb-ride, .s-tb-fill { animation: none !important; transition: none !important; }
 }
 
+
+/* ============================================================
+   B-2361 (v2.0.205): the Shoppy queue animations on the Buylist / Buy Queue tabs (remote/shoppy-queue-view.js).
+   While one shows (data-shoppy="on") the standing Shoppy and the floor lane step aside; the GIF (132 x 37.5), the progress track and the status line
+   sit together on the header's second row. The status line wraps in full. No caption, border, badge or control on the GIF.
+   ============================================================ */
+:root body .s-topbar .s-tb-qgroup { display: none; }
+:root body .s-topbar[data-shoppy="on"] { flex-wrap: wrap; padding-left: 10px; }
+:root body .s-topbar[data-shoppy="on"] .s-tb-shoppy, :root body .s-topbar[data-shoppy="on"] .s-tb-lane { display: none !important; }
+:root body .s-topbar[data-shoppy="on"] .s-tb-qgroup { display: flex; align-items: center; gap: 8px; flex: 1 1 100%; order: 3; min-width: 0; }
+:root body .s-topbar .s-tb-qimg { flex: none; width: 132px; height: 37.5px; object-fit: contain; image-rendering: pixelated; pointer-events: none; }
+:root body .s-topbar .s-tb-qstack { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+:root body .s-topbar .s-tb-qgroup .s-tb-track { position: relative; left: auto; right: auto; bottom: auto; width: 100%; height: 6px; flex: none; }
+:root body .s-topbar .s-tb-qgroup .s-tb-line { white-space: normal; overflow-wrap: anywhere; margin: 0; }
+:root[data-theme="retro"] body .s-topbar .s-tb-qgroup .s-tb-track { border-radius: 0; height: 8px; }
+
+
 [hidden] { display: none !important; }

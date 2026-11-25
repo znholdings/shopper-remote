@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.203";
+const APP_BUILD = "v2.0.205";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -28,13 +28,10 @@ for (const id of [
   "promptCard","promptTitle","promptDetail","promptExpiry","promptFields","promptActions",
   "runStatus","currentStep","tSpent","tNeeded","tToday","tBought","tDefaultNote",
   "startRow","modeSelect","runOnSelect","runOnNote","startBtns","resumeSavedBtn","controlRow","pauseBtn","resumeBtn",
-  "retryFailedBtn","finishNowBtn","abortBtn","targetDestRow","targetDestHouseBtn","targetDestPrepBtn","unstickNote","addAsin","addQty","addPriority","addBtn",
-  "lineCount","lines","log","generateBtn","approveAllBtn","blMatchLine","buylistMeta","buylistApproved",
+  "retryFailedBtn","finishNowBtn","abortBtn","targetDestRow","targetDestHouseBtn","targetDestPrepBtn","unstickNote",
+  "lineCount","lines","log","approveAllBtn","blMatchLine","buylistMeta","buylistApproved",
   "buylistApprovedBar","buylistApprovedFill","buylistItems","toast","installHint",
   "progress","progressText","genCard","genStep","genLog","previewBtn","discardSavedBtn",
-  "blAddAsin","blAddQty","blAddBtn",
-  // B-466 (v4.51): House / Prep for "Add an ASIN".
-  "addDest",
   "pushRow","pushBtn","refreshBtn","reloadBtn","buildStamp",
   // v2.98: P-63 (promptReason/promptDetails), P-53 (skipFailedBtn),
   // P-67 (densityRow), P-65 (report*), P-58 (soundBtn).
@@ -707,6 +704,7 @@ function renderPayload() {
   renderLiveness(p.liveness);
   // B-874 (v2.0.24): the top bar's status line / progress lane (payload.activity).
   if (self.ShopperTopbar) self.ShopperTopbar.update(p.activity);
+  if (self.ShopperShoppyView) self.ShopperShoppyView.update(p); // B-2361 (v2.0.205): the queue Shoppy (display only)
 
   const run = p.run || null;
   const status = run ? run.status : "";
@@ -773,6 +771,7 @@ function renderPayload() {
   // B-774 / B-776 (v2.0.9): Right now, the money band, the outcome counts and
   // the end-of-queue report sheet (remote/run-view.js).
   if (self.ShopperRunViewPhone) self.ShopperRunViewPhone.render(p);
+  if (self.ShopperBuyTabs) self.ShopperBuyTabs.render(p); // B-2359 (v2.0.205): the Buy page tab bar on both tabs
   maybePlaySounds(p);
   renderBuylistGen(p.buylistGen);
   if (!isBeingEdited(els.buylistItems)) renderBuylist(p.buylist);
@@ -2120,19 +2119,7 @@ els.targetDestPrepBtn.addEventListener("click", async () => {
 els.abortBtn.addEventListener("click", async () => {
   if (await inPageConfirmStill(els.abortBtn, "Abort the run? Whatever is mid-purchase is interrupted.", liveRunSig, null, movedToast)) sendCommand("abort");
 });
-els.addBtn.addEventListener("click", () => {
-  const asin = els.addAsin.value.trim().toUpperCase();
-  if (!asin) return;
-  sendCommand("addManualLine", {
-    asin,
-    qty: Number(els.addQty.value) || 1,
-    priority: els.addPriority.value,
-    destination: els.addDest && els.addDest.value === "prep" ? "prep" : "house",
-  });
-  els.addAsin.value = "";
-  els.addQty.value = "";
-});
-els.generateBtn.addEventListener("click", () => sendCommand("generateBuylist"));
+// B-2359 / B-2360 (v2.0.205): Generate and "Add an ASIN" are the Buy page tab bar's (remote/buy-tabs-view.js) - one place each.
 // B-1741 (v2.0.127): Approve Adjusted - every undecided line in the adjusted list, after a confirm.
 els.approveAllBtn.textContent = "Approve Adjusted";
 els.approveAllBtn.addEventListener("click", async () => {
@@ -2166,13 +2153,6 @@ els.discardSavedBtn.addEventListener("click", async () => {
   if (await inPageConfirmStill(els.discardSavedBtn, "Discard the saved queue? It cannot be brought back.", savedQueueSig, null, movedToast)) sendCommand("discardSaved");
 });
 
-els.blAddBtn.addEventListener("click", () => {
-  const asin = els.blAddAsin.value.trim().toUpperCase();
-  if (!asin) return;
-  sendCommand("buylistAddManual", { asin, qty: Number(els.blAddQty.value) || 1 });
-  els.blAddAsin.value = "";
-  els.blAddQty.value = "";
-});
 // P-34: the ONLY place permission is ever requested, and it is a tap.
 els.pushBtn.addEventListener("click", () => setupPush((msg, bad) => toast(msg, !!bad)));
 
@@ -2222,14 +2202,6 @@ function openArrivals() {
 }
 // B-662 (v4.85): the Bank view's way back.
 els.bankBack.addEventListener("click", () => switchTab("dashboard"));
-// B-1081 (v2.0.55): the Buylist's "Add an ASIN" fold - open / shut remembered on this phone.
-{
-  const fold = $("blAddFold");
-  if (fold) {
-    fold.open = store.get("shopperBlAddOpen") === true;
-    fold.addEventListener("toggle", () => store.set("shopperBlAddOpen", fold.open));
-  }
-}
 els.invFilter.addEventListener("input", () => renderInventory(lastPayload && lastPayload.inventory));
 // B-465: a tile opens its bucket's table; the same tile closes it.
 for (const tile of document.querySelectorAll(".inv-total[data-bucket]")) {
