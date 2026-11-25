@@ -3,3 +3,23 @@
 #cashFlowPane[data-cfm-mode="margin"] :is(#cfmBody, #cfmRange, #cfmStatus, #cfmBanner, #cfmClaude, #cashFlowPane > .cfm-head) { display: none; }
 .mgm-answer .cfm-stat-value { font-size: 18px; }
 .mgm-head { display: flex; gap: 8px; margin: 10px 0 6px; }
+/* B-2398 (v2.0.211): phone trend strip, one-line cards, new chart marks (same classes as the laptop's cashflow.css). */
+.mgm-key { font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mgm-sentence { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.mgm-why-body { display: grid; gap: 4px; }
+.mgm-why-body .cfm-note { margin: 0; }
+.mgm-trends { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 6px; }
+.mgm-trends th { text-align: left; color: var(--s-text-muted); font-weight: 700; padding: 4px 4px; border-bottom: 1px solid var(--s-line); }
+.mgm-trends td { padding: 6px 4px; border-bottom: 1px solid var(--s-line-soft); }
+.mgm-trends .num { text-align: right; font-variant-numeric: tabular-nums; }
+.mgm-up { color: var(--s-green-ink); } .mgm-down { color: var(--s-red-ink); }
+.s-chart .s-line.thin { stroke-width: 1.2; }
+.s-chart .s-dots circle { fill: color-mix(in srgb, var(--s-text-muted) 38%, transparent); }
+.s-chart .s-clamp { fill: color-mix(in srgb, var(--s-text-muted) 70%, transparent); }
+.s-chart .s-zone-label { font-style: italic; }
+.s-chart .s-gbar-1 { fill: var(--s-violet); } .s-chart .s-gbar-2 { fill: var(--s-magenta); } .s-chart .s-gbar-3 { fill: var(--s-cyan); }
+.s-chart .s-gbar-stub { stroke: var(--s-text-faint); stroke-width: 1; stroke-dasharray: 3 2; }
+.s-chart .s-hatch-line { stroke: var(--s-text-faint); stroke-width: 1.2; }
+.s-chart .s-gdot { fill: var(--s-green); stroke: var(--s-surface); stroke-width: 1.5; }
+.s-chart .s-gbar-val { fill: var(--s-text-muted); font-size: 10px; }
+.s-legend i.kdot { width: 8px; height: 8px; border-radius: 50%; background: color-mix(in srgb, var(--s-text-muted) 45%, transparent); }

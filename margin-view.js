@@ -1,6 +1,6 @@
 // remote/margin-view.js - B-2397 (v2.0.210): the phone's "Margin" view inside the Cash tab.
 // The laptop works everything out (lib/margin-model.js) and words the compact block (lib/margin-view.js buildMarginRemote);
-// this file only lays it out: the three answer cards, the 30-day path chart and the last six months of buy choices,
+// this file only lays it out: the three answer cards, the trend strip, the history + forecast chart and the buy-month bars,
 // plus a Recompute button (the "marginRecompute" phone command - the laptop runs the job). Charts are drawn with the
 // laptop's chart code (cashflow-lib.js). Owns no numbers and no rules.
 (function () {
@@ -20,6 +20,7 @@
     if (text != null) n.textContent = String(text);
     return n;
   }
+  const addDays = (day, n) => new Date(Date.parse(day + "T00:00:00Z") + n * 86400000).toISOString().slice(0, 10);
   const visible = () => { const p = $("cashFlowPane"); return !!(p && !p.hidden); };
 
   function applyMode() {
@@ -57,27 +58,69 @@
       const h = el("div", "cfm-card-head");
       h.append(el("h3", "cfm-h", c.title), el("span", "ai-banner " + (TONE[c.tone] || ""), c.verdict));
       d.append(h);
-      if (c.ready && c.key) d.append(el("div", "cfm-stat-value", c.key), el("div", "cfm-stat-sub", c.keyLabel));
-      d.append(el("p", c.ready ? "cfm-note cfm-keep" : "cfm-note", c.sentence));
-      if (c.sub) d.append(el("p", "cfm-note", c.sub));
+      if (c.ready && c.key) d.append(el("div", "cfm-stat-value mgm-key", c.key), el("div", "cfm-stat-sub", c.keyLabel));
+      d.append(el("p", c.ready ? "cfm-note cfm-keep mgm-sentence" : "cfm-note mgm-sentence", c.sentence));
+      const extra = [];
+      if (c.sentence && c.sentence.length > 130) extra.push(el("p", "cfm-note cfm-keep", c.sentence));
+      for (const t of c.more || (c.sub ? [c.sub] : [])) extra.push(el("p", "cfm-note cfm-keep", t));
+      if (extra.length) {
+        const wrap = el("div", "mgm-why-body");
+        wrap.append.apply(wrap, extra);
+        d.append(wrap);
+        if (self.ShopperWhy) self.ShopperWhy.wrap([wrap], { id: "mgm-why-" + c.id });
+      }
       host.append(d);
     }
+    if (block.trends && block.trends.length) {
+      const tc = chartCard("Trends: last 30 days vs the 30 before");
+      tc.id = "mgmTrends";
+      const t = el("table", "mgm-trends");
+      const hr = t.createTHead().insertRow();
+      ["", "Last 30", "Change", "12 weeks"].forEach((x, i) => hr.append(el("th", i === 1 || i === 2 ? "num" : "", x)));
+      const tb = t.createTBody();
+      for (const r of block.trends) {
+        const tr = tb.insertRow();
+        tr.dataset.row = r.id;
+        tr.insertCell().textContent = r.label;
+        const v = (x) => (x == null ? "-" : r.unit === "$" ? "$" + Math.round(x) : Number(x).toFixed(1) + "%");
+        const c1 = tr.insertCell(); c1.className = "num"; c1.textContent = v(r.last30);
+        const c2 = tr.insertCell(); c2.className = "num " + (r.change > 0 ? "mgm-up" : r.change < 0 ? "mgm-down" : ""); c2.textContent = r.change == null ? "-" : (r.change > 0 ? "+" : r.change < 0 ? "-" : "") + (r.unit === "$" ? "$" + Math.abs(Math.round(r.change)) : Math.abs(r.change).toFixed(1) + " pts");
+        const c3 = tr.insertCell(); c3.className = r.trend === "rising" ? "mgm-up" : r.trend === "falling" ? "mgm-down" : ""; c3.textContent = r.word || "";
+      }
+      tc.append(t);
+      host.append(tc);
+    }
     const draws = [];
-    const pc = chartCard("Next 30 days");
-    if (block.path && C) {
+    const pc = chartCard("Last 90 days and the next 30");
+    if (block.chart && C && C.drawTrendChart) {
+      const ch = block.chart;
       const box = el("div", "cfm-chart"); box.id = "mgmPath";
+      const nH = ch.hist.length, nF = ch.f.length;
+      const days = [];
+      for (let i = 0; i < nH; i++) days.push(addDays(ch.start, i));
+      for (let i = 0; i < nF; i++) days.push(addDays(ch.fStart, i));
+      const pad = (a) => new Array(nH).fill(null).concat(a);
+      const lines = [];
+      if (ch.committed) lines.push({ values: pad(ch.committed), cls: "s-mark-3", label: "committed buys only", thin: true });
+      lines.push({ values: ch.hist.concat(new Array(nF).fill(null)), cls: "s-mark-2", label: "7-day realized" }, { values: pad(ch.f), cls: "s-mark-1", label: "expected" });
+      const ax = ch.axis || { min: 0, max: 25, ticks: [0, 5, 10, 15, 20, 25] };
       pc.append(box);
-      const lows = block.path.lo.filter((v) => v != null).concat(block.path.trailing.filter((v) => v != null));
-      const yMin = lows.length ? Math.max(0, Math.floor(Math.min.apply(null, lows) - 1)) : 0;
-      draws.push(() => C.drawChart(box, { days: block.path.days, band: { low: block.path.lo, high: block.path.hi }, lines: [{ values: block.path.trailing, cls: "s-mark-1", label: "last 30 days", dash: true }, { values: block.path.marginPct, cls: "s-mark-2", label: "expected" }], yMin, yFormat: (v) => v.toFixed(0) + "%", height: 200, title: "30-day margin path" }));
+      const lg = el("div", "s-legend");
+      [["k2", "7-day realized"], ["k1", "expected"], ["kband", "80% range"]].forEach((k) => { const sp = el("span"); sp.append(el("i", k[0]), document.createTextNode(k[1])); lg.append(sp); });
+      pc.append(lg);
+      if (ch.caption) pc.append(el("p", "cfm-note cfm-keep", ch.caption));
+      draws.push(() => C.drawTrendChart(box, { days, split: nH, band: { low: pad(ch.lo), high: pad(ch.hi) }, lines, ref: ch.ref != null ? { value: ch.ref } : null, yMin: ax.min, yMax: ax.max, ticks: ax.ticks, yFormat: (v) => v + "%", height: 210, title: "margin, last 90 days and next 30" }));
     } else pc.append(el("p", "cfm-note", block.pathNote || ""));
     host.append(pc);
-    const kc = chartCard("Profit per $100 bought, last 6 months");
-    if (block.picking && C) {
+    const kc = chartCard("Profit per $100 bought, by buy month");
+    if (block.picking && block.picking.groups && C && C.drawGroupedBars) {
       const box = el("div", "cfm-chart"); box.id = "mgmPicking";
       kc.append(box);
-      const p = block.picking;
-      draws.push(() => C.drawChart(box, { days: p.days, lines: [{ values: p.earned30, cls: "s-mark-1", label: "30 days" }, { values: p.earned60, cls: "s-mark-2", label: "60 days" }, { values: p.earned90, cls: "s-mark-3", label: "90 days" }, { values: p.comparable30, cls: "s-mark-4", label: "30 days, same mix", dash: true }], yFormat: (v) => "$" + Math.round(v), height: 200, title: "earned per $100 by month" }));
+      const lg = el("div", "s-legend");
+      [["k1", "30 days"], ["k2", "60 days"], ["k3", "90 days"], ["kdot", "same mix"]].forEach((k) => { const sp = el("span"); sp.append(el("i", k[0]), document.createTextNode(k[1])); lg.append(sp); });
+      kc.append(lg);
+      const groups = block.picking.groups;
+      draws.push(() => C.drawGroupedBars(box, { groups, yFormat: (v) => "$" + Math.round(v), height: 210, title: "earned per $100 by buy month" }));
     } else kc.append(el("p", "cfm-note", block.pickingNote || ""));
     host.append(kc);
     if (visible() && view.mode === "margin") for (const f of draws) { try { f(); } catch (e) { /* one chart never breaks the view */ } }
