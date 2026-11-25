@@ -2397,15 +2397,18 @@ function lprConfirmWords(items) {
   };
 }
 
-// Phone request, checked on Main: the items must hash to the sig the phone showed, and every one must still be a listing problem
-// on Main's own stored list (state = shopperPricingErrors.otherIssues). -> { ok } | { ok:false, why }
-function lprCheckPhoneRequest(items, shownSig, otherIssues) {
+// Phone request, checked on Main: the items must hash to the sig the phone showed (shownSig = the request arrived intact), the phone must
+// have shown the CURRENT list (shownAt = the read time of the list on its screen = otherIssues.at, B-2356), and every item must still be a
+// listing problem on Main's own stored list (state = shopperPricingErrors.otherIssues). -> { ok } | { ok:false, why }
+function lprCheckPhoneRequest(items, shownSig, otherIssues, shownAt) {
   const list = Array.isArray(items) ? items : [];
   if (!list.length) return { ok: false, why: "nothing was ticked" };
   if (typeof shownSig !== "string" || !shownSig) return { ok: false, why: "the phone did not say which list it showed" };
   if (lprSig(list.map((x) => x && x.sku)) !== shownSig) return { ok: false, why: "the list the phone showed does not match what it sent - refresh the phone and tick again" };
   const have = new Map();
   for (const l of otherIssues && Array.isArray(otherIssues.listings) ? otherIssues.listings : []) if (l && l.sku) have.set(String(l.sku), String(l.asin || "").toUpperCase());
+  if (!(Number.isFinite(shownAt) && shownAt > 0) || !(Number(otherIssues && otherIssues.at) > 0)) return { ok: false, why: "the phone did not say when its list was read - reload the phone page" }; // B-2356 (review R4): refuse, never guess
+  if (Number(otherIssues && otherIssues.at) !== Number(shownAt)) return { ok: false, why: "the Listing problems list was read again after the phone showed it - refresh the phone and tick again" };
   for (const x of list) {
     const asin = have.get(String(x && x.sku));
     if (asin === undefined) return { ok: false, why: `${x && x.sku} is no longer on the Listing problems list - refresh the phone` };

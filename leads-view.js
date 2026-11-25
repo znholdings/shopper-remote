@@ -25,7 +25,7 @@
     bbNote: function (r) { return r.offersAt ? "no Buy Box right now" : "not read yet"; },
     fbaNote: function (r) { return r.offersAt && r.fbaCount === 0 ? "no FBA seller" : r.offersAt ? "no FBA price" : "not read yet"; },
     noPrice: function (r) { var avgOk = !(r.alt && r.alt.avg && r.alt.avg.stale); return [r.bb, r.lowFba, r.lowNew, avgOk ? r.bbAvg90 : null, avgOk ? r.bbAvg30 : null, r.salePrice].every(function (v) { return v == null; }); }, // B-2292 (a) / B-2296: a stale average is not a price // B-2292 (a)
-    feesNote: function (r) { return r.cost == null ? "cost not read yet" : r.feesMissing ? (r.feesErr === "403" ? "Amazon refused the fee read" : r.feesErr ? "Amazon gave no fee estimate (" + r.feesErr + ")" : W.noPrice(r) ? W.NO_PRICE : "Amazon fees not read yet") : null; }, // B-2307
+    feesNote: function (r) { return r.cost == null ? (r.packNeeded && r.amzPack ? "type the store pack on the desktop to see the cost" : "cost not read yet") : r.feesMissing ? (r.feesErr === "403" ? "Amazon refused the fee read" : r.feesErr ? "Amazon gave no fee estimate (" + r.feesErr + ")" : W.noPrice(r) ? W.NO_PRICE : "Amazon fees not read yet") : null; }, // B-2307
     scenario: { low: "at lowest offer", avg90: "at 90-day average", avg30: "at 30-day average", sp: "at your price" },
     ageWords: function (h) { return h && (h.scenario === "avg90" || h.scenario === "avg30") && Number(h.ageDays) >= 2 ? ", " + Math.floor(Number(h.ageDays)) + " days old" : ""; } // B-2296: a Buy Box average 2+ days old says so
   };

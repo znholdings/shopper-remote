@@ -170,7 +170,9 @@
     card.appendChild(el("h3", "", "Listing problems (" + inStock + ")"));
     card.appendChild(el("p", "muted small", "Problems with the listing's details (not its price). Fix them in Seller Central."));
     // B-2345: Close & Delete Listing - a tick box + button per row, select all, one bulk button. Same words / checks as the laptop
-    // (lib/listing-problems-remove.js through ShopperGlance); Main checks the list again (shownSig) and every delete keeps its live gates.
+    // (lib/listing-problems-remove.js through ShopperGlance). What each field proves to Main: shownSig = the request arrived intact (a hash of the
+    // SKUs sent); shownAt = the read time of the list this card showed (B-2356) - Main refuses if its list was read again since; and Main checks
+    // each SKU is still on its own list. Every delete keeps its live gates.
     const G = self.ShopperGlance || null;
     const openSkus = new Set(arr(obj(ctx).openSkus || curOpen));
     const picked = new Set();
@@ -179,7 +181,7 @@
     const shownRows = [...blocked, ...errors].slice(0, 60).filter((r) => r && r.sku);
     const sendRemove = async (rows, anchor) => {
       const items = rows.map(itemOf);
-      const out = await run({ name: "listingsRemove", payload: { items, close: true, shownSig: G.lprSig(items.map((x) => x.sku)), confirmed: true }, btn: anchor, ok: "Started on the computer - the listing leaves this list when it is deleted", fail: "Not deleted" });
+      const out = await run({ name: "listingsRemove", payload: { items, close: true, shownSig: G.lprSig(items.map((x) => x.sku)), shownAt: Number(p.at) || 0, confirmed: true }, btn: anchor, ok: "Started on the computer - the listing leaves this list when it is deleted", fail: "Not deleted" });
       if (out.ok) picked.clear();
     };
     const bar = el("div", "ops-row ops-lp-bulk");
@@ -193,8 +195,9 @@
       const able = eligible();
       allCb.checked = able.length > 0 && able.every((r) => picked.has(r.sku));
       allCb.disabled = !able.length;
-      bulk.textContent = "Close & Delete " + picked.size + " selected...";
-      bulk.disabled = !picked.size;
+      const sendable = shownRows.filter((r) => picked.has(r.sku) && !whyNot(r)).length; // B-2357: the count the tap really sends
+      bulk.textContent = "Close & Delete " + sendable + " selected...";
+      bulk.disabled = !sendable;
       for (const cb of card.querySelectorAll("input.ops-lp-cb")) cb.checked = picked.has(cb.dataset.sku);
     };
     allCb.addEventListener("change", () => { for (const r of eligible()) { if (allCb.checked) picked.add(r.sku); else picked.delete(r.sku); } sync(); });

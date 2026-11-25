@@ -8,7 +8,8 @@
 // ⚠ It never answers on its own and never times anything out.
 (function () {
   "use strict";
-  const MAX_DEN = 12;
+  const MAX_DEN = 120; // B-2382: = lib/walmart-pack-rank.js PIECES_MAX_DEN (a typed fraction up to 1/120)
+  const DECIMAL_MAX_DEN = 12; // a typed decimal is read as the simplest fraction up to /12
   function el(tag, cls, text) {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
@@ -34,7 +35,7 @@
     if (!m) return null;
     const v = Number(t);
     if (!(v > 0)) return null;
-    for (let d = 1; d <= MAX_DEN; d++) {
+    for (let d = 1; d <= DECIMAL_MAX_DEN; d++) {
       const n = Math.round(v * d);
       if (n > 0 && Math.abs(n / d - v) <= 0.005 + 1e-9) return { n, d };
     }
