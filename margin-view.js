@@ -78,7 +78,7 @@
       if (c.ready && c.key) d.append(el("div", "cfm-stat-value mgm-key", c.key), el("div", "cfm-stat-sub", c.keyLabel));
       d.append(el("p", c.ready ? "cfm-note cfm-keep mgm-sentence" : "cfm-note mgm-sentence", c.sentence));
       const extra = [];
-      if (c.table) { const tw = el("div", "mgm-table-wrap cfm-keep"); tw.append(miniTable(c.table.head, c.table.rows, "mgm-needed-table")); extra.push(tw); }
+      if (c.table) { const tw = el("div", "mgm-table-wrap cfm-keep"); tw.append(miniTable(c.table.head, c.table.rows, c.id === "needed" ? "mgm-needed-table" : "mgm-why-table")); extra.push(tw); }
       if (c.sentence && c.sentence.length > 130) extra.push(el("p", "cfm-note cfm-keep", c.sentence));
       for (const t of c.more || (c.sub ? [c.sub] : [])) extra.push(el("p", "cfm-note cfm-keep", t));
       if (extra.length) {
@@ -119,14 +119,23 @@
         lc.append(box, legendOf([...(block.lift.vintages || []).map((v) => ["k-v" + v.k + " bar", v.label]), ["k2", "actual margin"], ["k1 dash", "expected margin"]]));
         const L = block.lift;
         draws.push(() => C.drawPipelineBars(box, { actual: L.actual, weeks: L.weeks, moneyAxis: L.moneyAxis, pctAxis: L.pctAxis, height: 230, title: "expected sales by week and buy vintage, with margin" }));
-        if (block.vintages && block.vintages.length) {
-          const tw = el("div", "mgm-table-wrap cfm-keep");
-          const t = miniTable(["Bought", "Cost", "Sold", "After shortfall", "Selling"], block.vintages.map((v) => [v.label, fmoney(v.cost), v.soldPct == null ? "-" : Math.round(v.soldPct) + "%", fp(v.expAfterPct), v.selling || "-"]), "mgm-vintages");
-          t.id = "mgmVintages";
-          tw.append(t);
-          lc.append(tw);
+        const tableWrap = (t, id) => { const tw = el("div", "mgm-table-wrap cfm-keep"); if (id) t.id = id; tw.append(t); return tw; };
+        if (block.vintageTable && block.vintageTable.length) {
+          lc.append(tableWrap(miniTable(block.vintageHead || [], block.vintageTable, "mgm-vintages"), "mgmVintages"));
+          if (block.vintageNote) lc.append(el("p", "cfm-note cfm-keep mgm-cap", block.vintageNote));
+          if (block.unpriced) { const u = el("p", "cfm-note cfm-keep mgm-cap", block.unpriced); u.id = "mgmUnpriced"; lc.append(u); }
         }
-      } else lc.append(el("p", "cfm-note", block.liftNote || ""));
+        if (block.track && block.track.length) {
+          lc.append(el("h3", "cfm-h mgm-subhead", "How well this has predicted"));
+          lc.append(tableWrap(miniTable(["Method", "Average miss (pts)", "Months tested"], block.track, "mgm-track"), "mgmTrack"));
+          if (block.trackNote) lc.append(el("p", "cfm-note cfm-keep mgm-cap", block.trackNote));
+        }
+        if (block.losers && block.losers.length) {
+          lc.append(el("h3", "cfm-h mgm-subhead", "Old stock losing money at today's prices"));
+          lc.append(tableWrap(miniTable(["Product", "Units left", "Cost", "Today's price", "Break-even price", "Months of cover"], block.losers, "mgm-losers"), "mgmLosers"));
+        }
+        if (block.adsRefunds) { const a = el("p", "cfm-note cfm-keep mgm-cap", block.adsRefunds); a.id = "mgmAdsRefunds"; lc.append(a); }
+              } else lc.append(el("p", "cfm-note", block.liftNote || ""));
       host.append(lc);
     }
     // 2. Margin trend (28-day, expected after the usual shortfall, needed for everything) + the reconcile lines
@@ -138,8 +147,8 @@
       const days = []; for (let i = 0; i < T.days; i++) days.push(addDays(T.start, i));
       const lines = [];
       if (T.needed != null) lines.push({ values: days.map(() => T.needed), cls: "s-mark-5", label: "needed for everything", dash: true });
-      lines.push({ values: T.exp, cls: "s-mark-4", label: T.adjusted ? "expected (after shortfall)" : "expected", dash: true }, { values: T.r28, cls: "s-mark-1", label: "28-day" });
-      tc.append(box, legendOf([["k1", "28-day"], ["k4 dash", T.adjusted ? "expected, after shortfall" : "expected at buy"], ...(T.needed != null ? [["k5 dash", "needed for everything"]] : [])]));
+      lines.push({ values: T.exp, cls: "s-mark-4", label: T.priceBased ? "expected at buy (price-based)" : T.adjusted ? "expected (after shortfall)" : "expected", dash: true }, { values: T.r28, cls: "s-mark-1", label: "28-day" });
+      tc.append(box, legendOf([["k1", "28-day"], ["k4 dash", T.priceBased ? "expected at buy (price-based days only)" : T.adjusted ? "expected, after shortfall" : "expected at buy"], ...(T.needed != null ? [["k5 dash", "needed for everything"]] : [])]));
       if (T.caption) tc.append(el("p", "cfm-note cfm-keep mgm-haircut", T.caption));
       if (block.reconcile && block.reconcile.length) { const tw = el("div", "mgm-table-wrap cfm-keep"); tw.id = "mgmReconcile"; tw.append(miniTable(["Contribution to Sellerboard net profit", "Amount"], block.reconcile.map((r) => [r.label, fmoney(r.amount)]), "mgm-reconcile")); tc.append(tw); }
       draws.push(() => C.drawTrendChart(box, { days, lines, yMin: T.axis.min, yMax: T.axis.max, ticks: T.axis.ticks, yFormat: (v) => v + "%", height: 210, title: "margin, 28-day, last 90 days" }));
@@ -170,7 +179,7 @@
       const box = el("div", "cfm-chart"); box.id = "mgmPicking";
       const groups = block.picking.groups;
       const sell = groups.some((g) => g.bars.some((b) => b.kind === "sellable"));
-      kc.append(box, legendOf([...(sell ? [["k4 bar", "30 days after sellable"]] : []), ["k1", sell ? "30 days after the buy" : "30 days"], ["k2", "60 days"], ["k3", "90 days"], ["kdot", "same mix"]]));
+      kc.append(box, legendOf([[sell ? "kgb4 bar" : "k1 bar", sell ? "30 days on sale" : "30 days"], ["klight bar", "60 days"], ["khatch", "not yet"]]));
       draws.push(() => C.drawGroupedBars(box, { groups, yFormat: (v) => "$" + Math.round(v), height: 210, title: "earned per $100 by buy month" }));
     } else kc.append(el("p", "cfm-note", block.pickingNote || ""));
     host.append(kc);

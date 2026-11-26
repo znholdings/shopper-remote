@@ -47,3 +47,15 @@
 .s-chart .s-sbar-val { fill: var(--s-surface); font-size: 11px; font-weight: 700; }
 .s-legend i.bar { height: 10px; width: 10px; }
 .s-legend i.dash { background: repeating-linear-gradient(90deg, var(--s-green) 0 5px, transparent 5px 8px); }
+/* B-2430 / B-2431 (v2.0.215): picking chart (two series), vintage table, track record, losers */
+.s-chart .s-gbar-6 { fill: color-mix(in srgb, var(--s-text-muted) 42%, var(--s-surface)); }
+.s-legend i.kgb4 { background: var(--s-orange); } .s-legend i.klight { background: color-mix(in srgb, var(--s-text-muted) 42%, var(--s-surface)); }
+.mgm-subhead { margin: 12px 0 0; }
+.mgm-vintages td, .mgm-vintages th { white-space: normal; }
+.mgm-vintages td { white-space: nowrap; }
+.mgm-vintages td:first-child { white-space: normal; }
+.mgm-losers td:first-child { white-space: normal; min-width: 110px; }
+.mgm-losers td { white-space: nowrap; }
+.mgm-why-table td { white-space: nowrap; }
+.mgm-cap { margin: 6px 0 0; }
+.s-legend i.khatch { height: 10px; width: 12px; background: repeating-linear-gradient(45deg, var(--s-text-faint) 0 1px, transparent 1px 4px); }
