@@ -340,21 +340,22 @@ function drawGroupedBars(container, opts) {
     t.textContent = fmt(v);
   }
   const gw = (W - pad.l - pad.r) / Math.max(1, groups.length);
-  const inner = Math.min(gw * 0.78, 190);
-  const bw = inner / 3 - 3;
+  const nb = Math.max(1, Math.max(0, ...groups.map((g) => g.bars.length)));
+  const inner = Math.min(gw * 0.82, 64 * nb);
+  const bw = inner / nb - 3;
   const stubH = Math.max(14, (H - pad.t - pad.b) * 0.12);
   groups.forEach((g, gi) => {
     const cx = pad.l + gw * gi + gw / 2;
     const x0 = cx - inner / 2;
     const grp = elB("g", { class: "s-gbar-group", "data-month": g.month || g.label }, svg);
     g.bars.forEach((b, bi) => {
-      const bx = x0 + bi * (inner / 3) + 1.5;
+      const bx = x0 + bi * (inner / nb) + 1.5;
       if (b.value == null) {
         elB("rect", { class: "s-gbar-stub", x: bx, y: y(0) - stubH, width: bw, height: stubH, fill: `url(#${pid})`, rx: 2 }, grp);
         return;
       }
       const top2 = y(Math.max(0, b.value));
-      elB("rect", { class: `s-gbar s-gbar-${bi + 1}`, x: bx, y: top2, width: bw, height: Math.max(1, y(0) - top2), rx: 2 }, grp);
+      elB("rect", { class: `s-gbar s-gbar-${b.k || bi + 1}`, x: bx, y: top2, width: bw, height: Math.max(1, y(0) - top2), rx: 2 }, grp);
       if (bw >= 16) { const t = elB("text", { class: "s-gbar-val", x: bx + bw / 2, y: top2 - 3, "text-anchor": "middle" }, grp); t.textContent = fmt(b.value); }
     });
     if (g.same != null) elB("circle", { class: "s-gdot", cx: cx, cy: y(g.same), r: 4.5 }, grp);
@@ -362,7 +363,7 @@ function drawGroupedBars(container, opts) {
     lab.textContent = g.label;
     const notYet = g.bars.filter((b) => b.value == null).map((b) => b.age);
     const ttl = elB("title", {}, grp);
-    ttl.textContent = `${g.name || g.label} buys: ` + g.bars.map((b) => `${b.age} days ${b.value == null ? "not yet" : fmt(b.value)}`).join(", ") + (g.same != null ? `; same mix, 30 days ${fmt(g.same)}` : "") + (notYet.length ? "" : "");
+    ttl.textContent = `${g.name || g.label} buys: ` + g.bars.map((b) => `${b.label || b.age + " days"} ${b.value == null ? "not yet" : fmt(b.value)}`).join(", ") + (g.same != null ? `; same mix, 30 days ${fmt(g.same)}` : "") + (notYet.length ? "" : "");
   });
   svg.dataset.groups = String(groups.length);
   return svg;
@@ -406,7 +407,84 @@ function drawStackedBars(container, opts) {
   svg.dataset.bars = String(labels.length);
   return svg;
 }
-__m["s-chart-bars.js"] = { drawGroupedBars, drawStackedBars };
+
+// B-2404 (v2.0.212): "Margin by when it sells" - one stacked bar per week of expected sales $ split by buy vintage (the next 13 weeks), the last
+// actual weeks to the left as margin points only, and one margin line over both (solid = actual, dashed = expected) on a right-hand % axis.
+// opts: { actual:[{label, marginPct}], weeks:[{label, total, parts:[{id,label,k,value}], marginPct}], moneyAxis:{top,ticks}, pctAxis:{min,max,ticks}, height, title }
+function drawPipelineBars(container, opts) {
+  if (container.clientWidth === 0 && !opts._retried && typeof requestAnimationFrame === "function") {
+    requestAnimationFrame(() => drawPipelineBars(container, { ...opts, _retried: true }));
+    return null;
+  }
+  const W = Math.max(300, container.clientWidth || 900);
+  const H = opts.height || 260;
+  const narrow = W < 520;
+  const pad = { l: narrow ? 40 : 50, r: narrow ? 36 : 46, t: 14, b: 30 };
+  const act = opts.actual || [], wk = opts.weeks || [];
+  const n = act.length + wk.length;
+  const top = (opts.moneyAxis && opts.moneyAxis.top) || 1;
+  const pa = opts.pctAxis || { min: 0, max: 20, ticks: [0, 5, 10, 15, 20] };
+  const money = opts.moneyFormat || ((v) => (v >= 1000 ? "$" + Math.round(v / 100) / 10 + "k" : "$" + Math.round(v)));
+  const y = (v) => pad.t + (1 - v / top) * (H - pad.t - pad.b);
+  const yp = (v) => pad.t + (1 - (v - pa.min) / ((pa.max - pa.min) || 1)) * (H - pad.t - pad.b);
+  const gw = (W - pad.l - pad.r) / Math.max(1, n);
+  const cx = (i) => pad.l + gw * i + gw / 2;
+  const bw = Math.max(5, Math.min(gw * 0.7, 34));
+  container.textContent = "";
+  const svg = elB("svg", { class: "s-chart s-chart-pipeline", viewBox: `0 0 ${W} ${H}`, width: "100%", role: "img", "aria-label": opts.title || "chart" }, container);
+  const ticksM = (opts.moneyAxis && opts.moneyAxis.ticks) || [0, top];
+  for (const v of ticksM) {
+    elB("line", { class: "grid", x1: pad.l, x2: W - pad.r, y1: y(v), y2: y(v) }, svg);
+    const t = elB("text", { class: "label", x: pad.l - 6, y: y(v) + 4, "text-anchor": "end" }, svg);
+    t.textContent = money(v);
+  }
+  for (const v of pa.ticks || []) {
+    const t = elB("text", { class: "label s-pipe-pct-label", x: W - pad.r + 6, y: yp(v) + 4, "text-anchor": "start" }, svg);
+    t.textContent = v + "%";
+  }
+  if (act.length) {
+    const zx = pad.l, zw = gw * act.length;
+    elB("rect", { class: "s-actual-zone", x: zx, y: pad.t, width: zw, height: H - pad.t - pad.b }, svg);
+    const t = elB("text", { class: "label s-zone-label", x: zx + 4, y: pad.t + 11 }, svg);
+    t.textContent = narrow ? "actual" : "actual margin";
+  }
+  wk.forEach((w, j) => {
+    const i = act.length + j;
+    let acc = 0;
+    const g = elB("g", { class: "s-pipe-week", "data-week": w.week || w.label }, svg);
+    for (const p of w.parts || []) {
+      const v = Math.max(0, Number(p.value) || 0);
+      if (v <= 0) continue;
+      elB("rect", { class: `s-vint s-vint-${p.k || 1}`, "data-vintage": p.id, x: cx(i) - bw / 2, y: y(acc + v), width: bw, height: Math.max(0.5, y(acc) - y(acc + v)) }, g);
+      acc += v;
+    }
+    const ttl = elB("title", {}, g);
+    ttl.textContent = `Week of ${w.label}: ${money(w.total || acc)} expected sales` + ((w.parts || []).filter((p) => p.value > 0).map((p) => `; ${p.label} ${money(p.value)}`).join("")) + (w.marginPct != null ? `; margin ${Number(w.marginPct).toFixed(1)}%` : "");
+  });
+  const every = Math.max(1, Math.ceil(n / Math.max(2, Math.floor((W - pad.l - pad.r) / 56))));
+  const labels = [...act.map((a) => a.label), ...wk.map((w) => w.label)];
+  labels.forEach((lab, i) => {
+    if (i % every !== 0 && !(i === n - 1 && (n - 1) % every >= Math.ceil(every * 0.6))) return;
+    const t = elB("text", { class: "label", x: cx(i), y: H - 10, "text-anchor": i === 0 ? "start" : i === n - 1 ? "end" : "middle" }, svg);
+    t.textContent = lab;
+  });
+  const seg = (vals, from, cls) => {
+    let d = "", pen = false;
+    vals.forEach((v, j) => { if (v == null) { pen = false; return; } d += `${pen ? "L" : "M"}${cx(from + j).toFixed(1)},${yp(v).toFixed(1)}`; pen = true; });
+    if (d) elB("path", { class: "s-line " + cls, d }, svg);
+  };
+  const aVals = act.map((a) => (a.marginPct == null ? null : Number(a.marginPct)));
+  const eVals = wk.map((w) => (w.marginPct == null ? null : Number(w.marginPct)));
+  seg(aVals, 0, "s-mark-2");
+  const lastA = aVals.length ? aVals[aVals.length - 1] : null;
+  const joined = lastA != null ? [lastA, ...eVals] : eVals;
+  seg(joined, lastA != null ? act.length - 1 : act.length, "s-mark-1 dash");
+  [[aVals, 0], [eVals, act.length]].forEach(([vals, from]) => vals.forEach((v, j) => { if (v != null) elB("circle", { class: "s-pipe-dot", cx: cx(from + j), cy: yp(v), r: 2.4 }, svg); }));
+  svg.dataset.weeks = String(wk.length);
+  svg.dataset.actual = String(act.length);
+  return svg;
+}
+__m["s-chart-bars.js"] = { drawGroupedBars, drawStackedBars, drawPipelineBars };
 })();
 root.ShopperChart = Object.freeze(Object.assign({}, ...Object.values(__m)));
 })(self);
