@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.216";
+const APP_BUILD = "v2.0.217";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -1768,6 +1768,13 @@ function renderBuylist(bl) {
   if (keepPlace) window.ShopperKeepPlace.restore(keepPlace, { focus: false }); // B-2407
 }
 
+// B-2436: "Kept from Thu 11/26 - stays until bought" (same words as lib/buylist-keep.js keptChipText; the phone has no imports)
+function keptChipWords(keptFrom) {
+  const n = Number(keptFrom);
+  if (!(n > 0)) return "";
+  const day = new Intl.DateTimeFormat("en-US", { timeZone: "America/Chicago", weekday: "short", month: "numeric", day: "numeric" }).format(new Date(n)).replace(",", "");
+  return `Kept from ${day} - stays until bought`;
+}
 // B-2328: the "Tracked lead · est. ROI 34% · margin 15% · $3.12/unit at $19.97" chip words (same as lib/buylist-lead-fill.js leadChipText; the phone has no imports)
 function leadChipWords(e) {
   if (!e || typeof e !== "object") return "";
@@ -1817,7 +1824,8 @@ function buylistCard(i) {
     `${statusText ? `<span class="l-status">${statusText}</span>` : ""}${okBadge}</div>` +
     `<div class="l-title">${escapeHtml(i.title)}</div>` +
     `${i.vacChip ? `<div class="l-meta vac-chip">${escapeHtml(i.vacChip)}</div>` : ""}` + // B-2179: Walmart vacation mode chip
-    `${leadChipWords(i.leadEstimate) ? `<div class="bl-lead-chip">${escapeHtml(leadChipWords(i.leadEstimate))}</div>` : ""}`; // B-2328: a line sent from Tracked Leads
+    `${leadChipWords(i.leadEstimate) ? `<div class="bl-lead-chip">${escapeHtml(leadChipWords(i.leadEstimate))}</div>` : ""}` + // B-2328: a line sent from Tracked Leads
+    `${keptChipWords(i.keptFrom) ? `<div class="bl-lead-chip bl-kept-chip">${escapeHtml(keptChipWords(i.keptFrom))}</div>` : ""}`; // B-2436: kept until bought
   head.appendChild(headText);
   row.appendChild(head);
 
