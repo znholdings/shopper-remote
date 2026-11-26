@@ -105,4 +105,5 @@
 .src-miss { display: none !important; }
 /* B-2296: "90-day avg (9 d old)" wraps in its first column. */
 .pg-lt-scen tbody th { white-space: normal; overflow-wrap: anywhere; }
+.lt-brandwarn, .pg-brandwarn { display: inline-block; align-self: flex-start; background: var(--s-red-bg); color: var(--s-red-ink); border: 1px solid var(--s-red); border-radius: var(--s-r-pill); padding: 2px 10px; margin: 0 0 var(--s-sp2); font-size: var(--s-t2, 0.875rem); font-weight: 800; overflow-wrap: anywhere; } /* B-2410: Amazon brand "Generic" on a Tracked Lead - loud, first on the row */
 [hidden] { display: none !important; }

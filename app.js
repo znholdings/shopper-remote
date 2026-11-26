@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.212";
+const APP_BUILD = "v2.0.213";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -1634,6 +1634,8 @@ function renderBuylist(bl) {
     els.buylistApprovedFill.classList.toggle("pc-over", overCents < 0);
   }
 
+  // B-2407: keep the reader's place across the rebuild (the page scrolls on the window; a tapped card keeps its spot).
+  const keepPlace = window.ShopperKeepPlace ? window.ShopperKeepPlace.capture(els.buylistItems, ".line[data-asin]", "asin") : null;
   els.buylistItems.innerHTML = "";
 
   // P-41: "I want confirmed, contingency, and old meat divided up into
@@ -1709,6 +1711,7 @@ function renderBuylist(bl) {
     for (const i of ungrouped) sectionWrap.appendChild(buylistCard(i));
     els.buylistItems.appendChild(sectionWrap);
   }
+  if (keepPlace) window.ShopperKeepPlace.restore(keepPlace, { focus: false }); // B-2407
 }
 
 // B-2328: the "Tracked lead · est. ROI 34% · margin 15% · $3.12/unit at $19.97" chip words (same as lib/buylist-lead-fill.js leadChipText; the phone has no imports)

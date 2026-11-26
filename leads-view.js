@@ -8,15 +8,16 @@
   var pane = doc.getElementById("leadsPane");
   if (!P || !pane) return;
   var U = P.ui;
-  if (typeof REMOTE_LABELS !== "undefined") Object.assign(REMOTE_LABELS, { leadsAdd: "Tracked Leads: add", leadsSetCost: "Tracked Leads: cost", leadsSetSalePrice: "Tracked Leads: sale price", leadsUntrack: "Tracked Leads: untrack", leadsSendToBuylist: "Tracked Leads: send to Buylist", leadsRefreshNow: "Tracked Leads: refresh now" });
+  if (typeof REMOTE_LABELS !== "undefined") Object.assign(REMOTE_LABELS, { leadsAdd: "Tracked Leads: add", leadsSetCost: "Tracked Leads: cost", leadsSetSalePrice: "Tracked Leads: sale price", leadsUntrack: "Tracked Leads: untrack", leadsSendToBuylist: "Tracked Leads: send to Buylist", leadsUnarchive: "Tracked Leads: unarchive", leadsRefreshNow: "Tracked Leads: refresh now" });
 
   var data = null;
   var sig = "";
   var sort = "score";
   var flt = { minRoi: null, offers: "", hideGated: false, hideAmazon: false };
   var f = {};
+  var tab = "active"; function split() { return !!(data && data.counts && Array.isArray(data.archived)); } function arch() { return split() && tab === "archived"; } // B-2411: Active / Archived tabs
   var SB = root.ShopperSourcingSearch; // B-2288
-  var sbar = SB ? SB.bar(pane, { units: "#leadsPane .pg-ld-row", placeholder: "ASIN, brand, product, store", cut: function () { return !!(data && data.total > (data.rows || []).length); } }) : null;
+  var sbar = SB ? SB.bar(pane, { units: "#leadsPane .pg-ld-row", placeholder: "ASIN, brand, product, store", cut: function () { return !!(data && (split() ? (arch() ? data.counts.archived > (data.archived || []).length : data.counts.active > (data.rows || []).length) : data.total > (data.rows || []).length)); } }) : null;
 
   var SHOPNAME = { walmart: "Walmart", samsclub: "Sam's Club", target: "Target", homedepot: "Home Depot" };
   // B-2290: the words of lib/lead-blank-words.js - a pinned copy (the phone cannot import a module); test/v20196-b2290-*.test.mjs keeps the two equal
@@ -46,7 +47,7 @@
     newest: function (a, b) { return (b.addedAt || 0) - (a.addedAt || 0); }
   };
   function visible() {
-    return (data.rows || []).filter(function (r) {
+    return ((arch() ? data.archived : data.rows) || []).filter(function (r) {
       if (flt.minRoi != null && !(r.roiBB != null && r.roiBB >= flt.minRoi)) return false;
       if (flt.offers === "falling" && !(r.offersTrend30 && r.offersTrend30.dir === "down")) return false;
       if (flt.offers === "rising" && !(r.offersTrend30 && r.offersTrend30.dir === "up")) return false;
@@ -65,11 +66,11 @@
     if (r.fbaCount != null || r.fbmCount != null) bits.push("FBA " + nz(r.fbaCount) + " / FBM " + nz(r.fbmCount));
     if (r.amazon) bits.push("Amazon on listing" + (r.amazonShare != null ? " (wins " + r.amazonShare + "% of the Buy Box)" : ""));
     bits.push(r.gated === true ? "gated" : r.gated === false ? "ungated" : "gating unknown");
-    (r.tags || []).forEach(function (x) { bits.push(x); });
+    (r.tags || []).forEach(function (x) { if (x !== "Generic brand") bits.push(x); }); // B-2410: it is the red pill at the top of the card
     if (r.scoreNote) bits.push(r.scoreNote); // B-2290
     if (r.blocked) bits.push("on your Blacklist");
     if (r.inCatalog) bits.push("now in your catalog");
-    if (r.sentAt) bits.push("On buylist ×" + (r.sentQty || "?"));
+    if (r.sentAt) bits.push("On buylist ×" + (r.sentQty || "?") + ", sent " + new Date(r.sentAt).toLocaleDateString("en-US", { timeZone: "America/Chicago", month: "short", day: "numeric" })); // B-2411
     return bits;
   }
   function factsLine(r) {
@@ -120,6 +121,7 @@
   function card(r) {
     var c = U.el("div", "line pg-card pg-ld-row" + (r.blocked ? " pg-ld-off" : ""));
     c.setAttribute("data-search", [r.brand, r.url, r.retailer, SHOPNAME[r.retailer]].filter(Boolean).join(" ")); // B-2288: hidden search words
+    if ((r.tags || []).indexOf("Generic brand") >= 0) c.appendChild(U.el("div", "pg-brandwarn", "⚠ Generic brand on Amazon")); // B-2410: loud, first on the card
     var t = U.el("div", "");
     if (r.score != null) t.appendChild(U.el("b", "pg-cp-score", r.score + " "));
     t.appendChild(doc.createTextNode(String(r.title || r.asin)));
@@ -154,6 +156,7 @@
     var psv = savedSpan(r.asin, "price");
     var sp = U.btn("Save price", "mini-btn", function () { var v = sale.value.trim(); U.send("leadsSetSalePrice", { asin: r.asin, salePrice: v || null }, sp).then(function (res) { flash(psv, r.asin, "price", res, /^[\s$,]*$/.test(v)); U.say(res, /^[\s$,]*$/.test(v) ? "Price cleared" : "Price saved"); }); });
     acts.appendChild(sale); acts.appendChild(sp); acts.appendChild(psv);
+    if (arch()) { var ua = U.btn("Unarchive", "mini-btn", function () { U.send("leadsUnarchive", { asin: r.asin }, ua).then(function (res) { U.say(res, "Unarchived - back on Active"); }); }); acts.appendChild(ua); } else { // B-2411: an archived card offers Unarchive instead of Send
     var sb = U.btn("Send to Buylist", "mini-btn", function () {
       if (sendingNow[r.asin]) return; // B-2327: never two at once - it makes an Amazon offer
       var q = root.prompt ? root.prompt("How many of " + r.asin + " for the Buylist? (1 to 9999)", String(r.suggest && r.suggest.qty ? r.suggest.qty : 1)) : null;
@@ -172,6 +175,7 @@
     sb.disabled = !!r.blocked || !!sendingNow[r.asin];
     if (sendingNow[r.asin]) sb.textContent = "Working...";
     acts.appendChild(sb);
+    }
     var ut = U.btn("Untrack", "danger-btn", function () { U.confirmSend("Stop tracking " + r.asin + "?", "leadsUntrack", { asin: r.asin }, ut, "Untracked"); });
     acts.appendChild(ut);
     c.appendChild(acts);
@@ -215,7 +219,7 @@
     if (!data) { pane.appendChild(U.el("p", "muted small pg-sec", "Tracked Leads load from the computer...")); return; }
     var st = data.status || {};
     var head = U.section("");
-    head.appendChild(U.el("p", "muted small", (data.total || 0) + " leads · last read " + (st.lastRunAt ? new Date(st.lastRunAt).toLocaleString() : "never") + " · next " + (st.nextSlot || "-") + " Central · " + (st.tokensToday || 0) + " of " + (st.cap || 0) + " Keepa tokens used today"));
+    head.appendChild(U.el("p", "muted small", (split() ? data.counts.active + " active · " + data.counts.archived + " archived" : (data.total || 0) + " leads") + " · last read " + (st.lastRunAt ? new Date(st.lastRunAt).toLocaleString() : "never") + " · next " + (st.nextSlot || "-") + " Central · " + (st.tokensToday || 0) + " of " + (st.cap || 0) + " Keepa tokens used today"));
     if (st.noCredentials) head.appendChild(U.el("p", "small pg-cp-why", "Amazon is not connected on the main computer - the live Buy Box and offers are not being read."));
     if (st.keepaUsedUp) head.appendChild(U.el("p", "small pg-cp-why", "Keepa numbers are from " + (st.keepaAt ? new Date(st.keepaAt).toLocaleString() : "an earlier read") + " - today's lead tokens are used."));
     var rb = U.btn("Read leads now", "mini-btn", function () { U.send("leadsRefreshNow", {}, rb).then(function (res) { U.say(res, "Started"); }); });
@@ -225,9 +229,15 @@
     var chipsNode = chips();
     pane.appendChild(chipsNode);
     if (sbar) sbar.reattach(chipsNode); // B-2288
+    if (split()) { // B-2411: Active / Archived
+      var trow = U.el("div", "pg-row");
+      [["active", "Active (" + data.counts.active + ")"], ["archived", "Archived (" + data.counts.archived + ")"]].forEach(function (t) { trow.appendChild(U.btn(t[1], tab === t[0] ? "primary-btn" : "mini-btn", function () { tab = t[0]; draw(); })); });
+      pane.appendChild(trow);
+    }
     var rows = visible();
-    var s = U.section("Leads (" + rows.length + (rows.length !== (data.total || 0) ? " of " + data.total : "") + ")");
-    if (!rows.length) s.appendChild(U.el("p", "muted small", (data.total ? "No lead matches these filters." : "No leads yet. Add one above, or press + on a Competitor ASINs row.")));
+    var of = split() ? (arch() ? data.counts.archived : data.counts.active) : (data.total || 0);
+    var s = U.section((arch() ? "Archived" : "Leads") + " (" + rows.length + (rows.length !== of ? " of " + of : "") + ")");
+    if (!rows.length) s.appendChild(U.el("p", "muted small", arch() ? (data.counts.archived ? "No archived lead matches these filters." : "Nothing archived yet - leads you send to the Buylist land here.") : (of ? "No lead matches these filters." : split() && data.counts.archived ? "No active leads - every lead has been sent to the Buylist (see Archived)." : "No leads yet. Add one above, or press + on a Competitor ASINs row.")));
     rows.forEach(function (r) { s.appendChild(card(r)); });
     pane.appendChild(s);
   }

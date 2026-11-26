@@ -74,8 +74,9 @@
     if (q.titleDoubt) wrap.appendChild(el("p", "prp-doubt", q.titleDoubt));
     if (q.landedNote) wrap.appendChild(el("p", "prp-doubt", q.landedNote));
     wrap.appendChild(el("p", "prp-help", store
-      ? "Pieces = Amazon units in ONE " + store + " checkout unit of this listing (4/3 is fine). Saving also sets columns C / M in the Source Database to match."
-      : "Drag (or ▲▼) into buying order. Pieces = Amazon units in ONE Walmart checkout unit (4/3 is fine). One pack per Walmart order. A box is never split: a smaller pack on an Amazon multipack, or a bigger pack on a single, comes pre-marked never."));
+      ? "The box = sellable Amazon units you get from 1 " + store + " unit (a fraction is fine). Example: a 5-pack sold as a 5-pack = 1; a 2-pack made from a 5-pack = 5/2. Saving also sets columns C / M in the Source Database to match."
+      : "Drag (or ▲▼) into buying order. The box = sellable Amazon units from 1 Walmart unit of that pack (a 5-pack sold as a 5-pack = 1; a 2-pack made from a 5-pack = 5/2). One pack per Walmart order. A box is never split: a smaller pack on an Amazon multipack, or a bigger pack on a single, comes pre-marked never."));
+    if (store && q.prefillWhy) wrap.appendChild(el("p", "prp-help prp-prefill-why", q.prefillWhy)); // B-2409: where the box's start came from
     const list = el("ol", "prp-list");
     wrap.appendChild(list);
     const renumber = () => {
@@ -104,9 +105,11 @@
       const pieces = el("input", "prp-pieces");
       pieces.type = "text";
       pieces.inputMode = "decimal";
-      pieces.value = entry.pieces || (v && v.suggested) || "1";
-      pieces.setAttribute("aria-label", "pieces for " + label);
+      pieces.value = entry.pieces || (v && v.suggested) || (store ? "" : "1"); // B-2409: a store row with nothing known stays blank
+      const pieceWords = "Sellable Amazon units per 1 " + (store || "Walmart") + " unit";
+      pieces.setAttribute("aria-label", store ? pieceWords : pieceWords + " - " + label);
       pieces.addEventListener("input", () => pieces.classList.toggle("prp-bad", !parsePieces(pieces.value)));
+      li.appendChild(el("small", "prp-pieces-word", pieceWords)); // B-2409: says what the box means
       li.appendChild(pieces);
       const nl = el("label", "prp-never");
       const never = el("input", "prp-never-box");
@@ -225,7 +228,7 @@
         never: !!r.querySelector(".prp-never-box").checked,
       }));
       const bad = entries.find((e) => !parsePieces(e.pieces));
-      if (bad) return say('"' + (bad.pieces || "(blank)") + '" is not a pieces number - use a whole number or a fraction like 4/3.');
+      if (bad) return say(bad.pieces ? '"' + bad.pieces + '" is not a pieces number - use a whole number or a fraction like 4/3.' : "Type the sellable Amazon units per 1 " + (store || "Walmart") + " unit first (e.g. 1, or 5/2)."); // B-2409
       say("");
       save.disabled = true;
       answer(JSON.stringify({ askedAt: q.askedAt, entries }));

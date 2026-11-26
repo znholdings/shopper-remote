@@ -239,6 +239,7 @@ const SHARED_SETTINGS_SPEC = Object.freeze([
   S({ key: "shopperQtyV3Params", group: "buying", label: "Quantity v3", kind: "object", phone: [ // B-2167 (v2.0.172): the slow-seller floor's two numbers
     { path: "slowCoverExtraDays", label: "Slow sellers: buy the minimum when cover is under lead + (days)", kind: "number", min: 0, max: 60, step: 1, placeholder: "0" },
     { path: "slowMinPer30", label: "Slow sellers: only when they sell at least (per 30 in-stock days)", kind: "number", min: 0, max: 60, step: 1, placeholder: "4" },
+    { path: "shortWindowMinDays", label: "3- and 7-day sales: count a window only with at least (in-stock days)", kind: "number", min: 0, max: 7, step: 1, placeholder: "2" }, // B-2399
   ] }),
   // B-1740 / B-1741 (v2.0.127): Ranking v3 numbers and the adjusted list's multiple (3x today's goal).
   S({ key: "shopperRankV3Params", group: "buying", label: "Ranking v3", kind: "object" }),
