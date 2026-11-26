@@ -77,8 +77,19 @@
       d.append(h);
       if (c.ready && c.key) d.append(el("div", "cfm-stat-value mgm-key", c.key), el("div", "cfm-stat-sub", c.keyLabel));
       d.append(el("p", c.ready ? "cfm-note cfm-keep mgm-sentence" : "cfm-note mgm-sentence", c.sentence));
+      if (c.note) d.append(el("p", "cfm-note cfm-keep mgm-note", c.note));
+      if (c.panels) {
+        const grid = el("div", "mgm-panels cfm-keep");
+        for (const pn of c.panels) {
+          const pd = el("div", "mgm-panel");
+          pd.append(el("h4", "mgm-panel-head", pn.title));
+          for (const r of pn.rows) { const row = el("div", "mgm-panel-row"); row.append(el("span", "mgm-panel-k", r[0]), el("span", "mgm-panel-v" + (/^too early/.test(r[1]) ? " mgm-early" : ""), r[1])); pd.append(row); }
+          grid.append(pd);
+        }
+        d.append(grid);
+      }
       const extra = [];
-      if (c.table) { const tw = el("div", "mgm-table-wrap cfm-keep"); tw.append(miniTable(c.table.head, c.table.rows, c.id === "needed" ? "mgm-needed-table" : "mgm-why-table")); extra.push(tw); }
+      if (c.table) { const tw = el("div", "mgm-table-wrap cfm-keep"); tw.append(miniTable(c.table.head, c.table.rows, c.id === "needed" ? "mgm-needed-table" : c.tableKind === "bridge" ? "mgm-why-table mgm-bridge-table" : "mgm-why-table")); extra.push(tw); }
       if (c.sentence && c.sentence.length > 130) extra.push(el("p", "cfm-note cfm-keep", c.sentence));
       for (const t of c.more || (c.sub ? [c.sub] : [])) extra.push(el("p", "cfm-note cfm-keep", t));
       if (extra.length) {
@@ -100,8 +111,8 @@
         const tr = tb.insertRow();
         tr.dataset.row = r.id;
         tr.insertCell().textContent = r.label;
-        const v = (x) => (x == null ? "-" : r.unit === "$" ? "$" + Math.round(x) : Number(x).toFixed(1) + "%");
-        const c1 = tr.insertCell(); c1.className = "num"; c1.textContent = v(r.last30);
+        const v = (x, w) => (x == null ? (r[w + "Text"] || "-") : r.unit === "$" ? "$" + Math.round(x) : Number(x).toFixed(1) + "%");
+        const c1 = tr.insertCell(); c1.className = "num"; c1.textContent = v(r.last30, "last30");
         const c2 = tr.insertCell(); c2.className = "num " + (r.change > 0 ? "mgm-up" : r.change < 0 ? "mgm-down" : ""); c2.textContent = r.change == null ? "-" : (r.change > 0 ? "+" : r.change < 0 ? "-" : "") + (r.unit === "$" ? "$" + Math.abs(Math.round(r.change)) : Math.abs(r.change).toFixed(1) + " pts");
         const c3 = tr.insertCell(); c3.className = r.trend === "rising" ? "mgm-up" : r.trend === "falling" ? "mgm-down" : ""; c3.textContent = r.word || "";
       }
@@ -174,13 +185,18 @@
     } else pc.append(el("p", "cfm-note", block.pathNote || ""));
     host.append(pc);
     // 4. Picking bars (every month >= 50% scored; the sellable-age bar when the model has it)
-    const kc = chartCard("Profit per $100 bought, by buy month", tk.picking);
+    const kc = chartCard(block.picking && block.picking.sold ? "Margin on what has sold, by buy month" : "Profit per $100 bought, by buy month", tk.picking);
     if (block.picking && block.picking.groups && C && C.drawGroupedBars) {
       const box = el("div", "cfm-chart"); box.id = "mgmPicking";
       const groups = block.picking.groups;
       const sell = groups.some((g) => g.bars.some((b) => b.kind === "sellable"));
-      kc.append(box, legendOf([[sell ? "kgb4 bar" : "k1 bar", sell ? "30 days on sale" : "30 days"], ["klight bar", "60 days"], ["khatch", "not yet"]]));
-      draws.push(() => C.drawGroupedBars(box, { groups, yFormat: (v) => "$" + Math.round(v), height: 210, title: "earned per $100 by buy month" }));
+      if (block.picking.sold) {
+        kc.append(box, legendOf([["kgb4 bar", "margin on what has sold"], ["khatch", "too early"]]));
+        draws.push(() => C.drawGroupedBars(box, { groups, yFormat: (v) => Math.round(v * 10) / 10 + "%", height: 210, title: "margin on what has sold by buy month" }));
+      } else {
+        kc.append(box, legendOf([[sell ? "kgb4 bar" : "k1 bar", sell ? "30 days on sale" : "30 days"], ["klight bar", "60 days"], ["khatch", "not yet"]]));
+        draws.push(() => C.drawGroupedBars(box, { groups, yFormat: (v) => "$" + Math.round(v), height: 210, title: "earned per $100 by buy month" }));
+      }
     } else kc.append(el("p", "cfm-note", block.pickingNote || ""));
     host.append(kc);
     // 5. Share of spend

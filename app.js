@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.215";
+const APP_BUILD = "v2.0.216";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -186,6 +186,8 @@ function commandTarget(name, payload, follow) {
   if (lp && lp.deviceId && Array.isArray(lp.commands) && lp.commands.includes(name)) return String(lp.deviceId);
   return deviceId;
 }
+// B-2427: commands whose issued_at is left to the relay (Supabase default now()) - see sendCommand.
+const SERVER_STAMPED_COMMANDS = new Set(["amazonAssistBooked"]);
 async function sendCommand(name, payload = {}, opts = {}) {
   if (!deviceId) return;
   // B-843 (v2.0.22): `quiet` = a background sync (Receive counts) - no "Sent" toast, no progress pill,
@@ -201,7 +203,9 @@ async function sendCommand(name, payload = {}, opts = {}) {
       device_id: commandTarget(name, payload, !!(opts && opts.followPick)),
       name,
       payload,
-      issued_at: new Date().toISOString(),
+      // B-2427: a command whose life is shorter than a phone clock's possible drift is stamped by the relay (the column's default, server time) - the phone's
+      // own clock running > 2 min behind made every Amazon "I bought it" "too old" on arrival. Its freshness is also tied to the question (azaAskedAt).
+      ...(SERVER_STAMPED_COMMANDS.has(name) ? {} : { issued_at: new Date().toISOString() }),
       status: "pending",
       signature: null,
       role: "active",
@@ -1644,6 +1648,9 @@ function renderBuylist(bl) {
   const fp = JSON.stringify(bl);
   if (fp === lastRenderedBuylistFp) return;
   lastRenderedBuylistFp = fp;
+  // B-2407 / B-2427: keep the reader's place across the rebuild (the page scrolls on the window; a tapped card keeps its spot) - taken BEFORE the meta line,
+  // the Approved line and its bar above the list change, so their own height change is put back too.
+  const keepPlace = window.ShopperKeepPlace ? window.ShopperKeepPlace.capture(els.buylistItems, ".line[data-asin]", "asin") : null;
 
   els.buylistMeta.textContent =
     `${bl.itemCount} line(s)${bl.truncated ? ` (showing first ${(bl.items || []).length})` : ""}` +
@@ -1683,8 +1690,6 @@ function renderBuylist(bl) {
     els.buylistApprovedFill.classList.toggle("pc-over", overCents < 0);
   }
 
-  // B-2407: keep the reader's place across the rebuild (the page scrolls on the window; a tapped card keeps its spot).
-  const keepPlace = window.ShopperKeepPlace ? window.ShopperKeepPlace.capture(els.buylistItems, ".line[data-asin]", "asin") : null;
   els.buylistItems.innerHTML = "";
 
   // P-41: "I want confirmed, contingency, and old meat divided up into

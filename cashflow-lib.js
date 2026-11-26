@@ -363,7 +363,7 @@ function drawGroupedBars(container, opts) {
     lab.textContent = g.label;
     const notYet = g.bars.filter((b) => b.value == null).map((b) => b.age);
     const ttl = elB("title", {}, grp);
-    ttl.textContent = `${g.name || g.label} buys: ` + g.bars.map((b) => `${b.label || b.age + " days"} ${b.value == null ? "not yet" : fmt(b.value)}`).join(", ") + (g.same != null ? `; same mix, 30 days ${fmt(g.same)}` : "") + (notYet.length ? "" : "");
+    ttl.textContent = `${g.name || g.label} buys: ` + g.bars.map((b) => `${b.label || b.age + " days"} ${b.value == null ? (b.nullText || "not yet") : fmt(b.value)}`).join(", ") + (g.same != null ? `; same mix, 30 days ${fmt(g.same)}` : "") + (notYet.length ? "" : "");
   });
   svg.dataset.groups = String(groups.length);
   return svg;

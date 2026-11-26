@@ -177,7 +177,10 @@
     const openSkus = new Set(arr(obj(ctx).openSkus || curOpen));
     const picked = new Set();
     const itemOf = (r) => ({ sku: clip(r.sku, 80), asin: clip(r.asin, 10), title: clip(r.title, 120) });
-    const whyNot = (r) => (G ? G.lprWhy({ sku: r.sku, asin: r.asin, units: r.units }, { openSkus }) : "not ready");
+    // B-2392: Main refuses a phone Close & Delete without the read time of the list the phone showed (B-2356) - a list with none is shown
+    // with every box and button off and this reason, instead of a press that comes back "reload the phone page".
+    const noReadAt = Number(p.at) > 0 ? "" : "no read time on this list yet - wait for Main's next read";
+    const whyNot = (r) => noReadAt || (G ? G.lprWhy({ sku: r.sku, asin: r.asin, units: r.units }, { openSkus }) : "not ready");
     const shownRows = [...blocked, ...errors].slice(0, 60).filter((r) => r && r.sku);
     const sendRemove = async (rows, anchor) => {
       const items = rows.map(itemOf);
@@ -220,6 +223,7 @@
     });
     bar.append(all, bulk);
     card.appendChild(bar);
+    if (noReadAt) card.appendChild(el("div", "muted small ops-lp-why", "Close & Delete is off: " + noReadAt + ".")); // B-2392: said once, not on every row
     card.appendChild(typedBox);
     const group = (rows, title) => {
       if (!rows.length) return;
@@ -240,7 +244,7 @@
         const why = whyNot(r);
         const del = btn("Close & Delete Listing", "ops-lp-del");
         del.disabled = !!why;
-        if (why) line.appendChild(el("div", "muted small ops-lp-why", "Cannot close & delete: " + clip(why, 80)));
+        if (why && why !== noReadAt) line.appendChild(el("div", "muted small ops-lp-why", "Cannot close & delete: " + clip(why, 80)));
         const cb = el("input", "ops-lp-cb"); cb.type = "checkbox"; cb.dataset.sku = clip(r.sku, 80); cb.disabled = !!why;
         cb.setAttribute("aria-label", "Select " + clip(r.title || r.sku, 60) + " for Close & Delete");
         cb.addEventListener("change", () => { if (cb.checked) picked.add(r.sku); else picked.delete(r.sku); sync(); });

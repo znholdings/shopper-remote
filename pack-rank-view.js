@@ -18,7 +18,11 @@
   }
   const money = (n) => (Number(n) > 0 ? "$" + Number(n).toFixed(2) : "");
   function parsePieces(input) {
-    const t = String(input == null ? "" : input).trim().replace(/\s+/g, "");
+    // B-2391: a space BETWEEN digits is never dropped ("1 1/2" was read 11/2, "1/2 4" 1/24). A mixed number "W N/D" (0 < N < D) is W + N/D,
+    // spaces round the "/" go, any other space leaves the text unreadable (null - never a guess). The lib, Buy Queue pop-up and phone copies agree.
+    const t0 = String(input == null ? "" : input).trim();
+    const mx = t0.match(/^(\d{1,4})\s+(\d{1,4})\s*\/\s*(\d{1,3})$/);
+    const t = mx ? (Number(mx[2]) > 0 && Number(mx[2]) < Number(mx[3]) ? `${Number(mx[1]) * Number(mx[3]) + Number(mx[2])}/${Number(mx[3])}` : "x") : t0.replace(/\s*\/\s*/g, "/");
     let m = t.match(/^(\d{1,4})\/(\d{1,3})$/);
     if (m) {
       let n = Number(m[1]);

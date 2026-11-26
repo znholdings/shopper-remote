@@ -59,3 +59,12 @@
 .mgm-why-table td { white-space: nowrap; }
 .mgm-cap { margin: 6px 0 0; }
 .s-legend i.khatch { height: 10px; width: 12px; background: repeating-linear-gradient(45deg, var(--s-text-faint) 0 1px, transparent 1px 4px); }
+/* B-2433 (v2.0.216): lead-card second line, the bridge table, Better buy choices as two answers side by side */
+.mgm-note { margin: 4px 0 0; font-size: 13px; color: var(--s-text-2); line-height: 1.35; }
+.mgm-bridge-table tbody tr:first-child td, .mgm-bridge-table tbody tr:last-child td { font-weight: 700; }
+.mgm-panels { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px; }
+.mgm-panel { min-width: 0; display: grid; gap: 2px; align-content: start; }
+.mgm-panel-head { margin: 0 0 4px; font-size: 12px; font-weight: 700; color: var(--s-text-muted); }
+.mgm-panel-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px; font-size: 12px; border-bottom: 1px solid var(--s-line-soft); padding: 2px 0; }
+.mgm-panel-v { text-align: right; font-variant-numeric: tabular-nums; }
+.mgm-panel-v.mgm-early { flex-basis: 100%; color: var(--s-text-muted); font-style: italic; }
