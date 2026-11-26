@@ -325,6 +325,10 @@ const SHARED_SETTINGS_SPEC = Object.freeze([
   S({ key: "shopperCompLimitsMove", group: "sourcing", label: "Competitors: the 7 to 25 sellers / 300 to 500 tokens move (marker)", kind: "object" }), // B-2221 review: shared, so a role switch or a not-yet-updated computer cannot re-run or hide it
   S({ key: "shopperLeadKeepaDailyCap", group: "sourcing", label: "Keepa tokens a day for Tracked Leads", kind: "number", min: 50, max: 3000, step: 10 }), // B-2103 (v2.0.162)
   S({ key: "shopperLeadTestDays", group: "sourcing", label: "First buy: days of sales for a new lead", kind: "number", min: 7, max: 30, step: 1 }), // B-2289
+  // B-2413 (v2.0.214): the suggested Desired Sale Price (lib/sale-price-suggest.js) - three shared values, shown on the phone too
+  S({ key: "shopperDspPercentile", group: "sourcing", label: "Suggested sale price: Buy Box percentile", kind: "number", min: 50, max: 95, step: 5, def: 90, phone: true, note: "Which point of the last 90 days' Buy Box (in-stock days) to aim at - 90 = the higher end." }),
+  S({ key: "shopperDspBumpPct", group: "sourcing", label: "Suggested sale price: bump %", kind: "number", min: 0, max: 25, step: 0.5, def: 5, phone: true, unit: "%", note: "Added on top of that price, spikes included." }),
+  S({ key: "shopperDspFbmPremiumPct", group: "sourcing", label: "Suggested sale price: % over the lowest offer (no Buy Box)", kind: "number", min: 0, max: 50, step: 0.5, def: 12.5, phone: true, unit: "%", note: "Used when there are fewer than 14 Buy Box days in 90." }),
   // B-2271 (v2.0.195): inbound FBA shipping, $ per pound of Keepa package weight, counted as a cost of every Amazon unit in the source-match / Leads profit. One shared value (settings row); the phone shows it too.
   S({ key: "shopperInboundPerLb", group: "sourcing", label: "Inbound FBA shipping ($ / lb)", kind: "number", min: 0, max: 10, step: 0.05, def: 0.75, phone: true, unit: "$", note: "Counted as a cost of every Amazon unit in the Leads profit. 0 = off." }),
   // ---- Appearance / misc -------------------------------------------------
@@ -366,7 +370,7 @@ const SHARED_SETTINGS_SPEC = Object.freeze([
 ]);
 
 const SETTINGS_GROUPS = Object.freeze([
-  ["buying", "Buying"], ["pricing", "Pricing"], ["pipeline", "Pipeline"], ["receive", "Receive"], ["labels", "Labels"], ["books", "Books"], ["appearance", "Appearance"],
+  ["buying", "Buying"], ["pricing", "Pricing"], ["sourcing", "Sourcing"], ["pipeline", "Pipeline"], ["receive", "Receive"], ["labels", "Labels"], ["books", "Books"], ["appearance", "Appearance"],
 ]);
 
 // Every storage key one entry owns (the pair's second key too).

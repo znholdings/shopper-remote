@@ -81,5 +81,5 @@
     t.appendChild(tb);
     return t;
   }
-  root.ShopperLeadBand = { MARGIN_SCALE: MARGIN_SCALE, ROI_SCALE: ROI_SCALE, barFill: barFill, pctText: pctText, band: band, scenarioTable: scenarioTable, rowsTable: rowsTable };
+  root.ShopperLeadBand = { MARGIN_SCALE: MARGIN_SCALE, metric: metric, ROI_SCALE: ROI_SCALE, barFill: barFill, pctText: pctText, band: band, scenarioTable: scenarioTable, rowsTable: rowsTable };
 })(self);

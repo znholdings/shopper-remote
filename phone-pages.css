@@ -95,7 +95,7 @@
 .pg-ld-meta, .pg-ld-facts, .pg-ld-offer { overflow-wrap: anywhere; min-width: 0; }
 .pg-ld-row .pg-lt-scen { margin: 4px 0; }
 /* B-2289 / B-2290: the suggested first-buy line + its Why lines; the "which price" line under the band. */
-.pg-ld-sug, .pg-ld-scen { overflow-wrap: anywhere; min-width: 0; }
+.pg-ld-sug, .pg-ld-dsp, .pg-ld-scen { overflow-wrap: anywhere; min-width: 0; }
 .pg-ld-sug-why { margin: 2px 0 0; padding-left: 18px; }
 /* B-2288: the search box on the Tracked Leads + Competitor ASINs pages; a row the search does not match is hidden. */
 .src-search { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; min-width: 0; margin: 8px 0; }
@@ -106,4 +106,33 @@
 /* B-2296: "90-day avg (9 d old)" wraps in its first column. */
 .pg-lt-scen tbody th { white-space: normal; overflow-wrap: anywhere; }
 .lt-brandwarn, .pg-brandwarn { display: inline-block; align-self: flex-start; background: var(--s-red-bg); color: var(--s-red-ink); border: 1px solid var(--s-red); border-radius: var(--s-r-pill); padding: 2px 10px; margin: 0 0 var(--s-sp2); font-size: var(--s-t2, 0.875rem); font-weight: 800; overflow-wrap: anywhere; } /* B-2410: Amazon brand "Generic" on a Tracked Lead - loud, first on the row */
+/* B-2424 (v2.0.214): the Tracked Leads card in the stacked order - band, Amazon Listing, Retailer Source, Pricing, footer. Tokens only; leave the pg-lt-* rules (Competitors use them). */
+.pg-ld-row { padding: 0; overflow: hidden; border-color: var(--s-line); }
+.pg-ld-band { display: flex; flex-direction: column; gap: 6px; padding: 8px 12px; background: var(--s-violet-bg); border-bottom: 1px solid var(--s-line); min-width: 0; }
+.pg-ld-band .pg-brandwarn { margin: 0; }
+.pg-ld-band .danger-btn { align-self: flex-start; }
+.pg-ld-title { font-weight: 700; overflow-wrap: anywhere; min-width: 0; }
+.pg-ld-sec { padding: 10px 12px 12px; border-top: 1px solid var(--s-line); min-width: 0; }
+.pg-ld-band + .pg-ld-sec { border-top: 0; }
+.pg-ld-h { margin: 0 0 6px; font-size: 14px; line-height: 18px; font-weight: 700; color: var(--s-text-2); }
+.pg-ld-dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 2px 8px; margin: 0; min-width: 0; }
+.pg-ld-dl dt { font-weight: 600; margin: 0; }
+.pg-ld-dl dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.pg-ld-dl dd.pg-ld-sold { display: flex; flex-direction: column; align-items: flex-start; }
+.pg-ld-warn { color: var(--s-red-ink); }
+.pg-ld-source { display: flex; flex-wrap: wrap; gap: 0 8px; align-items: baseline; min-width: 0; }
+.pg-ld-source a { color: var(--s-accent); font-weight: 700; }
+.pg-ld-help { overflow-wrap: anywhere; min-width: 0; margin-top: 4px; }
+.pg-ld-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 0; min-width: 0; }
+.pg-ld-m { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding-right: 6px; }
+.pg-ld-m:nth-child(even) { border-left: 1px solid var(--s-line); padding-left: 8px; padding-right: 0; }
+.pg-ld-k { font-size: 12px; font-weight: 600; color: var(--s-text-muted); }
+.pg-ld-cost, .pg-ld-profit { display: flex; flex-direction: column; min-width: 0; }
+.pg-ld-val { font-weight: 700; font-variant-numeric: tabular-nums; }
+.pg-ld-foot { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; padding: 8px 12px; background: var(--s-surface); border-top: 1px solid var(--s-line); min-width: 0; }
+.pg-ld-pair { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-width: 0; max-width: 100%; }
+.pg-ld-pair input { flex: 1 1 5.5rem; width: auto; min-width: 0; max-width: 100%; }
+.pg-ld-pair button { flex: none; }
+.pg-ld-pair > .pg-cp-why { flex: 1 1 100%; }
+.pg-ld-foot .pg-ld-sug, .pg-ld-foot .pg-ld-dsp { flex: 1 1 100%; }
 [hidden] { display: none !important; }

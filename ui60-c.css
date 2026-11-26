@@ -30,4 +30,5 @@
 .prp-url { flex: 1 1 200px; min-width: 0; padding: 6px; border: 1px solid var(--s-line, var(--line)); border-radius: 6px; background: var(--s-surface, var(--panel)); color: inherit; }
 .prp-error { margin: 0; color: var(--s-red, var(--text)); font-weight: 600; }
 .prp-pieces-word { flex: 1 1 100%; color: var(--s-text-muted, var(--text)); } /* B-2409 */
+.prp-aza-open { display: inline-block; margin: 8px 0 12px; text-decoration: none; text-align: center; } /* B-2395: the Open on Amazon link in the phone approval card */
 [hidden] { display: none !important; }

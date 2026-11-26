@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.213";
+const APP_BUILD = "v2.0.214";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -1410,6 +1410,11 @@ function renderPrompt(prompt) {
   if (!prompt) { els.promptCard.hidden = true; return; }
   // B-1137 (v2.0.60): the pack-rank editor stays as Zach left it while the same question is open.
   if (prompt.packRank && window.ShopperPackRankPhone && window.ShopperPackRankPhone.isOpen(els.promptFields, prompt.packRank)) return;
+  // B-2395: the 20 s redraw must not wipe a half-typed Amazon order number / total (same question still open).
+  if (prompt.amazonAssist && els.promptFields.dataset && els.promptFields.dataset.azaAskedAt === String(prompt.amazonAssist.askedAt)) {
+    const typing = ["pAzaOrder", "pAzaTotal"].map((id) => document.getElementById(id)).filter(Boolean);
+    if (typing.some((i) => i === document.activeElement || i.value)) return;
+  }
   els.promptCard.hidden = false;
   els.promptTitle.textContent = prompt.title;
   // P-63 (v2.98): the reason gets its own emphasized line and the long
@@ -1438,6 +1443,7 @@ function renderPrompt(prompt) {
   }
   els.promptFields.innerHTML = "";
   if (els.promptFields.dataset) delete els.promptFields.dataset.packRankAsk;
+  if (els.promptFields.dataset) delete els.promptFields.dataset.azaAskedAt;
   els.promptActions.innerHTML = "";
 
   const field = (id, label, attrs = {}) => {
@@ -1454,6 +1460,9 @@ function renderPrompt(prompt) {
   };
 
   let getPayload = () => ({ asin: prompt.asin, lineId: prompt.lineId });
+  let azaIn = null; // B-2395: the Amazon order-number box (set below when this is an Amazon question)
+  let azaTotalIn = null; // B-2395: the optional "Total paid" box
+  let azaErr = null; // B-2395: the box's error line
 
   if (prompt.kind === "sourceUrl") {
     const url = field("pUrl", "Source URL", { type: "url", placeholder: "https://business.walmart.com/ip/..." });
@@ -1501,6 +1510,26 @@ function renderPrompt(prompt) {
     getPayload = () => ({ asin: prompt.asin, lineId: prompt.lineId, confirmedSize: Number(size.value) || 1 });
   }
 
+  // B-2395: an Amazon line Zach buys himself - open the product, type the order number (and, if he likes, what he paid) and "I bought it" books it.
+  if (prompt.amazonAssist) {
+    const aza = prompt.amazonAssist;
+    if (els.promptFields.dataset) els.promptFields.dataset.azaAskedAt = String(aza.askedAt);
+    if (aza.url) {
+      const open = document.createElement("a");
+      open.className = "primary-btn prp-aza-open";
+      open.href = aza.url;
+      open.target = "_blank";
+      open.rel = "noopener";
+      open.textContent = "Open on Amazon" + (aza.qty ? " - buy " + aza.qty : "");
+      els.promptFields.appendChild(open);
+    }
+    azaIn = field("pAzaOrder", "Amazon order number", { type: "text", inputMode: "numeric", autocomplete: "off", placeholder: "112-1234567-1234567" });
+    azaTotalIn = field("pAzaTotal", "Total paid (optional)", { type: "text", inputMode: "decimal", autocomplete: "off", placeholder: "48.17 - blank books $0.00" });
+    azaErr = Object.assign(document.createElement("div"), { className: "l-meta prp-doubt" });
+    azaErr.setAttribute("role", "alert");
+    els.promptFields.appendChild(azaErr);
+  }
+
   // B-1137 (v2.0.60): the Walmart pack rank - its editor (remote/pack-rank-view.js);
   // Save sends approveOrder with choice = the rank as JSON.
   if (prompt.packRank) {
@@ -1531,7 +1560,26 @@ function renderPrompt(prompt) {
     // "Skip failed buy") - the same words the laptop's buttons use.
     b.textContent = (prompt.labels && prompt.labels[name]) || ANSWER_LABELS[name] || name;
     // B-777 (v2.0.9): "Place order" sends approved: true (the laptop's own answer).
-    b.addEventListener("click", () => sendCommand(name, name === "approveOrder" ? { ...getPayload(), approved: true } : getPayload()));
+    if (name === "amazonAssistBooked" && azaIn) {
+      // B-2395: the number is checked here (the same 3-7-7 rule as the laptop), a typed total must be dollars and cents, then Zach confirms - and only then is it sent.
+      b.addEventListener("click", async () => {
+        const N = window.ShopperAmazonOrderNumber;
+        const say = (t) => { if (azaErr) azaErr.textContent = t || ""; };
+        say("");
+        if (!N) { say("The order-number check did not load - reload the page, then press again."); return; }
+        const num = N.normalize(azaIn.value);
+        if (!num) { say("That is not an Amazon order number - it looks like 112-1234567-1234567."); return; }
+        const tot = N.checkTotal(azaTotalIn ? azaTotalIn.value : "", prompt.amazonAssist.capDollars);
+        if (!tot.ok) { say(tot.reason); return; }
+        const costWords = tot.total != null ? " for $" + tot.total.toFixed(2) : " at the checkout total the laptop read, or $0.00 if it did not read one (fix the cost on All Orders)";
+        if (!(await inPageConfirm(b, "Book Amazon order " + num + " for " + prompt.asin + costWords + "? Shopper writes it to All Orders, the ledger and RP/SB. Only if you placed it on the ZN Holdings business account.", { yes: "Book it" }))) return;
+        b.disabled = true;
+        await sendCommand("amazonAssistBooked", { asin: prompt.asin, lineId: prompt.lineId, choice: num, azaAskedAt: prompt.amazonAssist.askedAt, ...(tot.total != null ? { total: tot.total.toFixed(2) } : {}) });
+        b.disabled = false;
+      });
+    } else {
+      b.addEventListener("click", () => sendCommand(name, name === "approveOrder" ? { ...getPayload(), approved: true } : getPayload()));
+    }
     els.promptActions.appendChild(b);
   }
 }
@@ -1558,6 +1606,7 @@ const ANSWER_LABELS = {
   approvePrice: "Approve change",
   approveCap: "Approve & place order",
   approveOrder: "Place order",
+  amazonAssistBooked: "I bought it",
   // B-774 (v2.0.9): the laptop's decline, and the failure pause's retry.
   declineOrder: "Skip this order",
   // B-904 (v2.0.28): the safety-cap prompt's skip (its own label wins).
