@@ -8,7 +8,7 @@
   var pane = doc.getElementById("leadsPane");
   if (!P || !pane) return;
   var U = P.ui;
-  if (typeof REMOTE_LABELS !== "undefined") Object.assign(REMOTE_LABELS, { leadsAdd: "Tracked Leads: add", leadsSetCost: "Tracked Leads: cost", leadsSetSalePrice: "Tracked Leads: sale price", leadsUntrack: "Tracked Leads: untrack", leadsSendToBuylist: "Tracked Leads: send to Buylist", leadsUnarchive: "Tracked Leads: unarchive", leadsRefreshNow: "Tracked Leads: refresh now" });
+  if (typeof REMOTE_LABELS !== "undefined") Object.assign(REMOTE_LABELS, { leadsAdd: "Tracked Leads: add", leadsSetCost: "Tracked Leads: cost", leadsSetSalePrice: "Tracked Leads: sale price", leadsUntrack: "Tracked Leads: untrack", leadsSendToBuylist: "Tracked Leads: send to Buylist", leadsUnarchive: "Tracked Leads: unarchive", leadsRefreshNow: "Tracked Leads: refresh now", leadsSetOfferFlags: "Tracked Leads: batteries / dangerous goods", leadsOfferQuestions: "Tracked Leads: ask Amazon about batteries / dangerous goods" });
 
   var data = null;
   var sig = "";
@@ -143,6 +143,78 @@
     d.appendChild(ul);
     c.appendChild(d);
   }
+  // B-2433: "Needs batteries" / "Dangerous goods (hazmat)" boxes, Amazon's follow-up questions and the refusal line (same words as the laptop row; r.offerQ / r.offerNeed are flat strings)
+  var OQ_FROM = { catalog: "ticked from Amazon's catalog", keepa: "ticked from Keepa (hazmat)" };
+  var OQ_DG = "supplier_declared_dg_hz_regulation";
+  var oqAsked = {}, oqDraft = {};
+  function oqOpts(s) { return String(s || "").split("|").filter(Boolean).map(function (x) { var i = x.indexOf("~"); return i < 0 ? [x, x] : [x.slice(0, i), x.slice(i + 1)]; }); }
+  function oqFail(q) {
+    if (!q || !(Number(q.failAt) > 0)) return "";
+    var when = "";
+    try { var p = new Intl.DateTimeFormat("en-US", { timeZone: "America/Chicago", month: "numeric", day: "numeric", hour: "numeric", minute: "2-digit" }).formatToParts(new Date(Number(q.failAt))); var g = function (t) { var x = p.filter(function (y) { return y.type === t; })[0]; return x ? x.value : ""; }; when = g("month") + "/" + g("day") + " " + g("hour") + ":" + g("minute") + " " + g("dayPeriod"); } catch (e) { when = ""; }
+    var why = String(q.failWhy || "Amazon would not take the offer").replace(/\s*-\s*(no offer made,\s*)?nothing added\.?\s*$/i, "").trim();
+    return "⚠ Offer refused" + (when ? " " + when : "") + ": " + why + " - not on the Buylist";
+  }
+  function offerBox(foot, r) {
+    var q = r.offerQ || {}, need = Array.isArray(r.offerNeed) ? r.offerNeed : [];
+    var box = U.el("div", "pg-ld-offerq");
+    var boxes = U.el("div", "pg-ld-offerq-boxes");
+    function chk(key, label, on, from) {
+      var l = U.el("label", "pg-ld-offerq-chk");
+      var c = U.input("checkbox", { "data-flag": key }); c.className = ""; c.checked = !!on; c.setAttribute("aria-label", label + " for " + r.asin);
+      c.addEventListener("change", function () {
+        c.disabled = true; oqAsked[r.asin] = true;
+        var f = {}; f[key] = c.checked;
+        U.send("leadsSetOfferFlags", { asin: r.asin, flags: f }, null).then(function (res) {
+          if (!res.ok) { U.say(res); c.disabled = false; return null; }
+          return U.send("leadsOfferQuestions", { asin: r.asin }, null).then(function (a) { if (!a.ok) U.say(a); else if (a.result && a.result.note) U.toast(String(a.result.note), false); c.disabled = false; });
+        });
+      });
+      l.appendChild(c); l.appendChild(U.el("span", "", label));
+      if (on && from && OQ_FROM[from]) l.appendChild(U.el("span", "muted small", " (" + OQ_FROM[from] + ")"));
+      return l;
+    }
+    boxes.appendChild(chk("batteries", "Needs batteries", q.bat, q.batFrom));
+    boxes.appendChild(chk("dg", "Dangerous goods (hazmat)", q.dg, q.dgFrom));
+    box.appendChild(boxes);
+    if (q.bat || q.dg) {
+      if (!q.asked) {
+        box.appendChild(U.el("div", "muted small", "Asking Amazon what it needs..."));
+        if (!oqAsked[r.asin]) { oqAsked[r.asin] = true; U.send("leadsOfferQuestions", { asin: r.asin }, null).then(function (a) { if (!a.ok) U.say(a); }); }
+      } else if (!need.length) box.appendChild(U.el("div", "muted small", "Amazon asks nothing more for this one."));
+      else {
+        box.appendChild(U.el("div", q.missing ? "small pg-ld-warn" : "muted small", q.missing ? q.missing + " answer" + (q.missing === 1 ? "" : "s") + " missing" : "answered"));
+        var draft = oqDraft[r.asin] = oqDraft[r.asin] || {}, fields = [];
+        need.slice().sort(function (a, b) { return (a.attr === OQ_DG ? -1 : 0) - (b.attr === OQ_DG ? -1 : 0); }).forEach(function (n) {
+          var cur = n.attr === OQ_DG ? q.dgReg : (q.details || {})[n.attr];
+          var val = draft[n.attr] != null ? draft[n.attr] : cur == null ? "" : String(cur);
+          var inp, opts = oqOpts(n.opts);
+          if (n.kind === "enum" && opts.length) inp = U.select([["", "Pick one"]].concat(opts));
+          else if (n.kind === "boolean") inp = U.select([["", "Pick one"], ["true", "Yes"], ["false", "No"]]);
+          else inp = U.input(n.kind === "number" ? "number" : "text", {});
+          inp.value = val; inp.setAttribute("data-attr", n.attr); inp.setAttribute("aria-label", n.label + " for " + r.asin);
+          var sync = function () { draft[n.attr] = inp.value; };
+          inp.addEventListener("input", sync); inp.addEventListener("change", sync);
+          box.appendChild(U.field(n.label + (n.unit ? " (" + String(n.unit).replace(/_/g, " ") + ")" : ""), inp));
+          fields.push([n, inp]);
+        });
+        var sv = U.btn("Save answers", "mini-btn", function () {
+          var flags = { details: {} };
+          fields.forEach(function (p) { var v = String(p[1].value == null ? "" : p[1].value).trim(); if (p[0].attr === OQ_DG) flags.dgReg = v; else flags.details[p[0].attr] = p[0].kind === "boolean" && v ? v === "true" : v; });
+          U.send("leadsSetOfferFlags", { asin: r.asin, flags: flags }, sv).then(function (res) {
+            if (!res.ok) { U.say(res); return null; }
+            delete oqDraft[r.asin];
+            return U.send("leadsOfferQuestions", { asin: r.asin }, sv).then(function (a) { U.say(a, "Saved"); });
+          });
+        });
+        box.appendChild(sv);
+      }
+      if (r.offer && r.offer.warn) box.appendChild(U.el("div", "muted small", "Existing SKU - battery / hazmat answers not sent"));
+    }
+    var fail = oqFail(q);
+    if (fail) box.appendChild(U.el("div", "small pg-ld-warn pg-ld-offerq-fail", fail));
+    foot.appendChild(box);
+  }
   // B-2308: the answer next to the Save button (the toast is easy to miss); kept 4 s through a redraw
   var sendingNow = {}; // B-2327: ASINs whose Send to Buylist is running (a redraw keeps their button off)
   var savedMap = {};
@@ -247,6 +319,7 @@
     }
     foot.appendChild(acts);
     suggestLine(foot, r); // B-2289
+    if (!arch()) offerBox(foot, r); // B-2433
     c.appendChild(foot);
     return c;
   }

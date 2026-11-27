@@ -135,4 +135,10 @@
 .pg-ld-pair button { flex: none; }
 .pg-ld-pair > .pg-cp-why { flex: 1 1 100%; }
 .pg-ld-foot .pg-ld-sug, .pg-ld-foot .pg-ld-dsp { flex: 1 1 100%; }
+/* B-2433: batteries / dangerous goods boxes, the questions and the refusal line (wrap, never scroll sideways) */
+.pg-ld-foot .pg-ld-offerq { flex: 1 1 100%; }
+.pg-ld-offerq { display: flex; flex-direction: column; gap: 4px; min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+.pg-ld-offerq-boxes { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; min-width: 0; }
+.pg-ld-offerq-chk { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.pg-ld-offerq .pg-field, .pg-ld-offerq .pg-input { min-width: 0; max-width: 100%; box-sizing: border-box; }
 [hidden] { display: none !important; }
