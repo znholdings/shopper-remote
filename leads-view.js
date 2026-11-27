@@ -12,6 +12,10 @@
 
   var data = null;
   var sig = "";
+  var saleTyped = {}, costTyped = {}; // B-2434: a typed, unsaved sale price / cost (page memory only); drawn back after a redraw, dropped only when its save answers ok
+  var pendingDraw = false; // B-2434: new data arrived while a footer box was being typed in; drawn when focus leaves the footer
+  function keepTyped(box, mem, asin) { if (mem[asin] != null) box.value = String(mem[asin]); box.addEventListener("input", function () { mem[asin] = box.value; }); }
+  function enterSaves(box, b) { box.addEventListener("keydown", function (e) { if (e && e.key === "Enter" && !b.disabled) { if (e.preventDefault) e.preventDefault(); b.click(); } }); }
   var sort = "score";
   var flt = { minRoi: null, offers: "", hideGated: false, hideAmazon: false };
   var f = {};
@@ -82,6 +86,7 @@
     if (r.inCatalog) flags.push({ t: "now in your catalog" });
     if (r.sentAt) flags.push({ t: "On buylist ×" + (r.sentQty || "?") + ", sent " + sentDay(r.sentAt) }); // B-2411
     if (r.offer && r.offer.sku) flags.push(r.offer.warn ? { t: "⚠ Existing SKU " + r.offer.sku + " reused", warn: true, cls: "pg-ld-offer" } : { t: "Offer " + r.offer.sku + " created", cls: "pg-ld-offer" }); // B-2327: the last Send to Buylist's Amazon offer
+    if (r.offer && r.offer.chk) flags.push({ t: r.offer.chk, warn: true, cls: "pg-ld-offer" }); else if (r.offer && r.offer.chkNote) flags.push({ t: r.offer.chkNote, cls: "pg-ld-offer" }); // B-2437
     if (flags.length) rows.push({ k: "Flags", parts: flags });
     var sold = [{ t: soldText(r), cls: "pg-ld-val" }];
     if (r.soldEst) sold.push({ t: "est. from rank drops (30 days)", cls: "muted small" }); // B-2290
@@ -172,6 +177,7 @@
       });
       l.appendChild(c); l.appendChild(U.el("span", "", label));
       if (on && from && OQ_FROM[from]) l.appendChild(U.el("span", "muted small", " (" + OQ_FROM[from] + ")"));
+      if (on && key === "dg") l.appendChild(U.el("span", "bl-hazmat-chip", "\u26a0 HAZMAT")); // B-2435
       return l;
     }
     boxes.appendChild(chk("batteries", "Needs batteries", q.bat, q.batFrom));
@@ -282,8 +288,10 @@
     { // B-2313: the cost box is always there; blank + Save clears the typed cost
       var cost = U.input("text", { placeholder: r.costTyped ? "Cost per item" : r.cost != null ? "Cost (read $" + Number(r.cost).toFixed(2) + ")" : "Enter cost", inputmode: "decimal" });
       if (r.costTyped && r.cost != null) cost.value = String(r.cost);
+      keepTyped(cost, costTyped, r.asin); // B-2434
       var csv = savedSpan(r.asin, "cost");
-      var sc2 = U.btn("Save cost", "mini-btn", function () { var v = cost.value.trim(); U.send("leadsSetCost", { asin: r.asin, cost: v || null }, sc2).then(function (res) { flash(csv, r.asin, "cost", res, !v); U.say(res, v ? "Cost saved" : "Cost cleared"); }); });
+      var sc2 = U.btn("Save cost", "mini-btn", function () { var v = cost.value.trim(); U.send("leadsSetCost", { asin: r.asin, cost: v || null }, sc2).then(function (res) { if (res && res.ok) delete costTyped[r.asin]; flash(csv, r.asin, "cost", res, !v); U.say(res, v ? "Cost saved" : "Cost cleared"); }); });
+      enterSaves(cost, sc2); // B-2434
       acts.appendChild(cost); acts.appendChild(sc2); acts.appendChild(csv);
     }
     foot.appendChild(acts);
@@ -291,8 +299,10 @@
     var dspS = r.suggestedSalePrice, hasSug = r.salePrice == null && !!dspS && dspS.price != null; // B-2413: an empty box + Save keeps the suggestion as his own price
     var sale = U.input("text", { placeholder: hasSug ? "Suggested $" + Number(dspS.price).toFixed(2) : "Desired sale price", inputmode: "decimal" }); // B-2135: empty + Save clears it
     if (r.salePrice != null) sale.value = String(r.salePrice);
+    keepTyped(sale, saleTyped, r.asin); // B-2434: a typed, unsaved price is drawn back; a refused save keeps it
     var psv = savedSpan(r.asin, "price");
-    var sp = U.btn("Save price", "mini-btn", function () { var v = sale.value.trim() || (hasSug ? String(dspS.price) : ""); U.send("leadsSetSalePrice", { asin: r.asin, salePrice: v || null }, sp).then(function (res) { flash(psv, r.asin, "price", res, /^[\s$,]*$/.test(v)); U.say(res, /^[\s$,]*$/.test(v) ? "Price cleared" : "Price saved"); }); });
+    var sp = U.btn("Save price", "mini-btn", function () { var v = sale.value.trim() || (hasSug ? String(dspS.price) : ""); U.send("leadsSetSalePrice", { asin: r.asin, salePrice: v || null }, sp).then(function (res) { if (res && res.ok) delete saleTyped[r.asin]; flash(psv, r.asin, "price", res, /^[\s$,]*$/.test(v)); U.say(res, /^[\s$,]*$/.test(v) ? "Price cleared" : "Price saved"); }); });
+    enterSaves(sale, sp); // B-2434: Enter = Save price
     acts.appendChild(sale); acts.appendChild(sp); acts.appendChild(psv);
     foot.appendChild(acts);
     dspLine(foot, r); // B-2413
@@ -386,12 +396,23 @@
     pane.appendChild(s);
   }
 
+  // B-2434: true while a footer input (cost / sale price / ...) has focus: a redraw would end the typing
+  function typingInFoot() { var a = doc.activeElement; return !!(a && a.tagName === "INPUT" && a.type !== "checkbox" && pane.contains(a) && a.closest && a.closest(".pg-ld-foot")); }
+  pane.addEventListener("focusout", function (e) {
+    if (!pendingDraw) return;
+    var to = e && e.relatedTarget; // moving to another footer control (the Save button) keeps the card: a redraw now would eat the tap
+    if (to && to.closest && to.closest(".pg-ld-foot") && pane.contains(to)) return;
+    setTimeout(function () { if (pendingDraw && !typingInFoot()) { pendingDraw = false; draw(); } }, 300); // a short wait: a tap on Save (Safari gives the button no focus) must land before the card is rebuilt
+  });
+
   function render(p) {
     var d = U.pageData(p, "leads");
     var s = JSON.stringify(d);
     if (s === sig) return;
     sig = s;
     data = d;
+    if (typingInFoot()) { pendingDraw = true; return; } // B-2434: new data is kept; it is drawn when the footer box loses focus
+    pendingDraw = false;
     draw();
   }
 

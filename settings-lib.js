@@ -216,6 +216,7 @@ __m["walmart-vacation-days.js"] = { VACATION_PREHOLD_DAYS, VACATION_MAX_RANGE_DA
 //   fields  a field-split object: ONLY these fields are shared (the rest - a printer's name - stays on its computer)
 //   pair    a second storage key written with this one (the spending goal and the time it was set)
 //   def     the value a control shows while the key is absent (B-2169: a setting that is on until Zach turns it off)
+//   seg     true = an enum of five choices still draws as segmented buttons on the phone (up to four always do; B-2439)
 //   phone   true = one control for the whole value; [{ path, label, kind, ... }] = controls on fields of an object ("a.b" = nested);
 //           absent = not on the phone (secrets never are)
 const SETTINGS_ROW = "settings";
@@ -247,6 +248,8 @@ const SHARED_SETTINGS_SPEC = Object.freeze([
   S({ key: "shopperAmazonBuyMode", group: "buying", label: "Amazon buy mode", kind: "enum", options: [["link", "Link only"], ["button", "Button"], ["auto_tab", "Auto tab"], ["full", "Full"]], phone: true }),
   S({ key: "shopperTargetFiller", group: "buying", label: "Target filler", kind: "object" }),
   S({ key: "shopperFollowTheBuy", group: "buying", label: "Follow the buy", kind: "bool", phone: true }),
+  // B-2439 (v2.0.219): Buy pacing - how long the added human-pacing pauses are (lib/buy-pace.js). Medium = how Shopper has always bought; page-load waits never change.
+  S({ key: "shopperBuyPace", group: "buying", label: "Buy pacing", kind: "enum", options: [["none", "No delay"], ["low", "Low"], ["medium", "Medium"], ["high", "High"], ["max", "Max"]], def: "medium", seg: true, phone: true, note: "Extra pauses between buy steps to look more natural. Medium is how Shopper has always bought. Pages always get time to load at every setting." }),
   // B-2179 (v2.0.175): Walmart vacation mode (lib/walmart-vacation.js). { on, returnDate "YYYY-MM-DD", windowDays } - windowDays (6, measured) is not on the phone.
   // B-2249 (v2.0.188): + the delivery-day range: returnDate = the earliest day, latestDate = the last day, skipDates = days in between not to use
   // (lib/walmart-vacation-days.js). "dayChips" = one tap-to-skip chip per day in the range (the phone's own control; nothing new is stored).

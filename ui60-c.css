@@ -31,4 +31,5 @@
 .prp-error { margin: 0; color: var(--s-red, var(--text)); font-weight: 600; }
 .prp-pieces-word { flex: 1 1 100%; color: var(--s-text-muted, var(--text)); } /* B-2409 */
 .prp-aza-open { display: inline-block; margin: 8px 0 12px; text-decoration: none; text-align: center; } /* B-2395: the Open on Amazon link in the phone approval card */
+.prp-open-page { display: inline-block; align-self: flex-start; text-decoration: none; text-align: center; } /* B-2438: the phone cannot open a window on the computer - a link to the store page */
 [hidden] { display: none !important; }

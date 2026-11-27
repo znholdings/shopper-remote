@@ -73,6 +73,14 @@
     const wrap = el("div", "prp");
     // B-2375: a question for another store (Sam's, Target, ...) names it and has no Walmart link; a Walmart question keeps its words.
     const store = q.retailer && q.retailer !== "walmart" ? String(q.storeLabel || q.retailer) : null;
+    // B-2438: the phone cannot open a window on the computer - a link to the store page, so the page can be checked here too.
+    if (q.sourceUrl && /^https:\/\//i.test(String(q.sourceUrl))) {
+      const open = el("a", "secondary-btn prp-open-page", "Open " + (store || "Walmart") + " page");
+      open.href = String(q.sourceUrl);
+      open.target = "_blank";
+      open.rel = "noopener noreferrer";
+      wrap.appendChild(open);
+    }
     if (q.amazonTitle) wrap.appendChild(el("p", "prp-product", "Amazon: " + q.amazonTitle));
     if (q.walmartTitle && !store) wrap.appendChild(el("p", "prp-product", "Walmart: " + q.walmartTitle));
     if (q.titleDoubt) wrap.appendChild(el("p", "prp-doubt", q.titleDoubt));

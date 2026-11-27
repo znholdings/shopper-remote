@@ -218,7 +218,7 @@
       input.addEventListener("change", () => { input.setAttribute("aria-checked", input.checked ? "true" : "false"); save(spec, ctl, input.checked); });
     } else if (kind === "enum") {
       const opts = ctl.options || spec.options || [];
-      if (opts.length >= 2 && opts.length <= 4) {
+      if ((opts.length >= 2 && opts.length <= 4) || (spec.seg === true && opts.length === 5)) {
         // B-2282a (v2.0.196): up to four choices = segmented buttons (a pick saves at once, through the same save); more stays a select
         input = el("div", "stg-seg");
         input.setAttribute("role", "radiogroup");

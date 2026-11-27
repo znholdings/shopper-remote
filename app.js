@@ -17,7 +17,7 @@ const CFG = window.SHOPPER_REMOTE_CONFIG || {};
 
 // Bumped by hand with every PWA upload. If this does not match what you
 // just deployed, the phone is serving a cached copy - see P-35.
-const APP_BUILD = "v2.0.218";
+const APP_BUILD = "v2.0.219";
 const POLL_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -1407,6 +1407,18 @@ function buylistSetPrepCenter(asin, prepCenter) {
   sendCommand("buylistSetPrepCenter", { asin, prepCenter });
 }
 
+// B-2435: hazmat on / off - same optimistic-then-confirm pattern as Prep Center (the next push brings the list's own answer).
+function buylistSetHazmat(asin, on) {
+  if (lastPayload && lastPayload.buylist && Array.isArray(lastPayload.buylist.items)) {
+    const item = lastPayload.buylist.items.find((x) => x.asin === asin);
+    if (item) {
+      item.hazmat = on;
+      if (!isBeingEdited(els.buylistItems)) renderBuylist(lastPayload.buylist);
+    }
+  }
+  sendCommand("hazmatSet", { asin, on });
+}
+
 // ⚠ The prompt renderer relays an answer. It never picks one, never
 // pre-selects a destructive default, and never times anything out - the
 // filler prompt's own 5-minute clock lives in the laptop's buy loop.
@@ -1793,6 +1805,7 @@ function buylistCard(i) {
   const row = document.createElement("div");
   row.className = `line bl-${i.decision || "undecided"}`;
   if (i.hasConcern) row.classList.add("bl-warn"); // B-2132 (v2.0.167)
+  if (i.hazmat) row.classList.add("bl-hazmat"); // B-2435: the yellow ring (an outline - keeps the green / amber side bar)
   row.dataset.asin = i.asin || ""; // B-1062 (v2.0.53): remote/claude-learn-view.js chips the card
 
   // P-26. The five fields Zach named as what decides an approve/reject
@@ -1825,7 +1838,8 @@ function buylistCard(i) {
     `<div class="l-title">${escapeHtml(i.title)}</div>` +
     `${i.vacChip ? `<div class="l-meta vac-chip">${escapeHtml(i.vacChip)}</div>` : ""}` + // B-2179: Walmart vacation mode chip
     `${leadChipWords(i.leadEstimate) ? `<div class="bl-lead-chip">${escapeHtml(leadChipWords(i.leadEstimate))}</div>` : ""}` + // B-2328: a line sent from Tracked Leads
-    `${keptChipWords(i.keptFrom) ? `<div class="bl-lead-chip bl-kept-chip">${escapeHtml(keptChipWords(i.keptFrom))}</div>` : ""}`; // B-2436: kept until bought
+    `${keptChipWords(i.keptFrom) ? `<div class="bl-lead-chip bl-kept-chip">${escapeHtml(keptChipWords(i.keptFrom))}</div>` : ""}` + // B-2436: kept until bought
+    `${i.hazmat ? `<div><span class="bl-hazmat-chip">\u26a0 HAZMAT</span></div>` : ""}`; // B-2435
   head.appendChild(headText);
   row.appendChild(head);
 
@@ -1953,6 +1967,17 @@ function buylistCard(i) {
   pcLabel.append(pcCheckbox, document.createTextNode("Prep Center"));
   pcLabel.dataset.menuKind = "setting";
   moves.appendChild(pcLabel);
+  // B-2435: the hand toggle for the hazmat ring + the prep-center note (same list as the desktop's row menu).
+  const hzLabel = document.createElement("label");
+  hzLabel.className = "pc-toggle";
+  hzLabel.title = "Dangerous goods: a yellow ring here, and a HAZMAT line first in the prep center's Client Notes on its next Prep Center order.";
+  const hzCheckbox = document.createElement("input");
+  hzCheckbox.type = "checkbox";
+  hzCheckbox.checked = !!i.hazmat;
+  hzCheckbox.addEventListener("change", () => buylistSetHazmat(i.asin, hzCheckbox.checked));
+  hzLabel.append(hzCheckbox, document.createTextNode("Hazmat"));
+  hzLabel.dataset.menuKind = "setting";
+  moves.appendChild(hzLabel);
   if (window.ShopperMenuKinds) window.ShopperMenuKinds.group(moves); // B-2280b: Prep Center | Promote, Push | Block
   sheetBox.append(moves, more); if (ownEl) sheetBox.append(ownEl); // B-2072: the Owned formula under More
   if (i.v3Note) { const vn = document.createElement("div"); vn.className = "bl-owned muted"; vn.textContent = i.v3Note; sheetBox.append(vn); } // v2.0.172 B-2167/B-2168: why v3 shows this number

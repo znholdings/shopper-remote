@@ -125,6 +125,7 @@
   --s-bl-ok-badge-ink: #ffffff;
   --s-bl-warn-bg: color-mix(in srgb, var(--s-yellow) 12%, var(--s-surface));
   --s-bl-warn-bar: var(--s-yellow);
+  --s-bl-hazmat: var(--s-yellow); /* B-2435 */
   --s-bl-pill-bg: var(--s-violet-bg);
   --s-bl-pill-ink: var(--s-violet-ink);
 }
@@ -314,6 +315,9 @@ button { font: inherit; cursor: pointer; }
 .store-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; padding: 0 3px; box-sizing: border-box; border-radius: 11px; font-size: 11px; font-weight: 700; line-height: 1; }
 
 .line.bl-rejected, .line.bl-blocked { border-left: 3px solid var(--s-red); opacity: .75; }
+.line.bl-hazmat { outline: 3px solid var(--s-bl-hazmat); outline-offset: -3px; border-radius: 6px; } /* B-2435: the yellow ring; an outline, so it keeps the green / amber side bars and changes no size */
+.bl-hazmat-chip { display: inline-block; padding: 1px 7px; border-radius: 999px; border: 1.5px solid var(--s-bl-hazmat); background: var(--s-yellow-bg); color: var(--s-yellow-ink); font-size: 11px; font-weight: 700; line-height: 1.35; } /* B-2435 */
+:root[data-theme="retro"] .bl-hazmat-chip { border-radius: 0; }
 .line.bl-past-goal .bl-stats, .line.bl-past-goal .bl-headtext { opacity: 1; } /* B-1741 (v2.0.127); B-2329: no longer faded - the past-goal tag says it */
 
 .l-src { color: var(--s-blue-soft); }

@@ -43,7 +43,7 @@
     var j = job && job.day === p ? job : null;
     if (j && j.finished) return "Auto-find done" + (j.finishedAt > 0 ? " " + f(j.finishedAt, { hour: "numeric", minute: "2-digit" }) : "") + " (" + (j.searches || 0) + " searched)";
     if (j && j.started) return "Auto-find searching - " + Math.max(0, Number(left) || 0) + " left";
-    return Number(f(now, { hour: "numeric", hour12: false })) % 24 >= 9 ? "Auto-find did not start today" : "Auto-find starts 4 AM";
+    return Number(f(now, { hour: "numeric", hour12: false })) % 24 >= 9 ? "Auto-find did not start today" : "Auto-find starts 3 AM"; // B-2442 (lib/ready-line.js builds it from MATCH_WINDOW_CT)
   }
 
   function money(v) { return v == null ? "-" : "$" + Number(v).toFixed(2); }
@@ -164,7 +164,7 @@
   function waitingTab() {
     var W = data.waiting || { rows: [], count: 0 };
     var s = U.section("Waiting for a source (" + W.count + ")");
-    s.appendChild(U.el("p", "muted small", W.count + " waiting for a source match. Shopper looks 4 - 9 AM Central (and finishes the day's list if it runs over), best score first, up to 50 a day."));
+    s.appendChild(U.el("p", "muted small", W.count + " waiting for a source match. Shopper looks 3 - 9 AM Central (and finishes the day's list if it runs over), best score first, up to 150 a day."));
     if (!(W.rows || []).length) s.appendChild(U.el("p", "muted small", "Nothing is waiting for a source match."));
     (W.rows || []).forEach(function (it) { s.appendChild(row(it, true)); });
     return s;
