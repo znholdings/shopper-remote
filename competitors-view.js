@@ -1,5 +1,5 @@
 // remote/competitors-view.js - B-2043 (v2.0.154): Competitor ASINs (Sourcing) on the phone. Rows come from payload.pages.competitors (the laptop page's own
-// SHOPPER_COMP_GET, thinned: 100 rows a list). Writes (each one laptop handler): compSeen {asins}, compSeenAll {seller | all:true}, compUnseen {asins}, compTrack {seller, action}.
+// SHOPPER_COMP_GET, thinned: 100 rows a list). Writes (each one laptop handler): compSeen {asins} (Reject), compSeenAll {seller | all:true} (Reject all), compUnseen {asins} (Un-reject), compTrack {seller, action}, compWatch {asin}, compUnwatch {asins}, compWatchRecheck, compWatchMinSales {value} (B-2461).
 // The filter numbers are read-only here - "change on the desktop" (Zach 11/11). DOM API, textContent only.
 (function (root) {
   "use strict";
@@ -8,7 +8,7 @@
   var pane = doc.getElementById("competitorsPane");
   if (!P || !pane) return;
   var U = P.ui;
-  if (typeof REMOTE_LABELS !== "undefined") Object.assign(REMOTE_LABELS, { compSeen: "Competitors: tick off", compSeenAll: "Competitors: mark all seen", compUnseen: "Competitors: take the seen mark off", compTrack: "Competitors: pin / drop / add", compRunNow: "Competitors: run now", compLeadBar: "Competitors: leads profit bar", compRerank: "Competitors: re-rank now" });
+  if (typeof REMOTE_LABELS !== "undefined") Object.assign(REMOTE_LABELS, { compSeen: "Competitors: reject", compSeenAll: "Competitors: reject all", compUnseen: "Competitors: un-reject", compWatch: "Competitors: watch", compUnwatch: "Competitors: stop watching", compWatchRecheck: "Competitors: re-check watching now", compWatchMinSales: "Competitors: watching sales a month", compTrack: "Competitors: pin / drop / add", compRunNow: "Competitors: run now", compLeadBar: "Competitors: leads profit bar", compRerank: "Competitors: re-rank now" });
 
   var data = null;
   var tab = "leads"; // B-2221 (v2.0.179): Leads is the default
@@ -31,6 +31,7 @@
     var c = data.counts || {}, n = function (a) { return (a || []).length; };
     if (tab === "leads") return !!(data.leads && data.leads.atBar > n(data.leads.rows));
     if (tab === "waiting") return !!(data.waiting && data.waiting.count > n(data.waiting.rows));
+    if (tab === "watching") return !!(data.watching && data.watching.cut);
     if (tab === "all") return c.all > n(data.all);
     if (tab === "candidates") return c.candidates > n(data.candidates && data.candidates.today) + n(data.candidates && data.candidates.older);
     return false;
@@ -51,7 +52,7 @@
   function label(id) { var s = data && (data.sellers || []).filter(function (x) { return x.id === id; })[0]; return s && s.name ? s.name : id; }
   function link(text, href) { var a = U.el("a", "", text); a.href = href; a.target = "_blank"; a.rel = "noopener"; return a; }
 
-  function row(it, showSeen) {
+  function row(it, showSeen, watchBtn) { // B-2461: watchBtn = a Watch button (Leads / Waiting / Candidates rows)
     var r = U.el("div", "line pg-cp-row" + (it.seen ? " pg-cp-seen" : ""));
     r.setAttribute("data-search", [it.brand].concat(it.sellers || []).filter(Boolean).join(" ")); // B-2288: hidden search words
     var main = U.el("div", "pg-cp-main");
@@ -89,19 +90,23 @@
     }
     main.appendChild(links);
     r.appendChild(main);
+    var acts = U.el("div", "pg-cp-acts");
+    if (watchBtn && !it.seen && !it.lead) { var w = U.btn("Watch", "mini-btn", function () { U.send("compWatch", { asin: it.asin }, w).then(function (res) { U.say(res, "Watching"); }); }); acts.appendChild(w); } // B-2461
+    if (it.watching) acts.appendChild(U.el("span", "muted small", "watching"));
     if (showSeen && !it.seen) {
-      var b = U.btn("✓ Seen", "mini-btn", function () { U.send("compSeen", { asins: [it.asin] }, b).then(function (res) { U.say(res, "Marked seen"); }); });
-      r.appendChild(b);
+      var b = U.btn("Reject", "mini-btn", function () { U.send("compSeen", { asins: [it.asin] }, b).then(function (res) { U.say(res, "Rejected"); }); }); // B-2461: was "✓ Seen"
+      acts.appendChild(b);
     } else if (it.seen) {
-      var u = U.btn("Undo", "mini-btn", function () { U.send("compUnseen", { asins: [it.asin] }, u).then(function (res) { U.say(res, "Back to not seen"); }); });
-      r.appendChild(u);
+      var u = U.btn("Un-reject", "mini-btn", function () { U.send("compUnseen", { asins: [it.asin] }, u).then(function (res) { U.say(res, "Back to not rejected"); }); });
+      acts.appendChild(u);
     }
+    if (acts.childNodes.length) r.appendChild(acts);
     return r;
   }
-  function list(title, items, showSeen, empty) {
+  function list(title, items, showSeen, empty, watchBtn) {
     var s = U.section(title + " (" + items.length + ")");
     if (!items.length) s.appendChild(U.el("p", "muted small", empty));
-    items.forEach(function (it) { s.appendChild(row(it, showSeen)); });
+    items.forEach(function (it) { s.appendChild(row(it, showSeen, watchBtn)); });
     return s;
   }
 
@@ -148,7 +153,7 @@
       count.textContent = rows.length + " of " + (L.atBar != null ? L.atBar : sent) + " leads at this bar" + (L.atBar > sent ? " - showing the top " + sent + " of " + L.atBar + "; let go of the slider to reload" : "");
       holder.textContent = "";
       if (!rows.length) holder.appendChild(U.el("p", "muted small", (L.rows || []).length ? "No leads at this bar - slide it down to see more." : "No leads yet - see Waiting for a source."));
-      rows.forEach(function (it) { holder.appendChild(row(it, true)); });
+      rows.forEach(function (it) { holder.appendChild(row(it, true, true)); });
       if (tabBtn) tabBtn.textContent = "Leads" + (rows.length ? " (" + rows.length + ")" : "");
     }
     s.appendChild(slider("Minimum ROI", 0, 100, 5, cur.minRoi, function (v) { return v + "%"; }, function (v) { cur.minRoi = v; bar = { minRoi: cur.minRoi, minProfit: cur.minProfit }; fill(); saveBar(); }));
@@ -166,7 +171,82 @@
     var s = U.section("Waiting for a source (" + W.count + ")");
     s.appendChild(U.el("p", "muted small", W.count + " waiting for a source match. Shopper looks 3 - 9 AM Central (and finishes the day's list if it runs over), best score first, up to 150 a day."));
     if (!(W.rows || []).length) s.appendChild(U.el("p", "muted small", "Nothing is waiting for a source match."));
-    (W.rows || []).forEach(function (it) { s.appendChild(row(it, true)); });
+    (W.rows || []).forEach(function (it) { s.appendChild(row(it, true, true)); });
+    return s;
+  }
+
+  // ---- B-2461: Watching (the same then -> now rows as the desktop) ----
+  function dayWords(ms) {
+    if (!(Number(ms) > 0)) return "";
+    var p = new Intl.DateTimeFormat("en-US", { timeZone: "America/Chicago", weekday: "short", month: "numeric", day: "numeric" }).formatToParts(Number(ms));
+    var g = function (t) { var x = p.filter(function (y) { return y.type === t; })[0]; return x ? x.value : ""; };
+    return g("weekday") + " " + g("month") + "/" + g("day");
+  }
+  function pctW(v) { return v == null ? "-" : v + "%"; }
+  function num0(v) { return v == null ? "-" : Number(v).toLocaleString("en-US"); }
+  function thenNow(a, b, fmt, checked) { var x = fmt(a); if (!checked) return x; var y = fmt(b); return x === y ? y : x + " \u2192 " + y; }
+  var WFIELDS = [["Cost / unit", "cost", money], ["ROI", "roi", pctW], ["Profit / unit", "profit", money], ["Sales / mo (est.)", "estSales", num0], ["Rank", "rank", num0], ["Offers", "offers", nz], ["Buy Box", "bb", money]];
+  function watchRow(it) {
+    var r = U.el("div", "line pg-cp-row pg-cp-wrow" + (it.gone ? " pg-cp-seen" : "") + (it.improved ? " pg-cp-improved" : ""));
+    r.setAttribute("data-search", [it.snap && it.snap.retailer, it.snap && it.snap.url].filter(Boolean).join(" "));
+    var main = U.el("div", "pg-cp-main");
+    var t = U.el("div", "");
+    if (it.improved) t.appendChild(U.el("b", "pg-cp-badge", "Improved "));
+    t.appendChild(doc.createTextNode(String(it.title || it.asin)));
+    main.appendChild(t);
+    var url = (it.now && it.now.url) || (it.snap && it.snap.url) || "";
+    var shop = SHOPS[(it.now && it.now.retailer) || (it.snap && it.snap.retailer)] || "";
+    main.appendChild(U.el("div", "muted small", [it.asin, it.checkedAt ? "checked " + dayWords(it.checkedAt) : "not checked yet", shop, "watching since " + dayWords(it.at)].filter(Boolean).join(" \u00b7 ")));
+    if (it.stocked) main.appendChild(U.el("div", "small pg-cp-why", "You stock it now - not re-checked."));
+    else if (it.gone) main.appendChild(U.el("div", "small pg-cp-why", "Source gone - the listing is not available (or the wrong size)."));
+    else if (it.waits) main.appendChild(U.el("div", "muted small", "Waits for Keepa tokens - price only this time."));
+    var grid = U.el("div", "pg-cp-wgrid");
+    WFIELDS.forEach(function (f) {
+      var c = U.el("div", "pg-cp-wcell");
+      c.appendChild(U.el("span", "muted small", f[0]));
+      c.appendChild(U.el("b", "small", thenNow(it.snap && it.snap[f[1]], it.now && it.now[f[1]], f[2], !!(it.checkedAt && it.now))));
+      grid.appendChild(c);
+    });
+    main.appendChild(grid);
+    var links = U.el("div", "pg-cp-links small");
+    links.appendChild(link("A", "https://www.amazon.com/dp/" + it.asin));
+    links.appendChild(link("K", "https://keepa.com/#!product/1-" + it.asin));
+    if (url) links.appendChild(link(shop || "Source", url));
+    main.appendChild(links);
+    r.appendChild(main);
+    var acts = U.el("div", "pg-cp-acts");
+    var tr = U.btn("+ Track", "mini-btn", function () {
+      var u = url || (root.prompt ? root.prompt("Source URL for " + it.asin + " (the store page)") : "");
+      if (!u || !String(u).trim()) return;
+      U.send("leadsAdd", { asin: it.asin, url: String(u).trim(), origin: "comp" }, tr).then(function (res) { U.say(res, "Tracked"); });
+    });
+    acts.appendChild(tr);
+    var rj = U.btn("Reject", "mini-btn", function () { U.send("compSeen", { asins: [it.asin] }, rj).then(function (res) { U.say(res, "Rejected"); }); });
+    acts.appendChild(rj);
+    var uw = U.btn("Unwatch", "mini-btn", function () { U.send("compUnwatch", { asins: [it.asin] }, uw).then(function (res) { U.say(res, "Not watching"); }); });
+    acts.appendChild(uw);
+    r.appendChild(acts);
+    return r;
+  }
+  function watchingTab() {
+    var W = data.watching || { rows: [], count: 0, improved: 0, minSales: 10 };
+    var s = U.section("Watching (" + W.count + (W.improved ? " \u00b7 " + W.improved + " improved" : "") + ")");
+    s.appendChild(U.el("p", "muted small", "Leads parked to look at again. The main computer re-checks them Monday mornings and on Re-check now. Improved = clears the Leads profit bar AND sells at least the number below a month."));
+    var rb = U.btn("Re-check now", "primary-btn", function () { U.send("compWatchRecheck", {}, rb).then(function (res) { var r = res && res.result; U.say(res, r && r.handedOver ? "Sent to the " + r.handedTo : "Started"); }); });
+    s.appendChild(rb);
+    f.minSales = U.input("number", { min: "0", max: "10000", step: "1", inputmode: "numeric" });
+    f.minSales.value = String(W.minSales == null ? 10 : W.minSales);
+    s.appendChild(U.field("Improved needs sales a month of at least", f.minSales));
+    var sv = U.btn("Save number", "mini-btn", function () {
+      var v = f.minSales.value.trim();
+      U.send("compWatchMinSales", { value: v === "" ? null : Number(v) }, sv).then(function (res) { U.say(res, "Saved"); });
+    });
+    s.appendChild(sv);
+    var last = W.last ? "Last re-check " + dayWords(W.last.at) + ": " + W.last.checked + " of " + W.last.of + (W.last.note ? " (" + W.last.note + ")" : "") : W.running ? "Re-checking now..." : "Not re-checked yet - Monday morning, or press Re-check now.";
+    s.appendChild(U.el("p", "muted small", W.running && W.last ? "Re-checking now... " + last : last));
+    if (W.full) s.appendChild(U.el("p", "small pg-cp-why", "Watching is full (300) \u2014 unwatch some first."));
+    if (!(W.rows || []).length) s.appendChild(U.el("p", "muted small", "Nothing is being watched. Use Watch on a lead, a Waiting row or a Candidate."));
+    (W.rows || []).forEach(function (it) { s.appendChild(watchRow(it)); });
     return s;
   }
 
@@ -186,9 +266,9 @@
       var c = U.el("div", "pg-card pg-cp-seller");
       var tracked = r.state === "dropped" ? "dropped" : r.tracked === "pinned" ? "pinned" : r.tracked === "added" ? "added by you" : r.tracked === "auto" ? "tracked (auto)" : "not tracked";
       c.appendChild(U.el("b", "", r.name || r.id));
-      c.appendChild(U.el("div", "muted small", [r.name ? r.id : "", r.overlapPct + "% overlap", r.asins + " ASINs shared", r.fbaAsins + " FBA / " + r.fbmAsins + " FBM", r.bbDays + " Buy Box days", tracked, (r.unseenCandidates || 0) + " new to look at", (r.unseen != null ? r.unseen : r.unseenCandidates || 0) + " not seen yet"].filter(Boolean).join(" · ")));
+      c.appendChild(U.el("div", "muted small", [r.name ? r.id : "", r.overlapPct + "% overlap", r.asins + " ASINs shared", r.fbaAsins + " FBA / " + r.fbmAsins + " FBM", r.bbDays + " Buy Box days", tracked, (r.unseenCandidates || 0) + " new to look at", (r.unseen != null ? r.unseen : r.unseenCandidates || 0) + " not rejected"].filter(Boolean).join(" · ")));
       var acts = U.el("div", "pg-row");
-      if ((r.unseen != null ? r.unseen : r.unseenCandidates) > 0) { var m = U.btn("Mark all seen", "mini-btn", function () { U.send("compSeenAll", { seller: r.id }, m).then(function (res) { U.say(res, "Marked seen"); }); }); acts.appendChild(m); }
+      if ((r.unseen != null ? r.unseen : r.unseenCandidates) > 0) { var m = U.btn("Reject all", "mini-btn", function () { U.confirmSend("Reject all " + (r.unseen != null ? r.unseen : r.unseenCandidates) + " not-rejected ASINs from " + (r.name || r.id) + "?", "compSeenAll", { seller: r.id }, m, "Rejected"); }); acts.appendChild(m); } // B-2461: asks first
       if (r.state !== "pinned") { var p = U.btn("Pin", "mini-btn", function () { U.send("compTrack", { seller: r.id, action: "pin" }, p).then(function (res) { U.say(res, "Pinned"); }); }); acts.appendChild(p); }
       if (r.state !== "dropped") { var d = U.btn("Drop", "danger-btn", function () { U.confirmSend("Stop tracking " + (r.name || r.id) + "?", "compTrack", { seller: r.id, action: "drop" }, d, "Dropped"); }); acts.appendChild(d); }
       if (r.state) { var cl = U.btn("Back to auto", "mini-btn", function () { U.send("compTrack", { seller: r.id, action: "clear" }, cl).then(function (res) { U.say(res, "Back to auto"); }); }); acts.appendChild(cl); }
@@ -213,7 +293,7 @@
 
   function allTab() {
     var out = doc.createDocumentFragment();
-    var s = U.section("Everything added (" + (data.counts ? data.counts.all + " not seen" : (data.all || []).length) + ")");
+    var s = U.section("Everything added (" + (data.counts ? data.counts.all + " not rejected" : (data.all || []).length) + ")");
     var ids = [];
     (data.all || []).forEach(function (x) { (x.sellers || []).forEach(function (i) { if (ids.indexOf(i) < 0) ids.push(i); }); });
     var sel = U.select([["", "All sellers"]].concat(ids.map(function (i) { return [i, label(i)]; })));
@@ -221,11 +301,11 @@
     sel.addEventListener("change", function () { pick = sel.value; draw(); });
     s.appendChild(sel);
     var rowsFor = (data.all || []).filter(function (x) { return !pick || (x.sellers || []).indexOf(pick) >= 0; });
-    var unseenHere = rowsFor.filter(function (x) { return !x.seen; }).length;
+    var unseenHere = rowsFor.filter(function (x) { return !x.seen && !x.watching; }).length; // the handler leaves the Watching pool alone
     var bulk = U.el("div", "pg-row");
-    if (pick && unseenHere) { var m = U.btn("Mark all seen (" + unseenHere + ")", "mini-btn", function () { U.send("compSeenAll", { seller: pick }, m).then(function (res) { U.say(res, "Marked seen"); }); }); bulk.appendChild(m); }
+    if (pick && unseenHere) { var m = U.btn("Reject all (" + unseenHere + ")", "mini-btn", function () { U.confirmSend("Reject all " + unseenHere + " from " + label(pick) + "?", "compSeenAll", { seller: pick }, m, "Rejected"); }); bulk.appendChild(m); }
     var everything = data.counts ? data.counts.all : (data.all || []).filter(function (x) { return !x.seen; }).length;
-    if (everything) { var ev = U.btn("Mark everything seen (" + everything + ")", "mini-btn", function () { U.confirmSend("Mark all " + everything + " as seen?", "compSeenAll", { all: true }, ev, "Marked seen"); }); bulk.appendChild(ev); }
+    if (everything) { var ev = U.btn("Reject everything (" + everything + ")", "mini-btn", function () { U.confirmSend("Reject all " + everything + " not-rejected ASINs? (The Watching pool is left alone.)", "compSeenAll", { all: true }, ev, "Rejected"); }); bulk.appendChild(ev); }
     s.appendChild(bulk);
     var rows = rowsFor;
     rows.forEach(function (it) { s.appendChild(row(it, true)); });
@@ -260,9 +340,10 @@
     runRow.appendChild(rb); runRow.appendChild(rr); head.appendChild(runRow);
     if (st.role403) head.appendChild(U.el("p", "small pg-cp-why", "Amazon refused the daily offer read - the SP-API app needs the Pricing role."));
     var tabs = U.el("div", "pg-row");
-    [["leads", "Leads"], ["waiting", "Waiting"], ["candidates", "Candidates"], ["sellers", "Sellers"], ["all", "All new"]].forEach(function (t) {
-      var n = t[0] === "leads" ? visibleLeads().length : t[0] === "waiting" ? (data.waiting ? data.waiting.count : 0) : data.counts ? (t[0] === "candidates" ? data.counts.candidates : t[0] === "all" ? data.counts.all : 0) : 0;
-      var b = U.btn(t[1] + (n > 0 ? " (" + n + ")" : ""), tab === t[0] ? "primary-btn" : "mini-btn", function () { tab = t[0]; draw(); });
+    [["leads", "Leads"], ["waiting", "Waiting"], ["watching", "Watching"], ["candidates", "Candidates"], ["sellers", "Sellers"], ["all", "All new"]].forEach(function (t) {
+      var n = t[0] === "leads" ? visibleLeads().length : t[0] === "waiting" ? (data.waiting ? data.waiting.count : 0) : t[0] === "watching" ? (data.watching ? data.watching.count : 0) : data.counts ? (t[0] === "candidates" ? data.counts.candidates : t[0] === "all" ? data.counts.all : 0) : 0;
+      var imp = t[0] === "watching" && data.watching ? data.watching.improved || 0 : 0; // B-2461
+      var b = U.btn(t[1] + (n > 0 ? " (" + n + (imp ? " \u00b7 " + imp + " improved" : "") + ")" : ""), tab === t[0] ? "primary-btn" : "mini-btn", function () { tab = t[0]; draw(); });
       if (t[0] === "leads") b.setAttribute("data-leads-tab", "1");
       tabs.appendChild(b);
     });
@@ -271,6 +352,7 @@
     if (sbar) sbar.reattach(head); // B-2288
     if (tab === "leads") pane.appendChild(leadsTab());
     else if (tab === "waiting") pane.appendChild(waitingTab());
+    else if (tab === "watching") pane.appendChild(watchingTab());
     else if (tab === "sellers") pane.appendChild(sellersTab());
     else if (tab === "all") pane.appendChild(allTab());
     else {
@@ -280,8 +362,8 @@
         // B-2074: three empty headed blocks -> one line.
         pane.appendChild(U.el("p", "muted small", st.hasData ? "Nothing new - nothing found today, nothing waiting, nothing filtered." : "No data yet - the first read runs on the computer after 4 AM Central."));
       } else {
-        pane.appendChild(list("Found today", c.today || [], true, st.hasData ? "Nothing new today that passes the filters." : "No data yet - the first read runs on the computer after 4 AM Central."));
-        pane.appendChild(list("Earlier, not ticked off", c.older || [], true, "Nothing older is waiting."));
+        pane.appendChild(list("Found today", c.today || [], true, st.hasData ? "Nothing new today that passes the filters." : "No data yet - the first read runs on the computer after 4 AM Central.", true));
+        pane.appendChild(list("Earlier, not rejected", c.older || [], true, "Nothing older is waiting.", true));
         var fs = U.section("Filtered (" + (data.filteredTotal || 0) + ")");
         (data.filtered || []).slice(0, 30).forEach(function (it) { fs.appendChild(row(it, true)); });
         if (!(data.filtered || []).length) fs.appendChild(U.el("p", "muted small", "Nothing filtered yet."));

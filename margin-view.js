@@ -89,7 +89,7 @@
         d.append(grid);
       }
       const extra = [];
-      if (c.table) { const tw = el("div", "mgm-table-wrap cfm-keep"); tw.append(miniTable(c.table.head, c.table.rows, c.id === "needed" ? "mgm-needed-table" : c.tableKind === "bridge" ? "mgm-why-table mgm-bridge-table" : "mgm-why-table")); extra.push(tw); }
+      if (c.table) { const tw = el("div", "mgm-table-wrap cfm-keep"); tw.append(miniTable(c.table.head, c.table.rows, c.id === "needed" ? "mgm-needed-table" : c.tableKind === "bridge" ? "mgm-why-table mgm-bridge-table" : "mgm-why-table")); extra.push(tw); if (c.tableNote) extra.push(el("p", "cfm-note cfm-keep mgm-table-note", c.tableNote)); }
       if (c.sentence && c.sentence.length > 130) extra.push(el("p", "cfm-note cfm-keep", c.sentence));
       for (const t of c.more || (c.sub ? [c.sub] : [])) extra.push(el("p", "cfm-note cfm-keep", t));
       if (extra.length) {

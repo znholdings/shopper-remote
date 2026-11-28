@@ -109,6 +109,11 @@
         sub.append(el("b", t.change.cls, t.change.pct), el("span", "cfm-tile-note", t.change.rest));
       } else sub.textContent = t.empty || "";
       d.append(sub);
+      if (t.raw) { // B-2469: the raw change, second and smaller (its words follow with Details)
+        const rw = el("div", "cfm-stat-sub cfm-stat-raw");
+        rw.append(el("span", "cfm-raw-pct", t.raw.pct + " raw"), el("span", "cfm-tile-note", t.raw.rest.replace(/^ raw/, "")));
+        d.append(rw);
+      }
       if (t.verdict) d.append(el("div", "cfm-stat-sub cf-verdict cfm-tile-note", t.verdict));
       box.append(d);
     }

@@ -60,7 +60,7 @@
   }
 
   // ---- the "also in" hint: which other Competitor ASINs tabs hold a hit (same fields as lib/sourcing-search.js compSearchTabs) ----
-  var TAB_NAMES = [["leads", "Leads"], ["waiting", "Waiting for a source"], ["candidates", "Candidates"], ["sellers", "Sellers"], ["all", "All new ASINs"]];
+  var TAB_NAMES = [["leads", "Leads"], ["waiting", "Waiting for a source"], ["watching", "Watching"], ["candidates", "Candidates"], ["sellers", "Sellers"], ["all", "All new ASINs"]];
   var SHOPS = { walmart: "Walmart", samsclub: "Sam's Club", target: "Target", homedepot: "Home Depot" };
   function leadPasses(info, b) { return !!info && isFinite(info.roi) && isFinite(info.profit) && info.roi >= b.minRoi && info.profit >= b.minProfit; }
   function tabsWithHits(data, bar, toks, pick) { // B-2296: counts, and the All tab cut to the storefront pick
@@ -78,6 +78,7 @@
     return {
       leads: hit(((d.leads && d.leads.rows) || []).filter(function (r) { return leadPasses(r.leadInfo, bar); })),
       waiting: hit(d.waiting && d.waiting.rows),
+      watching: hit(d.watching && d.watching.rows), // B-2461
       candidates: hit([].concat(c.today || [], c.older || [], d.filtered || [])),
       sellers: (d.sellers || []).filter(function (s) { return matches(hayOf((s.name || "") + " " + s.id, ""), toks); }).length,
       all: hit((d.all || []).filter(function (r) { return !pick || (r.sellers || []).indexOf(pick) >= 0; }))

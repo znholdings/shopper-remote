@@ -325,6 +325,7 @@ const SHARED_SETTINGS_SPEC = Object.freeze([
   S({ key: "shopperCompFilterOverrides", group: "sourcing", label: "Competitor ASIN filters (your numbers)", kind: "object" }),
   S({ key: "shopperCompKeepaDailyCap", group: "sourcing", label: "Keepa tokens a day for competitors", kind: "number", min: 20, max: 2000, step: 10 }),
   S({ key: "shopperCompLeadBar", group: "sourcing", label: "Competitor leads: the profit bar (ROI % / $ profit)", kind: "object" }), // B-2221 (v2.0.179): { minRoi: 20, minProfit: 0 } - the sliders on the Leads view (page + phone)
+  S({ key: "shopperCompWatchMinSales", group: "sourcing", label: "Watching: improved needs this many sales a month (estimated)", kind: "number", min: 0, max: 10000, step: 1, def: 10, note: "A watched lead counts as improved when it clears the Leads profit bar AND sells at least this many a month (Keepa's monthly sold, else the rank drops in 30 days). Changed on the Watching tab, desktop or phone." }), // B-2461 (v2.0.220)
   S({ key: "shopperCompLimitsMove", group: "sourcing", label: "Competitors: the 7 to 25 sellers / 300 to 500 tokens move (marker)", kind: "object" }), // B-2221 review: shared, so a role switch or a not-yet-updated computer cannot re-run or hide it
   S({ key: "shopperLeadKeepaDailyCap", group: "sourcing", label: "Keepa tokens a day for Tracked Leads", kind: "number", min: 50, max: 3000, step: 10 }), // B-2103 (v2.0.162)
   S({ key: "shopperLeadTestDays", group: "sourcing", label: "First buy: days of sales for a new lead", kind: "number", min: 7, max: 30, step: 1 }), // B-2289
