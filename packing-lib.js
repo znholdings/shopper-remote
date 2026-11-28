@@ -2827,11 +2827,11 @@ function legendPrims(plan, asins, entries, x, y, width = DRAW_W, legend = "full"
   entries.slice().sort((p, q) => keyNo(asins, p.a) - keyNo(asins, q.a)).forEach((e) => {
     const t = plan.titles[e.a] || {};
     const lines = wrapText(`${keyNo(asins, e.a)}  ${fullTitle(plan.titles, e.a)}`, room);
-    const idl = wrapText(`x${e.n} · ${idLine(e.a, t.fnsku)}`, Math.floor((width - x - 13 - 6) / (0.55 * 8)));
+    const idl = wrapText(`x${e.n} · ${idLine(e.a, t.fnsku)}`, Math.floor((width - x - 13 - 6) / (0.55 * 9)));
     prims.push({ t: "rect", x, y: yy - 8, w: 9, h: 9, fill: colorFor(asins, e.a).fill, stroke: INK, sw: 0.8, role: "key" });
     lines.forEach((ln, i) => prims.push({ t: "text", x: x + 13, y: yy + i * 11, text: ln, size: 9, anchor: "start", role: "key", asin: e.a }));
-    idl.forEach((ln, i) => prims.push({ t: "text", x: x + 13, y: yy + lines.length * 11 + i * 10, text: ln, size: 8, anchor: "start", role: "keyid", asin: e.a }));
-    yy += lines.length * 11 + idl.length * 10 + 5;
+    idl.forEach((ln, i) => prims.push({ t: "text", x: x + 13, y: yy + lines.length * 11 + i * 11, text: ln, size: 9, anchor: "start", role: "keyid", asin: e.a }));
+    yy += lines.length * 11 + idl.length * 11 + 5;
   });
   return { prims, height: yy - y };
 }
@@ -2924,26 +2924,28 @@ function stepView(plan, bp, stepIndex, scale, opts = {}) {
     else if (kd === "bag") prims.push({ t: "rect", x: bx, y: by, w: bw, h: bh, rx: 5, fill: "none", stroke: INK, sw: 1.2, dash: "4 3", role: "unit-bag", asin: b.asin });
     prims.push(...labelPrims(plan, asins, b, bx, by, bw, bh));
   }
-  { const ks = new Set(step.blocks.map((b) => kindOfAsin(plan, b.asin))); const tossN = bp.tossIn && step.blocks.some((b) => kindOfAsin(plan, b.asin) === "bottle" && tossNow(b.asin)); const neat = step.blocks.some((b) => kindOfAsin(plan, b.asin) === "bottle" && !(bp.tossIn && tossNow(b.asin))); const note = [tossN ? "Small bottles: toss in loose (a gap or on top), nothing on them" : "", neat ? "Bottles: one level, nothing on them" : "", ks.has("bag") ? "Bags: last, on top, nothing on them" : ""].filter(Boolean).join(" - "); if (note) prims.push({ t: "text", x: m, y: oy + W * s + 20, text: note, size: 7, anchor: "start", role: "kind-note" }); }
+  // B-2479: the note is 9 px now; when there is one the legend (and everything under it) moves down by noteRoom so nothing overlaps
+  let noteRoom = 0;
+  { const ks = new Set(step.blocks.map((b) => kindOfAsin(plan, b.asin))); const tossN = bp.tossIn && step.blocks.some((b) => kindOfAsin(plan, b.asin) === "bottle" && tossNow(b.asin)); const neat = step.blocks.some((b) => kindOfAsin(plan, b.asin) === "bottle" && !(bp.tossIn && tossNow(b.asin))); const note = [tossN ? "Small bottles: toss in loose (a gap or on top), nothing on them" : "", neat ? "Bottles: one level, nothing on them" : "", ks.has("bag") ? "Bags: last, on top, nothing on them" : ""].filter(Boolean).join(" - "); if (note) { const nl = wrapText(note, Math.max(8, Math.floor((w - 2 * m) / (0.55 * 9)))); noteRoom = nl.length * 11; nl.forEach((ln, i) => prims.push({ t: "text", x: m, y: oy + W * s + 23 + i * 11, text: ln, size: 9, anchor: "start", role: "kind-note" })); } }
   // legend under: every product in this step with its count (so a block too small for a label is still named)
-  prims.push({ t: "text", x: m, y: oy + W * s + 11, text: `${r1(L)} x ${r1(W)} in floor, ${r1(bp.box.H)} in tall - drawn to scale (1 in = ${r1(s)} px)`, size: 8, anchor: "start", role: "scale" });
-  const lg = legendPrims(plan, asins, [...totals.entries()].map(([a, n]) => ({ a, n })), m, oy + W * s + 25, w, opts.legend);
+  prims.push({ t: "text", x: m, y: oy + W * s + 11, text: `${r1(L)} x ${r1(W)} in floor, ${r1(bp.box.H)} in tall - drawn to scale (1 in = ${r1(s)} px)`, size: 9, anchor: "start", role: "scale" });
+  const lg = legendPrims(plan, asins, [...totals.entries()].map(([a, n]) => ({ a, n })), m, oy + W * s + 25 + noteRoom, w, opts.legend);
   prims.push(...lg.prims);
   // v2.0.120 (B-1610): a block that leaves the box floor or overlaps another block of its step is drawn with a red dashed outline and says so - never a quiet picture
   const warns = drawChecks(plan, bp, step, L, W, x0, y0);
-  let wy = oy + W * s + 25 + lg.height + 6;
+  let wy = oy + W * s + 25 + noteRoom + lg.height + 6;
   for (const wn of warns) {
     const b = wn.b, bx = ox + (x0 + b.x) * s, by = oy + (y0 + b.y) * s;
     prims.push({ t: "rect", x: bx, y: by, w: b.nx * cellL(b) * s, h: b.ny * cellW(b) * s, fill: "none", stroke: WARN, sw: 2, dash: "4 3", role: "draw-warn-outline", asin: b.asin });
-    for (const ln of wrapText(`Drawing check: ${fullTitle(plan.titles, b.asin)} ${wn.what} - send Claude this plan id ${plan && plan.id ? plan.id : bp && bp.id ? bp.id : "(none)"}`, Math.floor((w - 2 * m) / (0.55 * 8)))) { prims.push({ t: "text", x: m, y: wy, text: ln, size: 8, anchor: "start", bold: true, color: WARN, role: "draw-warn" }); wy += 10; }
+    for (const ln of wrapText(`Drawing check: ${fullTitle(plan.titles, b.asin)} ${wn.what} - send Claude this plan id ${plan && plan.id ? plan.id : bp && bp.id ? bp.id : "(none)"}`, Math.floor((w - 2 * m) / (0.55 * 10)))) { prims.push({ t: "text", x: m, y: wy, text: ln, size: 10, anchor: "start", bold: true, color: WARN, role: "draw-warn" }); wy += 13; }
   }
   for (const f of stackChecks(plan, bp)) {
     const hit = step.blocks.filter((b) => inStep(f, b));
     if (!hit.length) continue;
     for (const b of hit) prims.push({ t: "rect", x: ox + (x0 + b.x) * s, y: oy + (y0 + b.y) * s, w: b.nx * cellL(b) * s, h: b.ny * cellW(b) * s, fill: "none", stroke: WARN, sw: 2, dash: "4 3", role: "draw-warn-outline", asin: b.asin });
-    for (const ln of wrapText(`Stacking check: ${f.text}`, Math.floor((w - 2 * m) / (0.55 * 8)))) { prims.push({ t: "text", x: m, y: wy, text: ln, size: 8, anchor: "start", bold: true, color: WARN, role: "draw-warn" }); wy += 10; }
+    for (const ln of wrapText(`Stacking check: ${f.text}`, Math.floor((w - 2 * m) / (0.55 * 10)))) { prims.push({ t: "text", x: m, y: wy, text: ln, size: 10, anchor: "start", bold: true, color: WARN, role: "draw-warn" }); wy += 13; }
   }
-  const hh = h + lg.height + 16 + (wy - (oy + W * s + 25 + lg.height + 6));
+  const hh = h + noteRoom + lg.height + 16 + (wy - (oy + W * s + 25 + noteRoom + lg.height + 6));
   prims[0].h = hh;
   return { kind: "layer", w, h: hh, prims, scale: s, origin: { x: ox, y: oy } };
 }
@@ -3069,8 +3071,8 @@ function sideView(plan, bp, { which = "front", scale = null, legend = "full" } =
       prims.push({ t: "text", x: ox + (a0 + len / 2) * s, y: Math.max(oy + 8, base - (lg0.z + lg0.h) * s - 3), text: `Loose on top: about ${lg0.vol} in3`, size: 8, anchor: "middle", role: "loose-label" });
     }
   }
-  prims.push({ t: "text", x: ox + span * s + 4, y: oy + 8, text: "sheet =", size: 7, anchor: "start", role: "sheetlabel" });
-  prims.push({ t: "text", x: ox + span * s + 4, y: oy + 17, text: "brown bar", size: 7, anchor: "start", role: "sheetlabel" });
+  prims.push({ t: "text", x: ox + span * s + 4, y: oy + 8, text: "sheet =", size: 9, anchor: "start", role: "sheetlabel" });
+  prims.push({ t: "text", x: ox + span * s + 4, y: oy + 19, text: "brown bar", size: 9, anchor: "start", role: "sheetlabel" });
   prims.push({ t: "text", x: ox, y: h - 6, text: `${r1(span)} in ${front ? "long" : "wide"}, ${r1(H)} in tall (in)`, size: 9, anchor: "start" });
   const lg = legendPrims(plan, asins, unitsPerAsin(bp), 8, h + 8, w, legend);
   prims.push(...lg.prims);
